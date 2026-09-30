@@ -94,6 +94,35 @@ O₂ < 0 · water < 0 · any crew health ≤ 0 (starvation, cold, injury) · any
 ### 3.8 Score
 Science + average final health + ½ × average radiation margin + 150 × Earth-independence share + 250 if the mission is completed. Letter grade S/A/B/C/D.
 
+## 3b. Version 2 additions (requested 2026-09-30, mid-build)
+
+**Roles & skills** — Engineer (maintenance & construction ×1.5; can jury-rig one repair per turn with 100 kg materials when out of spare kits),
+Scientist (lab & EVA ×1.5; discoveries more likely), Biologist (farming ×1.5; tends 3 greenhouses), Medic (medical care ×1.5; heals the whole crew; revives).
+Jobs: maintenance, farming, construction, science, EVA, medical (rest + care).
+
+**HP, down, revive, death** — at 0 HP a crew member goes *down* (no work). A Medic on medical care, or anyone on medical care with a Med bay,
+revives them (40 HP) — within 5 turns or they die. Each person can be revived once; going down a second time is permanent.
+O₂ or water at zero no longer aborts instantly: stocks clamp to zero and the crew loses 50 (O₂) / 40 (water) HP per turn.
+Over the 300 mSv budget a crew member is *grounded* (no outdoor jobs) and costs score. The mission is lost when no active crew remain.
+
+**Materials & building** — Materials (kg) come from manifest pallets, Earth drops, and leftover construction work (regolith bricks, 100 kg per point).
+The base is a 9×5 grid with the HQ in the middle, seeded ice and rock tiles. New structures must touch an existing structure;
+water extractors go on ice; shield walls must touch the HQ (+5 % each, max 8); reactors stay ≥ 2 tiles from the HQ.
+Buildable: solar array, battery, hydroponics bay, O₂ plant, water recycler, water extractor, shield wall, habitat module, med bay,
+workshop (repairs with materials), lab, comms dish (faster Earth drops), storm shelter. Construction points finish projects over one or more turns.
+
+**Earth support (orbital depot)** — 3 drops per mission: +400 kg food, +600 kg water or +500 kg materials; lands 2 turns after the request
+(1 with a comms dish); none during solar conjunction. Engineering advice: once per turn, names the top risks from the forecast.
+
+**Events** — adds oxygen-line rupture (emergency: hide = small loss, slower work; salvage = regain O₂, dose + injury risk), water leak
+(patch with a spare kit or lose 300 kg), supply delay (incoming drop +1 turn), scientific discovery (investigate or log).
+
+**Achievements** — ~16 badges computed from the finished mission; unlocked badges stored in localStorage.
+
+**LAN co-op** — `node server.js` serves the game on the local network with a room code. Each player claims one crew role and chooses
+its job; base-wide decisions are shared; the turn resolves when everyone is ready (or the host advances). Server is authoritative
+and runs the same engine. Transport: Server-Sent Events + JSON POST (no dependencies).
+
 ## 4. Architecture
 - `src/data.js` — constants, catalog, crew, event definitions (numbers only, no text).
 - `src/engine.js` — pure simulation: `createMission`, `forecast`, `resolveTurn`, `score`; seeded RNG streams per (seed, turn, purpose) so events do not depend on player choices. UMD (browser global + Node `require`).

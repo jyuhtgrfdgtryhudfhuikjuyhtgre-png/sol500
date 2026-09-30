@@ -2,14 +2,16 @@
  * SOL 500 — pure simulation engine (no DOM). Works as a browser global (SolEngine) and a Node module.
  *
  * Mission state (plain JSON):
- *   { seed, eventsOn, turn, sol, status: 'active'|'success'|'aborted', abortCause,
- *     loadout, modules: { type: { count, broken } }, crops: [age...],
- *     resources: { o2, water, food, spares }, wallWater, berm, cleanliness, morale,
- *     crew: [{ id, role, health, dose, harm }], science, totals, schedule, events, pending, history }
+ *   { seed, eventsOn, coop, turn, sol, status: 'active'|'success'|'lost', endCause,
+ *     loadout, terrain: { ice: [[x,y]], rock: [[x,y]] }, layout: [{ type, x, y }], projects: [...],
+ *     modules: { type: { count, broken } }, crops: [age...],
+ *     resources: { o2, water, food, spares, materials }, wallWater, cleanliness, morale,
+ *     crew: [{ id, role, name, health, dose, status: 'active'|'down'|'dead', downTurns, revives, grounded, harm }],
+ *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log }
  *
  * Plan (the player's decisions for one turn):
- *   { jobs: { crewId: job }, modulesOn: { type: bool }, rations: 'full'|'reduced',
- *     habMode: 'normal'|'austerity', choices: { eventType: option }, drainWall: kg }
+ *   { jobs: { crewId: job }, modulesOn: { type: bool }, rations: 'full'|'reduced', habMode: 'normal'|'austerity',
+ *     choices: { eventType: option }, drainWall: kg, builds: [{ type, x, y }], scrap: [type], request: kind|null }
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'));
@@ -19,8 +21,11 @@
 
   // ---------- helpers ----------
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const mean = arr => arr.reduce((a, b) => a + b, 0) / (arr.length || 1);
+  const mean = arr => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
   const clone = o => (typeof structuredClone === 'function' ? structuredClone(o) : JSON.parse(JSON.stringify(o)));
+  const key = (x, y) => x + ',' + y;
+  const cheb = (x, y) => Math.max(Math.abs(x - D.GRID.hq[0]), Math.abs(y - D.GRID.hq[1]));
+  const manhattan = (x, y) => Math.abs(x - D.GRID.hq[0]) + Math.abs(y - D.GRID.hq[1]);
 
   function hashString(str) {
     let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
@@ -34,7 +39,7 @@
     return (h1 ^ h2) >>> 0;
   }
 
-  // Independent random streams per (seed, purpose, turn) keep the event schedule
+  // Independent random streams per (seed, purpose, turn) keep the event schedule and the map
   // identical for everyone who plays the same mission code, whatever they decide.
   function rng(...parts) {
     let a = hashString(parts.join('|'));
@@ -55,6 +60,14 @@
       if (x <= 0) return k;
     }
     return keys[keys.length - 1];
+  }
+
+  function shuffle(r, arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(r() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
   }
 
   function newMissionCode(random) {
@@ -88,24 +101,44 @@
     return Math.round(mass * 1000) / 1000;
   }
 
-  function validateLoadout(loadout) {
+  function difficultyOf(level) {
+    return D.DIFFICULTY[level] ? level : D.DEFAULT_DIFFICULTY;
+  }
+
+  function crewSizeOf(n) {
+    return D.CREW_SIZES.includes(Number(n)) ? Number(n) : D.DEFAULT_CREW;
+  }
+
+  function budgetFor(difficulty, crewSize) {
+    return D.DIFFICULTY[difficultyOf(difficulty)].budget + (crewSizeOf(crewSize) === 5 ? D.CREW5_BUDGET : 0);
+  }
+
+  function referenceKit(difficulty, crewSize) {
+    const kit = Object.assign({}, D.REFERENCE_KITS[difficultyOf(difficulty)]);
+    if (crewSizeOf(crewSize) === 5) for (const k of Object.keys(D.CREW5_EXTRA)) kit[k] += D.CREW5_EXTRA[k];
+    return kit;
+  }
+
+  function validateLoadout(loadout, difficulty, crewSize) {
+    const budget = budgetFor(difficulty, crewSize);
     const L = normalizeLoadout(loadout);
     const errors = [];
     for (const id of D.ITEM_ORDER) if (L[id] > D.ITEMS[id].max) errors.push('too_many:' + id);
     const mass = loadoutMass(L);
-    if (mass > D.MASS_BUDGET + 1e-9) errors.push('over_budget');
-    return { ok: errors.length === 0, errors, mass };
+    if (mass > budget + 1e-9) errors.push('over_budget');
+    return { ok: errors.length === 0, errors, mass, budget };
   }
 
   // ---------- event schedule ----------
-  function buildSchedule(seed, eventsOn) {
+  function buildSchedule(seed, eventsOn, level) {
+    const diff = D.DIFFICULTY[difficultyOf(level)];
     const turns = [];
     for (let t = 0; t < D.TURNS; t++) {
       turns.push({ weather: 'clear', spe: false, devil: false, flavor: null, conjunction: t === D.CONJUNCTION_TURN });
     }
     if (!eventsOn) return turns;
     const r = rng(seed, 'schedule');
-    if (r() < D.GLOBAL_STORM_CHANCE) {
+    if (r() < diff.globalStorm) {
       const [lo, hi] = D.GLOBAL_STORM_TURNS;
       const start = lo + Math.floor(r() * (hi - lo + 1));
       for (let k = 0; k < D.GLOBAL_STORM_LENGTH && start + k < D.TURNS; k++) turns[start + k].weather = 'global';
@@ -117,25 +150,95 @@
       if (r() < pStorm && turns[t].weather === 'clear') turns[t].weather = 'regional';
       if (r() < D.EXTRA_SPE_CHANCE) turns[t].spe = true;
       if (r() < D.DUST_DEVIL_CHANCE && turns[t].weather === 'clear') turns[t].devil = true;
-      if (r() < D.FLAVOR_CHANCE && t >= 2) turns[t].flavor = pickWeighted(r, D.FLAVOR_WEIGHTS);
+      if (r() < diff.flavor && t >= 2) turns[t].flavor = pickWeighted(r, D.FLAVOR_WEIGHTS);
     }
     return turns;
   }
 
-  // ---------- mission ----------
-  function buildState(loadout, seed, eventsOn) {
-    const L = normalizeLoadout(loadout);
-    const modules = { hab: { count: 1, broken: 0 } };
-    for (const type of D.MODULE_TYPES) if (type !== 'hab') modules[type] = { count: L[type], broken: 0 };
+  // ---------- map ----------
+  function allTiles() {
+    const out = [];
+    for (let y = 0; y < D.GRID.h; y++) for (let x = 0; x < D.GRID.w; x++) out.push([x, y]);
+    return out;
+  }
+
+  function buildTerrain(seed) {
+    const r = rng(seed, 'terrain');
+    const ice = shuffle(r, allTiles().filter(([x, y]) => cheb(x, y) >= 3)).slice(0, D.GRID.ice);
+    const iceKeys = new Set(ice.map(([x, y]) => key(x, y)));
+    const rock = shuffle(r, allTiles().filter(([x, y]) => cheb(x, y) >= 2 && !iceKeys.has(key(x, y)))).slice(0, D.GRID.rock);
+    return { ice, rock };
+  }
+
+  function tileSets(s, pending) {
+    const occupied = new Set();
+    for (const t of s.layout) occupied.add(key(t.x, t.y));
+    for (const p of s.projects) if (p.x != null) occupied.add(key(p.x, p.y));
+    for (const b of pending || []) if (b.x != null) occupied.add(key(b.x, b.y));
     return {
-      version: 1,
+      occupied,
+      ice: new Set(s.terrain.ice.map(([x, y]) => key(x, y))),
+      rock: new Set(s.terrain.rock.map(([x, y]) => key(x, y))),
+    };
+  }
+
+  function tileAllows(type, x, y, sets) {
+    const k = key(x, y);
+    if (sets.occupied.has(k) || sets.rock.has(k)) return false;
+    if (type === 'icedrill') return sets.ice.has(k);
+    if (sets.ice.has(k)) return false;
+    if (type === 'reactor') return cheb(x, y) >= 2;
+    return true;
+  }
+
+  function touchesBase(s, x, y, pending) {
+    const { occupied } = tileSets(s, pending);
+    return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => occupied.has(key(x + dx, y + dy)));
+  }
+
+  function buildSpots(s, type, pending) {
+    if (!D.PLACED.includes(type)) return [];
+    const sets = tileSets(s, pending);
+    return allTiles().filter(([x, y]) => tileAllows(type, x, y, sets) &&
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => sets.occupied.has(key(x + dx, y + dy))));
+  }
+
+  function autoPlace(s, type) {
+    const sets = tileSets(s);
+    const cands = allTiles().filter(([x, y]) => tileAllows(type, x, y, sets));
+    if (!cands.length) return null;
+    const adj = ([x, y]) => ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => sets.occupied.has(key(x + dx, y + dy))) ? 0 : 1);
+    cands.sort((a, b) => adj(a) - adj(b) || manhattan(a[0], a[1]) - manhattan(b[0], b[1]) || a[1] - b[1] || a[0] - b[0]);
+    const [x, y] = cands[0];
+    s.layout.push({ type, x, y });
+    return [x, y];
+  }
+
+  // ---------- mission ----------
+  function buildState(loadout, seed, eventsOn, level, size) {
+    const difficulty = difficultyOf(level);
+    const crewSize = crewSizeOf(size);
+    const L = normalizeLoadout(loadout);
+    const modules = {};
+    for (const type of D.MODULE_TYPES) modules[type] = { count: 0, broken: 0 };
+    modules.hab.count = 1;
+    for (const id of D.ITEM_ORDER) if (modules[id]) modules[id].count = L[id];
+    const s = {
+      version: 2,
       seed: String(seed),
       eventsOn: !!eventsOn,
+      coop: false,
+      difficulty,
+      crewSize,
       turn: 0,
       sol: 0,
       status: 'active',
-      abortCause: null,
+      endCause: null,
       loadout: L,
+      mass: loadoutMass(L),
+      terrain: buildTerrain(String(seed)),
+      layout: [{ type: 'hab', x: D.GRID.hq[0], y: D.GRID.hq[1] }],
+      projects: [],
       modules,
       crops: new Array(L.greenhouse).fill(0),
       resources: {
@@ -143,27 +246,36 @@
         water: L.water * D.ITEMS.water.kg,
         food: L.food * D.ITEMS.food.kg,
         spares: L.spares,
+        materials: L.materials * D.ITEMS.materials.kg,
       },
       wallWater: L.waterwall * D.ITEMS.waterwall.kg,
-      berm: 0,
       cleanliness: 1,
       morale: D.MORALE.start,
-      crew: D.CREW.map(c => ({ id: c.id, role: c.role, health: 100, dose: 0, harm: null })),
+      crew: D.CREW.slice(0, crewSize).map(c => ({ id: c.id, role: c.role, name: null, health: 100, dose: 0, status: 'active', downTurns: 0, revives: 0, grounded: false, harm: null })),
       science: 0,
-      totals: { o2Used: 0, o2Local: 0, waterUsed: 0, waterLocal: 0, foodUsed: 0, foodLocal: 0 },
-      schedule: buildSchedule(String(seed), !!eventsOn),
+      totals: {
+        o2Used: 0, o2Local: 0, waterUsed: 0, waterLocal: 0, foodUsed: 0, foodLocal: 0,
+        built: 0, scrapped: 0, shelters: 0, salvages: 0, revives: 0, downs: 0, deaths: 0, dropsUsed: 0,
+      },
+      depot: { drops: D.DIFFICULTY[difficulty].drops, incoming: [] },
+      schedule: buildSchedule(String(seed), !!eventsOn, difficulty),
       events: [],
       pending: { discovery: false, injuries: [], breakdowns: [] },
       history: [],
       log: [],
     };
+    const order = ['recycler', 'oxygen', 'greenhouse', 'lab', 'rover', 'solar', 'battery', 'reactor', 'icedrill'];
+    for (const type of order) for (let i = 0; i < L[type]; i++) autoPlace(s, type);
+    return s;
   }
 
   function createMission(opts) {
     const o = opts || {};
-    const v = validateLoadout(o.loadout);
+    const v = validateLoadout(o.loadout, o.difficulty, o.crewSize);
     if (!v.ok) throw new Error('Invalid loadout: ' + v.errors.join(', '));
-    const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false);
+    const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false, o.difficulty, o.crewSize);
+    if (o.coop) s.coop = true;
+    if (o.names) for (const c of s.crew) if (o.names[c.id]) c.name = String(o.names[c.id]).slice(0, 24);
     beginTurn(s);
     s.history.push(snapshot(s, null));
     return s;
@@ -172,7 +284,7 @@
   function shielding(s) {
     const wallCap = s.loadout.waterwall * D.ITEMS.waterwall.kg;
     const wall = wallCap > 0 ? D.ITEMS.waterwall.shielding * s.loadout.waterwall * (s.wallWater / wallCap) : 0;
-    return clamp(D.HAB.shielding + wall + s.berm, 0, D.SHIELD_CAP);
+    return clamp(D.HAB.shielding + wall + s.modules.shield.count * D.MODULES.shield.shielding, 0, D.SHIELD_CAP);
   }
 
   function activeCount(s, type) {
@@ -180,18 +292,37 @@
     return m ? Math.max(0, m.count - m.broken) : 0;
   }
 
+  function isActive(c) { return c.status === 'active'; }
+
   function defaultPlan(s) {
     const jobs = {};
     for (const c of s.crew) {
-      let job = D.SPECIALTY[c.role];
-      if (job === 'farming' && s.modules.greenhouse.count === 0) job = 'maintenance';
+      let job = D.DEFAULT_JOB[c.role];
+      if (job === 'farming' && s.modules.greenhouse.count === 0) job = 'construction';
+      if (c.grounded && D.OUTDOOR_JOBS.includes(job)) job = 'science';
       jobs[c.id] = job;
     }
     const modulesOn = {};
     for (const type of D.CONSUMERS) modulesOn[type] = true;
     const choices = {};
     for (const e of s.events || []) if (e.options) choices[e.type] = e.options[0];
-    return { jobs, modulesOn, rations: 'full', habMode: 'normal', choices, drainWall: 0 };
+    return { jobs, modulesOn, rations: 'full', habMode: 'normal', choices, drainWall: 0, builds: [], scrap: [], request: null };
+  }
+
+  function canRequest(s) {
+    return s.status === 'active' && s.depot.drops > 0 && !s.schedule[s.turn].conjunction;
+  }
+
+  function canBuild(s, type, pending) {
+    const spec = D.BUILDS[type];
+    if (!spec) return { ok: false, reason: 'unknown' };
+    const pend = pending || [];
+    const planned = s.projects.filter(p => p.type === type).length + pend.filter(b => b.type === type).length;
+    if (s.modules[type].count + planned >= D.MODULES[type].max) return { ok: false, reason: 'max' };
+    const spent = pend.reduce((sum, b) => sum + (D.BUILDS[b.type] ? D.BUILDS[b.type].materials : 0), 0);
+    if (s.resources.materials - spent < spec.materials) return { ok: false, reason: 'materials' };
+    if (type !== 'shield' && buildSpots(s, type, pend).length === 0) return { ok: false, reason: 'space' };
+    return { ok: true };
   }
 
   // ---------- turn start: reveal events ----------
@@ -207,6 +338,21 @@
     }
     for (const b of s.pending.breakdowns) ev.push({ type: 'breakdown', module: b });
     for (const id of s.pending.injuries) ev.push({ type: 'injury', crewId: id });
+
+    // Earth supply: delays, then arrivals
+    if (s.eventsOn && s.depot.incoming.some(d => d.eta <= s.turn) && rng(s.seed, 'delay', s.turn)() < D.DEPOT.delayChance) {
+      for (const d of s.depot.incoming) d.eta += 1;
+      ev.push({ type: 'supply_delay' });
+    }
+    const arrived = s.depot.incoming.filter(d => d.eta <= s.turn);
+    s.depot.incoming = s.depot.incoming.filter(d => d.eta > s.turn);
+    for (const d of arrived) {
+      const amount = D.DEPOT.amounts[d.kind];
+      s.resources[d.kind] += amount;
+      s.morale = clamp(s.morale + D.MORALE.drop, 0, 100);
+      ev.push({ type: 'supply_arrived', kind: d.kind, amount });
+    }
+
     if (info.weather === 'global') {
       const first = s.turn === 0 || s.schedule[s.turn - 1].weather !== 'global';
       ev.push({ type: 'dust_global', first });
@@ -222,18 +368,22 @@
       s.morale = clamp(s.morale + D.MORALE.conjunction, 0, 100);
     }
     if (info.spe) ev.push({ type: 'spe', options: ['shelter', 'work'] });
+    let discovery = s.pending.discovery;
     if (info.flavor) {
       let f = info.flavor;
       if (f === 'perchlorate' && s.modules.greenhouse.count === 0) f = 'earth_message';
-      if (f === 'leak') ev.push({ type: 'leak', options: ['patch', 'ignore'] });
+      if (f === 'o2_rupture') ev.push({ type: 'o2_rupture', options: ['hide', 'salvage'], emergency: true });
+      else if (f === 'water_leak') ev.push({ type: 'water_leak', options: ['patch', 'ignore'] });
       else if (f === 'perchlorate') ev.push({ type: 'perchlorate', options: ['wash', 'hydro'] });
+      else if (f === 'discovery') discovery = true;
       else {
         ev.push({ type: 'earth_message' });
         s.morale = clamp(s.morale + D.MORALE.earthMessage, 0, 100);
       }
     }
-    if (s.pending.discovery) ev.push({ type: 'discovery', options: ['traverse', 'log'] });
-    if (s.eventsOn && s.turn > 0 && s.morale < D.CONFLICT_MORALE && rng(s.seed, 'conflict', s.turn)() < D.CONFLICT_CHANCE) {
+    if (discovery) ev.push({ type: 'discovery', options: ['investigate', 'log'] });
+    const led = s.crew.some(c => c.role === 'commander' && c.status === 'active');
+    if (s.eventsOn && s.turn > 0 && s.morale < D.CONFLICT_MORALE && rng(s.seed, 'conflict', s.turn)() < D.CONFLICT_CHANCE * (led ? 0.5 : 1)) {
       ev.push({ type: 'conflict', options: ['meeting', 'push'] });
     }
     s.pending = { discovery: false, injuries: [], breakdowns: [] };
@@ -241,13 +391,13 @@
   }
 
   function resolveChoices(s, plan) {
-    const out = { spe: null, leak: null, perchlorate: null, discovery: null, conflict: null };
+    const out = { spe: null, perchlorate: null, discovery: null, conflict: null, o2_rupture: null, water_leak: null };
     for (const e of s.events || []) {
       if (!e.options) continue;
       const wanted = (plan.choices || {})[e.type];
       out[e.type] = e.options.includes(wanted) ? wanted : e.options[0];
     }
-    if (out.leak === 'patch' && s.resources.spares < 1) out.leak = 'ignore';
+    if (out.water_leak === 'patch' && s.resources.spares < 1) out.water_leak = 'ignore';
     if (out.perchlorate === 'wash' && s.resources.water < D.PERCHLORATE_WASH_WATER) out.perchlorate = 'hydro';
     return out;
   }
@@ -256,10 +406,10 @@
   function computePower(s, plan, weather, season) {
     const stormFactor = D.STORM_FACTOR[weather] || 1;
     const solarN = activeCount(s, 'solar');
-    const covered = Math.min(solarN, activeCount(s, 'battery') * D.ITEMS.battery.covers);
-    const perArray = D.ITEMS.solar.kw * season.solarFactor * stormFactor * s.cleanliness;
+    const covered = Math.min(solarN, activeCount(s, 'battery') * D.MODULES.battery.covers);
+    const perArray = D.MODULES.solar.gen * season.solarFactor * stormFactor * s.cleanliness;
     const solarKw = perArray * (covered + D.NIGHT_LOSS_UNCOVERED * (solarN - covered));
-    const reactorKw = activeCount(s, 'reactor') * D.ITEMS.reactor.kw;
+    const reactorKw = activeCount(s, 'reactor') * D.MODULES.reactor.gen;
     const supply = solarKw + reactorKw;
     const habKw = (plan.habMode === 'austerity' ? D.HAB.powerAusterity : D.HAB.powerNormal) +
       (season.winter ? D.WINTER_HEATING : 0);
@@ -272,14 +422,14 @@
       running[type] = n;
       requested[type] = n;
       shed[type] = 0;
-      demand += n * D.ITEMS[type].kw;
+      demand += n * D.MODULES[type].kw;
     }
     let load = demand;
     for (const type of D.SHED_ORDER) {
       while (load > supply + 1e-9 && running[type] > 0) {
         running[type]--;
         shed[type]++;
-        load -= D.ITEMS[type].kw;
+        load -= D.MODULES[type].kw;
       }
     }
     return {
@@ -292,70 +442,120 @@
   }
 
   // ---------- one turn ----------
-  function simulate(state, plan, random) {
+  function simulate(state, plan0, random) {
     if (state.status !== 'active') throw new Error('The mission is over.');
+    const plan = Object.assign({ jobs: {}, modulesOn: {}, choices: {}, builds: [], scrap: [] }, plan0 || {});
     const s = clone(state);
     const T = D.TURN_SOLS;
-    const n = s.crew.length;
     const info = s.schedule[s.turn];
     const weather = info.weather;
     const season = seasonAt(s.sol);
     const ch = resolveChoices(s, plan);
-    const start = { o2: s.resources.o2, water: s.resources.water, food: s.resources.food, spares: s.resources.spares, wall: s.wallWater };
-    const report = {
-      turn: s.turn, sol: s.sol, weather, season, choices: ch, repairs: [], warnings: [],
-      production: {}, consumption: {}, delta: {}, crew: [], power: null, science: 0,
+    const start = {
+      o2: s.resources.o2, water: s.resources.water, food: s.resources.food,
+      spares: s.resources.spares, materials: s.resources.materials, wall: s.wallWater,
     };
+    const report = {
+      turn: s.turn, sol: s.sol, weather, season, choices: ch, repairs: [], repairMethods: [], warnings: [],
+      production: {}, consumption: {}, delta: {}, crew: [], power: null, science: 0,
+      started: [], completed: [], revived: [], downs: [], deaths: [], requested: null,
+    };
+    const living = s.crew.filter(c => c.status !== 'dead');
+    const n = living.length;
+    const workers = s.crew.filter(isActive);
 
-    // Work capacity
-    let workFactor = s.morale < 20 ? 0.6 : s.morale < 40 ? 0.8 : 1;
-    if (plan.habMode === 'austerity') workFactor *= D.AUSTERITY_WORK;
-    if (ch.spe === 'shelter') workFactor *= D.SPE.shelterWork;
-    if (ch.conflict === 'meeting') workFactor *= D.MEETING_WORK;
-    if (ch.conflict === 'push') workFactor *= D.PUSH_WORK;
-    const pts = { maintenance: 0, farming: 0, construction: 0, science: 0, eva: 0, rest: 0 };
+    // Jobs (grounded crew stay indoors)
     const jobOf = {};
     for (const c of s.crew) {
-      let job = (plan.jobs || {})[c.id];
-      if (!D.JOBS[job]) job = 'rest';
+      let job = plan.jobs[c.id];
+      if (!D.JOBS[job]) job = 'medical';
+      if (c.grounded && D.OUTDOOR_JOBS.includes(job)) job = 'science';
       jobOf[c.id] = job;
-      const spec = D.SPECIALTY[c.role] === job ? D.SPECIALIST_BONUS : 1;
+    }
+
+    // Work capacity
+    const shelterBuilt = s.modules.shelter.count > 0;
+    let workFactor = s.morale < 20 ? 0.6 : s.morale < 40 ? 0.8 : 1;
+    if (plan.habMode === 'austerity') workFactor *= D.AUSTERITY_WORK;
+    if (ch.spe === 'shelter') workFactor *= shelterBuilt ? D.SPE.shelterBuiltWork : D.SPE.shelterWork;
+    if (ch.o2_rupture === 'hide') workFactor *= D.O2_RUPTURE.hideWork;
+    if (ch.conflict === 'meeting') workFactor *= D.MEETING_WORK;
+    if (ch.conflict === 'push') workFactor *= D.PUSH_WORK;
+    const leader = workers.find(c => c.role === 'commander');
+    const pts = { maintenance: 0, farming: 0, construction: 0, science: 0, eva: 0, medical: 0 };
+    for (const c of workers) {
+      const job = jobOf[c.id];
+      const spec = D.SPECIALTY[c.role].includes(job) ? D.SPECIALIST_BONUS : 1;
       const fit = c.health < 30 ? 0.5 : 1;
-      pts[job] += spec * fit * workFactor;
+      const led = leader && c !== leader ? D.LEADERSHIP.work : 1;
+      pts[job] += spec * fit * led * workFactor;
     }
     report.workFactor = workFactor;
     report.points = pts;
+    const engineerFixing = workers.some(c => c.role === 'engineer' && jobOf[c.id] === 'maintenance');
 
     // Event costs paid up front
-    if (ch.leak === 'patch') s.resources.spares -= 1;
+    if (ch.water_leak === 'patch') s.resources.spares -= 1;
+
+    // Earth support request
+    if (plan.request && D.DEPOT.amounts[plan.request] && canRequest(state)) {
+      const lead = activeCount(s, 'comms') > 0 ? D.DEPOT.commsLeadTurns : D.DEPOT.leadTurns;
+      s.depot.drops -= 1;
+      s.depot.incoming.push({ kind: plan.request, eta: s.turn + 1 + lead });
+      s.totals.dropsUsed += 1;
+      report.requested = plan.request;
+    }
 
     // Scrap modules for spare parts (someone has to be on maintenance to strip them)
     const scrapped = [];
     if (pts.maintenance > 0) {
       for (const type of plan.scrap || []) {
         const m = s.modules[type];
-        if (!m || type === 'hab' || m.count <= 0) continue;
+        if (!m || type === 'hab' || type === 'shield' || m.count <= 0) continue;
         m.count--;
         if (m.broken > 0) m.broken--;
         if (type === 'greenhouse') s.crops.sort((a, b) => b - a).pop();
+        for (let i = s.layout.length - 1; i >= 0; i--) {
+          if (s.layout[i].type === type) { s.layout.splice(i, 1); break; }
+        }
         s.resources.spares++;
+        s.totals.scrapped++;
         scrapped.push(type);
       }
     }
     report.scrapped = scrapped;
 
-    // Repairs: maintenance crew + spare kits
+    // Repairs: spare kits first, then materials (workshop, or the engineer's jury-rig once per turn)
     let capacity = Math.floor(pts.maintenance * D.REPAIRS_PER_POINT + 1e-9);
+    const workshop = activeCount(s, 'workshop') > 0;
+    let juryRig = engineerFixing;
     for (const type of D.REPAIR_ORDER) {
       const m = s.modules[type];
-      while (m && m.broken > 0 && capacity > 0 && s.resources.spares > 0) {
+      while (m && m.broken > 0 && capacity > 0) {
+        let method = null;
+        if (s.resources.spares > 0) method = 'spare';
+        else if (s.resources.materials >= D.REPAIR_MATERIALS && (workshop || juryRig)) method = workshop ? 'workshop' : 'juryrig';
+        if (!method) break;
+        if (method === 'spare') s.resources.spares--;
+        else s.resources.materials -= D.REPAIR_MATERIALS;
+        if (method === 'juryrig') juryRig = false;
         m.broken--;
-        s.resources.spares--;
         capacity--;
         report.repairs.push(type);
+        report.repairMethods.push(method);
       }
     }
     report.unrepaired = D.REPAIR_ORDER.filter(t => s.modules[t] && s.modules[t].broken > 0);
+
+    // New construction projects (materials paid now; work applied at the end of the turn)
+    for (const b of plan.builds || []) {
+      const spec = D.BUILDS[b.type];
+      if (!spec || !canBuild(s, b.type).ok) continue;
+      if (b.type !== 'shield' && !buildSpots(s, b.type).some(([x, y]) => x === b.x && y === b.y)) continue;
+      s.resources.materials -= spec.materials;
+      s.projects.push({ type: b.type, x: b.type === 'shield' ? null : b.x, y: b.type === 'shield' ? null : b.y, progress: 0, work: spec.work });
+      report.started.push(b.type);
+    }
 
     // Player drains the water wall
     const drain = clamp(Number(plan.drainWall) || 0, 0, s.wallWater);
@@ -369,32 +569,59 @@
     const run = power.running;
     const habFault = s.modules.hab.broken > 0;
 
+    // Revive one downed crew member (medic on medical care, or anyone on medical care with a med bay)
+    const medicCaring = workers.some(c => c.role === 'medic' && jobOf[c.id] === 'medical');
+    const medbayOn = run.medbay > 0;
+    const canRevive = medicCaring || (medbayOn && workers.some(c => jobOf[c.id] === 'medical'));
+    const revivedIds = [];
+    if (canRevive) {
+      const down = s.crew.filter(c => c.status === 'down').sort((a, b) => b.downTurns - a.downTurns)[0];
+      if (down) {
+        down.status = 'active';
+        down.health = D.REVIVE.health;
+        down.revives += 1;
+        down.downTurns = 0;
+        s.totals.revives += 1;
+        revivedIds.push(down.id);
+      }
+    }
+    report.revived = revivedIds;
+
     // Greenhouses: oldest crops keep the power first
     s.crops.sort((a, b) => b - a);
     const ghRun = run.greenhouse;
     let harvesting = 0;
-    for (let i = 0; i < ghRun; i++) if (s.crops[i] >= D.ITEMS.greenhouse.growTurns) harvesting++;
+    for (let i = 0; i < ghRun; i++) if (s.crops[i] >= D.MODULES.greenhouse.growTurns) harvesting++;
     const tended = Math.min(harvesting, pts.farming * D.GREENHOUSES_PER_FARMER);
-    let ghFood = D.ITEMS.greenhouse.foodPerSol * T * (tended + D.UNTENDED_YIELD * (harvesting - tended));
+    let ghFood = D.MODULES.greenhouse.foodPerSol * T * (tended + D.UNTENDED_YIELD * (harvesting - tended));
     if (ch.perchlorate === 'hydro') ghFood = 0;
     const cropsLost = s.crops.some((age, i) => i >= ghRun && age > 0);
     for (let i = 0; i < s.crops.length; i++) s.crops[i] = i < ghRun ? s.crops[i] + 1 : 0;
-    const ghO2 = ghRun * D.ITEMS.greenhouse.o2PerSol * T;
-    const ghWater = ghRun * D.ITEMS.greenhouse.waterPerSol * T;
+    const ghO2 = ghRun * D.MODULES.greenhouse.o2PerSol * T;
+    const ghWater = ghRun * D.MODULES.greenhouse.waterPerSol * T;
     report.greenhouse = { running: ghRun, harvesting, tended, cropsLost };
 
     // Oxygen
     const o2Need = D.O2_PER_CREW * n * T;
-    const o2Plant = run.oxygen * D.ITEMS.oxygen.o2PerSol * T;
-    const o2Loss = (ch.leak === 'ignore' ? D.LEAK_O2 : 0) + (habFault ? D.HAB_FAULT.o2 : 0);
-    s.resources.o2 += o2Plant + ghO2 - o2Need - o2Loss;
+    const o2Plant = run.oxygen * D.MODULES.oxygen.o2PerSol * T;
+    let o2Event = 0;
+    if (ch.o2_rupture === 'hide') o2Event = -D.O2_RUPTURE.hideLoss;
+    if (ch.o2_rupture === 'salvage') o2Event = D.O2_RUPTURE.salvageGain - D.O2_RUPTURE.salvageLoss;
+    const o2Loss = (habFault ? D.HAB_FAULT.o2 : 0);
+    s.resources.o2 += o2Plant + ghO2 - o2Need - o2Loss + o2Event;
+    let hypoxia = 0;
+    if (s.resources.o2 < 0) {
+      hypoxia = o2Need > 0 ? Math.min(1, -s.resources.o2 / o2Need) : 0;
+      s.resources.o2 = 0;
+    }
 
     // Water
     const waterGross = D.WATER_PER_CREW * n * T;
-    const recovered = run.recycler > 0 ? waterGross * D.ITEMS.recycler.recovery : 0;
-    const iceWater = run.icedrill * D.ITEMS.icedrill.waterPerSol * T;
+    const recovered = run.recycler > 0 ? waterGross * D.MODULES.recycler.recovery : 0;
+    const iceWater = run.icedrill * D.MODULES.icedrill.waterPerSol * T;
     const washWater = ch.perchlorate === 'wash' ? D.PERCHLORATE_WASH_WATER : 0;
-    s.resources.water += iceWater + recovered - waterGross - ghWater - washWater;
+    const leakWater = ch.water_leak === 'ignore' ? D.WATER_LEAK : 0;
+    s.resources.water += iceWater + recovered - waterGross - ghWater - washWater - leakWater;
     let autoDrained = 0;
     if (s.resources.water < 0 && s.wallWater > 0) {
       autoDrained = Math.min(-s.resources.water, s.wallWater);
@@ -402,6 +629,11 @@
       s.resources.water += autoDrained;
     }
     report.autoDrained = autoDrained;
+    let dehydration = 0;
+    if (s.resources.water < 0) {
+      dehydration = waterGross > 0 ? Math.min(1, -s.resources.water / (waterGross * (1 - D.MODULES.recycler.recovery) + 1)) : 0;
+      s.resources.water = 0;
+    }
 
     // Food
     const rationF = plan.rations === 'reduced' ? D.REDUCED_RATIONS : 1;
@@ -412,58 +644,113 @@
     s.resources.food = foodAvail - foodEaten;
 
     report.production = { o2: o2Plant + ghO2, water: recovered + iceWater, food: ghFood, o2Plant, ghO2, recovered, iceWater };
-    report.consumption = { o2: o2Need + o2Loss, water: waterGross + ghWater + washWater, food: foodNeed, o2Loss, waterGross, ghWater, washWater };
+    report.consumption = {
+      o2: o2Need + o2Loss, water: waterGross + ghWater + washWater + leakWater, food: foodNeed,
+      o2Loss, waterGross, ghWater, washWater, leakWater, o2Event,
+    };
+    report.hypoxia = hypoxia;
+    report.dehydration = dehydration;
 
-    // Crew: radiation, health
+    // Crew: radiation and health
     const S = shielding(s);
     report.shielding = S;
-    const physician = s.crew.find(c => c.role === 'physician');
-    const physicianActive = physician && physician.health > 50;
-    let traverseCrew = [];
-    if (ch.discovery === 'traverse') {
-      const geo = s.crew.find(c => c.role === 'geologist');
-      const partner = s.crew.filter(c => c !== geo).sort((a, b) => a.dose - b.dose)[0];
-      traverseCrew = [geo.id, partner.id];
+    const medic = s.crew.find(c => c.role === 'medic');
+    const medicWell = medic && isActive(medic) && medic.health > 50;
+    const byDose = list => list.slice().sort((a, b) => a.dose - b.dose);
+    const outdoorOk = workers.filter(c => !c.grounded && !revivedIds.includes(c.id));
+    let extraDose = {};
+    if (ch.discovery === 'investigate') {
+      const sci = outdoorOk.find(c => c.role === 'scientist');
+      const team = sci ? [sci].concat(byDose(outdoorOk.filter(c => c !== sci)).slice(0, 1)) : byDose(outdoorOk).slice(0, 2);
+      for (const c of team) extraDose[c.id] = (extraDose[c.id] || 0) + D.DISCOVERY.dose;
     }
-    let restCount = 0;
+    let salvageTeam = [];
+    if (ch.o2_rupture === 'salvage') {
+      salvageTeam = byDose(outdoorOk).slice(0, 2);
+      for (const c of salvageTeam) extraDose[c.id] = (extraDose[c.id] || 0) + D.O2_RUPTURE.salvageDose;
+      s.totals.salvages += 1;
+    }
+    if (ch.spe === 'shelter') s.totals.shelters += 1;
+
+    let careCount = 0;
+    const habitatBonus = run.habitat * D.MODULES.habitat.health;
     for (const c of s.crew) {
-      const job = jobOf[c.id];
-      if (job === 'rest') restCount++;
-      const outdoor = D.JOBS[job].outdoor;
+      if (c.status === 'dead') {
+        report.crew.push({ id: c.id, job: jobOf[c.id], status: 'dead', doseDelta: 0, healthDelta: 0, dose: c.dose, health: 0, exposure: 0 });
+        continue;
+      }
+      const working = isActive(c) && !revivedIds.includes(c.id);
+      const job = working ? jobOf[c.id] : 'medical';
+      if (working && job === 'medical') careCount++;
+      const outdoor = working ? D.JOBS[job].outdoor : 0;
       const exposure = outdoor + (1 - outdoor) * (1 - S);
-      let dose = T * D.DOSE_RATE * exposure;
-      if (ch.spe === 'shelter') dose += D.SPE.shelterDose;
+      let dose = T * D.DOSE_RATE * exposure + (extraDose[c.id] || 0);
+      if (ch.spe === 'shelter') dose += shelterBuilt ? D.SPE.shelterBuiltDose : D.SPE.shelterDose;
       if (ch.spe === 'work') dose += D.SPE.dose * exposure;
-      if (traverseCrew.includes(c.id)) dose += D.DISCOVERY.dose;
+      c.dose += dose;
 
       let dh = 0;
-      const harms = [];
-      if (fed >= 1 && !power.habShort) dh += D.HEALTH.recovery;
-      if (job === 'rest') dh += D.HEALTH.rest;
-      if (physicianActive) dh += D.HEALTH.physician;
-      if (rationF < 1) { dh -= D.HEALTH.reducedRations; harms.push(['rations', D.HEALTH.reducedRations]); }
-      if (fed < 1) { const x = D.HEALTH.starvation * (1 - fed); dh -= x; harms.push(['starvation', x]); }
-      if (power.habShort) { dh -= D.HEALTH.cold; harms.push(['cold', D.HEALTH.cold]); }
-      if (habFault) { dh -= D.HAB_FAULT.health; harms.push(['habFault', D.HAB_FAULT.health]); }
-      if (ch.spe === 'work') { dh -= D.HEALTH.speWork; harms.push(['radiationSickness', D.HEALTH.speWork]); }
-
-      c.dose += dose;
-      c.health = clamp(c.health + dh, 0, 100);
-      if (harms.length) c.harm = harms.sort((a, b) => b[1] - a[1])[0][0];
-      report.crew.push({ id: c.id, job, doseDelta: dose, healthDelta: dh, dose: c.dose, health: c.health, exposure });
+      if (working) {
+        const harms = [];
+        if (rationF < 1) harms.push(['rations', D.HEALTH.reducedRations]);
+        if (fed < 1) harms.push(['starvation', D.HEALTH.starvation * (1 - fed)]);
+        if (power.habShort) harms.push(['cold', D.HEALTH.cold]);
+        if (habFault) harms.push(['habFault', D.HAB_FAULT.health]);
+        if (ch.spe === 'work') harms.push(['radiationSickness', D.HEALTH.speWork]);
+        if (hypoxia > 0) harms.push(['hypoxia', D.HEALTH.hypoxia * hypoxia]);
+        if (dehydration > 0) harms.push(['dehydration', D.HEALTH.dehydration * dehydration]);
+        const comfortable = harms.length === 0;
+        if (comfortable) dh += D.HEALTH.recovery;
+        if (comfortable && job === 'medical') dh += D.HEALTH.rest;
+        if (medicCaring) dh += D.HEALTH.care;
+        if (medicWell) dh += D.HEALTH.medic;
+        if (medbayOn && job === 'medical') dh += D.MODULES.medbay.heal;
+        dh += habitatBonus;
+        for (const [, x] of harms) dh -= x;
+        if (harms.length) c.harm = harms.slice().sort((a, b) => b[1] - a[1])[0][0];
+        c.health = clamp(c.health + dh, 0, 100);
+      }
+      report.crew.push({ id: c.id, job: working ? job : null, status: c.status, doseDelta: dose, healthDelta: dh, dose: c.dose, health: c.health, exposure });
     }
+
+    // Down, dead and grounded
+    for (const c of s.crew) {
+      if (c.status === 'active' && !revivedIds.includes(c.id) && c.health <= 0) {
+        if (c.revives >= D.REVIVE.maxRevives) {
+          c.status = 'dead';
+          report.deaths.push(c.id);
+        } else {
+          c.status = 'down';
+          c.downTurns = 0;
+          report.downs.push(c.id);
+        }
+      } else if (c.status === 'down' && !revivedIds.includes(c.id)) {
+        c.downTurns += 1;
+        if (c.downTurns >= D.REVIVE.window) {
+          c.status = 'dead';
+          report.deaths.push(c.id);
+        }
+      }
+      if (c.status !== 'dead') c.grounded = c.dose > D.DOSE_LIMIT;
+    }
+    s.totals.downs += report.downs.length;
+    s.totals.deaths += report.deaths.length;
 
     // Morale
     let dm = D.MORALE.baseline;
+    if (leader) dm += D.LEADERSHIP.morale;
     dm += Math.min(D.MORALE.greenhouseMax, D.MORALE.perGreenhouse * harvesting);
-    dm += D.MORALE.rest * restCount;
+    dm += D.MORALE.rest * careCount;
+    dm += run.habitat * D.MODULES.habitat.morale;
     if (rationF < 1) dm += D.MORALE.reducedRations;
     if (plan.habMode === 'austerity') dm += D.MORALE.austerity;
     if (power.habShort) dm += D.MORALE.cold;
     if (ch.conflict === 'meeting') dm += D.MORALE.meeting;
     if (ch.conflict === 'push') dm += D.MORALE.push;
     if (ch.spe === 'shelter') dm += D.MORALE.shelter;
-    if (ch.discovery === 'traverse') dm += D.MORALE.discovery;
+    if (ch.discovery === 'investigate') dm += D.MORALE.discovery;
+    if (ch.o2_rupture === 'hide') dm += D.MORALE.hide;
+    dm += D.MORALE.down * report.downs.length + D.MORALE.death * report.deaths.length;
     s.morale = clamp(s.morale + dm, 0, 100);
     report.moraleDelta = dm;
 
@@ -471,14 +758,32 @@
     const sci = pts.science * (run.lab > 0 ? D.SCIENCE.lab : D.SCIENCE.noLab) +
       pts.eva * (run.rover > 0 ? D.SCIENCE.eva : D.SCIENCE.evaNoRover) +
       pts.farming * D.SCIENCE.farming +
-      (ch.discovery === 'traverse' ? D.DISCOVERY.science : ch.discovery === 'log' ? D.DISCOVERY.logScience : 0);
+      (ch.discovery === 'investigate' ? D.DISCOVERY.science : ch.discovery === 'log' ? D.DISCOVERY.logScience : 0);
     s.science += sci;
     report.science = sci;
 
-    // Construction and dust
-    const bermBefore = s.berm;
-    s.berm = Math.min(D.BERM_MAX, s.berm + pts.construction * D.BERM_PER_POINT);
-    report.bermDelta = s.berm - bermBefore;
+    // Construction: finish projects in order, leftover work becomes regolith bricks
+    let cp = pts.construction;
+    for (const p of s.projects) {
+      if (cp <= 1e-9) break;
+      const use = Math.min(p.work - p.progress, cp);
+      p.progress += use;
+      cp -= use;
+    }
+    s.projects = s.projects.filter(p => {
+      if (p.progress < p.work - 1e-9) return true;
+      s.modules[p.type].count += 1;
+      if (p.x != null) s.layout.push({ type: p.type, x: p.x, y: p.y });
+      if (p.type === 'greenhouse') s.crops.push(0);
+      s.totals.built += 1;
+      report.completed.push(p.type);
+      return false;
+    });
+    const regolith = Math.max(0, cp) * D.REGOLITH_PER_POINT;
+    s.resources.materials += regolith;
+    report.regolith = regolith;
+
+    // Dust on the arrays
     const cleanBefore = s.cleanliness;
     s.cleanliness = clamp(s.cleanliness - (D.DUST_PER_TURN[weather] || 0) + pts.maintenance * D.CLEAN_PER_POINT, D.MIN_CLEANLINESS, 1);
     report.cleanDelta = s.cleanliness - cleanBefore;
@@ -496,10 +801,15 @@
       water: s.resources.water - start.water,
       food: s.resources.food - start.food,
       spares: s.resources.spares - start.spares,
+      materials: s.resources.materials - start.materials,
       wall: s.wallWater - start.wall,
       morale: dm,
     };
-    report.after = { o2: s.resources.o2, water: s.resources.water, food: s.resources.food, spares: s.resources.spares, wall: s.wallWater, morale: s.morale, berm: s.berm, cleanliness: s.cleanliness };
+    report.after = {
+      o2: s.resources.o2, water: s.resources.water, food: s.resources.food, spares: s.resources.spares,
+      materials: s.resources.materials, wall: s.wallWater, morale: s.morale, cleanliness: s.cleanliness,
+      shielding: shielding(s), science: s.science,
+    };
     report.fed = fed;
     report.runway = runway(s, report);
     report.warnings = warnings(s, report);
@@ -509,24 +819,31 @@
     if (random && s.eventsOn) {
       const r = rng(s.seed, 'ops', s.turn);
       for (const c of s.crew) {
-        const p = D.INJURY[jobOf[c.id]] || 0;
+        if (!isActive(c)) continue;
+        let p = D.INJURY[jobOf[c.id]] || 0;
+        if (salvageTeam.includes(c) && p < D.O2_RUPTURE.salvageInjury) p = D.O2_RUPTURE.salvageInjury;
         if (p > 0 && r() < p) {
           c.health = clamp(c.health - D.INJURY_HEALTH, 0, 100);
           c.harm = 'injury';
           injuries.push(c.id);
+          if (c.health <= 0) {
+            if (c.revives >= D.REVIVE.maxRevives) { c.status = 'dead'; report.deaths.push(c.id); s.totals.deaths++; }
+            else { c.status = 'down'; c.downTurns = 0; report.downs.push(c.id); s.totals.downs++; }
+          }
         }
       }
       const protect = Math.min(D.MAINT_PROTECT_MAX, pts.maintenance * D.MAINT_PROTECT_PER_POINT);
       for (const type of D.MODULE_TYPES) {
         const working = activeCount(s, type);
         for (let i = 0; i < working; i++) {
-          if (r() < D.BREAKDOWN[type] * (1 - protect)) {
+          if (r() < D.BREAKDOWN[type] * D.DIFFICULTY[s.difficulty].breakdown * (1 - protect)) {
             s.modules[type].broken++;
             breakdowns.push(type);
           }
         }
       }
-      s.pending.discovery = pts.eva > 0 && r() < D.DISCOVERY.chance;
+      const scientistOut = workers.some(c => c.role === 'scientist' && jobOf[c.id] === 'eva');
+      s.pending.discovery = pts.eva > 0 && r() < (scientistOut ? D.DISCOVERY.scientistChance : D.DISCOVERY.chance);
     }
     s.pending.injuries = injuries;
     s.pending.breakdowns = breakdowns;
@@ -538,23 +855,20 @@
   function runway(s, report) {
     const perSol = k => report.delta[k] / D.TURN_SOLS;
     const out = {};
-    for (const k of ['o2', 'water', 'food']) {
+    for (const k of ['o2', 'food']) {
       const d = perSol(k);
       out[k] = d >= 0 ? Infinity : Math.max(0, s.resources[k]) / -d;
     }
-    // Water can fall back on the wall reserve
-    if (out.water !== Infinity) {
-      const d = perSol('water') - report.autoDrained / D.TURN_SOLS;
-      out.water = d >= 0 ? Infinity : (Math.max(0, s.resources.water) + s.wallWater) / -d;
-    }
+    const wNet = (report.production.water - report.consumption.water) / D.TURN_SOLS;
+    out.water = wNet >= 0 ? Infinity : (Math.max(0, s.resources.water) + s.wallWater) / -wNet;
     return out;
   }
 
   function warnings(s, report) {
     const w = [];
-    if (s.resources.o2 < 0) w.push({ code: 'o2_out' });
+    if (report.hypoxia > 0) w.push({ code: 'o2_out' });
     else if (report.runway.o2 < D.TURN_SOLS * 2) w.push({ code: 'o2_low' });
-    if (s.resources.water < 0) w.push({ code: 'water_out' });
+    if (report.dehydration > 0) w.push({ code: 'water_out' });
     else if (report.runway.water < D.TURN_SOLS * 2) w.push({ code: 'water_low' });
     if (report.autoDrained > 0) w.push({ code: 'wall_auto' });
     if (report.fed < 1) w.push({ code: 'food_out' });
@@ -563,11 +877,16 @@
     for (const type of D.SHED_ORDER) if (report.power.shed[type] > 0) w.push({ code: 'shed', module: type });
     if (report.greenhouse.cropsLost) w.push({ code: 'crops_lost' });
     if (report.unrepaired.length) w.push({ code: 'unrepaired', module: report.unrepaired[0] });
+    for (const id of report.deaths) w.push({ code: 'death', crewId: id });
+    for (const id of report.downs) w.push({ code: 'down', crewId: id });
+    for (const c of s.crew) {
+      if (c.status === 'down') w.push({ code: 'dying', crewId: c.id, turns: D.REVIVE.window - c.downTurns });
+    }
     for (const c of report.crew) {
+      if (c.status !== 'active') continue;
       if (c.dose > D.DOSE_LIMIT) w.push({ code: 'dose_over', crewId: c.id });
       else if (c.dose > D.DOSE_LIMIT * 0.85) w.push({ code: 'dose_high', crewId: c.id });
-      if (c.health <= 0) w.push({ code: 'health_zero', crewId: c.id });
-      else if (c.health < 35) w.push({ code: 'health_low', crewId: c.id });
+      if (c.health > 0 && c.health < 35) w.push({ code: 'health_low', crewId: c.id });
     }
     if (s.morale < 40) w.push({ code: 'morale_low' });
     return w;
@@ -581,12 +900,14 @@
       water: Math.max(0, s.resources.water),
       food: Math.max(0, s.resources.food),
       spares: s.resources.spares,
+      materials: s.resources.materials,
       wall: s.wallWater,
       morale: s.morale,
       science: s.science,
       shielding: shielding(s),
       doses: s.crew.map(c => c.dose),
-      health: s.crew.map(c => c.health),
+      health: s.crew.map(c => (c.status === 'dead' ? 0 : c.health)),
+      status: s.crew.map(c => c.status),
       supply: report ? report.power.supply : null,
       load: report ? report.power.load : null,
       weather: report ? report.weather : null,
@@ -602,20 +923,10 @@
     s.turn += 1;
     s.sol += D.TURN_SOLS;
 
-    let cause = null;
-    if (s.resources.o2 < 0) cause = { type: 'o2' };
-    else if (s.resources.water < 0) cause = { type: 'water' };
-    if (!cause) {
-      const sick = s.crew.find(c => c.health <= 0);
-      if (sick) cause = { type: 'health', crewId: sick.id, reason: sick.harm || 'health' };
-    }
-    if (!cause) {
-      const hot = s.crew.find(c => c.dose > D.DOSE_LIMIT);
-      if (hot) cause = { type: 'radiation', crewId: hot.id };
-    }
-    if (cause) {
-      s.status = 'aborted';
-      s.abortCause = Object.assign(cause, { sol: s.sol });
+    if (!s.crew.some(isActive)) {
+      const last = s.crew.find(c => report.deaths.includes(c.id) || report.downs.includes(c.id)) || s.crew[0];
+      s.status = 'lost';
+      s.endCause = { type: 'crew', reason: last.harm || 'health', crewId: last.id, sol: s.sol };
     } else if (s.turn >= D.TURNS) {
       s.status = 'success';
     }
@@ -624,8 +935,11 @@
       turn: report.turn, sol: report.sol, weather: report.weather,
       events: (state.events || []).map(e => e.type), choices: report.choices,
       repairs: report.repairs, breakdowns: report.breakdowns, injuries: report.injuries,
+      started: report.started, completed: report.completed, scrapped: report.scrapped,
+      revived: report.revived, downs: report.downs, deaths: report.deaths, requested: report.requested,
       shed: Object.keys(report.power.shed).filter(k => report.power.shed[k] > 0),
       habShort: report.power.habShort, autoDrained: report.autoDrained, fed: report.fed,
+      hypoxia: report.hypoxia, dehydration: report.dehydration, science: report.science,
       solarShare: report.power.supply > 0 ? report.power.solarKw / report.power.supply : 0,
     });
     s.history.push(snapshot(s, report));
@@ -634,22 +948,29 @@
     return { state: s, report };
   }
 
-  function scoreMission(s) {
+  function independenceOf(s) {
     const share = (a, b) => (b > 0 ? Math.min(1, a / b) : 0);
     const t = s.totals;
-    const independence = (share(t.o2Local, t.o2Used) + share(t.waterLocal, t.waterUsed) + share(t.foodLocal, t.foodUsed)) / 3;
-    const avgHealth = mean(s.crew.map(c => c.health));
-    const avgMargin = mean(s.crew.map(c => Math.max(0, D.DOSE_LIMIT - c.dose)));
+    return (share(t.o2Local, t.o2Used) + share(t.waterLocal, t.waterUsed) + share(t.foodLocal, t.foodUsed)) / 3;
+  }
+
+  function scoreMission(s) {
     const success = s.status === 'success';
+    const survivors = s.crew.filter(c => c.status !== 'dead');
+    const over = survivors.filter(c => c.dose > D.DOSE_LIMIT);
+    const independence = independenceOf(s);
     const parts = {
-      // An aborted crew leaves samples and instruments behind: only transmitted results count.
+      // A lost crew leaves samples and instruments behind: only transmitted results count.
       science: Math.round(success ? s.science : s.science * D.SCORE.abortScience),
-      health: Math.round(avgHealth),
-      radiation: Math.round(avgMargin * D.SCORE.radiation),
+      health: Math.round(mean(survivors.map(c => c.health))),
+      radiation: Math.round(mean(survivors.map(c => Math.max(0, D.DOSE_LIMIT - c.dose))) * D.SCORE.radiation),
+      crew: Math.round(survivors.length * D.SCORE.survivor -
+        over.reduce((sum, c) => sum + D.SCORE.grounded + (c.dose - D.DOSE_LIMIT) * D.SCORE.overDose, 0)),
       independence: Math.round(independence * D.SCORE.independence),
+      depot: success ? s.depot.drops * D.SCORE.unusedDrop : 0,
       completion: success ? D.SCORE.completion : 0,
     };
-    const total = parts.science + parts.health + parts.radiation + parts.independence + parts.completion;
+    const total = Object.values(parts).reduce((a, b) => a + b, 0);
     let grade = 'D';
     if (success) {
       for (const [g, min] of D.SCORE.grades) {
@@ -659,13 +980,71 @@
     return { total, parts, grade, independence };
   }
 
+  function achievements(s) {
+    const success = s.status === 'success';
+    const got = new Set();
+    const maxDose = Math.max(...s.crew.filter(c => c.status !== 'dead').map(c => c.dose), 0);
+    if (s.turn >= 1) got.add('first_sol');
+    if (success) got.add('sol500');
+    if (success && s.totals.downs === 0 && s.crew.every(c => c.status === 'active')) got.add('full_crew');
+    if (s.totals.revives > 0) got.add('revived');
+    if (success && s.schedule.some(t => t.weather === 'global')) got.add('storm_survivor');
+    if (success && independenceOf(s) >= 0.6) got.add('closed_loop');
+    if (s.totals.foodLocal >= 1000) got.add('green_thumb');
+    if (success && maxDose < 150) got.add('lead_apron');
+    if (s.totals.built >= 5) got.add('builder');
+    if (s.modules.shield.count >= D.MODULES.shield.max) got.add('fortress');
+    if (s.totals.scrapped > 0) got.add('scrapper');
+    if (success && s.totals.dropsUsed === 0) got.add('self_reliant');
+    if (s.science >= 800) got.add('explorer');
+    if (success && scoreMission(s).grade === 'S') got.add('grade_s');
+    if (success && s.mass <= budgetFor(s.difficulty, s.crewSize) - 4) got.add('lightweight');
+    if (s.totals.shelters >= 2) got.add('flare_dodger');
+    if (success && s.totals.salvages > 0) got.add('oxygen_hero');
+    if (success && s.coop) got.add('team_player');
+    return D.ACHIEVEMENTS.filter(id => got.has(id));
+  }
+
+  // Engineering advice from Earth: the most urgent problems, in priority order.
+  function advise(s, plan) {
+    const f = forecast(s, plan);
+    const remaining = (D.TURNS - s.turn) * D.TURN_SOLS;
+    const out = [];
+    if (f.power.habShort) out.push({ code: 'hab_cold' });
+    if (f.hypoxia > 0) out.push({ code: 'o2_out' });
+    else if (f.runway.o2 < remaining) out.push({ code: 'o2_runway', sols: Math.floor(f.runway.o2) });
+    if (f.dehydration > 0) out.push({ code: 'water_out' });
+    else if (f.runway.water < remaining) out.push({ code: 'water_runway', sols: Math.floor(f.runway.water) });
+    if (f.fed < 1) out.push({ code: 'food_out' });
+    else if (f.runway.food < remaining) out.push({ code: 'food_runway', sols: Math.floor(f.runway.food) });
+    const down = s.crew.find(c => c.status === 'down');
+    if (down && !f.revived.length) out.push({ code: 'crew_down', crewId: down.id });
+    const turnsLeft = D.TURNS - s.turn;
+    for (const c of f.crew) {
+      const crew = s.crew.find(x => x.id === c.id);
+      if (crew.status !== 'active' || crew.grounded) continue;
+      if (crew.dose + c.doseDelta * turnsLeft > D.DOSE_LIMIT) { out.push({ code: 'dose_projection', crewId: c.id }); break; }
+    }
+    if (f.unrepaired.length) out.push({ code: 'broken', module: f.unrepaired[0] });
+    const shed = D.SHED_ORDER.find(t => f.power.shed[t] > 0);
+    if (shed) out.push({ code: 'power_shed', module: shed });
+    const solarShare = f.power.supply > 0 ? f.power.solarKw / f.power.supply : 0;
+    if (s.turn < D.GLOBAL_STORM_TURNS[1] && solarShare > 0.6) out.push({ code: 'storm_risk' });
+    if (s.morale < 45) out.push({ code: 'morale' });
+    if (s.resources.spares === 0 && activeCount(s, 'workshop') === 0) out.push({ code: 'spares' });
+    if (!out.length) out.push({ code: 'all_good' });
+    return out.slice(0, 3);
+  }
+
   // Manifest-screen forecast: steady-state numbers for a proposed loadout.
-  function summarizeLoadout(loadout) {
+  function summarizeLoadout(loadout, difficulty, crewSize) {
+    const budget = budgetFor(difficulty, crewSize);
     const L = normalizeLoadout(loadout);
     const mass = loadoutMass(L);
-    const s = buildState(L, 'MANIFEST', false);
-    s.crops = s.crops.map(() => D.ITEMS.greenhouse.growTurns);
+    const s = buildState(L, 'MANIFEST', false, difficulty, crewSize);
+    s.crops = s.crops.map(() => D.MODULES.greenhouse.growTurns);
     const plan = defaultPlan(s);
+    plan.jobs.lena = 'maintenance';
     const f = simulate(s, plan, false).report;
     const storm = computePower(s, plan, 'global', seasonAt(0));
     const perSol = k => f.delta[k] / D.TURN_SOLS;
@@ -681,26 +1060,28 @@
     const doseIndoor = D.TURNS * D.TURN_SOLS * D.DOSE_RATE * (1 - S0);
     const mission = D.TURNS * D.TURN_SOLS;
     const warn = [];
-    if (mass > D.MASS_BUDGET + 1e-9) warn.push('over_budget');
+    if (mass > budget + 1e-9) warn.push('over_budget');
     if (f.power.load < f.power.demand - 1e-9 || f.power.habShort) warn.push('power_short');
-    if (storm.supply < f.power.habKw + (L.recycler ? D.ITEMS.recycler.kw : 0)) warn.push('storm_risk');
+    if (storm.supply < f.power.habKw + (L.recycler ? D.MODULES.recycler.kw : 0)) warn.push('storm_risk');
     if (!L.recycler) warn.push('no_recycler');
     if (sols.o2 < mission) warn.push('o2_short');
     if (sols.waterWithWall < mission) warn.push('water_short');
     if (sols.food < mission) warn.push('food_short');
     if (doseIndoor > D.DOSE_LIMIT * 0.8) warn.push('dose_risk');
     if (!L.spares) warn.push('no_spares');
+    if (!L.materials) warn.push('no_materials');
     if (!L.lab && !L.rover) warn.push('low_science');
     return {
-      mass, budget: D.MASS_BUDGET, remaining: D.MASS_BUDGET - mass, over: mass > D.MASS_BUDGET + 1e-9,
+      mass, budget, remaining: budget - mass, over: mass > budget + 1e-9,
       power: { clear: f.power.supply, storm: storm.supply, demand: f.power.demand, habKw: f.power.habKw },
       sols, shielding: S0, doseIndoor, warnings: warn, mission,
     };
   }
 
   return {
-    createMission, resolveTurn, forecast, defaultPlan, scoreMission,
+    createMission, resolveTurn, forecast, defaultPlan, scoreMission, achievements, advise,
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
-    shielding, seasonAt, newMissionCode, rng, activeCount,
+    shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
+    buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit,
   };
 });

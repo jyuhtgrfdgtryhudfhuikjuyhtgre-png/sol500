@@ -8,7 +8,7 @@ const D = require('../src/data.js');
 function kit(overrides) {
   return Object.assign({
     solar: 4, battery: 2, reactor: 1, recycler: 1, oxygen: 1, icedrill: 0,
-    greenhouse: 1, lab: 1, rover: 0, waterwall: 1, spares: 4,
+    greenhouse: 1, lab: 1, rover: 0, waterwall: 1, spares: 4, materials: 1,
     food: 6, o2: 3, water: 3,
   }, overrides || {});
 }
@@ -24,10 +24,19 @@ function allJobs(state, job) {
   return plan;
 }
 
+function advance(state, planFn, turns) {
+  let s = state;
+  for (let i = 0; i < turns && s.status === 'active'; i++) s = E.resolveTurn(s, planFn(s)).state;
+  return s;
+}
+
+// ---------- manifest ----------
+
 test('loadout mass is the fixed habitat plus every packed item', () => {
   const s = E.summarizeLoadout(kit());
-  const expected = D.HAB.mass + 4 * 0.8 + 2 * 0.6 + 3.0 + 1.2 + 1.0 + 1.5 + 1.2 + 2.0 + 4 * 0.25 + 6 * 0.5 + 3 * 0.5 + 3 * 0.5;
-  assert.equal(Math.round(s.mass * 100) / 100, Math.round(expected * 100) / 100);
+  let expected = D.HAB.mass;
+  for (const [id, n] of Object.entries(kit())) expected += n * D.ITEMS[id].mass;
+  assert.equal(Math.round(s.mass * 100), Math.round(expected * 100));
   assert.equal(s.over, false);
 });
 
@@ -37,16 +46,95 @@ test('loadout over the mass budget is rejected', () => {
   assert.ok(v.errors.includes('over_budget'));
 });
 
+test('the reference kit fits the mass budget', () => {
+  assert.equal(E.validateLoadout(D.RECOMMENDED).ok, true);
+});
+
+test('cadets get a bigger mass budget than veterans', () => {
+  const heavy = kit({ food: 8, water: 4 }); // about 31.3 t
+  assert.equal(E.validateLoadout(heavy, 'cadet').ok, true);
+  assert.equal(E.validateLoadout(heavy, 'commander').ok, false);
+  assert.equal(E.validateLoadout(kit(), 'veteran').ok, false);
+});
+
+test('difficulty is stored on the mission and sets the Earth drops', () => {
+  const v = E.createMission({ seed: 'DIFF', loadout: kit({ food: 4, water: 2, o2: 2 }), difficulty: 'veteran' });
+  assert.equal(v.difficulty, 'veteran');
+  assert.equal(v.depot.drops, D.DIFFICULTY.veteran.drops);
+  const c = E.createMission({ seed: 'DIFF', loadout: kit() });
+  assert.equal(c.difficulty, 'commander');
+});
+
+test('a five-person crew adds a commander and a bigger lander', () => {
+  const st = E.createMission({ seed: 'FIVE', loadout: kit({ food: 7, o2: 4 }), crewSize: 5, events: false });
+  assert.equal(st.crew.length, 5);
+  assert.equal(st.crew[4].role, 'commander');
+  assert.equal(E.validateLoadout(kit({ food: 7, o2: 4 }), 'commander', 5).ok, true);
+  assert.equal(E.validateLoadout(kit({ food: 7, o2: 4 }), 'commander', 4).ok, false);
+  const f = E.forecast(st, E.defaultPlan(st));
+  assert.equal(Math.round(f.consumption.o2), Math.round(0.84 * 5 * 25));
+});
+
+test('an active commander makes everyone else work faster and lifts morale', () => {
+  const st = E.createMission({ seed: 'FIVE', loadout: kit({ food: 7, o2: 4 }), crewSize: 5, events: false });
+  const plan = allJobs(st, 'science');
+  const led = E.forecast(st, plan);
+  const alone = E.createMission({ seed: 'FIVE', loadout: kit({ food: 7, o2: 4 }), crewSize: 5, events: false });
+  alone.crew[4].status = 'down';
+  const unled = E.forecast(alone, allJobs(alone, 'science'));
+  assert.ok(led.points.science > unled.points.science + 4 * 0.05);
+  assert.ok(led.moraleDelta > unled.moraleDelta);
+});
+
+test('the reference kits fit every difficulty and crew size', () => {
+  for (const level of Object.keys(D.DIFFICULTY)) {
+    for (const size of [4, 5]) {
+      assert.equal(E.validateLoadout(E.referenceKit(level, size), level, size).ok, true, level + ' ' + size);
+    }
+  }
+});
+
 test('new mission converts pallets into starting stocks', () => {
   const st = calm();
   assert.equal(st.resources.food, 6 * D.ITEMS.food.kg);
   assert.equal(st.resources.o2, 3 * D.ITEMS.o2.kg);
   assert.equal(st.resources.water, 3 * D.ITEMS.water.kg);
+  assert.equal(st.resources.materials, 1 * D.ITEMS.materials.kg);
   assert.equal(st.resources.spares, 4);
   assert.equal(st.wallWater, 1 * D.ITEMS.waterwall.kg);
   assert.equal(st.crew.length, 4);
+  assert.deepEqual(st.crew.map(c => c.role), ['engineer', 'biologist', 'scientist', 'medic']);
   assert.equal(st.status, 'active');
 });
+
+// ---------- map ----------
+
+test('delivered modules are placed on the base grid around the HQ', () => {
+  const st = calm();
+  const placed = st.layout.filter(t => t.type === 'solar').length;
+  assert.equal(placed, 4);
+  const hq = st.layout.find(t => t.type === 'hab');
+  assert.deepEqual([hq.x, hq.y], D.GRID.hq);
+  const keys = st.layout.map(t => t.x + ',' + t.y);
+  assert.equal(new Set(keys).size, keys.length, 'no two structures share a tile');
+});
+
+test('the map has ice and rock tiles and the same code gives the same map', () => {
+  const a = calm({}, 'MAP-9');
+  const b = calm({ lab: 0 }, 'MAP-9');
+  assert.equal(a.terrain.ice.length, D.GRID.ice);
+  assert.equal(a.terrain.rock.length, D.GRID.rock);
+  assert.deepEqual(a.terrain, b.terrain);
+});
+
+test('a delivered reactor sits at least two tiles from the HQ', () => {
+  const st = calm({ reactor: 1 });
+  const r = st.layout.find(t => t.type === 'reactor');
+  const [hx, hy] = D.GRID.hq;
+  assert.ok(Math.max(Math.abs(r.x - hx), Math.abs(r.y - hy)) >= 2);
+});
+
+// ---------- events ----------
 
 test('the same mission code always produces the same event schedule', () => {
   const a = E.createMission({ seed: 'ARES-777', loadout: kit() });
@@ -67,6 +155,8 @@ test('every mission has at least one solar particle event and a conjunction', ()
     assert.equal(st.schedule[D.CONJUNCTION_TURN].conjunction, true);
   }
 });
+
+// ---------- life support ----------
 
 test('crew breathe 0.84 kg O2 each per sol', () => {
   const st = calm({ oxygen: 0, greenhouse: 0 });
@@ -94,6 +184,18 @@ test('switching the recycler off loses all used water', () => {
   assert.equal(Math.round(f.delta.water), -(7 * 4 * 25));
 });
 
+test('reduced rations stretch food but cost health', () => {
+  const st = calm({ greenhouse: 0 });
+  const plan = E.defaultPlan(st);
+  plan.rations = 'reduced';
+  const f = E.forecast(st, plan);
+  assert.equal(f.delta.food, -(1.8 * 4 * 25 * 0.75));
+  const full = E.forecast(st, E.defaultPlan(st));
+  assert.ok(f.crew[0].healthDelta < full.crew[0].healthDelta);
+});
+
+// ---------- power ----------
+
 test('solar arrays without battery cover deliver half their power', () => {
   const withBatt = calm({ solar: 4, battery: 2, reactor: 0 });
   const noBatt = calm({ solar: 4, battery: 0, reactor: 0 });
@@ -117,6 +219,8 @@ test('if even the habitat cannot be powered the crew gets cold', () => {
   assert.ok(f.crew.every(c => c.healthDelta < 0));
 });
 
+// ---------- radiation ----------
+
 test('indoor crew absorb 25 sols x 0.64 mSv reduced by habitat shielding', () => {
   const st = calm({ waterwall: 0 });
   const f = E.forecast(st, allJobs(st, 'science'));
@@ -137,15 +241,93 @@ test('a water wall adds shielding and draining half of it removes half', () => {
   const plan = E.defaultPlan(st);
   plan.drainWall = 1000;
   const { state: next } = E.resolveTurn(st, plan);
-  assert.equal(Math.round((E.shielding(next) - next.berm) * 1000), Math.round((D.HAB.shielding + D.ITEMS.waterwall.shielding / 2) * 1000));
+  assert.equal(Math.round(E.shielding(next) * 1000), Math.round((D.HAB.shielding + D.ITEMS.waterwall.shielding / 2) * 1000));
 });
 
-test('construction crew build a regolith berm that raises shielding', () => {
+test('sheltering from a solar particle event keeps doses low', () => {
   const st = calm();
-  const { state: next } = E.resolveTurn(st, allJobs(st, 'construction'));
-  assert.ok(next.berm > 0);
+  st.events = [{ type: 'spe', options: ['shelter', 'work'] }];
+  const shelter = E.defaultPlan(st); shelter.choices.spe = 'shelter';
+  const work = E.defaultPlan(st); work.choices.spe = 'work';
+  const a = E.forecast(st, shelter);
+  const b = E.forecast(st, work);
+  assert.ok(b.crew[0].doseDelta - a.crew[0].doseDelta > 20);
+});
+
+test('crew over the dose budget are grounded and cannot work outside', () => {
+  const st = calm();
+  st.crew[2].dose = 299;
+  const plan = allJobs(st, 'science');
+  plan.jobs[st.crew[2].id] = 'eva';
+  const { state: next } = E.resolveTurn(st, plan);
+  assert.equal(next.status, 'active');
+  assert.equal(next.crew[2].grounded, true);
+  const again = E.defaultPlan(next);
+  again.jobs[next.crew[2].id] = 'eva';
+  const f = E.forecast(next, again);
+  assert.equal(f.crew[2].job, 'science');
+});
+
+// ---------- building ----------
+
+test('building a shield layer costs materials and raises shielding when finished', () => {
+  const st = calm();
+  const plan = allJobs(st, 'science');
+  plan.jobs[st.crew[0].id] = 'construction';
+  plan.builds = [{ type: 'shield' }];
+  const f = E.forecast(st, plan);
+  assert.equal(f.delta.materials, -D.BUILDS.shield.materials + f.regolith);
+  const { state: next } = E.resolveTurn(st, plan);
+  assert.equal(next.modules.shield.count, 1);
   assert.ok(E.shielding(next) > E.shielding(st));
 });
+
+test('a new structure must touch the base', () => {
+  const st = calm();
+  const far = E.buildSpots(st, 'solar').some(([x, y]) => x === 0 && y === 0 && !E.touchesBase(st, 0, 0));
+  assert.equal(far, false);
+  for (const [x, y] of E.buildSpots(st, 'solar')) assert.ok(E.touchesBase(st, x, y));
+});
+
+test('water extractors can only be built on ice', () => {
+  const st = calm();
+  st.resources.materials = 2000;
+  const ice = new Set(st.terrain.ice.map(([x, y]) => x + ',' + y));
+  for (const [x, y] of E.buildSpots(st, 'icedrill')) assert.ok(ice.has(x + ',' + y));
+  for (const [x, y] of E.buildSpots(st, 'solar')) assert.ok(!ice.has(x + ',' + y));
+});
+
+test('big projects take several turns of construction work', () => {
+  const st = calm();
+  st.resources.materials = 1000;
+  const [x, y] = E.buildSpots(st, 'habitat')[0];
+  const plan = allJobs(st, 'science');
+  plan.jobs[st.crew[1].id] = 'construction';
+  plan.builds = [{ type: 'habitat', x, y }];
+  const { state: t1 } = E.resolveTurn(st, plan);
+  assert.equal(t1.modules.habitat.count, 0);
+  assert.equal(t1.projects.length, 1);
+  const keep = s => { const p = allJobs(s, 'science'); p.jobs[s.crew[1].id] = 'construction'; return p; };
+  const t3 = advance(t1, keep, 2);
+  assert.equal(t3.modules.habitat.count, 1);
+  assert.ok(t3.layout.some(t => t.type === 'habitat' && t.x === x && t.y === y));
+});
+
+test('a build without enough materials is refused', () => {
+  const st = calm({ materials: 0 });
+  const plan = allJobs(st, 'construction');
+  plan.builds = [{ type: 'shield' }];
+  const f = E.forecast(st, plan);
+  assert.equal(f.started.length, 0);
+});
+
+test('construction work with nothing to build turns regolith into materials', () => {
+  const st = calm();
+  const { state: next } = E.resolveTurn(st, allJobs(st, 'construction'));
+  assert.ok(next.resources.materials > st.resources.materials);
+});
+
+// ---------- repairs ----------
 
 test('repairs need a maintenance crew and use one spare kit each', () => {
   const st = calm();
@@ -153,17 +335,27 @@ test('repairs need a maintenance crew and use one spare kit each', () => {
   const noMaint = E.forecast(st, allJobs(st, 'science'));
   assert.equal(noMaint.repairs.length, 0);
   const plan = allJobs(st, 'science');
-  plan.jobs[st.crew[0].id] = 'maintenance';
+  plan.jobs[st.crew[1].id] = 'maintenance';
   const f = E.forecast(st, plan);
   assert.equal(f.repairs.length, 1);
   assert.equal(f.delta.spares, -1);
 });
 
-test('scrapping a module for parts lets the crew repair something more critical', () => {
-  const st = calm({ spares: 0, lab: 1 });
+test('with no spare kits the engineer can jury-rig one repair from materials', () => {
+  const st = calm({ spares: 0, materials: 1 });
   st.modules.recycler.broken = 1;
   const plan = allJobs(st, 'science');
   plan.jobs[st.crew[0].id] = 'maintenance';
+  const f = E.forecast(st, plan);
+  assert.deepEqual(f.repairs, ['recycler']);
+  assert.ok(f.delta.materials <= -D.REPAIR_MATERIALS);
+});
+
+test('scrapping a module for parts lets the crew repair something more critical', () => {
+  const st = calm({ spares: 0, lab: 1, materials: 0 });
+  st.modules.recycler.broken = 1;
+  const plan = allJobs(st, 'science');
+  plan.jobs[st.crew[1].id] = 'maintenance';
   plan.scrap = ['lab'];
   const { state: next, report } = E.resolveTurn(st, plan);
   assert.deepEqual(report.repairs, ['recycler']);
@@ -179,6 +371,8 @@ test('scrapping needs a maintenance crew', () => {
   const f = E.forecast(st, plan);
   assert.deepEqual(f.scrapped, []);
 });
+
+// ---------- greenhouses ----------
 
 test('a greenhouse needs one full crop cycle before the first harvest', () => {
   const st = calm({ greenhouse: 1 });
@@ -200,6 +394,127 @@ test('switching a greenhouse off kills the crop', () => {
   assert.equal(f.production.food, 0);
 });
 
+// ---------- crew: down, revive, death ----------
+
+test('a crew member at 0 HP goes down instead of dying', () => {
+  const st = calm();
+  st.crew[1].health = 5;
+  st.events = [{ type: 'spe', options: ['shelter', 'work'] }];
+  const plan = allJobs(st, 'science');
+  plan.choices.spe = 'work';
+  plan.jobs[st.crew[3].id] = 'science';
+  const { state: next } = E.resolveTurn(st, plan);
+  assert.equal(next.crew[1].status, 'down');
+  assert.equal(next.status, 'active');
+});
+
+test('a medic on medical care revives a downed crew member', () => {
+  const st = calm();
+  st.crew[1].status = 'down';
+  st.crew[1].health = 0;
+  const plan = allJobs(st, 'science');
+  plan.jobs[st.crew[3].id] = 'medical';
+  const { state: next, report } = E.resolveTurn(st, plan);
+  assert.equal(next.crew[1].status, 'active');
+  assert.equal(next.crew[1].revives, 1);
+  assert.deepEqual(report.revived, [st.crew[1].id]);
+});
+
+test('a downed crew member dies after 5 turns without a revive', () => {
+  let st = calm();
+  st.crew[1].status = 'down';
+  st.crew[1].health = 0;
+  st = advance(st, s => allJobs(s, 'science'), D.REVIVE.window);
+  assert.equal(st.crew[1].status, 'dead');
+});
+
+test('going down a second time is permanent', () => {
+  const st = calm();
+  st.crew[1].revives = 1;
+  st.crew[1].health = 5;
+  st.events = [{ type: 'spe', options: ['shelter', 'work'] }];
+  const plan = allJobs(st, 'science');
+  plan.choices.spe = 'work';
+  const { state: next } = E.resolveTurn(st, plan);
+  assert.equal(next.crew[1].status, 'dead');
+});
+
+test('the dead no longer breathe or eat', () => {
+  const st = calm({ oxygen: 0, greenhouse: 0 });
+  st.crew[1].status = 'dead';
+  const f = E.forecast(st, E.defaultPlan(st));
+  assert.equal(Math.round(f.delta.o2), -Math.round(0.84 * 3 * 25));
+});
+
+test('running out of oxygen hurts the whole crew', () => {
+  const st = calm({ o2: 0, oxygen: 0, greenhouse: 0 });
+  const f = E.forecast(st, E.defaultPlan(st));
+  assert.ok(f.crew.every(c => c.healthDelta <= -D.HEALTH.hypoxia + D.HEALTH.medic + D.HEALTH.care + D.HEALTH.rest));
+  const { state: next } = E.resolveTurn(st, E.defaultPlan(st));
+  assert.equal(next.resources.o2, 0);
+});
+
+test('running out of water first drains the water wall', () => {
+  const st = calm({ water: 0, waterwall: 1, recycler: 0, greenhouse: 0 });
+  const { state: t1 } = E.resolveTurn(st, E.defaultPlan(st));
+  assert.ok(t1.wallWater < st.wallWater);
+  assert.equal(t1.crew.every(c => c.health === 100), true);
+});
+
+test('the mission is lost when nobody is left standing', () => {
+  const st = calm({ o2: 0, oxygen: 0, greenhouse: 0 });
+  for (const c of st.crew) { c.health = 5; c.revives = 1; }
+  const { state: next } = E.resolveTurn(st, E.defaultPlan(st));
+  assert.equal(next.status, 'lost');
+  assert.equal(next.endCause.type, 'crew');
+});
+
+// ---------- emergencies & Earth support ----------
+
+test('salvaging oxygen in an emergency recovers more than hiding', () => {
+  const st = calm();
+  st.events = [{ type: 'o2_rupture', options: ['hide', 'salvage'] }];
+  const hide = E.defaultPlan(st); hide.choices.o2_rupture = 'hide';
+  const salvage = E.defaultPlan(st); salvage.choices.o2_rupture = 'salvage';
+  const a = E.forecast(st, hide);
+  const b = E.forecast(st, salvage);
+  assert.ok(b.delta.o2 > a.delta.o2);
+  assert.ok(Math.max(...b.crew.map(c => c.doseDelta)) > Math.max(...a.crew.map(c => c.doseDelta)));
+});
+
+test('an Earth supply drop lands two turns after it is requested', () => {
+  const st = calm();
+  const plan = E.defaultPlan(st);
+  plan.request = 'materials';
+  const { state: t1 } = E.resolveTurn(st, plan);
+  assert.equal(t1.depot.drops, D.DEPOT.drops - 1);
+  const t2 = advance(t1, E.defaultPlan, 1);
+  const before = t2.resources.materials;
+  assert.ok(t2.events.some(e => e.type === 'supply_arrived' && e.kind === 'materials') === false);
+  const t3 = advance(t2, E.defaultPlan, 1);
+  assert.ok(t3.events.some(e => e.type === 'supply_arrived' && e.kind === 'materials'));
+  assert.ok(t3.resources.materials >= before + D.DEPOT.amounts.materials - 1);
+});
+
+test('no supply drops can be requested during solar conjunction', () => {
+  let st = calm();
+  st = advance(st, E.defaultPlan, D.CONJUNCTION_TURN);
+  assert.equal(E.canRequest(st), false);
+  const plan = E.defaultPlan(st);
+  plan.request = 'food';
+  const { state: next } = E.resolveTurn(st, plan);
+  assert.equal(next.depot.drops, D.DEPOT.drops);
+});
+
+test('engineering advice points at the most urgent problem', () => {
+  const st = calm({ solar: 1, battery: 0, reactor: 0 });
+  const advice = E.advise(st, E.defaultPlan(st));
+  assert.ok(advice.length >= 1);
+  assert.equal(advice[0].code, 'hab_cold');
+});
+
+// ---------- whole missions ----------
+
 test('forecast never changes the mission state', () => {
   const st = calm();
   const before = JSON.stringify(st);
@@ -218,74 +533,33 @@ test('forecast matches the resolved turn for stocks', () => {
   assert.equal(next.turn, 1);
 });
 
-test('running out of O2 aborts the mission', () => {
-  const st = calm({ o2: 0, oxygen: 0, greenhouse: 0 });
-  const { state: next } = E.resolveTurn(st, E.defaultPlan(st));
-  assert.equal(next.status, 'aborted');
-  assert.equal(next.abortCause.type, 'o2');
-});
-
-test('running out of water first drains the water wall, then aborts', () => {
-  const st = calm({ water: 0, waterwall: 1, recycler: 0, greenhouse: 0 });
-  const { state: t1 } = E.resolveTurn(st, E.defaultPlan(st));
-  assert.equal(t1.status, 'active');
-  assert.ok(t1.wallWater < st.wallWater);
-  let s = t1;
-  for (let i = 0; i < 5 && s.status === 'active'; i++) s = E.resolveTurn(s, E.defaultPlan(s)).state;
-  assert.equal(s.status, 'aborted');
-  assert.equal(s.abortCause.type, 'water');
-});
-
-test('exceeding the 300 mSv budget aborts the mission', () => {
-  const st = calm();
-  st.crew[1].dose = 299;
-  const { state: next } = E.resolveTurn(st, E.defaultPlan(st));
-  assert.equal(next.status, 'aborted');
-  assert.equal(next.abortCause.type, 'radiation');
-  assert.equal(next.abortCause.crewId, st.crew[1].id);
-});
-
-test('reduced rations stretch food but cost health', () => {
-  const st = calm({ greenhouse: 0 });
-  const plan = E.defaultPlan(st);
-  plan.rations = 'reduced';
-  const f = E.forecast(st, plan);
-  assert.equal(f.delta.food, -(1.8 * 4 * 25 * 0.75));
-  const full = E.forecast(st, E.defaultPlan(st));
-  assert.ok(f.crew[0].healthDelta < full.crew[0].healthDelta);
-});
-
-test('sheltering from a solar particle event keeps doses low', () => {
-  const st = calm();
-  st.events = [{ type: 'spe', options: ['shelter', 'work'] }];
-  const shelter = E.defaultPlan(st); shelter.choices.spe = 'shelter';
-  const work = E.defaultPlan(st); work.choices.spe = 'work';
-  const a = E.forecast(st, shelter);
-  const b = E.forecast(st, work);
-  assert.ok(b.crew[0].doseDelta - a.crew[0].doseDelta > 20);
-});
-
-test('a well-run training mission reaches sol 500 and scores', () => {
+test('a well-run training mission reaches sol 500, scores and earns achievements', () => {
   let st = calm();
   let guard = 0;
   while (st.status === 'active' && guard++ < 30) {
     const plan = E.defaultPlan(st);
-    plan.jobs[st.crew[0].id] = 'maintenance';
+    plan.jobs[st.crew[0].id] = st.turn < 4 ? 'construction' : 'maintenance';
+    if (st.turn < 4 && st.resources.materials >= D.BUILDS.shield.materials) plan.builds = [{ type: 'shield' }];
     plan.jobs[st.crew[1].id] = 'farming';
-    plan.jobs[st.crew[2].id] = st.turn < 6 ? 'construction' : 'eva';
+    plan.jobs[st.crew[2].id] = 'eva';
     plan.jobs[st.crew[3].id] = 'science';
     st = E.resolveTurn(st, plan).state;
   }
-  assert.equal(st.status, 'success', JSON.stringify(st.abortCause));
+  assert.equal(st.status, 'success', JSON.stringify(st.endCause));
   assert.equal(st.sol, 500);
   const sc = E.scoreMission(st);
   assert.ok(sc.total > 0);
   assert.ok(['S', 'A', 'B', 'C', 'D'].includes(sc.grade));
   assert.equal(st.history.length, 21);
+  const got = E.achievements(st);
+  assert.ok(got.includes('sol500'));
+  assert.ok(got.includes('first_sol'));
+  assert.ok(got.includes('self_reliant'));
 });
 
-test('an aborted mission keeps only half of its science and no completion bonus', () => {
+test('a lost mission keeps only half of its science and no completion bonus', () => {
   const st = calm({ o2: 0, oxygen: 0, greenhouse: 0 });
+  for (const c of st.crew) { c.health = 5; c.revives = 1; }
   st.science = 400;
   const { state: done } = E.resolveTurn(st, E.defaultPlan(st));
   const sc = E.scoreMission(done);
@@ -294,8 +568,19 @@ test('an aborted mission keeps only half of its science and no completion bonus'
   assert.equal(sc.grade, 'D');
 });
 
+test('going over the dose budget costs far more score than staying under it', () => {
+  const st = calm();
+  st.status = 'success';
+  const safe = E.scoreMission(st);
+  st.crew[2].dose = 330;
+  st.crew[2].grounded = true;
+  const over = E.scoreMission(st);
+  assert.ok(safe.total - over.total >= 150, `penalty only ${safe.total - over.total}`);
+});
+
 test('resolving a finished mission is refused', () => {
   const st = calm({ o2: 0, oxygen: 0, greenhouse: 0 });
+  for (const c of st.crew) { c.health = 5; c.revives = 1; }
   const { state: done } = E.resolveTurn(st, E.defaultPlan(st));
   assert.throws(() => E.resolveTurn(done, E.defaultPlan(done)));
 });
