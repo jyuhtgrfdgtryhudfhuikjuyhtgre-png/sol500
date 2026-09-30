@@ -515,6 +515,25 @@ test('engineering advice points at the most urgent problem', () => {
 
 // ---------- whole missions ----------
 
+test('the next round keeps standing orders and jobs but clears one-off actions', () => {
+  const st = calm();
+  const plan = E.defaultPlan(st);
+  plan.jobs[st.crew[0].id] = 'construction';
+  plan.rations = 'reduced';
+  plan.modulesOn.lab = false;
+  plan.builds = [{ type: 'shield' }];
+  plan.request = 'food';
+  plan.scrap = ['lab'];
+  const { state: next } = E.resolveTurn(st, plan);
+  const p2 = E.nextPlan(next, plan);
+  assert.equal(p2.jobs[st.crew[0].id], 'construction');
+  assert.equal(p2.rations, 'reduced');
+  assert.equal(p2.modulesOn.lab, false);
+  assert.deepEqual(p2.builds, []);
+  assert.deepEqual(p2.scrap, []);
+  assert.equal(p2.request, null);
+});
+
 test('forecast never changes the mission state', () => {
   const st = calm();
   const before = JSON.stringify(st);

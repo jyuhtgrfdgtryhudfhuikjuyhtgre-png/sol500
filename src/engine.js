@@ -309,6 +309,20 @@
     return { jobs, modulesOn, rations: 'full', habMode: 'normal', choices, drainWall: 0, builds: [], scrap: [], request: null };
   }
 
+  // Plan for the next round: standing orders and jobs carry over, one-off actions reset.
+  function nextPlan(s, prev) {
+    const p = defaultPlan(s);
+    if (!prev) return p;
+    for (const c of s.crew) {
+      const job = (prev.jobs || {})[c.id];
+      if (D.JOBS[job] && !(c.grounded && D.OUTDOOR_JOBS.includes(job))) p.jobs[c.id] = job;
+    }
+    Object.assign(p.modulesOn, prev.modulesOn || {});
+    if (prev.rations) p.rations = prev.rations;
+    if (prev.habMode) p.habMode = prev.habMode;
+    return p;
+  }
+
   function canRequest(s) {
     return s.status === 'active' && s.depot.drops > 0 && !s.schedule[s.turn].conjunction;
   }
@@ -1082,6 +1096,6 @@
     createMission, resolveTurn, forecast, defaultPlan, scoreMission, achievements, advise,
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
-    buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit,
+    buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
   };
 });

@@ -28,7 +28,7 @@
   const en = {
     'app.name': 'SOL 500',
     'app.sub': 'Mars Outpost',
-    'app.tagline': 'Keep four people alive on Mars for 500 sols. Every kilogram you land is a decision.',
+    'app.tagline': 'Keep your crew alive on Mars for 500 sols. Every kilogram you land is a decision.',
     'lang.label': 'Language',
     'nav.notes': 'Science notes',
     'nav.help': 'How to play',
@@ -72,9 +72,10 @@
     'title.operate.body': 'Twenty rounds of 25 sols: assign the crew, build, answer emergencies.',
     'title.debrief': 'Debrief',
     'title.debrief.body': 'See why it worked or failed, and what real missions learned.',
-    'title.fact1': '0.64 mSv of radiation per sol on the surface',
-    'title.fact2': '0.84 kg of oxygen per person per sol',
-    'title.fact3': 'Mars gets about 43 % of Earth’s sunlight',
+    'title.fact1': 'radiation per sol on the surface, measured by Curiosity',
+    'title.fact2': 'oxygen breathed per person per sol',
+    'title.fact3': 'of Earth’s sunlight reaches Mars',
+    'title.crewLine': 'Meet the crew',
     'title.credit': 'Numbers from NASA and peer-reviewed mission data. See Science notes.',
 
     'role.engineer': 'Engineer',
@@ -237,7 +238,7 @@
     'hud.steady': 'holding',
     'hud.spare': '{kw} kW spare',
     'hud.short': '{kw} kW short',
-    'hud.wall': '+{kg} kg in the water wall',
+    'hud.wall': '{kg} kg in wall',
 
     'panel.map': 'Outpost',
     'panel.crew': 'Crew',
@@ -469,6 +470,8 @@
     'deb.new': 'New mission',
     'deb.code': 'Mission code',
     'deb.crew': 'Crew',
+    'deb.events': 'Conditions & events',
+    'deb.outcome': 'What happened',
     'cause.hypoxia': 'The oxygen ran out. Without air, nobody could keep working.',
     'cause.dehydration': 'The water ran out. Without the recycler and reserves, the crew could not last.',
     'cause.starvation': 'The food ran out before help or harvests arrived.',
@@ -595,12 +598,14 @@
     'lan.noRoom': 'No room with that code.',
     'lan.onlyHost': 'Only the host can do that.',
     'lan.leave': 'Leave room',
+    'lan.take': 'Take this seat',
+    'lan.taken_err': 'Someone already took that seat.',
   };
 
   const vi = {
     'app.name': 'SOL 500',
     'app.sub': 'Tiền đồn sao Hỏa',
-    'app.tagline': 'Giữ bốn người sống sót trên sao Hỏa trong 500 sol. Mỗi kilôgam bạn đưa xuống là một quyết định.',
+    'app.tagline': 'Giữ phi hành đoàn sống sót trên sao Hỏa trong 500 sol. Mỗi kilôgam bạn đưa xuống là một quyết định.',
     'lang.label': 'Ngôn ngữ',
     'nav.notes': 'Ghi chú khoa học',
     'nav.help': 'Cách chơi',
@@ -644,9 +649,10 @@
     'title.operate.body': 'Hai mươi vòng, mỗi vòng 25 sol: phân công, xây dựng, xử lý sự cố.',
     'title.debrief': 'Tổng kết',
     'title.debrief.body': 'Xem vì sao thành công hay thất bại, và các sứ mệnh thật đã học được gì.',
-    'title.fact1': '0,64 mSv bức xạ mỗi sol trên bề mặt',
-    'title.fact2': '0,84 kg oxy cho mỗi người mỗi sol',
-    'title.fact3': 'Sao Hỏa nhận khoảng 43 % ánh sáng Mặt Trời so với Trái Đất',
+    'title.fact1': 'bức xạ mỗi sol trên bề mặt, do Curiosity đo được',
+    'title.fact2': 'oxy mỗi người thở trong một sol',
+    'title.fact3': 'ánh sáng Mặt Trời so với Trái Đất chiếu tới sao Hỏa',
+    'title.crewLine': 'Gặp gỡ phi hành đoàn',
     'title.credit': 'Số liệu lấy từ NASA và các công bố khoa học. Xem Ghi chú khoa học.',
 
     'role.engineer': 'Kỹ sư',
@@ -809,7 +815,7 @@
     'hud.steady': 'ổn định',
     'hud.spare': 'dư {kw} kW',
     'hud.short': 'thiếu {kw} kW',
-    'hud.wall': '+{kg} kg trong tường nước',
+    'hud.wall': 'tường nước {kg} kg',
 
     'panel.map': 'Tiền đồn',
     'panel.crew': 'Phi hành đoàn',
@@ -1041,6 +1047,8 @@
     'deb.new': 'Nhiệm vụ mới',
     'deb.code': 'Mã nhiệm vụ',
     'deb.crew': 'Phi hành đoàn',
+    'deb.events': 'Điều kiện & sự kiện',
+    'deb.outcome': 'Diễn biến',
     'cause.hypoxia': 'Oxy đã cạn. Không còn không khí, không ai làm việc tiếp được.',
     'cause.dehydration': 'Nước đã cạn. Không có máy tái chế và dự trữ, phi hành đoàn không trụ nổi.',
     'cause.starvation': 'Thực phẩm hết trước khi có hàng tiếp tế hay thu hoạch.',
@@ -1167,6 +1175,8 @@
     'lan.noRoom': 'Không có phòng với mã này.',
     'lan.onlyHost': 'Chỉ chủ phòng mới làm được việc này.',
     'lan.leave': 'Rời phòng',
+    'lan.take': 'Nhận vai này',
+    'lan.taken_err': 'Đã có người nhận vai này.',
   };
 
   const NOTES = {
