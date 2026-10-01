@@ -1214,14 +1214,21 @@
     const o = store.online;
     let share = null;
     if (window.solApp && isHost() && o) {
-      if (o.state === 'on') share = h('span', { class: 'chip ok', 'data-k': 'online-chip' }, ico('wifi', 12), ' ', t('online.chipOn'));
-      else if (o.state === 'off' && o.error) share = h('button', { class: 'chip crit', type: 'button', 'data-k': 'online-retry', onclick: startOnline }, t('online.chipRetry'));
+      if (o.state === 'on') {
+        share = h('button', { class: 'chip ok', type: 'button', 'data-k': 'online-chip', onclick: () => { store.modal = 'online'; render(); } },
+          ico('wifi', 12), ' ', t('online.chipOn'));
+      } else if (o.state === 'off' && o.error) {
+        share = h('button', { class: 'chip crit', type: 'button', 'data-k': 'online-retry', onclick: () => startOnline(true) }, t('online.chipRetry'));
+      }
     }
     return [h('span', { class: 'chip info' }, ico('wifi', 12), ' ', room.code), status, share];
   }
 
   // ---------- online share link (desktop app only) ----------
-  function onlinePanel() {
+  // One body for the lobby panel and the dialog behind the topbar "Online" chip.
+  function onlinePanel() { return panel(t('online.title'), onlineBody()); }
+
+  function onlineBody() {
     const o = store.online || { state: 'off' };
     const body = [h('p', { class: 'hint' }, t('online.lead'))];
     if (o.state === 'on') {
@@ -1239,16 +1246,18 @@
       body.push(h('p', { class: 'muted' }, t(o.state === 'downloading' ? 'online.downloading' : 'online.starting')));
     } else {
       if (o.error) body.push(h('p', { class: 'crit' }, t('online.error')));
-      body.push(h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'online-start', onclick: startOnline }, ico('wifi', 16), t('online.start')));
+      body.push(h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'online-start', onclick: () => startOnline(false) }, ico('wifi', 16), t('online.start')));
     }
-    return panel(t('online.title'), body);
+    return body;
   }
 
-  async function startOnline() {
+  // showLink: a restart from the topbar chip opens the link dialog once the new link is up, so the host can pass it on.
+  async function startOnline(showLink) {
     store.online = { state: 'starting' };
     render();
     const r = await window.solApp.hostOnline();
     if (r && r.error) store.online = { state: 'off', error: r.error === 'cancelled' ? null : r.error };
+    else if (r && r.url && showLink && lanOn() && (!store.modal || store.modal === 'online')) store.modal = 'online';
     render();
   }
 
@@ -1428,6 +1437,7 @@
         store.lanError ? h('p', { class: 'crit' }, store.lanError) : null,
       ]);
     }
+    if (m === 'online' && window.solApp && lanOn() && isHost()) return modal(t('online.title'), onlineBody());
     if (m === 'report' && store.report) return reportModal(store.report);
     return null;
   }
