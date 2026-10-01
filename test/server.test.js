@@ -96,11 +96,37 @@ test('a co-op mission launches, each player sets their own job, and the round re
   }
 });
 
+test('players share where their astronauts are standing', async () => {
+  const { srv, base } = await start();
+  try {
+    const host = await post(base, '/api/room/create', { name: 'Host' });
+    const guest = await post(base, '/api/room/join', { code: host.code, name: 'Guest' });
+    await act(base, guest, 'claim', { crewId: 'minh' });
+    const r = await act(base, guest, 'pos', { x: 321, y: 222, dir: 'left', moving: true });
+    assert.equal(r.ok, true);
+    const bad = await act(base, host, 'pos', { x: 1, y: 1 });
+    assert.equal(bad.error, 'noCrew', 'players without a crew member have no astronaut');
+    const room = await state(base, host);
+    assert.deepEqual(room.positions.map(p => [p.crewId, p.x, p.y, p.dir]), [['minh', 321, 222, 'left']]);
+  } finally {
+    srv.close();
+  }
+});
+
 test('the server hands out the game files but nothing else from the computer', async () => {
   const { srv, base } = await start();
   try {
     assert.equal((await fetch(base + '/')).status, 200);
     assert.equal((await fetch(base + '/src/engine.js')).status, 200);
+    assert.equal((await fetch(base + '/src/surface.js')).status, 200);
+    const mf = await fetch(base + '/manifest.webmanifest');
+    assert.equal(mf.status, 200);
+    assert.match(mf.headers.get('content-type'), /manifest\+json/);
+    assert.equal((await fetch(base + '/sw.js')).status, 200);
+    const icon = await fetch(base + '/icons/icon-192.png');
+    assert.equal(icon.status, 200);
+    assert.equal(icon.headers.get('content-type'), 'image/png');
+    assert.equal((await fetch(base + '/icons/../server.js')).status, 404);
     assert.equal((await fetch(base + '/server.js')).status, 404);
     assert.equal((await fetch(base + '/src/../server.js')).status, 404);
     assert.equal((await fetch(base + '/%2e%2e/package.json')).status, 404);

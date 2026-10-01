@@ -18,7 +18,10 @@ const MAX_ROOMS = 40;
 const ROOM_TTL = 6 * 60 * 60 * 1000;
 const PRESENT_MS = 30 * 1000;
 const MAX_BODY = 256 * 1024;
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8', '.png': 'image/png',
+};
 const PLAN_KEYS = ['modulesOn', 'rations', 'habMode', 'choices', 'answered', 'drainWall', 'builds', 'scrap', 'request'];
 
 function lanAddresses(port) {
@@ -51,8 +54,28 @@ function createServer() {
       code: room.code, hostId: room.hostId, version: room.version, phase: room.phase,
       players: room.players.map(p => ({ id: p.id, name: p.name, crewId: p.crewId, ready: p.ready, connected: present(p) })),
       settings: room.settings, loadout: room.loadout, mission: room.mission, plan: room.plan,
-      lastReport: room.lastReport, advice: room.advice,
+      lastReport: room.lastReport, advice: room.advice, positions: Object.values(room.positions),
     };
+  }
+
+  // Astronaut positions change many times a second, so they travel in their own small event.
+  function setPosition(room, player, body) {
+    if (!player.crewId) return 'noCrew';
+    const num = v => Math.max(0, Math.min(5000, Math.round(Number(v) || 0)));
+    room.positions[player.crewId] = {
+      crewId: player.crewId, x: num(body.x), y: num(body.y),
+      dir: ['up', 'down', 'left', 'right'].includes(body.dir) ? body.dir : 'down',
+      moving: !!body.moving, rover: !!body.rover,
+    };
+    if (!room.posTimer) {
+      room.posTimer = setTimeout(() => {
+        room.posTimer = null;
+        const data = 'event: pos\ndata: ' + JSON.stringify(Object.values(room.positions)) + '\n\n';
+        for (const p of room.players) for (const res of p.clients) res.write(data);
+      }, 80);
+      if (room.posTimer.unref) room.posTimer.unref();
+    }
+    return null;
   }
 
   function broadcast(room) {
@@ -117,13 +140,13 @@ function createServer() {
       case 'claim': {
         const cid = body.crewId;
         if (cid == null) {
-          if (player.crewId) delete room.settings.names[player.crewId];
+          if (player.crewId) { delete room.settings.names[player.crewId]; delete room.positions[player.crewId]; }
           player.crewId = null;
           return null;
         }
         if (!crewIds(room).includes(cid)) return 'badCrew';
         if (room.players.some(p => p !== player && p.crewId === cid)) return 'taken';
-        if (player.crewId) delete room.settings.names[player.crewId];
+        if (player.crewId) { delete room.settings.names[player.crewId]; delete room.positions[player.crewId]; }
         player.crewId = cid;
         room.settings.names[cid] = player.name;
         return null;
@@ -211,7 +234,7 @@ function createServer() {
       case 'leave':
         room.players = room.players.filter(p => p !== player);
         for (const res of player.clients) res.end();
-        if (player.crewId) delete room.settings.names[player.crewId];
+        if (player.crewId) { delete room.settings.names[player.crewId]; delete room.positions[player.crewId]; }
         if (!room.players.length) { rooms.delete(room.code); return null; }
         if (room.hostId === player.id) room.hostId = (room.players.find(present) || room.players[0]).id;
         if (room.phase === 'ops') maybeResolve(room);
@@ -246,7 +269,9 @@ function createServer() {
   function serveStatic(req, res, pathname) {
     let rel = null;
     if (pathname === '/' || pathname === '/index.html') rel = 'index.html';
+    else if (pathname === '/manifest.webmanifest' || pathname === '/sw.js') rel = pathname.slice(1);
     else if (/^\/src\/[a-z0-9-]+\.(js|css)$/.test(pathname)) rel = pathname.slice(1);
+    else if (/^\/icons\/[a-z0-9-]+\.png$/.test(pathname)) rel = pathname.slice(1);
     if (!rel) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
     fs.readFile(path.join(__dirname, rel), (err, buf) => {
       if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
@@ -277,7 +302,7 @@ function createServer() {
         if (rooms.size >= MAX_ROOMS) { send(res, 503, { error: 'busy' }); return; }
         const body = await readBody(req);
         const room = {
-          code: newCode(), hostId: null, version: 0, phase: 'lobby', players: [], touched: Date.now(),
+          code: newCode(), hostId: null, version: 0, phase: 'lobby', players: [], touched: Date.now(), positions: {}, posTimer: null,
           settings: { difficulty: D.DEFAULT_DIFFICULTY, crewSize: 5, seed: E.newMissionCode(), names: {} },
           loadout: null, mission: null, plan: null, lastReport: null, advice: null,
         };
@@ -304,6 +329,11 @@ function createServer() {
         const player = findPlayer(room, body.player, body.token);
         if (!player) { send(res, 403, { error: 'noRoom' }); return; }
         player.lastSeen = Date.now();
+        if (body.type === 'pos') {
+          const perr = setPosition(room, player, body);
+          send(res, perr ? 400 : 200, perr ? { error: perr } : { ok: true });
+          return;
+        }
         const err = apply(room, player, body);
         if (err) { send(res, 400, { error: err }); return; }
         if (rooms.has(room.code)) broadcast(room);
@@ -356,5 +386,17 @@ if (require.main === module) {
     const addrs = lanAddresses(port);
     if (addrs.length) console.log('  Other devices on Wi-Fi:  ' + addrs.join('   '));
     console.log('\n  Up to ' + MAX_PLAYERS + ' players per room. Press Ctrl+C to stop.\n');
+    if (process.argv.includes('--open')) {
+      const url = 'http://localhost:' + port;
+      const { spawn } = require('node:child_process');
+      const cmd = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]]
+        : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+      try { spawn(cmd[0], cmd[1], { stdio: 'ignore', detached: true }).unref(); } catch (e) { /* open the address by hand */ }
+    }
+  });
+  server.on('error', err => {
+    if (err.code === 'EADDRINUSE') console.log('\n  Port ' + port + ' is busy. SOL 500 may already be running: open http://localhost:' + port + '\n');
+    else console.log(err);
+    process.exitCode = 1;
   });
 }

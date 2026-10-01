@@ -42,6 +42,8 @@
     lastTurnSeen: null,
     toast: null,
     prevScreen: null,
+    opsView: LS.get('opsView', 'surface'),
+    controlId: LS.get('controlId', null),
   };
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
@@ -320,7 +322,8 @@
           h('div', { class: 'setup-actions' },
             h('button', { class: 'btn btn-primary btn-lg', type: 'button', 'data-k': 'start', onclick: () => startManifest(false) }, ico('rocket', 20), t('title.start')),
             h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'train', onclick: () => startManifest(true), title: t('title.trainingHint') }, t('title.training')),
-            resume ? h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'resume', onclick: () => go('ops') }, t('title.resume', { sol: store.mission.sol })) : null),
+            resume ? h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'resume', onclick: () => go('ops') }, t('title.resume', { sol: store.mission.sol })) : null,
+            installButton()),
           h('p', { class: 'hint' }, t('title.trainingHint')),
           h('div', { class: 'divider' }),
           store.lanInfo
@@ -513,13 +516,93 @@
     return Math.round(12.7 + 9.6 * Math.cos((2 * Math.PI * (sol - 262)) / 760));
   }
 
+  // Which crew member the local player walks around as.
+  function controlId() {
+    const s = mission();
+    if (!s) return null;
+    if (lanOn()) { const mine = me(); return mine ? mine.crewId : null; }
+    const pick = s.crew.find(c => c.id === store.controlId && c.status !== 'dead');
+    return (pick || s.crew.find(c => c.status === 'active') || s.crew[0]).id;
+  }
+
+  function setOpsView(v) {
+    store.opsView = v;
+    LS.set('opsView', v);
+    render();
+  }
+
+  const surfaceHooks = {
+    queueBuild: b => { const p = currentPlan(); patchPlan({ builds: (p.builds || []).concat([b]) }); },
+    cancelBuild: i => { const p = currentPlan(); patchPlan({ builds: (p.builds || []).filter((_, j) => j !== i) }); },
+    toggleModule: ty => { const p = currentPlan(); patchPlan({ modulesOn: Object.assign({}, p.modulesOn, { [ty]: (p.modulesOn || {})[ty] === false }) }); },
+    toggleScrap: ty => { const p = currentPlan(); const on = (p.scrap || []).includes(ty); patchPlan({ scrap: on ? p.scrap.filter(x => x !== ty) : (p.scrap || []).concat([ty]) }); },
+    setJob: (id, job) => setJob(id, job),
+    openConsole: () => setOpsView('console'),
+    canAdvance: () => { const s = mission(); return !!s && unanswered(s, currentPlan()) === 0; },
+    advance: () => {
+      if (lanOn()) { const mine = me(); N.act('ready', { ready: !(mine && mine.ready) }); return; }
+      if (surfaceHooks.canAdvance()) advance();
+    },
+    sendPos: pos => { if (lanOn() && me() && me().crewId) N.act('pos', pos); },
+  };
+
+  function surfaceStage(s, p, f) {
+    if (!window.SolSurface) return null;
+    const node = window.SolSurface.mount(surfaceHooks);
+    window.SolSurface.update({
+      mission: s, plan: p, forecast: f, controlId: controlId(), canControl, crewName, t, lang: store.lang,
+    });
+    return h('div', { class: 'sf-stage' }, node);
+  }
+
+  function surfaceSide(s, p, f) {
+    const ctl = controlId();
+    const chooser = lanOn() ? null : h('div', { class: 'playas' }, s.crew.map((c, i) => h('button', {
+      type: 'button', class: 'playas-b', 'data-k': 'play:' + c.id, 'aria-pressed': String(c.id === ctl), disabled: c.status === 'dead',
+      title: crewName(c.id) + ' · ' + t('role.' + c.role),
+      onclick: () => { store.controlId = c.id; LS.set('controlId', c.id); render(); },
+    }, h('span', { html: A.portrait(c.role, 34, { variant: i, status: c.status }) }))));
+    const jobs = panel(t('sf.jobs'), h('div', { class: 'jobrows' }, s.crew.map((c, i) => {
+      const allowed = canControl(c.id) && c.status === 'active';
+      const job = p.jobs[c.id];
+      const sel = h('select', {
+        'data-k': 'jobsel:' + c.id, name: 'job-' + c.id, id: 'job-' + c.id, 'aria-label': crewName(c.id), disabled: !allowed,
+        onchange: e => setJob(c.id, e.target.value),
+      }, D.JOB_ORDER.map(j => h('option', { value: j, selected: j === job ? true : null, disabled: c.grounded && D.OUTDOOR_JOBS.includes(j) ? true : null },
+        t('job.' + j) + (D.SPECIALTY[c.role].includes(j) ? ' ★' : ''))));
+      const state = c.status === 'down' ? h('span', { class: 'chip crit' }, t('crew.down', { n: D.REVIVE.window - c.downTurns }))
+        : c.status === 'dead' ? h('span', { class: 'chip' }, t('crew.dead'))
+          : h('span', { class: 'faint num', style: 'font-size:var(--fs-xs)' }, Math.round(c.health) + ' HP · ' + Math.round(c.dose) + ' mSv');
+      return h('div', { class: 'jobrow' + (c.id === ctl ? ' me' : '') },
+        h('span', { html: A.portrait(c.role, 34, { variant: i, status: c.status }) }),
+        h('div', { style: 'min-width:0' }, h('b', null, crewName(c.id)), h('br'), state),
+        c.status === 'dead' ? h('span') : sel);
+    })));
+    return h('aside', { class: 'sf-side' },
+      chooser ? panel(t('sf.playAs'), chooser) : null,
+      eventsPanel(s, p),
+      jobs,
+      forecastPanel(s, p, f),
+      advancePanel(s, p));
+  }
+
+  function opsTabs() {
+    return h('div', { class: 'ops-tabs seg', role: 'tablist' },
+      h('button', { type: 'button', role: 'tab', 'data-k': 'tab:surface', 'aria-pressed': String(store.opsView === 'surface'), 'aria-selected': String(store.opsView === 'surface'), onclick: () => setOpsView('surface') }, ico('eva', 16), ' ', t('sf.surface')),
+      h('button', { type: 'button', role: 'tab', 'data-k': 'tab:console', 'aria-pressed': String(store.opsView === 'console'), 'aria-selected': String(store.opsView === 'console'), onclick: () => setOpsView('console') }, ico('book', 16), ' ', t('sf.consoleTab')));
+  }
+
   function viewOps() {
     const s = mission();
     const p = currentPlan();
     if (!s || !p) return viewTitle();
     const f = E.forecast(s, p);
+    if (store.opsView !== 'console' && window.SolSurface) {
+      return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
+    }
     return [
       hud(s, f),
+      opsTabs(),
       h('div', { class: 'ops' },
         h('div', { class: 'col col-1' }, eventsPanel(s, p), mapPanel(s, p, f), buildPanel(s, p, f)),
         h('div', { class: 'col col-2' }, crewPanel(s, p, f)),
@@ -1212,7 +1295,7 @@
     if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus);
+    N.connect(onRoom, onLanStatus, onPos);
   }
 
   async function joinRoom(code, name) {
@@ -1220,7 +1303,11 @@
     if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus);
+    N.connect(onRoom, onLanStatus, onPos);
+  }
+
+  function onPos(list) {
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.setRemote(list);
   }
 
   // ---------- dialogs ----------
@@ -1359,15 +1446,34 @@
     }
   });
 
+  // ---------- installable app ----------
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; render(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; toast(t('app.installed')); });
+  function installButton() {
+    if (!installEvt) return null;
+    return h('button', {
+      class: 'btn', type: 'button', 'data-k': 'install', title: t('app.installHint'),
+      onclick: async () => { const e = installEvt; installEvt = null; e.prompt(); try { await e.userChoice; } catch (err) { /* dismissed */ } render(); },
+    }, ico('plus', 16), t('app.install'));
+  }
+  function registerServiceWorker() {
+    if (!window.SOL_APP || !('serviceWorker' in navigator)) return;
+    const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (location.protocol !== 'https:' && !local) return;
+    navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+  }
+
   // ---------- boot ----------
   function boot() {
+    registerServiceWorker();
     render();
     if (N) {
       N.info().then(info => {
         if (!info) return;
         store.lanInfo = info;
         const s = N.restore();
-        if (s) { store.lan = s; N.connect(onRoom, onLanStatus); }
+        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos); }
         render();
       });
     }

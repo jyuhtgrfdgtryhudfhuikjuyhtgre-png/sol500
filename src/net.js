@@ -59,13 +59,16 @@
     return j;
   }
 
-  function connect(onRoom, onStatus) {
+  function connect(onRoom, onStatus, onPos) {
     if (!session) return;
     disconnect();
     const q = new URLSearchParams({ code: session.code, player: session.playerId, token: session.token });
     es = new EventSource('/api/room/stream?' + q.toString());
     es.addEventListener('room', e => {
       try { onRoom(JSON.parse(e.data)); } catch (err) { /* ignore malformed frame */ }
+    });
+    es.addEventListener('pos', e => {
+      try { if (onPos) onPos(JSON.parse(e.data)); } catch (err) { /* ignore malformed frame */ }
     });
     es.addEventListener('gone', () => {
       disconnect();

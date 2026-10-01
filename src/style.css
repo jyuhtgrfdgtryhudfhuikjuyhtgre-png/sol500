@@ -444,3 +444,66 @@ p { margin: 0; }
 .who p { font-size: var(--fs-xs); color: var(--fg-2); margin-top: 2px; }
 .portrait.down { filter: saturate(0.4); }
 .portrait.dead { filter: grayscale(1); opacity: 0.6; }
+
+/* ---------- surface (walkable outpost) ---------- */
+.ops-tabs { margin-top: 12px; display: inline-flex; }
+.ops-tabs button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding-inline: 16px; }
+.sf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px; margin-top: 12px; align-items: start; }
+.sf-stage { min-width: 0; }
+.sf-root { position: relative; height: min(74vh, 780px); min-height: 440px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #3a1d14; touch-action: none; user-select: none; -webkit-user-select: none; }
+.sf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
+.sf-canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.sf-overlay { position: absolute; inset: 0; pointer-events: none; }
+.sf-menu, .sf-joy, .sf-btn { pointer-events: auto; }
+.sf-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); padding: 6px 14px; border-radius: 999px; font-size: var(--fs-xs); color: var(--fg-2); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.sf-prompt { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(20, 14, 16, 0.9); border: 1px solid var(--accent); color: var(--fg); padding: 8px 14px; border-radius: 10px; font-weight: 600; font-size: var(--fs-sm); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.sf-prompt kbd { font-family: var(--font-data); background: var(--accent); color: var(--accent-ink); border-radius: 5px; padding: 1px 7px; margin-right: 6px; }
+.sf-menu { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(580px, calc(100% - 24px)); max-height: calc(100% - 28px); overflow: auto; background: rgba(28, 20, 23, 0.97); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+.sf-mhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px 0 14px; font-family: var(--font-display); font-size: var(--fs-md); }
+.sf-x { background: none; border: 0; color: var(--fg-2); font-size: 24px; line-height: 1; cursor: pointer; width: 34px; height: 34px; border-radius: 8px; }
+.sf-x:hover { background: var(--raised); color: var(--fg); }
+.sf-mbody { padding: 8px 12px 12px; display: grid; gap: 8px; }
+.sf-mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+.sf-mbtn { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--raised); cursor: pointer; color: var(--fg); min-height: 46px; position: relative; }
+.sf-mbtn[data-n]::after { content: attr(data-n); position: absolute; top: 4px; right: 6px; font: 600 10px var(--font-data); color: var(--fg-3); }
+.sf-mbtn b { font-size: var(--fs-sm); display: block; line-height: 1.25; }
+.sf-mbtn small { display: block; font-size: var(--fs-xs); color: var(--fg-3); line-height: 1.3; }
+.sf-mbtn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.sf-mbtn.primary small, .sf-mbtn.primary[data-n]::after { color: var(--accent-ink); }
+.sf-mbtn.on { border-color: var(--accent); background: var(--accent-soft); }
+.sf-mbtn:disabled { opacity: 0.42; cursor: not-allowed; }
+.sf-mbtn:hover:not(:disabled) { border-color: var(--accent); }
+.sf-ico { display: inline-grid; place-items: center; min-width: 22px; }
+.sf-note { font-size: var(--fs-sm); color: var(--fg-2); }
+.sf-note.warn { color: var(--warn); }
+.sf-note.crit { color: var(--crit); }
+.sf-note.ok { color: var(--ok); }
+.sf-note.faint { color: var(--fg-3); }
+.sf-stamina { position: absolute; left: 14px; top: 14px; width: 120px; height: 7px; border-radius: 7px; background: rgba(20, 14, 16, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); overflow: hidden; }
+.sf-stamina span { display: block; height: 100%; background: var(--ok); }
+.sf-joy, .sf-btn { display: none; }
+@media (pointer: coarse) {
+  .sf-joy { display: block; position: absolute; left: 18px; bottom: 18px; width: 118px; height: 118px; border-radius: 50%; background: rgba(20, 14, 16, 0.45); border: 2px solid rgba(255, 255, 255, 0.18); touch-action: none; }
+  .sf-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(140, 188, 236, 0.8); }
+  .sf-btn { display: grid; place-items: center; position: absolute; width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(20, 14, 16, 0.62); color: var(--fg); font: 700 20px var(--font-display); touch-action: none; }
+  .sf-act { right: 22px; bottom: 34px; background: rgba(140, 188, 236, 0.88); color: var(--accent-ink); }
+  .sf-run { right: 100px; bottom: 18px; width: 54px; height: 54px; }
+  .sf-run.on { background: var(--ok); color: #0b2016; }
+  .sf-prompt { bottom: 150px; }
+  .sf-menu { bottom: 146px; max-height: calc(100% - 160px); }
+  .sf-hint { white-space: normal; text-align: center; border-radius: 12px; }
+}
+.sf-side { display: grid; gap: 12px; min-width: 0; }
+.playas { display: flex; gap: 8px; flex-wrap: wrap; }
+.playas-b { padding: 3px; border-radius: 50%; border: 2px solid transparent; background: transparent; cursor: pointer; line-height: 0; }
+.playas-b[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.playas-b:disabled { opacity: 0.35; cursor: not-allowed; }
+.jobrows { display: grid; gap: 8px; }
+.jobrow { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--fs-sm); padding: 4px; border-radius: 8px; }
+.jobrow.me { background: var(--accent-soft); }
+.jobrow b { overflow-wrap: anywhere; }
+.jobrow select { background: var(--sunk); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; color: var(--fg); min-height: 36px; max-width: 150px; }
+@media (max-width: 1100px) {
+  .sf-layout { grid-template-columns: minmax(0, 1fr); }
+  .sf-root { height: min(66vh, 640px); min-height: 380px; }
+}

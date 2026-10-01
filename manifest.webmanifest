@@ -1,0 +1,20 @@
+{
+  "name": "SOL 500 Mars Outpost",
+  "short_name": "SOL 500",
+  "description": "Run a Mars outpost for 500 sols: walk your astronaut around the base, build, and balance life support, radiation shielding, power and food. Real NASA numbers, English and Vietnamese, LAN co-op for up to 5 players.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#1b1417",
+  "theme_color": "#1b1417",
+  "lang": "en",
+  "categories": ["education", "games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
