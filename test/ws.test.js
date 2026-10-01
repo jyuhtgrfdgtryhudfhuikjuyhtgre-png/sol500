@@ -1,4 +1,5 @@
 'use strict';
+const http = require('node:http');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createServer } = require('../server.js');
@@ -181,4 +182,67 @@ test('a client that resets mid-upgrade does not crash the server', async () => {
     await new Promise(r => setTimeout(r, 100));
     assert.equal((await fetch(base + '/api/info')).status, 200);
   } finally { srv.close(); }
+});
+
+// WebSocket hardening tests (Task 7)
+const WsClient = require('ws');
+const { attachWebSocket } = require('../lib/ws.js');
+const { createRooms } = require('../lib/rooms.js');
+
+function bare(t, opts) {
+  return new Promise(resolve => {
+    const rooms = createRooms();
+    const srv = http.createServer((req, res) => { res.writeHead(404); res.end(); });
+    const live = attachWebSocket(srv, rooms, opts);
+    t.after(() => { live.shutdown(); srv.close(); });
+    srv.listen(0, '127.0.0.1', () => resolve({ rooms, port: srv.address().port }));
+  });
+}
+const seatPath = (room, p) => '/ws?' + new URLSearchParams({ code: room.code, player: p.id, token: p.token });
+function upgradeStatus(port, p) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: p, headers: { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==', 'Sec-WebSocket-Version': '13' } });
+    req.on('response', res => { res.resume(); resolve(res.statusCode); });
+    req.on('upgrade', (res, socket) => { socket.destroy(); resolve(101); });
+    req.on('error', reject);
+    req.end();
+  });
+}
+const wsOpen = ws => new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
+const wsClosed = ws => new Promise(resolve => ws.once('close', code => resolve(code)));
+
+test('a full server answers 503, and an upgrade anywhere but /ws gets 404', async t => {
+  const { rooms, port } = await bare(t, { maxConnections: 1 });
+  const { room, player } = rooms.create('Host');
+  const ws = new WsClient('ws://127.0.0.1:' + port + seatPath(room, player));
+  await wsOpen(ws);
+  assert.equal(await upgradeStatus(port, seatPath(room, player)), 503);
+  assert.equal(await upgradeStatus(port, '/nope'), 404);
+  ws.close();
+});
+
+test('one seat can hold three sockets but not a fourth', async t => {
+  const { rooms, port } = await bare(t, {});
+  const { room, player } = rooms.create('Host');
+  const url = 'ws://127.0.0.1:' + port + seatPath(room, player);
+  const socks = [new WsClient(url), new WsClient(url), new WsClient(url)];
+  await Promise.all(socks.map(wsOpen));
+  assert.equal(await upgradeStatus(port, seatPath(room, player)), 503);
+  socks[0].close();
+  for (let i = 0; i < 50 && player.clients.size > 2; i++) await new Promise(r => setTimeout(r, 20));
+  assert.equal(await upgradeStatus(port, seatPath(room, player)), 101, 'a slot is free again');
+  socks.slice(1).forEach(s => s.close());
+});
+
+test('a socket that stops answering pings is dropped; one that answers stays', async t => {
+  const { rooms, port } = await bare(t, { heartbeatMs: 50 });
+  const { room, player } = rooms.create('Host');
+  const url = 'ws://127.0.0.1:' + port + seatPath(room, player);
+  const silent = new WsClient(url, { autoPong: false });
+  const healthy = new WsClient(url);
+  await Promise.all([wsOpen(silent), wsOpen(healthy)]);
+  assert.equal(await wsClosed(silent), 1006, 'terminated, not closed politely');
+  await new Promise(r => setTimeout(r, 200));
+  assert.equal(healthy.readyState, WsClient.OPEN);
+  healthy.close();
 });
