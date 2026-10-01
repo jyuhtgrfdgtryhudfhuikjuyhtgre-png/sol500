@@ -13,8 +13,9 @@ const { createRooms, MAX_PLAYERS } = require('./lib/rooms.js');
 const { attachWebSocket } = require('./lib/ws.js');
 const MAX_SOCKETS = 100;
 
-const { isRemote, clientIp, createLimiter } = require('./lib/limits.js');
-const MAX_BODY = 64 * 1024;
+const { clientIp, createLimiter, requestClass } = require('./lib/limits.js');
+const { send, readBody } = require('./lib/http.js');
+const { createAdmin } = require('./lib/admin.js');
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8', '.png': 'image/png',
@@ -28,19 +29,14 @@ function lanAddresses(port) {
   return out;
 }
 
-function createServer() {
+function createServer(opts = {}) {
   const rooms = createRooms();
+  const admin = createAdmin({ dataDir: opts.dataDir || null, adminKey: opts.adminKey || null });
   const limits = {
     create: createLimiter({ limit: 10, windowMs: 60000 }),
     join: createLimiter({ limit: 30, windowMs: 60000 }),
     act: createLimiter({ limit: 20, windowMs: 1000 }),
   };
-
-  function send(res, status, obj) {
-    const body = JSON.stringify(obj);
-    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(body);
-  }
 
   function serveStatic(req, res, pathname) {
     let rel = null;
@@ -56,26 +52,6 @@ function createServer() {
     });
   }
 
-  function readBody(req) {
-    return new Promise((resolve, reject) => {
-      const tooBig = () => Object.assign(new Error('tooBig'), { status: 413 });
-      if (Number(req.headers['content-length']) > MAX_BODY) { req.resume(); reject(tooBig()); return; }
-      let size = 0;
-      let over = false;
-      const chunks = [];
-      req.on('data', c => {
-        size += c.length;
-        if (size > MAX_BODY) { over = true; chunks.length = 0; return; }
-        chunks.push(c);
-      });
-      req.on('end', () => {
-        if (over) { reject(tooBig()); return; }
-        try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')); } catch (e) { reject(e); }
-      });
-      req.on('error', reject);
-    });
-  }
-
   function seat(res, r) {
     if (r.error) { send(res, r.status, { error: r.error }); return; }
     send(res, 200, { code: r.room.code, playerId: r.player.id, token: r.player.token });
@@ -85,15 +61,17 @@ function createServer() {
     let url;
     try { url = new URL(req.url, 'http://localhost'); } catch (e) { res.writeHead(400); res.end(); return; }
     const p = url.pathname;
-    const remote = isRemote(req);
+    const cls = requestClass(req);
+    const remote = cls === 'remote';
     const ip = clientIp(req);
     const tooFast = () => send(res, 429, { error: 'slowDown' });
     try {
       if (req.method === 'GET' && p === '/api/info') {
         const port = server.address() && server.address().port;
-        send(res, 200, { lan: true, maxPlayers: MAX_PLAYERS, addresses: remote ? [] : lanAddresses(port) });
+        send(res, 200, { lan: true, maxPlayers: MAX_PLAYERS, addresses: remote ? [] : lanAddresses(port), adminHere: cls === 'local' });
         return;
       }
+      if (await admin.handle(req, res, url, cls, ip)) return;
       if (req.method === 'POST' && p === '/api/room/create') {
         if (remote && !limits.create.hit(ip)) { tooFast(); return; }
         seat(res, rooms.create((await readBody(req)).name));
@@ -131,6 +109,7 @@ function createServer() {
   const closeHttp = server.close.bind(server);
   server.close = cb => { live.shutdown(); return closeHttp(cb); };
   server.rooms = rooms.rooms;
+  server.adminKey = admin.key;
   return server;
 }
 
