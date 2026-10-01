@@ -311,13 +311,13 @@ Each milestone is usable on its own. Work happens on `feat/v3-app-online-bigmap-
 ## 12. Feature checklist
 
 ### M1 — App + online
-- [ ] WebSocket transport through a real quick tunnel verified (spike)
-- [ ] Live updates on WebSockets (LAN + online); SSE removed
-- [ ] Server split into lib/ modules; existing tests still pass
-- [ ] Remote-request detection and rate limits
-- [ ] Desktop app window with built-in server
-- [ ] Host online share link with Copy + QR
-- [ ] Windows installer builds
+- [x] WebSocket transport through a real quick tunnel verified (spike)
+- [x] Live updates on WebSockets (LAN + online); SSE removed
+- [x] Server split into lib/ modules; existing tests still pass
+- [x] Remote-request detection and rate limits
+- [x] Desktop app window with built-in server
+- [x] Host online share link with Copy + QR
+- [x] Windows installer builds
 
 ### M2 — Admin panel
 - [ ] Admin key and local-only access
