@@ -168,3 +168,17 @@ test('live updates no longer use Server-Sent Events', async () => {
     assert.equal((await fetch(base + '/api/room/stream?code=X&player=Y&token=Z')).status, 404);
   } finally { srv.close(); }
 });
+
+test('a client that resets mid-upgrade does not crash the server', async () => {
+  const { srv, base } = await start();
+  try {
+    const net = require('node:net');
+    const sock = net.connect(srv.address().port, '127.0.0.1');
+    sock.on('error', () => {});
+    await new Promise(r => sock.on('connect', r));
+    sock.write('GET /ws?code=X&player=Y&token=Z HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n');
+    if (sock.resetAndDestroy) sock.resetAndDestroy(); else sock.destroy();
+    await new Promise(r => setTimeout(r, 100));
+    assert.equal((await fetch(base + '/api/info')).status, 200);
+  } finally { srv.close(); }
+});
