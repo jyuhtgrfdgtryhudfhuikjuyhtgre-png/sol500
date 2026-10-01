@@ -11,6 +11,8 @@
   let handlers = null;  // { onRoom, onStatus, onPos } while connected
   let retry = 0;
   let timer = null;
+  let gen = 0;          // bumped by disconnect(): tells an in-flight recover() it is stale
+  let hiddenAt = 0;
 
   async function info() {
     if (!/^https?:$/.test(location.protocol)) return null;
@@ -78,6 +80,7 @@
   function open() {
     timer = null;
     if (!session || !handlers) return;
+    if (ws) { const old = ws; ws = null; old.close(); } // never leave two sockets open
     const h = handlers;
     const sock = new WebSocket(socketUrl());
     ws = sock;
@@ -101,13 +104,14 @@
   // A refused socket looks just like a network error, so ask the server whether this seat still exists.
   async function recover() {
     const s = session;
+    const g = gen;
     if (!s || !handlers) return;
     try {
       const q = new URLSearchParams({ code: s.code, player: s.playerId, token: s.token });
       const r = await fetch('/api/room/state?' + q.toString(), { cache: 'no-store' });
       if (r.status === 403) { gone(); return; }
     } catch (e) { /* host unreachable for now: keep trying */ }
-    if (session !== s || !handlers) return;
+    if (g !== gen || session !== s || !handlers) return; // disconnected or reconnected meanwhile
     timer = setTimeout(open, Math.min(5000, 500 * Math.pow(2, retry++)));
   }
 
@@ -119,12 +123,34 @@
   }
 
   function disconnect() {
+    gen++;
     clearTimeout(timer);
     timer = null;
     handlers = null;
     const s = ws;
     ws = null;
     if (s) s.close();
+  }
+
+  // After sleep or a silent Wi-Fi drop the browser can keep a dead socket without firing onclose: replace it.
+  function refresh() {
+    if (!session || !handlers) return;
+    gen++;
+    clearTimeout(timer);
+    retry = 0;
+    const old = ws;
+    ws = null; // so its onclose is ignored
+    if (old) old.close();
+    open();
+  }
+
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (hiddenAt && Date.now() - hiddenAt > 15000) refresh();
+      hiddenAt = 0;
+    });
   }
 
   function act(type, payload) {
