@@ -5,4 +5,8 @@ if ! command -v node >/dev/null 2>&1; then
   echo "SOL 500 needs Node.js to host games. Install it from https://nodejs.org and run this again."
   exit 1
 fi
+if [ ! -f node_modules/ws/package.json ]; then
+  echo "First run: installing the network add-on (needs internet once)..."
+  npm install --omit=dev --no-audit --no-fund || { echo "Could not install it. Check the internet connection and try again."; exit 1; }
+fi
 node server.js --open
