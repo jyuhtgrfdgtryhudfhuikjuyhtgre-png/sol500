@@ -11,7 +11,8 @@
     "test": "node --test",
     "app:dev": "electron .",
     "smoke": "node tools/app-smoke.js",
-    "app": "electron-builder --win nsis"
+    "progress": "node tools/progress.js",
+    "app": "npm run progress && electron-builder --win nsis"
   },
   "dependencies": {
     "qrcode": "^1.5.4",
@@ -35,6 +36,8 @@
       "icons/**",
       "server.js",
       "index.html",
+      "admin.html",
+      "progress.json",
       "manifest.webmanifest",
       "sw.js",
       "package.json"
