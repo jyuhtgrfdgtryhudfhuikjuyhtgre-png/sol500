@@ -18,7 +18,11 @@ let port = 0;
 let online = null;   // { url, stop } while sharing
 let starting = null; // the pending start, so a double click can't open two tunnels
 
-function sendStatus(s) { if (win && !win.isDestroyed()) win.webContents.send('online:status', s); }
+function sendStatus(s) {
+  // The admin panel's Live tab shows the share link too.
+  if (server && server.setOnline) server.setOnline(s.state === 'on' ? { url: s.url, qr: s.qr } : null);
+  if (win && !win.isDestroyed()) win.webContents.send('online:status', s);
+}
 
 let generation = 0;  // bumped by stopOnline(), so a start still in flight knows it was cancelled
 let abort = new AbortController(); // one per generation: stopOnline() aborts the download, the start and the probe
@@ -96,9 +100,15 @@ function saveSize() {
 
 async function startServer() {
   port = await pickPort();
-  server = createServer();
+  server = createServer({ dataDir: app.getPath('userData'), allowProgressRefresh: !app.isPackaged });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '0.0.0.0', resolve); });
   port = server.address().port;
+}
+
+// Only pages from this app's own server (the game or its admin panel) may drive the app.
+function fromGame(e) {
+  const from = (e.senderFrame && e.senderFrame.url) || (e.sender && e.sender.getURL()) || '';
+  return from.startsWith('http://localhost:' + port + '/');
 }
 
 function createWindow() {
@@ -134,7 +144,8 @@ if (!app.requestSingleInstanceLock()) {
       return;
     }
     ipcMain.handle('app:info', () => ({ port }));
-    ipcMain.handle('online:start', async () => {
+    ipcMain.handle('online:start', async e => {
+      if (!fromGame(e)) return { error: 'forbidden' };
       try {
         return await startOnline();
       } catch (e) {
@@ -143,11 +154,10 @@ if (!app.requestSingleInstanceLock()) {
         return { error };
       }
     });
-    ipcMain.handle('online:stop', () => { stopOnline(); return { ok: true }; });
+    ipcMain.handle('online:stop', e => { if (!fromGame(e)) return { error: 'forbidden' }; stopOnline(); return { ok: true }; });
     // "Join game": the host's game opens in the friend's normal browser, never in this window (it has window.solApp).
     ipcMain.handle('join:open', async (e, req) => {
-      const from = (e.senderFrame && e.senderFrame.url) || (e.sender && e.sender.getURL()) || '';
-      if (!from.startsWith('http://localhost:' + port + '/')) return { error: 'forbidden' };
+      if (!fromGame(e)) return { error: 'forbidden' };
       const url = joinUrl(req && req.address, req && req.code);
       if (!url) return { error: 'badAddr' };
       try { await shell.openExternal(url); } catch (err) { return { error: 'openFailed' }; }

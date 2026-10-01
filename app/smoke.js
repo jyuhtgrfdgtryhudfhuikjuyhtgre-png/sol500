@@ -14,7 +14,7 @@ async function run({ win, port, app, startOnline }) {
       keys: [...document.querySelectorAll('[data-k]')].map(b => b.getAttribute('data-k')),
     })`);
     if (process.env.SOL_SMOKE_ONLINE && startOnline) out.online = await startOnline();
-    out.ok = !!(out.page.ui && out.page.app && out.page.lan && out.page.keys.includes('host-game') &&
+    out.ok = !!(out.page.ui && out.page.app && out.page.lan && out.page.keys.includes('host-game') && out.page.keys.includes('admin') &&
       (!process.env.SOL_SMOKE_ONLINE || (out.online && out.online.url)));
     fs.writeFileSync(process.env.SOL_SMOKE_OUT, JSON.stringify(out)); // written early so a long --stay run can be read
     if (process.env.SOL_SMOKE_SHOT) fs.writeFileSync(process.env.SOL_SMOKE_SHOT, (await win.webContents.capturePage()).toPNG());

@@ -165,5 +165,13 @@
   // Play-testing hook: drops the socket the way a Wi-Fi blip would, so reconnection can be checked in a real browser.
   function dropForTest() { if (ws) ws.close(); }
 
-  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, dropForTest, session: () => session };
+  // A finished solo game, for the host's admin panel. Fire and forget: the game never waits on it. The explored-map
+  // bitsets (from M3) are dropped first so the mission stays far under the server's 64 KB limit.
+  function recordSolo(mission, player) {
+    const m = Object.assign({}, mission);
+    if (m.expedition) m.expedition = Object.assign({}, m.expedition, { revealed: {} });
+    return post('/api/history/solo', { mission: m, player: player || '' });
+  }
+
+  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, dropForTest, recordSolo, session: () => session };
 })(typeof self !== 'undefined' ? self : this);

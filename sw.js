@@ -1,6 +1,6 @@
 /*
  * SOL 500 — service worker. Caches the app shell so the installed app starts offline.
- * App files: network first (always fresh when online), cache as the fallback. LAN API calls are never cached.
+ * App files: network first (always fresh when online), cache as the fallback. LAN API calls and the admin page are never cached.
  */
 const CACHE = 'sol500-v1';
 const SHELL = [
@@ -22,7 +22,8 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.pathname.includes('/api/')) return;
+  // API calls and the admin page (it carries this PC's admin key) always go to the network and are never stored.
+  if (event.request.method !== 'GET' || url.pathname.includes('/api/') || url.pathname === '/admin') return;
   const sameOrigin = url.origin === self.location.origin;
   event.respondWith(
     fetch(event.request)

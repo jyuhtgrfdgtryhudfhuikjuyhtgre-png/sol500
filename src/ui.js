@@ -126,6 +126,12 @@
     }
   }
 
+  // The admin panel: the same window in the app (its navigation guard allows this origin), a new tab in a browser.
+  function openAdmin() {
+    if (window.solApp) location.href = '/admin';
+    else window.open('/admin', '_blank', 'noopener');
+  }
+
   // ---------- LAN helpers ----------
   const lanOn = () => !!(store.lan && store.room);
   const me = () => (lanOn() ? store.room.players.find(p => p.id === store.lan.playerId) : null);
@@ -235,6 +241,8 @@
     store.buildType = null;
     store.advice = null;
     checkBadges(state);
+    // Served by a SOL 500 server (not the offline file): the host's admin panel records the finished mission.
+    if (state.status !== 'active' && store.lanInfo && N) N.recordSolo(state, store.lanForm.name || '');
     store.modal = 'report';
     saveSolo();
     render();
@@ -330,14 +338,17 @@
           h('div', { class: 'divider' }),
           store.lanInfo
             ? h('div', { class: 'setup-row' },
-              window.solApp
-                ? h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
-                  h('button', { class: 'btn', type: 'button', 'data-k': 'host-game', onclick: () => { store.modal = 'lan'; render(); } }, ico('users'), t('title.host')),
-                  h('button', {
-                    class: 'btn', type: 'button', 'data-k': 'join-game',
-                    onclick: () => { store.modal = 'lan'; render(); const el = document.getElementById('lan-hostaddr'); if (el) el.focus(); },
-                  }, ico('wifi'), t('title.join')))
-                : h('button', { class: 'btn', type: 'button', 'data-k': 'lan', onclick: () => { store.modal = 'lan'; render(); } }, ico('wifi'), t('title.lan')),
+              h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+                window.solApp
+                  ? [
+                    h('button', { class: 'btn', type: 'button', 'data-k': 'host-game', onclick: () => { store.modal = 'lan'; render(); } }, ico('users'), t('title.host')),
+                    h('button', {
+                      class: 'btn', type: 'button', 'data-k': 'join-game',
+                      onclick: () => { store.modal = 'lan'; render(); const el = document.getElementById('lan-hostaddr'); if (el) el.focus(); },
+                    }, ico('wifi'), t('title.join')),
+                  ]
+                  : h('button', { class: 'btn', type: 'button', 'data-k': 'lan', onclick: () => { store.modal = 'lan'; render(); } }, ico('wifi'), t('title.lan')),
+                store.lanInfo.adminHere ? h('button', { class: 'btn', type: 'button', 'data-k': 'admin', onclick: openAdmin }, ico('lock'), t('title.admin')) : null),
               h('p', { class: 'hint' }, t('title.lanHint')))
             : h('p', { class: 'hint' }, ico('wifi', 14), ' ', t('title.lanOff')))),
         panel(t('title.loop'), [
