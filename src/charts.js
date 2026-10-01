@@ -1,7 +1,9 @@
 /*
  * SOL 500 — small SVG line charts for the debrief.
  * One y-axis per chart, 2 px lines, legend + direct end labels, crosshair tooltip, and a data table for screen readers.
- * config: { title, unit, series: [{ name, color, points: [[x, y], ...] }], refLines: [{ y, label }], xLabel, fmt }
+ * lineChart config: { title, unit, series: [{ name, color, points: [[x, y], ...] }], refLines: [{ y, label }], xLabel, fmt,
+ *                     xMin, xMax, xTicks (defaults: 0, max(500, data), 100: the sol axis) }
+ * barChart config:  { title, rows: [{ label, value }], color, fmt, tableLabel }: horizontal bars, one hue, value at the tip
  */
 (function (root) {
   'use strict';
@@ -26,11 +28,16 @@
     const fmt = cfg.fmt || (v => Math.round(v).toLocaleString());
     const series = cfg.series.filter(s => s.points.length);
     const xs = series.flatMap(s => s.points.map(p => p[0]));
-    const xMin = 0, xMax = Math.max(500, ...xs);
-    const yMaxData = Math.max(1, ...series.flatMap(s => s.points.map(p => p[1])), ...(cfg.refLines || []).map(r => r.y));
+    const ys = series.flatMap(s => s.points.map(p => p[1]));
+    const xMin = cfg.xMin != null ? cfg.xMin : 0;
+    const xMax = cfg.xMax != null ? cfg.xMax : Math.max(500, ...xs);
+    const xStep = cfg.xTicks || 100;
+    const yMaxData = Math.max(1, ...ys, ...(cfg.refLines || []).map(r => r.y));
     const yMax = niceMax(yMaxData * 1.05);
-    const X = x => M.l + (x - xMin) / (xMax - xMin) * (W - M.l - M.r);
-    const Y = y => H - M.b - (y / yMax) * (H - M.t - M.b);
+    const lowest = Math.min(0, ...ys);
+    const yMin = lowest < 0 ? -niceMax(-lowest * 1.05) : 0;
+    const X = x => M.l + (x - xMin) / Math.max(1e-9, xMax - xMin) * (W - M.l - M.r);
+    const Y = y => H - M.b - ((y - yMin) / (yMax - yMin)) * (H - M.t - M.b);
 
     const wrap = document.createElement('div');
     wrap.className = 'chart';
@@ -54,13 +61,13 @@
     // grid + y axis
     const ticks = 4;
     for (let i = 0; i <= ticks; i++) {
-      const v = (yMax / ticks) * i;
+      const v = yMin + ((yMax - yMin) / ticks) * i;
       const y = Y(v);
-      el('line', { x1: M.l, x2: W - M.r, y1: y, y2: y, stroke: 'var(--line)', 'stroke-width': i === 0 ? 1.2 : 0.8 }, svg);
+      el('line', { x1: M.l, x2: W - M.r, y1: y, y2: y, stroke: 'var(--line)', 'stroke-width': Math.abs(v) < 1e-9 ? 1.2 : 0.8 }, svg);
       const t = el('text', { x: M.l - 8, y: y + 4, 'text-anchor': 'end', fill: 'var(--fg-3)', 'font-size': 11, 'font-family': 'var(--font-data)' }, svg);
       t.textContent = fmt(v);
     }
-    for (let x = 0; x <= xMax; x += 100) {
+    for (let x = xMin; x <= xMax + 1e-9; x += xStep) {
       const t = el('text', { x: X(x), y: H - M.b + 18, 'text-anchor': 'middle', fill: 'var(--fg-3)', 'font-size': 11, 'font-family': 'var(--font-data)' }, svg);
       t.textContent = String(x);
     }
@@ -178,5 +185,77 @@
     return wrap;
   }
 
-  root.SolCharts = { lineChart };
+  // Horizontal bars for counts per category: one hue (it's magnitude, not identity), bars no thicker than 18 px,
+  // square at the baseline with a 4 px rounded tip, the value right after the tip, a tooltip per bar, and the table view.
+  function barChart(container, cfg) {
+    const fmt = cfg.fmt || (v => Math.round(v).toLocaleString());
+    const rows = cfg.rows || [];
+    const BAND = 30, BAR = 18, LW = 160, RW = 64, BW = 640;
+    const BH = Math.max(1, rows.length) * BAND + 8;
+    const max = Math.max(1, ...rows.map(r => r.value));
+    const len = v => (Math.max(0, v) / max) * (BW - LW - RW);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'chart';
+    const svg = el('svg', { viewBox: `0 0 ${BW} ${BH}`, role: 'img', 'aria-label': cfg.title || '' });
+    el('title', {}, svg).textContent = cfg.title || '';
+    el('line', { x1: LW, x2: LW, y1: 2, y2: BH - 2, stroke: 'var(--line)', 'stroke-width': 1 }, svg);
+    const tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.hidden = true;
+
+    rows.forEach((r, i) => {
+      const top = 4 + i * BAND;
+      const y = top + (BAND - BAR) / 2;
+      const w = len(r.value);
+      const label = el('text', { x: LW - 10, y: y + BAR / 2 + 4, 'text-anchor': 'end', fill: 'var(--fg-2)', 'font-size': 12 }, svg);
+      label.textContent = r.label;
+      if (w > 0) {
+        const rr = Math.min(4, w, BAR / 2);
+        const x2 = LW + w;
+        const d = `M${LW} ${y} H${x2 - rr} Q${x2} ${y} ${x2} ${y + rr} V${y + BAR - rr} Q${x2} ${y + BAR} ${x2 - rr} ${y + BAR} H${LW} Z`;
+        el('path', { d, fill: cfg.color }, svg);
+      }
+      const value = el('text', { x: LW + w + 8, y: y + BAR / 2 + 4, fill: 'var(--fg)', 'font-size': 12, 'font-family': 'var(--font-data)' }, svg);
+      value.textContent = fmt(r.value);
+      const hit = el('rect', { x: 0, y: top, width: BW, height: BAND, fill: 'transparent' }, svg);
+      const show = () => {
+        tip.textContent = '';
+        const b = document.createElement('b');
+        b.textContent = fmt(r.value);
+        tip.append(r.label + ' ', b);
+        tip.hidden = false;
+        tip.style.left = ((LW + w) / BW) * 100 + '%';
+        tip.style.top = (top / BH) * 100 + '%';
+      };
+      hit.addEventListener('pointermove', show);
+      hit.addEventListener('pointerdown', show);
+      hit.addEventListener('pointerleave', () => { tip.hidden = true; });
+    });
+
+    wrap.appendChild(svg);
+    wrap.appendChild(tip);
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.className = 'hint';
+    sum.textContent = cfg.tableLabel || 'Data table';
+    det.appendChild(sum);
+    const tw = document.createElement('div');
+    tw.className = 'tablewrap';
+    const table = document.createElement('table');
+    table.className = 'log';
+    const tb = table.createTBody();
+    for (const r of rows) {
+      const tr = tb.insertRow();
+      tr.insertCell().textContent = r.label;
+      tr.insertCell().textContent = fmt(r.value);
+    }
+    tw.appendChild(table);
+    det.appendChild(tw);
+    wrap.appendChild(det);
+    container.appendChild(wrap);
+    return wrap;
+  }
+
+  root.SolCharts = { lineChart, barChart };
 })(typeof self !== 'undefined' ? self : this);

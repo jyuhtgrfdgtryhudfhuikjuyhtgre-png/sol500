@@ -1,0 +1,59 @@
+/* SOL 500 — admin panel. Builds on style.css: tokens, .panel, .btn, .chip, .seg, .modal, .chart, .bar, .sr-only. */
+:root {
+  --viz-1: #3987e5; /* chart marks: passes the dataviz checks (lightness, chroma, ≥ 3:1) on --panel #241b1e */
+}
+.adm { max-width: 1240px; margin: 0 auto; padding: 0 var(--gutter) 48px; }
+.adm-main { display: grid; gap: 16px; }
+.adm-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+.adm-tabs [role="tab"] {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; min-height: 44px; background: none; border: 0;
+  border-bottom: 2px solid transparent; color: var(--fg-2); font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.adm-tabs [role="tab"]:hover { color: var(--fg); }
+.adm-tabs [role="tab"][aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.adm-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.adm-tools .hint { margin-right: auto; }
+.adm-banner { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r-md); background: var(--crit-soft); color: var(--crit); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; display: grid; gap: 4px; align-content: start; }
+.stat .k { font-size: var(--fs-sm); color: var(--fg-3); }
+.stat .v { font-size: var(--fs-xl); font-weight: 600; line-height: 1.2; }
+.adm-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.adm-charts .wide { grid-column: 1 / -1; }
+.adm-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.adm-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.adm-table th, .adm-table td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.adm-table th { color: var(--fg-3); font-weight: 600; white-space: nowrap; }
+.adm-table .num { text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.adm-table td .chip { white-space: nowrap; }
+.th-sort { background: none; border: 0; padding: 4px 0; color: inherit; font: inherit; cursor: pointer; }
+.th-sort:hover { color: var(--fg); }
+.row-actions { white-space: nowrap; text-align: right; }
+.btn-danger { color: var(--crit); border-color: rgba(244, 110, 95, 0.45); }
+.btn-danger:hover:not(:disabled) { background: var(--crit-soft); border-color: var(--crit); }
+.adm-empty { display: grid; justify-items: center; gap: 8px; padding: 32px 16px; color: var(--fg-2); text-align: center; }
+.adm-login { min-height: 100vh; display: grid; place-items: center; padding: var(--gutter); }
+.adm-login form { width: min(420px, 100%); padding: 20px; display: grid; gap: 14px; }
+.adm-qr { width: 168px; height: 168px; border-radius: 8px; background: #fff; padding: 6px; }
+.adm-addr { font-family: var(--font-data); word-break: break-all; }
+.adm-room-h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.adm-room-h .btn { margin-left: auto; }
+.adm-warn { display: flex; gap: 8px; align-items: flex-start; color: var(--warn); font-size: var(--fs-sm); }
+.adm-msg.ok { color: var(--ok); }
+.adm-msg.crit { color: var(--crit); }
+.adm-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.adm-feats { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: var(--fs-sm); color: var(--fg-2); }
+.adm-feats li { display: flex; gap: 8px; align-items: flex-start; }
+.adm-feats li.done { color: var(--fg); }
+.adm-feats li.done .ico-i { color: var(--ok); }
+.adm-milestones { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; }
+.adm-sources { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: var(--fs-sm); }
+.adm-toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 200; max-width: calc(100% - 32px);
+  background: var(--raised); border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.adm-toast:empty { display: none; }
+@media (max-width: 760px) {
+  .adm-charts { grid-template-columns: 1fr; }
+  .adm-hide-sm { display: none; }
+}
