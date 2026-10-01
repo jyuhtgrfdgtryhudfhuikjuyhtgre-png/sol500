@@ -4,4 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('solApp', {
   info: () => ipcRenderer.invoke('app:info'),
+  hostOnline: () => ipcRenderer.invoke('online:start'),
+  stopOnline: () => ipcRenderer.invoke('online:stop'),
+  onOnline: cb => { ipcRenderer.on('online:status', (_e, s) => cb(s)); },
 });

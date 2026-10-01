@@ -39,6 +39,7 @@
     room: null,
     lanStatus: null,
     lanError: null,
+    online: null,
     lastTurnSeen: null,
     toast: null,
     prevScreen: null,
@@ -1212,6 +1213,38 @@
     return [h('span', { class: 'chip info' }, ico('wifi', 12), ' ', room.code), status];
   }
 
+  // ---------- online share link (desktop app only) ----------
+  function onlinePanel() {
+    const o = store.online || { state: 'off' };
+    const body = [h('p', { class: 'hint' }, t('online.lead'))];
+    if (o.state === 'on') {
+      body.push(
+        h('div', { class: 'addr', 'data-k': 'online-url' }, o.url),
+        h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+          h('button', {
+            class: 'btn btn-sm', type: 'button', 'data-k': 'online-copy',
+            onclick: () => navigator.clipboard.writeText(o.url).then(() => toast(t('online.copied')), () => {}),
+          }, t('online.copy')),
+          h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-stop', onclick: () => window.solApp.stopOnline() }, t('online.stop'))),
+        h('img', { src: o.qr, alt: t('online.qr'), width: 160, height: 160, style: 'border-radius:8px;background:#fff;padding:6px' }),
+        h('p', { class: 'hint' }, t('online.hint', { code: store.room.code })));
+    } else if (o.state === 'downloading' || o.state === 'starting') {
+      body.push(h('p', { class: 'muted' }, t(o.state === 'downloading' ? 'online.downloading' : 'online.starting')));
+    } else {
+      if (o.error) body.push(h('p', { class: 'crit' }, t('online.error')));
+      body.push(h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'online-start', onclick: startOnline }, ico('wifi', 16), t('online.start')));
+    }
+    return panel(t('online.title'), body);
+  }
+
+  async function startOnline() {
+    store.online = { state: 'starting' };
+    render();
+    const r = await window.solApp.hostOnline();
+    if (r && r.error) store.online = { state: 'off', error: r.error };
+    render();
+  }
+
   function viewLobby() {
     const room = store.room;
     const host = isHost();
@@ -1240,6 +1273,7 @@
             h('div', { class: 'players' }, room.players.map(pl => h('span', { class: 'chip ' + (pl.connected ? 'ok' : '') },
               pl.name, pl.id === room.hostId ? ' · ' + t('lan.hostTag') : ''))),
           ]),
+          host && window.solApp ? onlinePanel() : null,
           host ? panel(t('title.start'), [
             h('div', { class: 'setup-row' }, h('span', { class: 'eyebrow' }, t('title.difficulty')),
               seg('ldiff', diffOpts, room.settings.difficulty, v => N.act('settings', { difficulty: v })),
@@ -1476,6 +1510,7 @@
   // ---------- boot ----------
   function boot() {
     registerServiceWorker();
+    if (window.solApp) window.solApp.onOnline(s => { store.online = s; render(); });
     render();
     if (N) {
       N.info().then(info => {

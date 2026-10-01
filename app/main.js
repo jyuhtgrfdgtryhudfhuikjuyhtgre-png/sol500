@@ -8,10 +8,58 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { createServer } = require('../server.js');
 const { pickPort } = require('./port.js');
+const QRCode = require('qrcode');
+const tunnel = require('./tunnel.js');
 
 let win = null;
 let server = null;
 let port = 0;
+let online = null;   // { url, stop } while sharing
+let starting = null; // the pending start, so a double click can't open two tunnels
+
+function sendStatus(s) { if (win && !win.isDestroyed()) win.webContents.send('online:status', s); }
+
+async function doStartOnline() {
+  if (!online) {
+    online = await tunnel.start({
+      port,
+      binDir: path.join(app.getPath('userData'), 'bin'),
+      onStatus: sendStatus,
+      onExit: err => { online = null; sendStatus({ state: 'off', error: err ? err.code : null }); },
+    });
+  }
+  const qr = await QRCode.toDataURL(online.url, { margin: 1, width: 240, color: { dark: '#1b1417', light: '#ffffff' } });
+  sendStatus({ state: 'on', url: online.url, qr });
+  return { url: online.url, qr };
+}
+
+function startOnline() {
+  if (!starting) starting = doStartOnline().finally(() => { starting = null; });
+  return starting;
+}
+
+function stopOnline() {
+  const o = online;
+  online = null;
+  if (o) o.stop();
+  sendStatus({ state: 'off', error: null });
+}
+
+// Check mode: host a room in the window and press "Host online" like a player would.
+function uiStartOnline() {
+  return win.webContents.executeJavaScript(`(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const until = async (sel, ms) => { for (let t = 0; t < ms; t += 200) { const el = document.querySelector(sel); if (el) return el; await wait(200); } return null; };
+    document.querySelector('[data-k="host-game"]').click(); await wait(200);
+    const name = document.getElementById('lan-me'); name.value = 'Host'; name.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('[data-k="lan-host"]').click();
+    const btn = await until('[data-k="online-start"]', 5000);
+    if (!btn) return { error: 'no online button in the lobby' };
+    btn.click();
+    const link = await until('[data-k="online-url"]', 120000);
+    return link ? { url: link.textContent, room: SolUI.store.room && SolUI.store.room.code } : { error: (SolUI.store.online && SolUI.store.online.error) || 'no link' };
+  })()`);
+}
 
 const sizeFile = () => path.join(app.getPath('userData'), 'window.json');
 function loadSize() { try { return JSON.parse(fs.readFileSync(sizeFile(), 'utf8')); } catch (e) { return null; } }
@@ -64,9 +112,13 @@ if (!app.requestSingleInstanceLock()) {
       return;
     }
     ipcMain.handle('app:info', () => ({ port }));
+    ipcMain.handle('online:start', async () => {
+      try { return await startOnline(); } catch (e) { const error = e.code || 'failed'; sendStatus({ state: 'off', error }); return { error }; }
+    });
+    ipcMain.handle('online:stop', () => { stopOnline(); return { ok: true }; });
     createWindow();
-    if (process.env.SOL_SMOKE) require('./smoke.js').run({ win, port, app, startOnline: null });
+    if (process.env.SOL_SMOKE) require('./smoke.js').run({ win, port, app, startOnline: uiStartOnline });
   });
   app.on('window-all-closed', () => app.quit());
-  app.on('before-quit', () => { if (server) server.close(); });
+  app.on('before-quit', () => { stopOnline(); if (server) server.close(); });
 }
