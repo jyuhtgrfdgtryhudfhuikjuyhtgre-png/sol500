@@ -419,3 +419,267 @@
   render();
   if (S.token && S.tab === 'history') load(); // the live and project loaders start themselves once they register
 })();
+
+/*
+ * Live server tab (polls every 2 s while visible) and Project progress tab.
+ * The live view redraws only its changing part (#live-dyn) so that typing in the Wi-Fi password fields is never interrupted.
+ */
+(function () {
+  'use strict';
+  const X = window.SolAdmin;
+  const { S, h, add, ico, panel, stat, emptyPanel, api, ask, closeModal, flash, render, t, nf, dateTime, clock, MODE } = X;
+  const C = window.SolCharts;
+  const POLL_MS = 2000;
+  let pollGen = 0;
+  let lastSig = '';
+
+  // ---------- live ----------
+  async function loadLive() {
+    S.wifiMsg = null;
+    const who = await api('GET', '/api/admin/whoami');
+    if (who.error) return;
+    S.role = who.role;
+    S.wifi = who.wifi;
+    S.live = null;
+    lastSig = '';
+    render();
+    poll();
+  }
+
+  async function poll() {
+    X.poll.stop();
+    const g = ++pollGen;
+    if (S.tab !== 'live' || !S.token) return;
+    if (!document.hidden) {
+      const r = await api('GET', '/api/admin/live');
+      if (g !== pollGen || S.tab !== 'live') return;
+      if (!r.error) { S.live = r; S.wifi = r.wifi; softRender(); }
+    }
+    if (g === pollGen && S.token) X.poll.timer = setTimeout(poll, POLL_MS);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.tab === 'live' && S.token) poll(); });
+
+  // Redraw the live part only when something besides the uptime changed; the uptime ticks in place.
+  function softRender() {
+    const box = document.getElementById('live-dyn');
+    if (!box) { render(); return; }
+    const sig = JSON.stringify(Object.assign({}, S.live, { uptime: 0, wifi: null }));
+    const up = document.getElementById('live-uptime');
+    if (sig === lastSig && up) { up.textContent = duration(S.live.uptime); return; }
+    lastSig = sig;
+    box.textContent = '';
+    add(box, liveDynamic());
+  }
+
+  function duration(sec) {
+    const hrs = Math.floor(sec / 3600), min = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (hrs) return hrs + ' h ' + String(min).padStart(2, '0') + ' min';
+    if (min) return min + ' min ' + String(s).padStart(2, '0') + ' s';
+    return s + ' s';
+  }
+
+  async function copy(text) {
+    try { await navigator.clipboard.writeText(text); flash(t('common.copied')); } catch (e) { flash(text); }
+  }
+
+  function shareCard(L) {
+    if (!L.online) return panel(t('admin.l.share'), h('p', { class: 'hint' }, t('admin.l.notSharing')));
+    const img = h('img', { class: 'adm-qr', alt: t('admin.l.qr'), width: 168, height: 168 });
+    if (L.online.qr) img.src = L.online.qr;
+    return panel(t('admin.l.share'), [
+      h('a', { class: 'adm-addr', href: L.online.url, target: '_blank', rel: 'noopener noreferrer', 'data-k': 'live-share-url' }, L.online.url),
+      h('div', { class: 'adm-tools' },
+        h('button', { class: 'btn btn-sm', type: 'button', onclick: () => copy(L.online.url) }, ico('copy', 14), t('common.copy')),
+        window.solApp && S.role === 'local'
+          ? h('button', { class: 'btn btn-sm btn-danger', type: 'button', 'data-k': 'live-stop-share', onclick: async () => { await window.solApp.stopOnline(); poll(); } }, t('admin.l.stopSharing'))
+          : null),
+      L.online.qr ? img : null,
+    ]);
+  }
+
+  function addressCard(L) {
+    const list = L.addresses || [];
+    return panel(t('admin.l.addresses'), list.length
+      ? h('ul', { class: 'adm-list' }, list.map(a => h('li', { class: 'adm-addr' }, a)))
+      : h('p', { class: 'hint' }, t('admin.l.noAddresses')));
+  }
+
+  function roomCard(r) {
+    const closeIt = () => ask(t('admin.l.closeAsk', { code: r.code, n: r.players.length }), t('admin.l.close'), async () => {
+      await api('POST', '/api/admin/close', { code: r.code });
+      closeModal();
+      poll();
+    });
+    const kick = p => ask(t('admin.l.kickAsk', { name: p.name, code: r.code }), t('admin.l.kick'), async () => {
+      await api('POST', '/api/admin/kick', { code: r.code, playerId: p.id });
+      closeModal();
+      poll();
+    });
+    const head = h('div', { class: 'adm-room-h' },
+      h('span', { class: 'chip' }, t('admin.phase.' + r.phase)),
+      r.round != null ? h('span', { class: 'hint num' }, t('admin.l.roundSol', { r: r.round, s: r.sol })) : null,
+      r.everRemote ? h('span', { class: 'chip info' }, ico('earth', 12), t('admin.mode.online')) : null,
+      h('button', { class: 'btn btn-sm btn-danger', type: 'button', 'data-k': 'close:' + r.code, onclick: closeIt }, t('admin.l.close')));
+    const table = h('div', { class: 'tablewrap' }, h('table', { class: 'adm-table' },
+      h('thead', null, h('tr', null,
+        [t('admin.l.name'), t('admin.l.astronaut'), t('admin.l.status'), t('admin.l.via')].map(x => h('th', { scope: 'col' }, x)),
+        h('th', { scope: 'col', style: 'position:relative' }, h('span', { class: 'sr-only' }, t('admin.l.kick'))))),
+      h('tbody', null, r.players.map(p => h('tr', null,
+        h('td', null, h('b', null, p.name), p.host ? [' ', h('span', { class: 'chip' }, t('admin.l.host'))] : null),
+        h('td', null, p.role ? t('role.' + p.role) : h('span', { class: 'hint' }, t('admin.l.noCrew'))),
+        h('td', null, p.connected
+          ? h('span', { class: 'chip ok' }, ico('ok', 12), t('admin.l.connected'))
+          : h('span', { class: 'chip warn' }, ico('clock', 12), t('admin.l.awaySince', { time: clock(p.lastSeen) }))),
+        h('td', null, p.remote ? h('span', { class: 'chip info' }, ico('earth', 12), t('admin.l.remote')) : h('span', { class: 'hint' }, ico('wifi', 12), ' ', t('admin.mode.lan'))),
+        h('td', { class: 'row-actions' }, h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'kick:' + p.id, onclick: () => kick(p) }, t('admin.l.kick'))))))));
+    return panel(t('admin.l.room', { code: r.code }), [head, table]);
+  }
+
+  function eventsTable(list) {
+    if (!list.length) return h('p', { class: 'hint' }, t('admin.l.noEvents'));
+    return h('div', { class: 'tablewrap' }, h('table', { class: 'adm-table' },
+      h('thead', null, h('tr', null, h('th', { scope: 'col' }, t('admin.l.time')), h('th', { scope: 'col' }, t('admin.l.what')))),
+      h('tbody', null, list.map(ev => h('tr', null,
+        h('td', { class: 'num' }, clock(ev.at)),
+        h('td', null, t('admin.ev.' + ev.type, { name: ev.name || '', code: ev.code || '', round: ev.round, outcome: ev.outcome ? t('admin.outcome.' + ev.outcome) : '' })))))));
+  }
+
+  function liveDynamic() {
+    const L = S.live;
+    if (!L) return h('p', { class: 'hint' }, t('admin.loading'));
+    const connected = L.rooms.reduce((n, r) => n + r.players.filter(p => p.connected).length, 0);
+    return [
+      h('div', { class: 'stats' },
+        stat(t('admin.l.uptime'), h('span', { id: 'live-uptime' }, duration(L.uptime))),
+        stat(t('admin.l.players'), nf(connected)),
+        stat(t('admin.l.rooms'), nf(L.rooms.length)),
+        stat(t('admin.l.port'), String(L.port))),
+      h('div', { class: 'adm-cols' }, shareCard(L), addressCard(L)),
+      L.rooms.length ? L.rooms.map(roomCard) : emptyPanel('users', t('admin.l.noRooms')),
+      panel(t('admin.l.events'), eventsTable(L.events)),
+    ];
+  }
+
+  function wifiCard() {
+    const w = S.wifi || { enabled: false, hasPassword: false, sessions: 0 };
+    const lines = [h('p', { class: 'muted' }, t('admin.w.body')), h('p', { class: 'adm-warn' }, ico('warn', 16), t('admin.w.warn'))];
+    if (S.role !== 'local') return panel(t('admin.w.title'), [...lines, h('p', { class: 'hint' }, t('admin.w.managed'))]);
+    const msg = m => { S.wifiMsg = m; render(); };
+    const setEnabled = async on => {
+      const r = await api('POST', '/api/admin/wifi', { enabled: on });
+      if (r.error === 'noPassword') { msg({ k: 'admin.w.needPassword', tone: 'crit' }); return; }
+      if (!r.error) { S.wifi = r; msg(null); }
+    };
+    const p1 = h('input', { class: 'input', type: 'password', id: 'wifi-pw1', autocomplete: 'new-password', maxlength: 64 });
+    const p2 = h('input', { class: 'input', type: 'password', id: 'wifi-pw2', autocomplete: 'new-password', maxlength: 64 });
+    const form = h('form', { class: 'setup', 'data-k': 'wifi-form' },
+      h('div', { class: 'field' }, h('label', { for: 'wifi-pw1' }, t('admin.w.password')), p1),
+      h('div', { class: 'field' }, h('label', { for: 'wifi-pw2' }, t('admin.w.again')), p2),
+      h('button', { class: 'btn', type: 'submit' }, ico('lock', 14), t('admin.w.save')));
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (p1.value.length < 8 || p1.value.length > 64) { msg({ k: 'admin.w.short', tone: 'crit' }); return; }
+      if (p1.value !== p2.value) { msg({ k: 'admin.w.mismatch', tone: 'crit' }); return; }
+      const r = await api('POST', '/api/admin/wifi', { password: p1.value });
+      if (r.error) { msg({ k: r.error === 'badPassword' ? 'admin.w.short' : 'admin.error', tone: 'crit' }); return; }
+      S.wifi = r;
+      msg({ k: 'admin.w.saved', tone: 'ok' });
+    });
+    const addr = S.live && S.live.addresses && S.live.addresses[0];
+    return panel(t('admin.w.title'), [
+      ...lines,
+      h('div', { class: 'setup-row' }, h('span', { class: 'label eyebrow' }, t('admin.w.access')),
+        h('div', { class: 'seg', role: 'group', 'aria-label': t('admin.w.access') },
+          [[true, 'common.on'], [false, 'common.off']].map(([on, k]) => h('button', {
+            type: 'button', 'data-k': 'wifi:' + (on ? 'on' : 'off'), 'aria-pressed': String(w.enabled === on), onclick: () => setEnabled(on),
+          }, t(k))))),
+      form,
+      S.wifiMsg ? h('p', { class: 'adm-msg ' + S.wifiMsg.tone, role: 'status' }, t(S.wifiMsg.k)) : null,
+      w.enabled && addr ? h('p', { class: 'hint' }, t('admin.w.how', { addr })) : null,
+      h('div', { class: 'adm-tools' }, h('span', { class: 'hint' }, t('admin.w.sessions', { n: w.sessions })),
+        w.sessions ? h('button', {
+          class: 'btn btn-sm', type: 'button', 'data-k': 'wifi-logout',
+          onclick: async () => { const r = await api('POST', '/api/admin/wifi/logout'); if (!r.error) { S.wifi = r; render(); } },
+        }, t('admin.w.logout')) : null),
+    ]);
+  }
+
+  function viewLive() {
+    return [h('div', { id: 'live-dyn', class: 'adm-main' }, liveDynamic()), wifiCard()];
+  }
+
+  // ---------- project ----------
+  async function loadProject() {
+    const r = await api('GET', '/api/admin/progress');
+    if (r.error === 'noProgress') { S.progress = null; S.progressMissing = true; S.refreshable = !!r.refreshable; render(); return; }
+    if (r.error) return;
+    S.progress = r;
+    S.progressMissing = false;
+    S.refreshable = !!r.refreshable;
+    render();
+  }
+
+  async function refreshProject() {
+    S.refreshing = true;
+    render();
+    const r = await api('POST', '/api/admin/progress/refresh');
+    S.refreshing = false;
+    if (r.error) flash(t('admin.p.failed'));
+    await loadProject();
+  }
+
+  function milestoneCard(m, items) {
+    const done = items.filter(f => f.done).length;
+    const pct = items.length ? Math.round((done / items.length) * 100) : 0;
+    return h('section', { class: 'panel', 'aria-label': m.id + ' ' + m.title },
+      h('div', { class: 'panel-h' }, h('h2', { class: 'eyebrow' }, m.id + (m.title ? ' · ' + m.title : '')), h('span', { class: 'hint num' }, t('admin.p.done', { n: done, m: items.length }))),
+      h('div', { class: 'panel-b' },
+        h('div', { class: 'bar accent', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': m.title || m.id },
+          h('span', { style: 'width:' + pct + '%' })),
+        h('ul', { class: 'adm-feats' }, items.map(f => h('li', { class: f.done ? 'done' : null }, ico(f.done ? 'ok' : 'clock', 14), f.text)))));
+  }
+
+  function viewProject() {
+    const P = S.progress;
+    const refresh = MODE === 'local' && S.refreshable
+      ? h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'p-refresh', disabled: !!S.refreshing, onclick: refreshProject },
+        ico('refresh', 14), S.refreshing ? t('admin.p.refreshing') : t('admin.refresh'))
+      : null;
+    if (!P && !S.progressMissing) return h('p', { class: 'hint' }, t('admin.loading'));
+    if (!P) return [h('div', { class: 'adm-tools' }, refresh), emptyPanel('flag', t('admin.p.empty'))];
+    const features = P.features || [];
+    const milestones = P.milestones && P.milestones.length ? P.milestones : [...new Set(features.map(f => f.milestone))].map(id => ({ id, title: '' }));
+    const done = features.filter(f => f.done).length;
+    const tests = P.tests || { total: 0, pass: 0, fail: 0 };
+    const files = (P.code && P.code.files) || [];
+    const sources = (P.sources || []).filter(s => /^https:\/\//.test(s.url));
+    const biggest = h('div');
+    C.barChart(biggest, {
+      title: t('admin.p.biggest'), color: 'var(--viz-1)', tableLabel: t('admin.h.table'), fmt: nf,
+      rows: files.slice(0, 10).map(f => ({ label: f.path.split('/').pop(), value: f.lines })),
+    });
+    return [
+      h('div', { class: 'adm-tools' }, h('span', { class: 'hint' }, t('admin.p.generated', { date: dateTime(P.generatedAt) })), refresh),
+      h('div', { class: 'stats' },
+        stat(t('admin.p.features'), t('admin.p.done', { n: done, m: features.length })),
+        stat(t('admin.p.tests'), nf(tests.pass) + ' / ' + nf(tests.total),
+          tests.fail ? h('span', { class: 'chip crit' }, ico('crit', 12), t('admin.p.failing', { n: tests.fail })) : null),
+        stat(t('admin.p.commits'), nf((P.commits && P.commits.count) || 0)),
+        stat(t('admin.p.lines'), nf((P.code && P.code.total) || 0))),
+      h('div', { class: 'adm-milestones' }, milestones.map(m => milestoneCard(m, features.filter(f => f.milestone === m.id)))),
+      h('div', { class: 'adm-cols' },
+        panel(t('admin.p.recent'), h('div', { class: 'tablewrap' }, h('table', { class: 'adm-table' },
+          h('thead', null, h('tr', null, h('th', { scope: 'col' }, t('admin.p.hash')), h('th', { scope: 'col' }, t('admin.col.date')), h('th', { scope: 'col' }, t('admin.p.subject')))),
+          h('tbody', null, ((P.commits && P.commits.recent) || []).map(c => h('tr', null, h('td', { class: 'num' }, c.hash), h('td', { class: 'num' }, c.date), h('td', null, c.subject))))))),
+        panel(t('admin.p.biggest'), biggest)),
+      panel(t('admin.p.sources') + ' · ' + sources.length, h('ul', { class: 'adm-sources' },
+        sources.map(s => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer' }, s.label))))),
+    ];
+  }
+
+  X.VIEWS.live = viewLive;
+  X.VIEWS.project = viewProject;
+  X.LOADERS.live = loadLive;
+  X.LOADERS.project = loadProject;
+  if (S.token && S.tab !== 'history') { render(); X.LOADERS[S.tab](); }
+})();
