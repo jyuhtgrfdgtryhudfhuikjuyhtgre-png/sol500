@@ -137,3 +137,36 @@ test('the server hands out the game files but nothing else from the computer', a
     srv.close();
   }
 });
+
+test("players coming through the share link do not see the host's home network addresses", async () => {
+  const { srv, base } = await start();
+  try {
+    const local = await (await fetch(base + '/api/info')).json();
+    const remote = await (await fetch(base + '/api/info', { headers: { 'cf-connecting-ip': '203.0.113.7' } })).json();
+    assert.ok(Array.isArray(local.addresses));
+    assert.deepEqual(remote.addresses, []);
+    assert.equal(remote.lan, true);
+  } finally { srv.close(); }
+});
+
+test('strangers on the share link cannot flood the host with new rooms', async () => {
+  const { srv, base } = await start();
+  try {
+    const H = { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.9' };
+    const statuses = [];
+    for (let i = 0; i < 11; i++) statuses.push((await fetch(base + '/api/room/create', { method: 'POST', headers: H, body: '{"name":"x"}' })).status);
+    assert.deepEqual(statuses, [...Array(10).fill(200), 429]);
+    const other = await fetch(base + '/api/room/create', { method: 'POST', headers: { ...H, 'cf-connecting-ip': '198.51.100.1' }, body: '{}' });
+    assert.equal(other.status, 200, 'a different visitor is not blocked');
+    assert.equal((await post(base, '/api/room/create', { name: 'Host' })).code.length, 4, 'the host on this PC is never limited');
+  } finally { srv.close(); }
+});
+
+test('oversized requests are turned away with 413', async () => {
+  const { srv, base } = await start();
+  try {
+    const r = await fetch(base + '/api/room/create', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'x'.repeat(70 * 1024) }) });
+    assert.equal(r.status, 413);
+    assert.equal((await r.json()).error, 'tooBig');
+  } finally { srv.close(); }
+});

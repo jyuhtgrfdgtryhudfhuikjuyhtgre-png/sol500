@@ -1219,8 +1219,9 @@
           panel(t('lan.title'), [
             h('span', { class: 'eyebrow' }, t('lan.room')),
             h('div', { class: 'roomcode' }, room.code),
-            h('p', { class: 'hint' }, t('lan.share')),
-            (store.lanInfo && store.lanInfo.addresses || []).map(a => h('div', { class: 'addr' }, a)),
+            (store.lanInfo && store.lanInfo.addresses || []).length
+              ? [h('p', { class: 'hint' }, t('lan.share')), store.lanInfo.addresses.map(a => h('div', { class: 'addr' }, a))]
+              : null,
             h('div', { class: 'field' },
               h('label', { for: 'lan-name' }, t('lan.name')),
               h('input', {
