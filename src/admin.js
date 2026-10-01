@@ -432,6 +432,7 @@
   const POLL_MS = 2000;
   let pollGen = 0;
   let lastSig = '';
+  let lastWifi = '';
 
   // ---------- live ----------
   async function loadLive() {
@@ -442,6 +443,7 @@
     S.wifi = who.wifi;
     S.live = null;
     lastSig = '';
+    lastWifi = '';
     render();
     poll();
   }
@@ -453,17 +455,34 @@
     if (!document.hidden) {
       const r = await api('GET', '/api/admin/live');
       if (g !== pollGen || S.tab !== 'live') return;
+      if (r.error === 'stale') return; // the server restarted: stop here, the banner asks for a reload
       if (!r.error) { S.live = r; S.wifi = r.wifi; softRender(); }
     }
     if (g === pollGen && S.token) X.poll.timer = setTimeout(poll, POLL_MS);
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && S.tab === 'live' && S.token) poll(); });
 
-  // Redraw the live part only when something besides the uptime changed; the uptime ticks in place.
+  // Redraw only the parts that changed: the live part (uptime ticks in place) and the Wi-Fi hint + session count.
+  // The password fields are never touched. A full render happens only when the error banner appears or clears.
+  const liveSig = () => JSON.stringify(Object.assign({}, S.live, { uptime: 0, wifi: null }));
+  const wifiSig = () => JSON.stringify([S.wifi, firstAddress()]);
+  const firstAddress = () => S.live && S.live.addresses && S.live.addresses[0];
+
   function softRender() {
     const box = document.getElementById('live-dyn');
-    if (!box) { render(); return; }
-    const sig = JSON.stringify(Object.assign({}, S.live, { uptime: 0, wifi: null }));
+    if (!box || !!document.querySelector('.adm-banner') !== !!S.problem) {
+      render();
+      lastSig = liveSig();
+      lastWifi = wifiSig();
+      return;
+    }
+    const wbox = document.getElementById('wifi-dyn');
+    if (wbox && wifiSig() !== lastWifi) {
+      lastWifi = wifiSig();
+      wbox.textContent = '';
+      add(wbox, wifiDynamic());
+    }
+    const sig = liveSig();
     const up = document.getElementById('live-uptime');
     if (sig === lastSig && up) { up.textContent = duration(S.live.uptime); return; }
     lastSig = sig;
@@ -523,7 +542,7 @@
     const table = h('div', { class: 'tablewrap' }, h('table', { class: 'adm-table' },
       h('thead', null, h('tr', null,
         [t('admin.l.name'), t('admin.l.astronaut'), t('admin.l.status'), t('admin.l.via')].map(x => h('th', { scope: 'col' }, x)),
-        h('th', { scope: 'col', style: 'position:relative' }, h('span', { class: 'sr-only' }, t('admin.l.kick'))))),
+        h('th', { scope: 'col' }, h('span', { class: 'sr-only' }, t('admin.l.kick'))))),
       h('tbody', null, r.players.map(p => h('tr', null,
         h('td', null, h('b', null, p.name), p.host ? [' ', h('span', { class: 'chip' }, t('admin.l.host'))] : null),
         h('td', null, p.role ? t('role.' + p.role) : h('span', { class: 'hint' }, t('admin.l.noCrew'))),
@@ -585,7 +604,6 @@
       S.wifi = r;
       msg({ k: 'admin.w.saved', tone: 'ok' });
     });
-    const addr = S.live && S.live.addresses && S.live.addresses[0];
     return panel(t('admin.w.title'), [
       ...lines,
       h('div', { class: 'setup-row' }, h('span', { class: 'label eyebrow' }, t('admin.w.access')),
@@ -595,13 +613,22 @@
           }, t(k))))),
       form,
       S.wifiMsg ? h('p', { class: 'adm-msg ' + S.wifiMsg.tone, role: 'status' }, t(S.wifiMsg.k)) : null,
+      h('div', { id: 'wifi-dyn' }, wifiDynamic()),
+    ]);
+  }
+
+  // The part of the Wi-Fi card the poll keeps current: the address hint and the session count.
+  function wifiDynamic() {
+    const w = S.wifi || { enabled: false, hasPassword: false, sessions: 0 };
+    const addr = firstAddress();
+    return [
       w.enabled && addr ? h('p', { class: 'hint' }, t('admin.w.how', { addr })) : null,
       h('div', { class: 'adm-tools' }, h('span', { class: 'hint' }, t('admin.w.sessions', { n: w.sessions })),
         w.sessions ? h('button', {
           class: 'btn btn-sm', type: 'button', 'data-k': 'wifi-logout',
           onclick: async () => { const r = await api('POST', '/api/admin/wifi/logout'); if (!r.error) { S.wifi = r; render(); } },
         }, t('admin.w.logout')) : null),
-    ]);
+    ];
   }
 
   function viewLive() {

@@ -23,7 +23,7 @@
 .adm-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
 .adm-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .adm-table th, .adm-table td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
-.adm-table th { color: var(--fg-3); font-weight: 600; white-space: nowrap; }
+.adm-table th { color: var(--fg-3); font-weight: 600; white-space: nowrap; position: relative; } /* contains the sr-only header text */
 .adm-table .num { text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
 .adm-table td .chip { white-space: nowrap; }
 .th-sort { background: none; border: 0; padding: 4px 0; color: inherit; font: inherit; cursor: pointer; }
