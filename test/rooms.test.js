@@ -111,3 +111,20 @@ test("after leaving, a late position message can't bring the avatar back", () =>
   assert.equal(R.position(room, guest, { x: 5, y: 5 }), 'noCrew');
   assert.equal(room.positions.minh, undefined);
 });
+
+test("when a dropped player's grace period ends, everyone hears their seat can be taken back", t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  const { player: guest } = R.join(room.code, 'Guest');
+  const hc = fakeClient();
+  const gc = fakeClient();
+  R.attach(room, host, hc);
+  R.attach(room, guest, gc);
+  R.detach(room, guest, gc);
+  hc.got.length = 0;
+  t.mock.timers.tick(31000);
+  const last = hc.got.filter(m => m.type === 'room').at(-1);
+  assert.ok(last, 'a room update went out');
+  assert.equal(last.data.players.find(p => p.id === guest.id).connected, false);
+});

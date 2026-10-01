@@ -1312,7 +1312,8 @@
               h('span', { class: 'faint', style: 'font-size:var(--fs-xs)' }, t('role.' + c.role + '.skill'))),
             mineSlot
               ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => N.act('claim', { crewId: null }) }, t('lan.leave'))
-              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!owner, onclick: () => N.act('claim', { crewId: c.id }) }, t('lan.take')));
+              // A seat whose player has gone (closed tab, old share link) can be taken back.
+              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!(owner && owner.connected), onclick: () => N.act('claim', { crewId: c.id }) }, t('lan.take')));
         })))),
       h('div', { class: 'deb-actions' },
         h('button', { class: 'btn btn-ghost', type: 'button', onclick: leaveRoom }, t('lan.leave'))),
