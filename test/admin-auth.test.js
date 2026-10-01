@@ -125,3 +125,17 @@ test('a login that races a password change never gets a session', async () => {
   assert.equal(r.error, 'badPassword');
   assert.equal(a.wifi().sessions, 0);
 });
+
+test('a login that starts during a password change never keeps a session', async () => {
+  const a = createAdminAuth();
+  await a.setPassword(PW);
+  a.setEnabled(true);
+  const change = a.setPassword('a brand new one');
+  const pending = a.login(PW);
+  const r = await pending;
+  await change;
+  if (r.token) {
+    assert.equal(a.authorize('lan', r.token), null);
+  }
+  assert.equal(a.wifi().sessions, 0);
+});
