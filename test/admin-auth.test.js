@@ -106,5 +106,22 @@ test('a damaged admin.json switches Wi-Fi access off instead of crashing', async
   fs.writeFileSync(path.join(dir, 'admin.json'), '{ nope');
   assert.deepEqual(createAdminAuth({ dataDir: dir }).wifi(), { enabled: false, hasPassword: false, sessions: 0 });
   fs.writeFileSync(path.join(dir, 'admin.json'), JSON.stringify({ enabled: true, salt: '00', hash: 'abcd', N: 16384, r: 8, p: 1 }));
-  assert.deepEqual(await createAdminAuth({ dataDir: dir }).login(PW), { error: 'badPassword' }, 'a hash of the wrong length never throws');
+  const a = createAdminAuth({ dataDir: dir });
+  assert.deepEqual(a.wifi(), { enabled: false, hasPassword: false, sessions: 0 }, 'invalid salt/hash length loads as OFF');
+  assert.deepEqual(await a.login(PW), { error: 'off' });
+  fs.writeFileSync(path.join(dir, 'admin.json'), JSON.stringify({ enabled: true, salt: '0'.repeat(32), hash: 'a'.repeat(64), N: 3, r: 8, p: 1 }));
+  const b = createAdminAuth({ dataDir: dir });
+  assert.deepEqual(b.wifi(), { enabled: false, hasPassword: false, sessions: 0 }, 'invalid N loads as OFF');
+});
+
+test('a login that races a password change never gets a session', async () => {
+  const a = createAdminAuth();
+  await a.setPassword(PW);
+  a.setEnabled(true);
+  const pending = a.login(PW);
+  await a.setPassword('a brand new one');
+  const r = await pending;
+  assert.equal(r.token, undefined);
+  assert.equal(r.error, 'badPassword');
+  assert.equal(a.wifi().sessions, 0);
 });
