@@ -2,7 +2,7 @@
 /*
  * SOL 500 — LAN co-op server. `node server.js`, then open the printed address on every device.
  * Serves index.html + src/* and hosts rooms (lib/rooms.js), which run the same engine as the browser.
- * Transport: JSON POST for actions, Server-Sent Events for room updates.
+ * Transport: JSON POST for actions, one WebSocket per tab (/ws) for live updates.
  */
 'use strict';
 const http = require('node:http');
@@ -10,6 +10,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { createRooms, MAX_PLAYERS } = require('./lib/rooms.js');
+const { attachWebSocket } = require('./lib/ws.js');
+const MAX_SOCKETS = 100;
 
 const MAX_BODY = 256 * 1024;
 const TYPES = {
@@ -69,14 +71,6 @@ function createServer() {
     send(res, 200, { code: r.room.code, playerId: r.player.id, token: r.player.token });
   }
 
-  // Server-Sent Events adapter: an open HTTP response becomes a rooms client.
-  function sseClient(res) {
-    return {
-      send(type, data) { res.write('event: ' + type + '\ndata: ' + JSON.stringify(data) + '\n\n'); },
-      close() { res.end(); },
-    };
-  }
-
   const server = http.createServer(async (req, res) => {
     let url;
     try { url = new URL(req.url, 'http://localhost'); } catch (e) { res.writeHead(400); res.end(); return; }
@@ -98,21 +92,11 @@ function createServer() {
         send(res, r.status, r.body);
         return;
       }
-      if (req.method === 'GET' && (p === '/api/room/state' || p === '/api/room/stream')) {
+      if (req.method === 'GET' && p === '/api/room/state') {
         const found = rooms.auth(url.searchParams.get('code'), url.searchParams.get('player'), url.searchParams.get('token'));
-        if (p === '/api/room/state') {
-          if (!found) { send(res, 403, { error: 'noRoom' }); return; }
-          found.player.lastSeen = Date.now();
-          send(res, 200, rooms.publicRoom(found.room));
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-        if (!found) { res.end('event: gone\ndata: {}\n\n'); return; }
-        const client = sseClient(res);
-        res.write('retry: 2000\n\n');
-        rooms.attach(found.room, found.player, client);
-        const ping = setInterval(() => res.write(': ping\n\n'), 20000);
-        req.on('close', () => { clearInterval(ping); rooms.detach(found.room, found.player, client); });
+        if (!found) { send(res, 403, { error: 'noRoom' }); return; }
+        found.player.lastSeen = Date.now();
+        send(res, 200, rooms.publicRoom(found.room));
         return;
       }
       if (req.method === 'GET') { serveStatic(req, res, p); return; }
@@ -122,6 +106,9 @@ function createServer() {
       else res.end();
     }
   });
+  const live = attachWebSocket(server, rooms, { maxConnections: MAX_SOCKETS, msgPerSecond: 30 });
+  const closeHttp = server.close.bind(server);
+  server.close = cb => { live.shutdown(); return closeHttp(cb); };
   server.rooms = rooms.rooms;
   return server;
 }
