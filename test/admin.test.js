@@ -145,3 +145,131 @@ test('an admin request body over 64 KB is refused without crashing', async t => 
   assert.equal(r.status, 413);
   assert.equal((await call(port, 'local', 'GET', '/api/info')).status, 200);
 });
+
+const { finishedMission } = require('./helpers/missions.js');
+const K = srv => ({ 'x-admin-key': srv.adminKey });
+
+test('solo missions from this PC and Wi-Fi devices are recorded; the share link and junk are refused', async t => {
+  const { srv, port } = await start();
+  t.after(() => srv.close());
+  const m = finishedMission();
+  assert.equal((await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: m, player: 'Linh' } })).status, 200);
+  const lan = await call(port, 'lan', 'POST', '/api/history/solo', { body: { mission: m, player: 'Bảo' } });
+  assert.equal(lan.status, 200, 'Wi-Fi devices record solo games even with Wi-Fi admin access off');
+  assert.match(lan.json.id, /^[0-9a-f]{12}$/);
+  assert.equal((await call(port, 'remote', 'POST', '/api/history/solo', { body: { mission: m } })).status, 404);
+  assert.equal((await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: Object.assign({}, m, { status: 'active' }) } })).status, 400);
+  assert.equal((await call(port, 'local', 'GET', '/api/history/solo')).status, 404);
+  const list = (await call(port, 'local', 'GET', '/api/admin/history', { headers: K(srv) })).json.records;
+  assert.deepEqual(list.map(r => [r.mode, r.players[0].name]), [['solo', 'Bảo'], ['solo', 'Linh']]);
+});
+
+test('solo recording is slowed to 10 a minute per device', async t => {
+  const { srv, port } = await start();
+  t.after(() => srv.close());
+  const codes = [];
+  for (let i = 0; i < 11; i++) codes.push((await call(port, 'lan', 'POST', '/api/history/solo', { body: { mission: null } })).status);
+  assert.deepEqual(codes, [...Array(10).fill(400), 429]);
+});
+
+test('history can be listed, exported as CSV, and deleted one by one or all at once', async t => {
+  const dir = tmp(t);
+  const { srv, port } = await start({ dataDir: dir });
+  t.after(() => srv.close());
+  for (const name of ['A', 'B']) await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: finishedMission(), player: name } });
+  const csv = await call(port, 'local', 'GET', '/api/admin/history.csv', { headers: K(srv) });
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers['content-type'], /text\/csv/);
+  assert.match(csv.headers['content-disposition'], /attachment; filename="sol500-history\.csv"/);
+  assert.equal(csv.text.split('\r\n').filter(Boolean).length, 3, 'header + 2 rows');
+  const [first] = (await call(port, 'local', 'GET', '/api/admin/history', { headers: K(srv) })).json.records;
+  assert.equal((await call(port, 'local', 'POST', '/api/admin/history/delete', { headers: K(srv), body: { id: first.id } })).status, 200);
+  assert.equal((await call(port, 'local', 'POST', '/api/admin/history/delete', { headers: K(srv), body: { id: first.id } })).status, 404);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'history.json'), 'utf8')).length, 1);
+  await call(port, 'local', 'POST', '/api/admin/history/clear', { headers: K(srv) });
+  assert.deepEqual((await call(port, 'local', 'GET', '/api/admin/history', { headers: K(srv) })).json.records, []);
+});
+
+test('a co-op mission is recorded when it ends, as online when anyone came through the share link', async t => {
+  const { srv, port } = await start();
+  t.after(() => srv.close());
+  const host = (await call(port, 'local', 'POST', '/api/room/create', { body: { name: 'Host' } })).json;
+  const far = (await call(port, 'remote', 'POST', '/api/room/join', { body: { code: host.code, name: '<i>Nguyễn Ánh</i>' } })).json;
+  const act = (as, s, type, extra) => call(port, as, 'POST', '/api/room/act', { body: Object.assign({ code: s.code, player: s.playerId, token: s.token, type }, extra) });
+  await act('local', host, 'claim', { crewId: 'lena' });
+  await act('remote', far, 'claim', { crewId: 'minh' });
+  assert.equal((await act('local', host, 'launch')).status, 200);
+  let rec = [];
+  for (let i = 0; i < 25 && !rec.length; i++) {
+    await act('local', host, 'advance');
+    rec = (await call(port, 'local', 'GET', '/api/admin/history', { headers: K(srv) })).json.records;
+  }
+  assert.equal(rec.length, 1);
+  assert.equal(rec[0].mode, 'online');
+  assert.deepEqual(rec[0].players.map(p => [p.name, p.role]), [['Host', 'engineer'], ['iNguyễn Ánh/i', 'biologist']], 'markup stripped, diacritics kept');
+});
+
+test('the live view shows rooms, players, recent events and the share link', async t => {
+  const { srv, port } = await start();
+  t.after(() => srv.close());
+  const host = (await call(port, 'local', 'POST', '/api/room/create', { body: { name: 'Linh' } })).json;
+  await call(port, 'remote', 'POST', '/api/room/join', { body: { code: host.code, name: 'Far' } });
+  let live = (await call(port, 'local', 'GET', '/api/admin/live', { headers: K(srv) })).json;
+  assert.equal(live.role, 'local');
+  assert.equal(live.port, port);
+  assert.ok(Number.isInteger(live.uptime));
+  assert.ok(Array.isArray(live.addresses));
+  assert.equal(live.online, null);
+  assert.deepEqual(live.rooms[0].players.map(p => [p.name, p.remote]), [['Linh', false], ['Far', true]]);
+  assert.deepEqual(live.events.map(e => e.type), ['playerJoined', 'roomCreated'], 'newest first');
+  assert.deepEqual(Object.keys(live.events[0]).sort(), ['at', 'code', 'name', 'remote', 'type']);
+  assert.deepEqual(live.wifi, { enabled: false, hasPassword: false, sessions: 0 });
+  srv.setOnline({ url: 'https://quiet-river.trycloudflare.com', qr: 'data:image/png;base64,AAAA' });
+  live = (await call(port, 'local', 'GET', '/api/admin/live', { headers: K(srv) })).json;
+  assert.deepEqual(live.online, { url: 'https://quiet-river.trycloudflare.com', qr: 'data:image/png;base64,AAAA' });
+  srv.setOnline({ url: 'https://x.trycloudflare.com', qr: 'javascript:alert(1)' });
+  assert.equal((await call(port, 'local', 'GET', '/api/admin/live', { headers: K(srv) })).json.online.qr, null, 'only data: images');
+  srv.setOnline(null);
+  assert.equal((await call(port, 'local', 'GET', '/api/admin/live', { headers: K(srv) })).json.online, null);
+});
+
+test('kick and close reach the players over their live sockets', async t => {
+  const { srv, port } = await start();
+  t.after(() => srv.close());
+  const host = (await call(port, 'local', 'POST', '/api/room/create', { body: { name: 'Host' } })).json;
+  const guest = (await call(port, 'local', 'POST', '/api/room/join', { body: { code: host.code, name: 'Guest' } })).json;
+  const open = s => {
+    const ws = new WebSocket('ws://127.0.0.1:' + port + '/ws?' + new URLSearchParams({ code: s.code, player: s.playerId, token: s.token }));
+    ws.got = [];
+    ws.done = new Promise(resolve => ws.addEventListener('close', resolve));
+    ws.ready = new Promise(resolve => ws.addEventListener('message', resolve, { once: true }));
+    ws.addEventListener('message', e => ws.got.push(JSON.parse(e.data)));
+    return ws;
+  };
+  const hws = open(host);
+  const gws = open(guest);
+  await Promise.all([hws.ready, gws.ready]);
+  assert.equal((await call(port, 'local', 'POST', '/api/admin/kick', { headers: K(srv), body: { code: host.code, playerId: guest.playerId } })).status, 200);
+  await gws.done;
+  assert.deepEqual(gws.got.at(-1), { t: 'event', d: { kind: 'kicked' } });
+  assert.equal((await call(port, 'local', 'POST', '/api/admin/kick', { headers: K(srv), body: { code: host.code, playerId: guest.playerId } })).status, 404);
+  assert.equal((await call(port, 'local', 'POST', '/api/admin/close', { headers: K(srv), body: { code: host.code } })).status, 200);
+  await hws.done;
+  assert.deepEqual(hws.got.at(-1), { t: 'event', d: { kind: 'closed' } });
+  assert.equal((await call(port, 'local', 'POST', '/api/admin/close', { headers: K(srv), body: { code: host.code } })).status, 404);
+  const types = (await call(port, 'local', 'GET', '/api/admin/live', { headers: K(srv) })).json.events.map(e => e.type);
+  assert.deepEqual(types.slice(0, 2), ['roomClosed', 'playerKicked']);
+});
+
+test('project progress is read from the snapshot file; refreshing it is for a developer on this PC only', async t => {
+  const dir = tmp(t);
+  const file = path.join(dir, 'progress.json');
+  const { srv, port } = await start({ progressFile: file });
+  t.after(() => srv.close());
+  const none = await call(port, 'local', 'GET', '/api/admin/progress', { headers: K(srv) });
+  assert.deepEqual([none.status, none.json], [404, { error: 'noProgress', refreshable: false }]);
+  fs.writeFileSync(file, JSON.stringify({ generatedAt: '2026-10-01T00:00:00.000Z', features: [] }));
+  const got = await call(port, 'local', 'GET', '/api/admin/progress', { headers: K(srv) });
+  assert.deepEqual(got.json, { generatedAt: '2026-10-01T00:00:00.000Z', features: [], refreshable: false });
+  assert.deepEqual((await call(port, 'local', 'POST', '/api/admin/progress/refresh', { headers: K(srv) })).json, { error: 'notAvailable' });
+});
