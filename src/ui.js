@@ -328,7 +328,14 @@
           h('div', { class: 'divider' }),
           store.lanInfo
             ? h('div', { class: 'setup-row' },
-              h('button', { class: 'btn', type: 'button', 'data-k': 'lan', onclick: () => { store.modal = 'lan'; render(); } }, ico('wifi'), t('title.lan')),
+              window.solApp
+                ? h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+                  h('button', { class: 'btn', type: 'button', 'data-k': 'host-game', onclick: () => { store.modal = 'lan'; render(); } }, ico('users'), t('title.host')),
+                  h('button', {
+                    class: 'btn', type: 'button', 'data-k': 'join-game',
+                    onclick: () => { store.modal = 'lan'; render(); const el = document.getElementById('lan-join'); if (el) el.focus(); },
+                  }, ico('wifi'), t('title.join')))
+                : h('button', { class: 'btn', type: 'button', 'data-k': 'lan', onclick: () => { store.modal = 'lan'; render(); } }, ico('wifi'), t('title.lan')),
               h('p', { class: 'hint' }, t('title.lanHint')))
             : h('p', { class: 'hint' }, ico('wifi', 14), ' ', t('title.lanOff')))),
         panel(t('title.loop'), [
@@ -1222,6 +1229,7 @@
             (store.lanInfo && store.lanInfo.addresses || []).length
               ? [h('p', { class: 'hint' }, t('lan.share')), store.lanInfo.addresses.map(a => h('div', { class: 'addr' }, a))]
               : null,
+            window.solApp && host ? h('p', { class: 'hint' }, t('lan.firewall')) : null,
             h('div', { class: 'field' },
               h('label', { for: 'lan-name' }, t('lan.name')),
               h('input', {

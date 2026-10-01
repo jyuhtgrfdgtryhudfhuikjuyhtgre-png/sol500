@@ -8,9 +8,14 @@
   "main": "app/main.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "app:dev": "electron .",
+    "smoke": "node tools/app-smoke.js"
   },
   "dependencies": {
     "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1"
   }
 }
