@@ -1359,8 +1359,15 @@
     render();
   }
 
-  function onLanStatus(status) {
-    if (status === 'gone') { store.lan = null; store.room = null; store.lanStatus = null; go('title'); return; }
+  function onLanStatus(status, kind) {
+    if (status === 'gone') {
+      store.lan = null; store.room = null; store.lanStatus = null;
+      // The room is over: an app host should no longer be reachable from the internet.
+      if (window.solApp && store.online && store.online.state !== 'off') window.solApp.stopOnline();
+      go('title');
+      if (kind === 'kicked' || kind === 'closed') toast(t('lan.gone.' + kind));
+      return;
+    }
     store.lanStatus = status;
     render();
   }
@@ -1558,6 +1565,11 @@
 
   // ---------- boot ----------
   function boot() {
+    // Script-inserted, so a network that drops Google traffic cannot hold up the first paint.
+    const fonts = document.createElement('link');
+    fonts.rel = 'stylesheet';
+    fonts.href = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap';
+    document.head.appendChild(fonts);
     registerServiceWorker();
     if (window.solApp) window.solApp.onOnline(s => { store.online = s; render(); });
     render();

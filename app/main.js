@@ -127,6 +127,8 @@ function createWindow() {
     return { action: 'deny' };
   });
   win.once('ready-to-show', () => win.show());
+  // A hung page load must not keep the window hidden.
+  setTimeout(() => { if (win && !win.isDestroyed() && !win.isVisible()) win.show(); }, 3000);
   win.on('close', saveSize);
   win.loadURL(origin + '/?app=1');
 }

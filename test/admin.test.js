@@ -273,3 +273,24 @@ test('project progress is read from the snapshot file; refreshing it is for a de
   assert.deepEqual(got.json, { generatedAt: '2026-10-01T00:00:00.000Z', features: [], refreshable: false });
   assert.deepEqual((await call(port, 'local', 'POST', '/api/admin/progress/refresh', { headers: K(srv) })).json, { error: 'notAvailable' });
 });
+
+test('solo records are only taken from JSON posts, so another web page cannot forge them', async t => {
+  const { srv, port } = await start();
+  t.after(() => srv.close());
+  const m = finishedMission();
+  const text = await call(port, 'lan', 'POST', '/api/history/solo', { headers: { 'content-type': 'text/plain' }, body: { mission: m } });
+  assert.equal(text.status, 415);
+  assert.deepEqual(text.json, { error: 'badType' });
+  const cs = await call(port, 'lan', 'POST', '/api/history/solo', { headers: { 'content-type': 'application/json; charset=utf-8' }, body: { mission: m } });
+  assert.equal(cs.status, 200);
+});
+
+test('a solo post with an oversized or object pilot records no crewId', async t => {
+  const { srv, port } = await start();
+  t.after(() => srv.close());
+  const m = finishedMission();
+  await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: Object.assign({}, m, { pilot: 'p'.repeat(5000) }) } });
+  await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: Object.assign({}, m, { pilot: { a: 1 } }) } });
+  const list = (await call(port, 'local', 'GET', '/api/admin/history', { headers: K(srv) })).json.records;
+  assert.deepEqual(list.map(r => r.players[0].crewId), [null, null]);
+});

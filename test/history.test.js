@@ -28,7 +28,7 @@ test('a finished mission becomes a history record scored by the engine', () => {
   assert.equal(r.grade, E.scoreMission(m).grade);
   assert.equal(r.sols, m.sol);
   assert.deepEqual(r.achievements, E.achievements(m));
-  assert.deepEqual(r.players, [{ name: 'Nguyễn Thị Ánh', crewId: 'lena', role: 'engineer' }, { name: 'bx/b', crewId: 'nobody', role: null }]);
+  assert.deepEqual(r.players, [{ name: 'Nguyễn Thị Ánh', crewId: 'lena', role: 'engineer' }, { name: 'bx/b', crewId: null, role: null }]);
   if (m.status === 'lost') assert.ok(CAUSES.includes(r.cause)); else assert.equal(r.cause, null);
   assert.deepEqual(r.explore, { regions: 0, landmarks: 0, structures: 0, beacons: 0, goals: 0 });
   assert.equal(summarize(m, { mode: 'party' }).mode, 'solo', 'unknown modes count as solo');
@@ -106,4 +106,36 @@ test('CSV export opens cleanly in Excel and never runs a formula', () => {
   assert.equal(lines[0], 'endedAt,mode,missionCode,difficulty,crewSize,players,outcome,cause,score,grade,sols,achievements');
   assert.equal(lines[1], '"2026-10-01T10:00:00.000Z","solo","ABC","cadet","4","\'=HYPERLINK(""x"") (medic); Bảo ""B""","lost","cold","-12","D","250","first_sol builder"');
   assert.equal(lines[2], '');
+});
+
+test('a solo crewId that is not a crew member of the mission is dropped', () => {
+  const m = finishedMission();
+  const big = summarize(m, { players: [{ name: 'A', crewId: 'x'.repeat(50000) }] });
+  const obj = summarize(m, { players: [{ name: 'A', crewId: { a: 1 } }] });
+  const ok = summarize(m, { players: [{ name: 'A', crewId: 'lena' }] });
+  assert.equal(big.players[0].crewId, null);
+  assert.equal(obj.players[0].crewId, null);
+  assert.equal(ok.players[0].crewId, 'lena');
+});
+
+test('inherited object keys are not a difficulty', () => {
+  const m = finishedMission();
+  for (const d of ['constructor', '__proto__', 'toString']) assert.equal(validMission(Object.assign({}, m, { difficulty: d })), false, d);
+});
+
+test('a read error other than bad JSON does not move a valid history file aside', t => {
+  const dir = tmp(t);
+  createHistory({ dataDir: dir }).add({ id: 'a' });
+  const busy = Object.assign({}, fs, { readFileSync() { throw Object.assign(new Error('busy'), { code: 'EBUSY' }); } });
+  t.mock.method(console, 'error', () => {});
+  assert.deepEqual(createHistory({ dataDir: dir, fsImpl: busy }).list(), []);
+  assert.deepEqual(fs.readdirSync(dir), ['history.json'], 'the file stays where it is');
+  assert.deepEqual(createHistory({ dataDir: dir }).list().map(r => r.id), ['a']);
+});
+
+test('a history file that is valid JSON but not a list is set aside', t => {
+  const dir = tmp(t);
+  fs.writeFileSync(path.join(dir, 'history.json'), '{"a":1}');
+  assert.deepEqual(createHistory({ dataDir: dir }).list(), []);
+  assert.ok(fs.readdirSync(dir).some(f => /^history\.corrupt-\d+\.json$/.test(f)));
 });

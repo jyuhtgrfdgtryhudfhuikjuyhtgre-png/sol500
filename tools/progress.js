@@ -52,7 +52,7 @@ function lineCount(file) {
 
 // Failing tests make `node --test` exit non-zero, but its output still has the counts we want.
 function run(cmd, args) {
-  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
+  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true, timeout: 300000 });
   return r.error ? '' : r.stdout || '';
 }
 

@@ -91,7 +91,7 @@
       if (!msg) return;
       if (msg.t === 'room') h.onRoom(msg.d);
       else if (msg.t === 'pos') { if (h.onPos) h.onPos(msg.d); }
-      else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone();
+      else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone(msg.d.kind);
     };
     sock.onclose = () => {
       if (ws !== sock) return; // closed on purpose
@@ -115,11 +115,12 @@
     timer = setTimeout(open, Math.min(5000, 500 * Math.pow(2, retry++)));
   }
 
-  function gone() {
+  // kind: 'kicked' | 'closed' when the host said why; a refused seat (403) has no reason.
+  function gone(kind) {
     const h = handlers;
     disconnect();
     clear();
-    if (h) h.onStatus('gone');
+    if (h) h.onStatus('gone', kind);
   }
 
   function disconnect() {

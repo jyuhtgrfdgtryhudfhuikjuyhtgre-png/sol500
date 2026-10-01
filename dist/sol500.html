@@ -7,14 +7,9 @@
 <meta name="description" content="Run a Mars outpost for 500 sols: balance life support, radiation shielding, power and food. Real NASA numbers, English and Vietnamese, LAN co-op for up to 5 players.">
 <meta name="theme-color" content="#1b1417">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23b4532f'/%3E%3Ccircle cx='24' cy='24' r='5' fill='%237a3623'/%3E%3Ccircle cx='40' cy='38' r='7' fill='%237a3623'/%3E%3C/svg%3E">
-
-
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>window.SOL_APP = false;</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap">
 <style>
 /* SOL 500 — Martian dusk mission console.
    Layout: a sticky telemetry strip on top, three working columns below (events + outpost map | crew | forecast + systems);
@@ -2501,6 +2496,8 @@ p { margin: 0; }
     'lan.openHost': "Open host's game",
     'lan.badAddr': "That doesn't look like a SOL 500 share link or Wi-Fi address.",
     'lan.opened': 'Opened in your browser. Join with the room code there.',
+    'lan.gone.kicked': 'The host removed you from the room.',
+    'lan.gone.closed': 'The host closed the room.',
     'online.title': 'Play online',
     'online.chipOn': 'Online',
     'online.chipRetry': 'Share link stopped. Tap to restart',
@@ -2573,6 +2570,7 @@ p { margin: 0; }
     'admin.login.bad': 'Wrong password.',
     'admin.login.slow': 'Too many tries. Wait a minute, then try again.',
     'admin.login.off': 'Wi-Fi access is switched off on the host PC.',
+    'admin.login.ended': 'Your admin session ended. Log in again.',
     'admin.h.missions': 'Missions',
     'admin.h.winRate': 'Win rate',
     'admin.h.best': 'Best score',
@@ -3276,6 +3274,8 @@ p { margin: 0; }
     'lan.openHost': 'Mở phòng của chủ phòng',
     'lan.badAddr': 'Đây không giống link chia sẻ hoặc địa chỉ Wi-Fi của SOL 500.',
     'lan.opened': 'Đã mở trong trình duyệt. Hãy vào phòng bằng mã phòng ở đó.',
+    'lan.gone.kicked': 'Chủ phòng đã đưa bạn ra khỏi phòng.',
+    'lan.gone.closed': 'Chủ phòng đã đóng phòng.',
     'online.title': 'Chơi qua mạng',
     'online.chipOn': 'Đang online',
     'online.chipRetry': 'Link chia sẻ đã dừng. Bấm để mở lại',
@@ -3348,6 +3348,7 @@ p { margin: 0; }
     'admin.login.bad': 'Sai mật khẩu.',
     'admin.login.slow': 'Thử quá nhiều lần. Đợi một phút rồi thử lại.',
     'admin.login.off': 'Máy chủ đã tắt quyền truy cập qua Wi-Fi.',
+    'admin.login.ended': 'Phiên quản trị đã kết thúc. Hãy đăng nhập lại.',
     'admin.h.missions': 'Nhiệm vụ',
     'admin.h.winRate': 'Tỉ lệ thành công',
     'admin.h.best': 'Điểm cao nhất',
@@ -4116,7 +4117,7 @@ p { margin: 0; }
       if (!msg) return;
       if (msg.t === 'room') h.onRoom(msg.d);
       else if (msg.t === 'pos') { if (h.onPos) h.onPos(msg.d); }
-      else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone();
+      else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone(msg.d.kind);
     };
     sock.onclose = () => {
       if (ws !== sock) return; // closed on purpose
@@ -4140,11 +4141,12 @@ p { margin: 0; }
     timer = setTimeout(open, Math.min(5000, 500 * Math.pow(2, retry++)));
   }
 
-  function gone() {
+  // kind: 'kicked' | 'closed' when the host said why; a refused seat (403) has no reason.
+  function gone(kind) {
     const h = handlers;
     disconnect();
     clear();
-    if (h) h.onStatus('gone');
+    if (h) h.onStatus('gone', kind);
   }
 
   function disconnect() {
@@ -6732,8 +6734,15 @@ p { margin: 0; }
     render();
   }
 
-  function onLanStatus(status) {
-    if (status === 'gone') { store.lan = null; store.room = null; store.lanStatus = null; go('title'); return; }
+  function onLanStatus(status, kind) {
+    if (status === 'gone') {
+      store.lan = null; store.room = null; store.lanStatus = null;
+      // The room is over: an app host should no longer be reachable from the internet.
+      if (window.solApp && store.online && store.online.state !== 'off') window.solApp.stopOnline();
+      go('title');
+      if (kind === 'kicked' || kind === 'closed') toast(t('lan.gone.' + kind));
+      return;
+    }
     store.lanStatus = status;
     render();
   }
@@ -6931,6 +6940,11 @@ p { margin: 0; }
 
   // ---------- boot ----------
   function boot() {
+    // Script-inserted, so a network that drops Google traffic cannot hold up the first paint.
+    const fonts = document.createElement('link');
+    fonts.rel = 'stylesheet';
+    fonts.href = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap';
+    document.head.appendChild(fonts);
     registerServiceWorker();
     if (window.solApp) window.solApp.onOnline(s => { store.online = s; render(); });
     render();

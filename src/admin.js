@@ -6,6 +6,11 @@
  */
 (function () {
   'use strict';
+  // Script-inserted, so a network that drops Google traffic cannot hold up the first paint.
+  const fonts = document.createElement('link');
+  fonts.rel = 'stylesheet';
+  fonts.href = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap';
+  document.head.appendChild(fonts);
   const I = window.SolI18n, A = window.SolArt, C = window.SolCharts;
   const root = document.getElementById('admin');
   const meta = n => { const m = document.querySelector('meta[name="' + n + '"]'); return (m && m.getAttribute('content')) || ''; };
@@ -111,7 +116,7 @@
     if (r.status === 401 && MODE === 'local') { S.problem = 'stale'; render(); return { error: 'stale' }; }
     if (MODE === 'lan' && (r.status === 401 || r.status === 404)) {
       const who = r.status === 401 ? 401 : await whoamiStatus();
-      if (who === 401 || who === 404) { logout(who === 404 ? 'admin.login.off' : null); return { error: 'loggedOut' }; }
+      if (who === 401 || who === 404) { logout(who === 404 ? 'admin.login.off' : 'admin.login.ended'); return { error: 'loggedOut' }; }
     }
     if (S.problem === 'network') S.problem = null;
     if (!r.ok) return Object.assign({ status: r.status }, j, { error: (j && j.error) || 'http' + r.status });

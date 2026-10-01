@@ -139,3 +139,13 @@ test('a login that starts during a password change never keeps a session', async
   }
   assert.equal(a.wifi().sessions, 0);
 });
+
+test('a password typed with combining accents matches the same password typed precomposed', async () => {
+  const a = createAdminAuth();
+  const nfc = 'mật khẩu của tôi'.normalize('NFC');
+  const nfd = nfc.normalize('NFD');
+  assert.notEqual(nfc, nfd);
+  assert.deepEqual(await a.setPassword(nfc), { ok: true });
+  a.setEnabled(true);
+  assert.ok((await a.login(nfd)).token);
+});
