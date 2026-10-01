@@ -10,13 +10,45 @@
     "start": "node server.js",
     "test": "node --test",
     "app:dev": "electron .",
-    "smoke": "node tools/app-smoke.js"
+    "smoke": "node tools/app-smoke.js",
+    "app": "electron-builder --win nsis"
   },
   "dependencies": {
     "qrcode": "^1.5.4",
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "electron": "^44.5.1"
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.sol500.marsoutpost",
+    "productName": "SOL 500",
+    "artifactName": "SOL500-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "app/**",
+      "lib/**",
+      "src/**",
+      "icons/**",
+      "server.js",
+      "index.html",
+      "manifest.webmanifest",
+      "sw.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SOL 500"
+    }
   }
 }
