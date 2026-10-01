@@ -1,127 +1,278 @@
-# SOL 500 v3 — Desktop App · Online Share Link · Big Random Map · Admin Panel
+# SOL 500 v3 — Desktop App · Online Share Link · Endless World · Admin Panel
 
-**Date:** 2026-10-01 · **Status:** design approved in chat (parts 1–3); spec awaiting review
+**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1 shipped; v3.1 design approved in chat; spec awaiting review
 **Builds on:** `2026-09-30-sol500-mars-outpost-design.md` (v1/v2: engine, roles, LAN co-op, walkable outpost)
-**Branch:** `feat/v3-app-online-bigmap-admin`
+**Branches:** one `feat/…` branch per milestone, off `master`
 
-## 0. Decisions (from the user, 2026-10-01)
+**What v3.1 changed:**
+- The fixed 96/128-tile map became an **endless world**. It is built in chunks, and chunks out of range are deleted and rebuilt identically.
+- Exploring gains **regions, landmarks, random structures, expedition goals and relay beacons**.
+- Each player now controls **exactly one astronaut**.
+- The admin panel also works **in the browser on the host PC** and **on other Wi-Fi devices with a password**.
+- Milestones are built **one at a time**.
+
+## 0. Decisions (from the user)
 
 | Question | Answer |
 |---|---|
 | App type | Windows desktop app: its own window, no Node install, hosts the server itself |
 | "Host the server on web" | Share link from the host's PC (Cloudflare quick tunnel), no account |
 | What exploring gives | Resources & finds · Shelter & survival · Dangers · Fog of war + minimap |
-| How exploring ties into the mission | Approach A, the **expedition layer**: explore in real time during each round's planning phase; banked finds count when the round advances |
+| How exploring ties into the mission | The **expedition layer**: explore in real time during each round's planning phase; banked finds count when the round advances |
 | Admin panel | All three tabs: Game history · Live server control · Project progress |
+| *v3.1:* Map size | **Endless.** Built from the mission code in chunks near the player. Out-of-range chunks are deleted and rebuilt identically when you return. |
+| *v3.1:* Exploring extras | **Regions, landmarks, expedition goals, relay beacons,** and **random structures** "so it's not boring" |
+| *v3.1:* "Only play as 1 player" | Each player controls **one astronaut**, picked at the start. AI walks the rest; you can still assign everyone's jobs. Multiplayer stays. |
+| *v3.1:* Admin in the web | An **Admin button in the browser on the host PC**, and **other Wi-Fi devices with a password**. Never through the share link. |
+| *v3.1:* Deadline / order | "Just do your very best", one milestone at a time: M2 → M3 → M4 → M5 |
 
 ## 1. Goals & success criteria
 
-1. **App:** `SOL500-Setup.exe` installs and runs on Windows 10/11 without Node. Solo, Host and Join all work from the app.
-2. **Online:** a friend on another network joins through the share link and sees teammates move smoothly. The median position round-trip through the tunnel must be under 300 ms, measured in the M1 spike and in QA. The admin panel can't be reached through the link (automated test).
-3. **Big map:** the same mission code gives the same map on every computer. Generating a Large map takes ≤ 200 ms. Every find is reachable (tested on 300 seeds × 2 sizes). The median frame rate is ≥ 50 fps in a Chrome performance trace on the dev laptop, on a Large map with 5 avatars and devils on screen.
+1. **App:** `SOL500-Setup.exe` installs and runs on Windows 10/11 without Node. Solo, Host and Join all work from the app. *(M1, done)*
+2. **Online:** a friend on another network joins through the share link and sees teammates move smoothly, with a median position round-trip under 300 ms. The admin panel can't be reached through the link (automated test). *(M1, done: 193 ms)*
+3. **Endless world:**
+   - **Determinism:** the same mission code gives the same world on every computer and on the server. 1,000 random chunks built in shuffled order are byte-identical to the same chunks built in order, in Node and in the browser.
+   - **Speed:** building one data chunk takes ≤ 4 ms and painting one image chunk takes ≤ 2 ms (median, dev laptop).
+   - **Frame rate:** median ≥ 50 fps in a Chrome performance trace while driving the rover in a straight line for 2 minutes with 5 avatars on screen.
+   - **Flat memory:** after driving 2,000 tiles out and back, the JS heap is within +20 MB of where it started, and the number of live chunks stays under its caps the whole way.
+   - **Reachability:** on 300 seeds, every find, cave, structure and landmark within 128 tiles of the base can be reached on foot from the base.
 4. **Exploring matters, without breaking balance:**
    - The debrief shows what was found and by whom.
-   - Balance bots over 1000 seeds keep the v2 targets: the naive bot succeeds < 35 % and the balanced bot > 70 %, both with and without exploring.
-   - Exploring raises the existing "sloppy player, recommended kit" bot's success rate by 10–25 points.
-5. **Run length:** a solo mission without exploring still fits in 10–20 minutes. With full exploring it fits in about 30 minutes.
-6. **Admin:**
+   - Balance bots over 1,000 seeds keep the v2 targets: the naive bot succeeds < 35 % and the balanced bot > 70 %, both with and without exploring.
+   - Exploring raises the "sloppy player, recommended kit" bot's success rate by 10–25 points.
+   - An endless map can't be farmed: the per-round haul is capped by suit charges and backpack space, and the explorer bot's haul per round must plateau.
+5. **One astronaut:** in solo play you choose your astronaut once. There is no switching; the AI walks the others. If your astronaut dies you take over a surviving crewmate.
+6. **Run length:** a solo mission without exploring still fits in 10–20 minutes. With full exploring it fits in about 30–40 minutes.
+7. **Admin:**
    - Every finished mission (solo, LAN or online) is recorded.
    - The live view updates within 2 s.
    - Kick and close work.
    - The project tab shows the checklist, tests, commits and sources.
+   - The panel opens from the browser on the host PC and, with the password, from another Wi-Fi device.
+   - Every admin path returns 404 through the share link (automated tests).
 
-**Non-goals:** Mac/Linux app builds, code signing, accounts or logins, an always-online cloud server, player-vs-player play, changing the 20-round × 25-sol mission structure.
+**Non-goals:** Mac/Linux app builds, code signing, accounts or logins (other than the admin password), an always-online cloud server, player-vs-player play, changing the 20-round × 25-sol mission structure, HTTPS on the LAN.
 
-## 2. The big random map (`src/worldgen.js`)
+## 2. The endless world (`src/worldgen.js`)
 
-**Size**
-- The host picks **Normal 96×96** (default) or **Large 128×128** tiles. Tiles are 64 px; the current map is 15×11.
-- The base's 9×5 build grid sits in the centre, so the engine's build rules (`buildSpots`, `touchesBase`) don't change.
-- A flat ring 6 tiles wide is kept around the base.
+### 2.1 Coordinates and determinism
+- World tiles are integers in both directions, and can be negative. Tiles are 64 px.
+- The base's 9×5 build grid has its top-left at tile (−4, −2), so the HQ sits at (0, 0). The engine's build rules (`buildSpots`, `touchesBase`) still use grid coordinates and don't change; the surface converts.
+- A **flat zone** of radius 12 tiles around the base never gets blocking terrain, finds, structures or landmarks.
+- Every tile is a **pure function of (seed, x, y)**. Noise fields are evaluated per tile. Discrete features (craters, mesas, canyons, structures, landmarks) are placed **one per cell** on coarse grids, at a spot chosen by hashing (seed, cell x, cell y). A chunk looks up only the feature cells that can overlap it.
+- So any chunk can be built in any order, on any client or on the server, with the same result. The world is never sent over the network.
+- Integer hashing only (`Math.imul`); no `Math.random` and no floating-point accumulation across chunks.
 
-**Determinism:** `generate(seed, size)` is a pure function. Every client generates the map locally from the mission code, so the map is never sent over the network. Results are cached per (seed, size).
+### 2.2 Regions
+The world is divided into regions using a jittered Voronoi diagram on a 224-tile grid, so a region is roughly 150–300 tiles across. Each cell's region type comes from a hash, except the base's cell, which is always **Plains**. Borders are dithered over about 6 tiles so colours blend.
 
-**Terrain layers**, in generation order:
-1. **Elevation:** fractal value noise. High ground becomes **mesas** with a **cliff** border (blocks movement).
-2. **Dunes:** a second noise field. Dunes slow walking to ×0.7; the rover isn't slowed.
-3. **Boulder fields:** a third noise field. Scattered single boulders block movement.
-4. **Craters:** 6–10 on Normal (scaled by area on Large), radius 4–9. Each has a raised **rim** (blocking) with 1–2 gaps and a flat floor.
-5. **One canyon:** a noise-guided walk across the map, 3–5 tiles wide. The walls block movement; there are at least 3 ramps.
-6. **Lava-tube entrances (caves):** placed on mesa or canyon walls. Each cave tile is a shelter zone.
+| Region | Look | Terrain mix | Finds and dangers (tuned in M4) | Real-world analogue (sourced in M3) |
+|---|---|---|---|---|
+| Plains | rust regolith | few boulders, small craters | balanced | Gale crater floor / Jezero plains |
+| Dune Sea | dark basaltic sand | dunes everywhere, few blockers | few finds, more dust devils | Bagnold Dunes (Curiosity) |
+| Crater Field | grey-brown, pitted | many craters with rims | science ×1.5, ice in crater floors | heavily cratered southern highlands |
+| Canyon Lands | layered red and tan | canyon segments, mesas | layered-rock science, ice in canyons | Valles Marineris |
+| Icy Plains | pale, polygon-cracked | flat, polygon ground, ice scarps | ice ×3, colder (suit drain +10 %) | Arcadia Planitia shallow ice; exposed ice scarps |
+| Volcanic Flanks | dark lava rock | boulder fields, lava tubes | metal ×1.5, caves ×3 | Tharsis / Arsia Mons skylights |
 
-**Finds** are placed by Poisson-disc sampling with at least 6 tiles between them. Distance rings set how rich a find is: inner ≤ 20 tiles from the base, middle 20–40, outer > 40. The values below are starting points that `tools/balance.js` tunes.
+- Entering a region for the first time shows its name and one real fact with its source, as a toast.
+- Regions discovered count towards achievements and expedition goals.
 
-| Find | Where | Normal count | Gives |
-|---|---|---|---|
-| Ice deposit | crater floors, canyon | 8 | 3 / 4 / 6 loads (by ring) × 40 kg water |
-| Metal-rich rock | anywhere outside the base ring | 12 | 3 / 4 / 5 loads × 40 kg materials |
-| Crashed cargo pod (fictional, from earlier uncrewed supply landers) | plains | 5 | 3 loads, each a spare kit, 60 kg food, or an O₂ canister |
-| Science site (layered rock, meteorite, old delta, methane vent) | mixed | 7 | one survey: 20 / 35 / 60 science |
-| Cave | mesa/canyon walls | 4 (≥ 1 within 25 tiles of the base) | shelter |
+### 2.3 Terrain and features
+Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder, cliff, rim, crater floor, canyon floor, canyon wall, ramp, ice, polygon ground, lava rock, tube floor, tube wall, skylight, structure floor, structure wall and base.
 
-**Guarantees, enforced and tested:**
-- The flat base ring exists.
-- Every find and cave can be reached on foot from the base. A flood fill checks this; if a find is unreachable, a ramp is carved through the nearest blocking boundary.
-- The minimum counts per ring are met.
-- The generator is deterministic.
+**Every blocking feature is bounded and spaced**, so open ground always stays connected:
+- **Mesas:** blobs 4–14 tiles across, one per 48-tile cell at most, inset at least 6 tiles from the cell edges. They are solid obstacles; nothing is placed on top.
+- **Craters:** radius 4–12, one per 64-tile cell at most (more in the Crater Field). Each has a blocking rim with 2–3 gaps and a walkable floor.
+- **Canyons:** in Canyon Lands, a noise-guided segment 40–110 tiles long and 3–5 wide, one per 128-tile cell. Both walls block, there is a ramp at least every 24 tiles, and the ends are open.
+- **Boulders:** single tiles. In a dense area they're thinned so no 2×2 block is fully solid.
+- **Dunes** slow walking to ×0.7; the rover isn't slowed.
+- **Precedence** when features overlap: landmark > structure > canyon > crater > mesa > boulders > noise.
 
-**Output:** `{ w, h, tiles: Uint8Array, sites: [{ id, kind, x, y, loads, amount, ring }], caves: [{ x, y }], base: { x, y } }`. Tile codes cover regolith, dune, boulder, cliff, rim, crater floor, canyon floor, canyon wall, cave, ramp and base.
+**Local reachability check:** a find or structure entrance is only placed if a flood fill over its 96×96-tile window reaches it from the window border. The check is deterministic because the window is. The test suite checks reachability from the base over a 256×256 area on 300 seeds.
 
-**Rendering** (`src/surface.js`, split into `src/surface-*.js` files if needed):
-- Ground is drawn in chunks of 16×16 tiles into offscreen canvases, created lazily and kept in a cache of up to 30. Only visible chunks are drawn.
-- **Minimap:** 1 px per tile, updated incrementally. It shows fog, crew dots in role colours, discovered finds, the base and pings.
-- **Fog of war:** tiles start unseen. Seen tiles show the remembered terrain dimmed, and currently visible tiles show it fully.
+### 2.4 Finds (detailed in §3)
+- Each data chunk places its finds with Poisson-disc sampling **inside** the chunk, 3 tiles from its edges, so neighbouring chunks never need to agree.
+- How many and which kinds depend on the region and the distance ring:
+  - inner: ≤ 20 tiles from the base;
+  - middle: 20–40;
+  - outer: 40–80;
+  - far: > 80.
+- Richness rises with distance and is capped at the far ring.
+- Site ids are stable: `"<cx>,<cy>:<n>"`.
+
+### 2.5 Chunks, streaming and "disappear and reappear"
+**Data chunks** (`worldgen.chunk(seed, cx, cy)`):
+- 32×32 tiles, holding `{ tiles, sites, structures, landmarkParts, region per tile (4-bit) }`, about 2 KB.
+- **Made** when the player comes within 2 chunks of them. **Deleted** beyond 3 chunks (the gap avoids churn at the edge), so at most 7×7 = 49 are live around a player.
+- The base's chunks are always kept.
+- A hard cap of 64 live data chunks is enforced, dropping the least recently used first.
+
+**Image chunks** (the ground painting):
+- 4×4 tiles (256 world px), painted onto a 256×256 offscreen canvas at one canvas pixel per world pixel (256 KB each). The current ground is painted at the same scale and is scaled when drawn.
+- **Kept** for the visible area plus a 1-chunk margin. **Deleted** once they are 2 chunks outside the view.
+- Painted again on return, with exactly the same picture, because it's seeded from (seed, cx, cy).
+- **No seams:** decor that crosses a chunk edge (blotches, small craters, tracks) is drawn by every chunk it touches. Each chunk replays its neighbours' decor, clipped to itself.
+- A hard cap of 160 is enforced, about 40 MB at most. A typical 1080p view (≤ 1,700 × 950 world px) uses about 70 chunks, around 18 MB.
+
+**Building without stutter:**
+- Missing chunks are queued in order of distance from the point the player is heading to.
+- Each frame builds at most one data chunk and paints image chunks until about 4 ms of the frame is used. An `idle` callback adds more when the browser is idle.
+- A chunk that isn't painted yet is drawn as flat tile colours from its data, so there are never holes.
+
+**What survives a chunk's deletion:**
+- Everything the player changed is stored in mission state (sparse, per chunk): explored cells, emptied or partly used sites, used structures, placed beacons and discovered landmarks.
+- A rebuilt chunk applies these on top, so the world looks exactly as you left it.
+
+**Collision and paths:** `isBlocked(x, y)` reads the data chunk and builds it if needed. Click-to-walk uses BFS limited to a 64×64-tile box around the player. NPC crew stay inside the base's chunks.
+
+**Debug overlay:** `?debug=chunks`, or F3 in dev, shows chunk borders, the live/cached counts, queue length and fps. QA uses it to prove that chunks are deleted and rebuilt.
+
+### 2.6 Minimap and fog
+- **Fog:** tiles start unseen. Seen tiles show the remembered terrain dimmed; tiles in view show it fully.
+  - Explored cells are stored as one 1,024-bit set per touched data chunk (128 bytes, base64).
+  - About 100 chunks explored in a long mission comes to ~17 KB.
+- **Minimap:**
+  - A 1 px-per-tile window centred on the player, 160×160 tiles, redrawn from the explored chunks.
+  - It shows region colours, crew dots in role colours, discovered finds, structures, landmarks, beacons, the base, pings and the beacon route home.
+  - **M** opens a full-screen map of everything explored, with pan and zoom.
+- **Co-op:** fog is shared (§5).
 
 ## 3. Exploring — the expedition layer (`src/expedition.js`)
 
 ### 3.1 The loop
 - Each round's planning phase is when players walk out ("go on EVA"), collect finds, and **deliver** them at the base.
-- Delivered finds are **banked** and added to the mission when the round advances. The report shows lines like "+160 kg water — north ice field (Bao)".
-- Finds are finite, so later rounds push farther out.
+- Delivered finds are **banked** and added to the mission when the round advances. The report shows lines like "+160 kg water — ice deposit, Icy Plains (Bao)".
 - **Collecting:** stand next to a find and hold **E** or the action button. A load takes 3 s; a science survey takes 5 s.
 - **Backpack:** 3 loads, or 8 while driving the rover.
 - **At round end**, everyone is back at the base when the next round starts. Anything still in a backpack is banked automatically at the start of the next round, a one-round delay.
 
+**Finds**
+| Find | Where | Gives |
+|---|---|---|
+| Ice deposit | crater floors, canyons, Icy Plains | 3–6 loads × 40 kg water (by ring) |
+| Metal-rich rock | anywhere outside the flat zone | 3–5 loads × 40 kg materials |
+| Crashed cargo pod (fictional, from earlier uncrewed supply landers) | plains, dunes | 3 loads: a spare kit, 60 kg food, or an O₂ canister |
+| Science site (layered rock, meteorite, old delta, methane vent) | mixed | one survey: 20 / 35 / 60 / 80 science |
+| Cave | mesa and canyon walls, Volcanic Flanks | shelter |
+
 ### 3.2 Suit oxygen — one charge per round
-*(Refined from chat Part 1. See §13.)*
 - Each crew member starts every round with a full suit charge of **150 s outside**.
 - Being inside the base zone (within 2 tiles of the habitat) **pauses** the drain but **does not refill** the suit.
-- Sprinting doubles the drain. In the rover it's halved.
+- Sprinting doubles the drain. In the rover it's halved. The Icy Plains add 10 % (cold).
+- **Refills outside the base:** a relay beacon (§3.8) or an abandoned hab pod (§3.7), each **once per crew member per round**.
 - An **O₂ canister** from a pod gives a choice: use it now (+45 s suit time) or carry it home (+30 kg base O₂).
 - **At 0 s you collapse:**
-  - In multiplayer, a teammate revives you by holding E for 4 s (2 s for the Medic). You get +30 s and stand up.
+  - In co-op, a teammate revives you by holding E for 4 s (2 s for the Medic). You get +30 s and stand up.
   - If nobody revives you before the round advances, a **collapse incident** is recorded: −20 health and −3 morale at advance. Anything you were carrying drops on that spot as a recoverable find.
   - In solo play nobody can revive you, so collapsing records the incident straight away and returns you to the base for the rest of the round. You can't go back out until the next round.
 
 ### 3.3 Role skills on the map
 | Role | Skill |
 |---|---|
-| Scientist | surveys in half the time, +50 % science from sites |
-| Engineer | mines metal and salvages pods in half the time |
+| Scientist | surveys in half the time, +50 % science from sites and landmarks |
+| Engineer | mines metal, salvages pods and wrecks, and repairs structures in half the time |
 | Biologist | sees ice deposits and methane vents on the minimap from 16 tiles (others 8); collects ice in half the time |
 | Medic | revives in half the time |
 | Commander | pings draw a route line for everyone; crew within 5 tiles move 10 % faster |
 
 ### 3.4 Survival events on the map
-- **Solar flare:** in rounds whose schedule has `spe`, a warning starts 30 s after the first crew member steps outside, timed by the server in multiplayer. A **60 s countdown** follows.
-  - Shelter zones are the base zone, cave tiles and the built storm-shelter module.
+- **Solar flare:** in rounds whose schedule has `spe`, a warning starts 30 s after the first crew member steps outside, timed by the server in co-op. A **60 s countdown** follows.
+  - Shelter zones are the base zone, caves, lava-tube interiors, abandoned hab pods and the built storm-shelter module.
   - Crew outside shelter when the countdown ends get a **flare incident**: +15 mSv at advance, on top of whatever the SPE decision card chose.
 - **O₂ rupture event:** canisters carried home count as base O₂, which offsets the loss. The decision card is unchanged.
 - **Dust devils:**
-  - Rounds whose schedule has `devil` spawn 3–5 devils; other rounds spawn 0–1.
+  - Rounds whose schedule has `devil` spawn 3–5 devils near each explorer; other rounds spawn 0–1. The Dune Sea doubles both.
   - Their paths come from a seed plus the time since the round started (one shared clock), so every client draws them in the same place without syncing.
   - A hit pushes you 2 tiles and costs 10 s of suit time. The rover is immune.
-- **Dust storms** (the existing weather) shrink how far you can see: 8 tiles when clear (10 in the rover), 5 in a regional storm, 3 in a global one.
-- **Terrain:** dunes slow you down; cliffs, rims, canyon walls and boulders block you.
+- **Dust storms** (the existing weather) shrink how far you can see: 8 tiles when clear (10 in the rover), 5 in a regional storm, 3 in a global one. Beacons and lava-tube headlamps aren't affected.
+- **Terrain:** dunes slow you down; cliffs, rims, canyon walls, tube walls, structure walls and boulders block you.
 
 ### 3.5 Team features
 - Fog is shared: anything any crew member sees is revealed for everyone.
 - **Ping:** press P or tap the minimap. Pings fade after 10 s.
 - The HUD shows each teammate's suit level and what they're carrying.
 
-### 3.6 Debrief "Expedition" section
+### 3.6 Landmarks
+- **Placement:** one per 256×256 landmark cell, with a 60 % chance, jittered inside the cell and **never within 60 tiles of the base**.
+- Each landmark has a footprint of up to 40×40 tiles and overrides other features. Its kind is chosen by weight from its region.
+- **Discovery:** the first time any crew member sees a landmark's centre:
+  - a **discovery card** opens with a real fact and its NASA or peer-reviewed source (EN/VI);
+  - a one-time reward is banked: science 80–150 (Scientist +50 %);
+  - it counts towards achievements and expedition goals.
+
+| Landmark | Region weight | What's special |
+|---|---|---|
+| Ancient river delta | Plains, Crater Field | fan of layered sediment; 3 rich science sites (Jezero analogue) |
+| Lava tube | Volcanic Flanks | enter through a skylight; inside is dark (headlamp light cone), a shelter, with ice and rare metal |
+| Giant crater with central peak | Crater Field | rim 20 tiles across with gaps, floor ice, a peak survey |
+| Methane vent | Canyon Lands, Plains | timed puffs on the map; a survey gives high science (Curiosity methane observations) |
+| Exposed ice scarp | Icy Plains | a cliff of clean ice; many ice loads (HiRISE scarps) |
+| Giant star dune | Dune Sea | climbable crest that widens your view radius while on top |
+
+**Lava-tube interiors** are drawn under a "roof" that hides while you're inside, with a radial headlamp light. They're ordinary tiles in the same world, so there's no scene switch.
+
+### 3.7 Random structures
+*(Added on request, v3.1.)* These keep the endless world from being boring.
+
+**Placement:**
+- One per 64×64 structure cell, with a 25–45 % chance by region, jittered, and at least 20 tiles from the base.
+- Each is stamped on flat ground with a footprint of 2×2 to 5×5 tiles.
+- They are drawn as 3/4-view sprites in `src/art.js`, matching the base's modules.
+
+**Built structures** come from the fictional **Kestrel Survey**, an earlier uncrewed robotic programme. Each has a one-off reward and a short story log (EN/VI) labelled "story, fictional".
+
+| Structure | Interaction (hold E) | Reward |
+|---|---|---|
+| Supply cache | open, 3 s | 1–2 loads: O₂ canister, spare kit or food |
+| Wrecked scout rover | salvage, 6 s (Engineer 3 s) | 2–3 metal loads + 1 spare kit |
+| Weather station | repair, 6 s (Engineer 3 s) | reveals the fog within 24 tiles; +20 science; the console's dust-storm forecast gains one extra round of warning for the next 3 rounds |
+| Comms mast | repair, 6 s (Engineer 3 s) | marks the nearest landmark and all structures within 96 tiles on the minimap as "?" |
+| Abandoned hab pod | walk in; the roof hides while you're inside | shelter zone; one suit refill per crew member per round; a story log |
+| Dusty solar array | salvage, 5 s | 2 loads of materials |
+
+**Natural formations** are scattered per chunk by region. They are scenery with real geology. About 1 in 3 is also a science site with a real fact:
+- rock arch
+- yardang ridges (wind-carved)
+- hoodoos
+- balanced rock
+- ventifacts (wind-polished boulders)
+- layered outcrop
+- dark dust-devil tracks on the ground
+
+**Decor variety:** each region has 4–6 prop variants (rock shapes, ripples, small craters, cracks), placed by the chunk's seed. That means no two screens look the same.
+
+### 3.8 Relay beacons
+- **Making a kit:** a beacon kit is a new build, made at the base through construction: 50 kg materials and 1.5 work points. Finished kits wait at the base.
+- **Carrying one:** a kit takes one backpack slot.
+- **Placing one:** hold E for 4 s on an open tile at least 12 tiles from the base and at least 10 tiles from another beacon. At most **6 beacons** can be placed per mission.
+- **What a beacon does:**
+  - Standing within 2 tiles **refills the suit once per crew member per round**.
+  - It reveals the fog within 12 tiles.
+  - It shows on the minimap.
+  - A dashed **route home** connects the beacon chain to the base on the map and the minimap.
+- **Why once per round:** without that limit an endless map could be farmed indefinitely in a single round, since rounds have no clock. With it, the reach per round grows with the number of beacons placed, which is the intended progression.
+
+### 3.9 Expedition goals
+- Each round shows **1 goal** in rounds 1–4 and **2 goals** from round 5. Goals are picked deterministically from the seed, the round and the state, and only from goals that can be achieved.
+
+| Goal | Reward |
+|---|---|
+| Survey a science site ≥ N tiles out, where N = min(120, 30 + 5 × round) | science 20–40 |
+| Bring home K loads of ice or metal | a 25 % bonus on those loads |
+| Enter a region you haven't visited (only offered if one lies within 150 tiles) | morale +2, science 15 |
+| Discover a landmark | science 25 |
+| Repair or salvage a structure | materials 40 kg |
+| Place a beacon ≥ M tiles out | one free beacon kit |
+| Explore K new chunks | science 15 |
+
+- Progress shows in the HUD.
+- Completed goals pay out at advance and appear in the round report. Uncompleted goals simply expire.
+
+### 3.10 Debrief "Expedition" section
 - Distance walked and finds per player.
 - The single most valuable find.
+- Regions visited, landmarks discovered, structures used, beacons placed and goals completed.
 - A real-world lesson on in-situ resource utilisation (ISRU: using local ice and rock), with NASA sources added in M4 (see §14).
 
 ## 4. Engine integration (`src/engine.js`)
@@ -129,184 +280,284 @@
 **New mission state:** `mission.expedition` is created by `createMission` for new missions.
 
 ```
-{ mapSize, revealed: <base64 bitset>, sites: { siteId: loadsLeft }, carried: { crewId: [{ kind, amount, siteId }] },
-  drops: [{ x, y, items }], banked: { water, materials, spares, food, o2, science, lines: [...] },
-  incidents: [{ crewId, kind: 'collapse'|'flare' }], stats: { crewId: { distance, finds: { ice, metal, pod, science } } } }
+{ v: 2,
+  revealed:   { "<cx>,<cy>": <base64 1024-bit set> },
+  sites:      { "<siteId>": loadsLeft },                  // only sites touched
+  structures: { "<structId>": "used" | "repaired" },
+  landmarks:  { "<landmarkId>": { by, round } },
+  regions:    [regionIds visited],
+  beacons:    [{ x, y, by, round }], kits: n,
+  refills:    { "<crewId>": ["<beacon or pod id>", ...] },  // reset each round
+  carried:    { crewId: [{ kind, amount, siteId }] },
+  drops:      [{ x, y, items }],
+  banked:     { water, materials, spares, food, o2, science, morale, lines: [...] },
+  goals:      [{ id, kind, params, progress, done }],
+  incidents:  [{ crewId, kind: 'collapse'|'flare' }],
+  stats:      { crewId: { distance, finds: { ice, metal, pod, science }, structures, landmarks } } }
 ```
 
-**`resolveTurn`** applies the banked haul and incidents before simulating, adds them to the report, then resets them. The carried items and stats persist. The engine only reads these numbers and doesn't depend on `worldgen.js`.
+- **`resolveTurn`** applies the banked haul, goal rewards and incidents before simulating, and adds them to the report. Then it resets those, the refills and the goals, and picks the next round's goals. The carried items, stats and world changes persist. The engine only reads these numbers and doesn't depend on `worldgen.js`; goal checks that need the world run in `expedition.js`.
+- **New mission field:** `mission.pilot`, the solo player's crewId (§4.1).
+- **Weather station bonus:** `mission.forecastBonus` holds rounds left; `E.forecast` looks one extra round ahead while it's > 0.
 
-**`src/expedition.js`** is pure UMD. The server uses it in multiplayer and `ui.js` uses it in solo play:
-- `createExpedition(seed, size)`
+**`src/expedition.js`** is pure UMD. The server uses it in co-op and `ui.js` uses it in solo play:
+- `createExpedition(seed)`
 - `collect(m, crewId, siteId, pos)`
 - `deliver(m, crewId, pos)`
 - `useCanister(m, crewId)`
 - `revive(m, crewId, targetId, pos)`
 - `collapse(m, crewId, pos)`
 - `flare(m, crewIds)`
-- `reveal(m, cells)`
+- `reveal(m, chunkKey, bits)`
+- `interact(m, crewId, structId, pos)`
+- `discover(m, crewId, landmarkId, pos)`
+- `placeBeacon(m, crewId, pos)`
+- `refill(m, crewId, sourceId, pos)`
+- `goalProgress(m)`
 
-Each validates distance (1.5 tiles of tolerance), loads left and backpack space, and returns `{ error }` or `{ state }`. Pings aren't mission state: they travel as short-lived WebSocket messages (§5).
+Each looks up the world with `worldgen.chunk(seed, …)`, checks distance (1.5 tiles of tolerance), loads left and backpack space, and returns `{ error }` or `{ state }`. Pings aren't mission state: they travel as short-lived WebSocket messages (§5).
 
-**Old saves:** a mission saved before v3 gets an `expedition` (Normal size) added when it loads. The base grid is unchanged, so the big map simply grows around it. Only one renderer is needed.
+**Old saves:** a mission saved before v3 gets `expedition` (v: 2) and `pilot` added when it loads. The base grid is unchanged, so the world simply grows around it.
+
+### 4.1 One astronaut per player
+- **Solo:**
+  - Starting a new mission adds a **"Choose your astronaut"** step: role cards with each crew member's skill. The choice is stored in `mission.pilot`.
+  - The "Play as" switcher in the surface side panel is removed.
+  - Jobs for everyone are still set from the console and the job list. The surface's crew menu still lets you assign jobs to the crewmate you're facing.
+- **Takeover:** if the pilot dies, `pilot` moves to the first active crewmate, with a toast ("You are now Bao, Engineer"). If nobody is active, the surface just shows the base.
+- **Co-op:** each seat already controls one crew member. If yours dies, the existing claim dialog offers the free active crew. If there are none, you watch.
+- Old solo saves take `pilot` from the old saved `controlId`, or from the first active crew member.
 
 ## 5. Multiplayer & networking
 
-**Why the change:** Cloudflare quick tunnels **do not support Server-Sent Events**, so live updates move to **WebSockets** for both LAN and online play, one path for both.
-- **Library:** `ws` (npm). This is the server's first runtime dependency.
-- **App:** the app bundles `ws`.
-- **Launcher:** `Play SOL 500.cmd` runs `npm install --omit=dev` once if `node_modules` is missing, which needs internet once.
+**Transport:** WebSockets for both LAN and online play, using `ws` (npm), the server's only runtime dependency. Cloudflare quick tunnels don't support Server-Sent Events. *(M1, done)*
 
 **Endpoint:** `/ws?code=&player=&token=`. HTTP POST `/api/room/act` stays for actions (create, join, claim, plan and expedition actions).
 
 | Direction | Message | Notes |
 |---|---|---|
-| server→client | `room` | full public room on change (replaces SSE `room`) |
+| server→client | `room` | full public room on change |
 | server→client | `pos` | all positions + suit level + carried count, throttled to 80 ms |
-| server→client | `fog` | revealed-cell diff, throttled to 500 ms |
-| server→client | `event` | `flare` (start time), `ping` (x, y, from), `kicked`, `closed` |
-| client→server | `pos` | at most every 110 ms (as now) |
-| client→server | `reveal` | newly seen cells |
+| server→client | `fog` | `{ "<cx>,<cy>": base64 }` diffs, OR-merged, throttled to 500 ms |
+| server→client | `event` | `flare` (start time), `ping` (x, y, from), `discover` (landmark), `kicked`, `closed` |
+| client→server | `pos` | at most every 110 ms; coordinates are unbounded integers |
+| client→server | `reveal` | newly seen cells, per chunk |
 | client→server | `ping` | x, y; at most 1 per second per player |
 
-- The server pings every 20 s. Clients reconnect with backoff from 0.5 s to 5 s and get a full `room` message on reconnect. The SSE endpoint is removed.
-- **Trust model:** this is a co-op game, so clients report their own suit level, collapses and flare exposure. Item actions (collect, deliver, revive) are checked on the server against the last position it received.
+- The server pings every 20 s. Clients reconnect with backoff from 0.5 s to 5 s and get a full `room` message on reconnect.
+- **Trust model:** this is a co-op game, so clients report their own suit level, collapses and flare exposure. Item actions (collect, deliver, revive, interact, place, refill) are checked on the server against the last position it received and the world it generates itself.
+- **Server world cache:** a shared LRU of at most 256 data chunks across all rooms.
 
-**Server split**, because `server.js` would otherwise triple in size. The tests keep importing `createServer` from `server.js`.
+**Server split** *(M1, done)*:
 
 | File | Job |
 |---|---|
 | `server.js` | startup, CLI flags, static files, HTTP routing |
 | `lib/rooms.js` | rooms, players, `apply()` actions, mission/plan/expedition handling |
 | `lib/ws.js` | WebSocket upgrade, auth, fan-out, heartbeat |
-| `lib/limits.js` | detects remote (tunnel) requests; rate limits |
-| `lib/history.js` | saves finished missions to `<dataDir>/history.json` |
-| `lib/admin.js` | admin API and key check |
+| `lib/limits.js` | detects remote (tunnel), LAN and loopback requests; rate limits |
+| `lib/history.js` | saves finished missions to `<dataDir>/history.json` (M2) |
+| `lib/admin.js` | admin page, API, key, password and sessions (M2) |
 
-## 6. Desktop app (`app/`)
+## 6. Desktop app (`app/`) *(M1, done)*
 
-- **Stack:** Electron and electron-builder, as dev dependencies. `npm run app` builds `dist-app/SOL500-Setup-<version>.exe`: an NSIS installer, per-user, with no admin rights needed, a Start-menu entry and a desktop shortcut.
-- **`app/main.js`**
-  - Takes a single-instance lock; a second launch focuses the existing window.
-  - Picks a port: 5050–5059, or a free one if all are busy.
-  - Starts the server in-process with `createServer({ dataDir: userData, adminKey })`.
-  - Opens a `BrowserWindow` (1280×800, minimum 960×600, remembers its size) loading `http://localhost:<port>/?app=1`, with `contextIsolation`, `sandbox`, and no `nodeIntegration`.
-  - Kills the tunnel on quit.
-- **`app/preload.js`** exposes `window.solApp = { adminKey(), hostOnline(), stopOnline(), onOnline(cb) }` and nothing else.
-- **Title screen in the app:** Play solo · Host game · Join game · Admin.
-- **Windows warnings:** Windows Firewall asks once on the first Host; players choose "Allow" for private networks. SmartScreen warns because the app is unsigned; players click "More info → Run anyway". Both are explained on an in-game help screen (M5).
-- **Unchanged ways to play:** the browser via `node server.js` or `Play SOL 500.cmd`, and the offline `dist/sol500.html`. The offline file is solo-only, with no history or admin, but it does have the big map.
+- **Stack:** Electron and electron-builder. `npm run app` builds `dist-app/SOL500-Setup-<version>.exe`: an NSIS installer, per-user, with a Start-menu entry and a desktop shortcut.
+- **`app/main.js`:**
+  - takes a single-instance lock;
+  - picks a port from 5050–5059;
+  - starts the server in-process;
+  - opens a `BrowserWindow` loading `http://localhost:<port>/?app=1` with `contextIsolation`, `sandbox`, and no `nodeIntegration`;
+  - kills the tunnel on quit.
+- **M2 changes:**
+  - pass `dataDir: userData` to `createServer`;
+  - call `server.setOnline(...)` when the share link starts and stops;
+  - add sender checks to the `online:start`/`online:stop` IPC handlers.
 
-## 7. Online share link (`app/tunnel.js`)
+  The preload does **not** need `adminKey()`, because the admin page gets its key from the server (§8).
+- **Title screen** (app and browser on the host PC): Play solo · Host game · Join game · **Admin**.
+- **Unchanged ways to play:** the browser via `node server.js` or `Play SOL 500.cmd`, and the offline `dist/sol500.html`. The offline file is solo-only, with no history or admin, but it does have the endless world.
 
-**Starting it**
-1. **Host online** downloads a pinned `cloudflared` version for windows-amd64 from its GitHub release into `<userData>/bin`, the first time only. It checks the file's **SHA-256 against a hash pinned in the code** and refuses to run on a mismatch.
-2. It spawns `cloudflared tunnel --url http://localhost:<port> --no-autoupdate` and reads the `https://*.trycloudflare.com` address from its output, with a 30 s timeout.
-3. The app shows the link with Copy and a QR code.
+## 7. Online share link (`app/tunnel.js`) *(M1, done)*
 
-**Stopping it:** **Stop sharing** kills the process; a new link is made each time. The server is told the state through `server.setOnline({ url })` so the admin panel can show it.
-
-**Detecting remote requests** (`lib/limits.js`): a request counts as remote if it carries `Cf-Connecting-IP`, **or** its Host is `*.trycloudflare.com`, **or** its socket address isn't loopback or private LAN.
-
-**Rules for remote requests**
-- Admin endpoints and the admin page return 404.
-- `/api/info` hides LAN addresses.
-- Rate limits apply per client IP: room create 10/min, join 30/min, actions 20/s per player, WS messages 30/s per connection.
-
-**Global caps:** 40 rooms (as now), 5 players per room (as now), 100 WebSocket connections, 64 KB per request or message.
-
-Static file serving keeps its allow-list, so `src/*.js|css`, `icons/*.png`, `index.html`, `admin.html`, the manifest and the service worker are all it serves.
-
-**Known limits** (from Cloudflare's docs): no uptime guarantee and at most 200 in-flight requests per quick tunnel. Five players with WebSockets is well under that.
+- **Host online** downloads a pinned `cloudflared` (SHA-256 checked) and spawns a quick tunnel. The app shows the link with Copy and a QR code. **Stop sharing** kills it.
+- **Remote requests:** a request counts as remote if it has `Cf-Connecting-IP`, or a `*.trycloudflare.com` Host, or a non-private socket address. Admin endpoints and the admin page return 404 to remote requests. `/api/info` hides LAN addresses from them. Rate limits apply per client IP.
+- **Global caps:** 40 rooms, 5 players per room, 100 WebSocket connections, 64 KB per request or message.
 
 ## 8. Admin panel (`admin.html`, `src/admin.js`)
 
-**Access**
-- In the app, the **Admin** button opens the panel.
-- From the CLI, the server prints `http://localhost:<port>/admin#key=<key>`. The key sits in the URL fragment, so it never reaches server logs.
-- `admin.js` sends the key as an `X-Admin-Key` header. The server compares it in constant time and refuses all remote requests.
-- The key is 128 random bits and changes on every server start.
+### 8.1 Who can open it
+Requests fall into three classes in `lib/limits.js`:
+- **local:** a loopback socket, no `Cf-Connecting-IP`, and the Host header is `localhost`, `127.0.0.1` or `[::1]` with any port.
+- **remote:** see §7.
+- **LAN:** everything else.
 
-**Tab 1: Game history**
+| Class | `/admin` page | Admin API |
+|---|---|---|
+| local | served with the **admin key** in `<meta name="sol-admin-key">` | `X-Admin-Key: <key>` |
+| LAN, Wi-Fi access **on** | served **without** a key; shows a login form | `X-Admin-Key: <session token>` after login |
+| LAN, Wi-Fi access **off** | 404 | 404 |
+| remote (share link) | 404, always | 404, always |
+
+- **Admin key:** 128 random bits, new on every server start. It's only ever placed in a page for **local** requests. Checking the Host header defeats DNS rebinding, and other sites can't read the page because the server sends no CORS headers. The CLI also prints `http://localhost:<port>/admin`.
+- **Key checks:** done in constant time (`crypto.timingSafeEqual` on equal-length buffers). A missing or wrong key gets 401.
+- **Admin button:**
+  - `/api/info` reports `{ adminHere: true }` only to local requests, and the title screen shows **Admin** when it's true.
+  - In the app it opens `/admin` in the same window. In a browser it opens a new tab.
+  - The admin page has a "Back to game" link.
+
+### 8.2 Wi-Fi access with a password
+- **Setting it up:** a **Wi-Fi access** card on the Live tab, with a password of 8–64 characters (typed twice) and an on/off switch. Only a local session can change the password or switch access on or off.
+- **Storage:** `<dataDir>/admin.json` holds `{ enabled, salt, hash, N, r, p }`, an scrypt hash with a random 16-byte salt. The password itself is never stored or logged.
+- **Login:** `POST /api/admin/login { password }` from LAN.
+  - It's rate-limited to 5 tries per minute and 20 per hour per IP; going over gives 429.
+  - Success returns a random 128-bit session token that expires after 8 hours. At most 20 sessions are kept, in memory only.
+  - Server restarts, password changes and switching access off all end every LAN session.
+- **What LAN admins can do:** everything except change the Wi-Fi access settings. They can't stop sharing either, since that only works in the app.
+- **Honest warning in the card (EN/VI):** "Wi-Fi traffic is not encrypted. Use a password you don't use anywhere else."
+
+### 8.3 Tab 1: Game history
 - A finished mission (success or lost) is saved to `<dataDir>/history.json`:
-  - written atomically (temp file + rename)
-  - capped at 2000 records, oldest dropped first
-  - `dataDir` is the app's `userData` folder, or `./data/` when running from source (git-ignored)
-- **Record:** `{ id, endedAt, mode: solo|lan|online, missionCode, difficulty, crewSize, mapSize, players: [{ name, crewId, role }], outcome, cause, score, grade, sols, finds: { crewId: {...} }, distance: { crewId: m }, achievements: [] }`.
-- `mode` is `online` if any player connected through the tunnel.
-- **Who records what:** LAN and online games are recorded by the server when the room reaches debrief. Solo games in the app or in a browser served by the server are recorded when the client POSTs `/api/history/solo` (local requests only). The server re-scores those with `E.scoreMission`.
+  - written atomically (temp file + rename), with a copy fallback on Windows `EPERM`;
+  - a corrupt file is moved aside as `history.corrupt-<ts>.json`;
+  - capped at 2,000 records, oldest dropped first;
+  - `dataDir` is the app's `userData` folder, or `./data/` when running from source (git-ignored).
+- **Record:** `{ id, endedAt, mode: solo|lan|online, missionCode, difficulty, crewSize, players: [{ name, crewId, role }], outcome, cause, score, grade, sols, finds: { crewId: {...} }, distance: { crewId: m }, explore: { regions, landmarks, structures, beacons, goals }, achievements: [] }`. Fields before M4 hold `{}` or 0.
+- **`mode`:** `online` if any player connected through the tunnel.
+- **Who records what:**
+  - **Co-op games:** the server records them when the room's mission ends.
+  - **Solo games** in the app, or in a browser served by this server, are recorded when the client POSTs `/api/history/solo { mission }`.
+    - It's accepted from local and LAN requests, rate-limited to 10 per minute per IP, and refused from remote ones.
+    - The server validates the mission and re-scores it with `E.scoreMission`.
+    - The client drops the bulky `expedition.revealed` before posting, to stay under 64 KB.
+  - This way a teacher's PC sees every student's solo game on the same Wi-Fi.
 - **What the tab shows:**
   - Totals: missions, win rate, best score, total finds
-  - Charts using `src/charts.js` and the dataviz rules: score over time (line), wins vs losses, failure causes (bar)
+  - Charts using `src/charts.js` and the dataviz rules: score per mission (line), wins vs losses and failure causes (bars)
   - A sortable table; clicking a row shows the debrief summary
   - Export CSV · delete one · clear all (with confirmation)
+- **CSV export:** UTF-8 with a BOM; values are quoted, and text cells starting with `= + - @` are prefixed with `'` so spreadsheets don't run them as formulas.
 
-**Tab 2: Live server** (polls `/api/admin/live` every 2 s)
-- Shows: uptime, port, LAN addresses, share-link status (link + QR) and players online.
-- For each room: code, stage, round and sol, map size, and each player's name, role, connected state, last seen and whether they're remote.
-- **Actions:** kick a player, close a room, stop sharing (in the app only, through IPC).
+### 8.4 Tab 2: Live server
+Polls `/api/admin/live` every 2 s.
+- Shows uptime, port, LAN addresses, share-link status (link + QR), players online, and the Wi-Fi access card.
+- For each room: code, stage, round and sol, and each player's name, role, connected state, last seen and whether they're remote.
+- **Actions:**
+  - kick a player and close a room, both with confirmation;
+  - stop sharing (in the app only, through IPC);
+  - log out all Wi-Fi admins.
 - A log of the last 100 events.
 
-**Tab 3: Project progress** (reads `progress.json`, made by `tools/progress.js`)
+### 8.5 Tab 3: Project progress
+Reads `progress.json`, which `tools/progress.js` makes.
 - **Contents:** `{ generatedAt, features: [{ milestone, text, done }], tests: { total, pass, fail }, commits: { count, recent: [{ hash, date, subject }] }, code: { files: [{ path, lines }], total }, sources: [{ label, url }] }`.
 - **Where the data comes from:**
   - Features come from §12 of this spec.
   - Tests come from `node --test` with the TAP reporter.
   - Commits come from `git log`.
   - Sources come from `src/i18n.js`.
-- **When it's made:** at `npm run progress` and automatically by `npm run app`. From source, a **Refresh** button re-runs it. The packaged app shows its build-day snapshot with the date. `progress.json` is git-ignored.
+- **When it's made:**
+  - `npm run progress` makes it, and `npm run app` runs that automatically.
+  - From source, a **Refresh** button re-runs it; it is local only and dev only.
+  - The packaged app shows its build-day snapshot with the date.
+  - `progress.json` is git-ignored.
 
-## 9. File map (new and changed)
+## 9. File map (new and changed in M2–M5)
 
-| File | Status | Job |
+| File | Milestone | Job |
 |---|---|---|
-| `src/worldgen.js` | new | seeded map generator (UMD, pure) |
-| `src/expedition.js` | new | exploring rules (UMD, pure) |
-| `src/engine.js` | changed | apply banked haul and incidents in `resolveTurn`; create `expedition` |
-| `src/data.js` | changed | `WORLD` and `EXPEDITION` constants |
-| `src/surface.js` (+ `src/surface-*.js`) | changed | big map, chunks, fog, minimap, suit HUD, devils, flare countdown |
-| `src/net.js` | changed | WebSocket client, reconnects |
-| `src/ui.js` | changed | app title buttons, map-size setting, expedition report lines, debrief section, solo history POST |
-| `src/i18n.js` | changed | EN + VI text for everything new |
-| `admin.html`, `src/admin.js` | new | admin panel |
-| `server.js`, `lib/*.js` | changed/new | split server, WebSockets, limits, history, admin |
-| `app/main.js`, `app/preload.js`, `app/tunnel.js` | new | desktop app and share link |
-| `package.json` | new | scripts: `test`, `start`, `progress`, `app`, `app:dev`; deps: `ws`; dev deps: `electron`, `electron-builder` |
-| `tools/progress.js` | new | generates `progress.json` |
-| `tools/balance.js` | changed | explorer bot (haul model) |
-| `Play SOL 500.cmd`, `play.sh` | changed | install `ws` once if missing |
+| `lib/history.js` | M2 | history store, summarize, CSV |
+| `lib/admin.js` | M2 | admin page, API, key, Wi-Fi password, sessions |
+| `lib/limits.js`, `lib/rooms.js`, `lib/ws.js`, `server.js` | M2 | request classes; room events, kick and close; ws hardening; wiring |
+| `admin.html`, `src/admin.js`, `src/admin.css` | M2 | admin panel |
+| `tools/progress.js` | M2 | makes `progress.json` |
+| `src/worldgen.js` | M3 | endless world: regions, terrain, features, chunk API (UMD, pure) |
+| `src/surface.js` + `src/surface-world.js` | M3 | chunk streaming, painting, culling, collision, minimap, fog, map screen; split so no file passes ~900 lines |
+| `src/ui.js`, `src/engine.js` | M3 | Choose-your-astronaut step, `pilot`, takeover; title Admin button |
+| `src/expedition.js` | M4 | exploring rules (UMD, pure) |
+| `src/art.js` | M4 | structure, landmark and formation sprites |
+| `src/engine.js`, `src/data.js` | M4 | banked haul, goals, beacon kit build, forecast bonus; `WORLD`, `EXPEDITION`, `STRUCTURES`, `LANDMARKS` constants |
+| `src/i18n.js` | M2–M5 | EN + VI for everything new, and sources |
+| `tools/balance.js` | M4 | explorer bot (haul model, beacons, goals) |
 
 ## 10. Testing
 
 **Unit tests (`node --test`)**
-- **worldgen:** determinism; reachability, counts, base ring and timing on 300 seeds × 2 sizes.
-- **expedition:** collect/deliver/capacity/distance errors; canister both ways; collapse drops; revive; flare; reveal OR-merge.
-- **engine:** banked haul and incidents applied once, reported, then reset; old saves without `expedition` still work.
-- **server:** WebSocket auth, `room`/`pos`/`fog` fan-out, reconnect, kick/close; rate limits return 429.
-- **Remote detection:** admin returns 404 with `Cf-Connecting-IP` or a trycloudflare Host, even with the key.
-- **history:** atomic write, cap, solo POST refused when remote, CSV export.
+- **worldgen:**
+  - determinism in shuffled order, plus a hash of 1,000 chunks pinned in a test;
+  - the flat zone is empty;
+  - every blocking feature fits its size bounds;
+  - reachability from the base over 256×256 on 300 seeds;
+  - region distribution;
+  - chunk build time.
+- **expedition:**
+  - collect, deliver, capacity and distance errors; the canister both ways; collapse drops; revive; flare;
+  - reveal OR-merge;
+  - interact with each structure kind; discover; beacon placement rules; refill once per round; goal picking and progress.
+- **engine:** banked haul, goal rewards and incidents are applied once, reported, then reset; old saves get `expedition` and `pilot`; pilot takeover.
+- **server:** WebSocket kick and close events; 503 at capacity; 404 on a non-`/ws` upgrade; per-seat cap; heartbeat; fog fan-out; expedition actions validated.
+- **Request classes:**
+  - the admin page and API return 404 with `Cf-Connecting-IP` or a trycloudflare Host, even with the key;
+  - a LAN request with access off gets 404;
+  - a LAN login gets rate-limited;
+  - the key never appears for a Host other than localhost.
+- **history:** atomic write, cap, corrupt-file recovery, solo POST refused when remote, CSV escaping.
 - **progress:** parses the checklist and TAP output.
 
 **Other checks**
-- **Balance:** `tools/balance.js` with an explorer bot over 1000 seeds × 3 difficulties; the targets are in §1.4.
+- **Performance:**
+  - a Chrome DevTools trace of a 2-minute straight rover drive, with a ≥ 50 fps median;
+  - a heap snapshot before and after a 2,000-tile out-and-back trip, within +20 MB;
+  - the `?debug=chunks` counts staying under their caps.
+- **Balance:** `tools/balance.js` with an explorer bot over 1,000 seeds × 3 difficulties; the targets are in §1.4.
 - **Browser QA** in Chrome DevTools:
-  - a solo big-map mission start to finish
-  - 2- and 5-player LAN
-  - a live share-link game: one client through the trycloudflare URL
-  - all admin tabs
-  - EN/VI
-  - phone width
+  - a solo mission start to finish with exploring;
+  - 2- and 5-player LAN;
+  - a live share-link game;
+  - all admin tabs from the host browser, plus Wi-Fi admin from a second device or a LAN address;
+  - EN/VI;
+  - phone width.
 - **App QA:** build, install and launch the installer; Solo/Host/Join/Admin; Host online; reinstall over the old version; uninstall.
 
 ## 11. Milestones
 
-Each milestone is usable on its own. Work happens on `feat/v3-app-online-bigmap-admin`, with checks in a real browser before moving on.
+Built **one at a time**. Each gets its own branch off `master`, its own written plan, subagent-driven tasks with reviews, browser QA, and a merge into `master` before the next starts.
 
-1. **M1: App + online.** Spike WebSockets through a real quick tunnel first, and stop and report if it fails. Then the WebSocket switch, the server split, limits and remote detection, the Electron app, and Host online.
-2. **M2: Admin panel.** History recording, the three tabs, progress generation.
-3. **M3: Big random map.** Worldgen, chunked rendering, minimap, fog, map-size setting.
-4. **M4: Exploring.** Expedition rules, engine integration, role skills, suit O₂, flare countdown, devils, storms, debrief section, ISRU lesson and sources, rebalancing.
-5. **M5: Polish.** Every new string in EN + VI, final balance pass, offline build, installer rebuild, help text for the Windows warnings.
+1. **M1: App + online.** *Done, merged at `dc50358`.*
+2. **M2: Admin panel.**
+   - history recording (solo, LAN and online);
+   - the three tabs;
+   - progress generation;
+   - the Admin button in the browser and the app;
+   - Wi-Fi access with a password;
+   - the M1 follow-ups for M2.
+3. **M3: Endless world.**
+   - worldgen with regions and terrain features;
+   - chunk streaming with delete and rebuild;
+   - painting and culling;
+   - collision and paths;
+   - minimap, map screen and shared fog;
+   - region toasts with sources;
+   - the debug overlay;
+   - one-astronaut control.
+4. **M4: Exploring.**
+   - finds and carrying;
+   - suit O₂, collapse and revive;
+   - flares, devils and storms;
+   - landmarks and discovery cards;
+   - random structures and formations;
+   - relay beacons;
+   - expedition goals;
+   - role skills and pings;
+   - the debrief section;
+   - ISRU and other sources;
+   - rebalancing.
+5. **M5: Polish.**
+   - every string in EN + VI;
+   - the M1 follow-ups for M5;
+   - the final balance pass;
+   - the offline build;
+   - the installer rebuild;
+   - help for the Windows warnings.
 
 ## 12. Feature checklist
 
@@ -321,26 +572,33 @@ Each milestone is usable on its own. Work happens on `feat/v3-app-online-bigmap-
 
 ### M2 — Admin panel
 - [ ] Admin key and local-only access
+- [ ] Admin button in the browser and the app
+- [ ] Wi-Fi admin access with a password
 - [ ] Mission history recorded (solo, LAN, online)
 - [ ] History tab with totals, charts, table, CSV
 - [ ] Live server tab with kick and close
 - [ ] Project progress tab and generator
 
-### M3 — Big random map
-- [ ] Seeded map generator with guarantees
-- [ ] Chunked rendering at 60 fps
-- [ ] Minimap
-- [ ] Shared fog of war
-- [ ] Map size setting (Normal / Large)
+### M3 — Endless world
+- [ ] Deterministic endless worldgen with regions
+- [ ] Terrain features with reachability guarantees
+- [ ] Chunk streaming: out-of-range chunks deleted and rebuilt identically
+- [ ] Smooth rendering at 50+ fps with flat memory
+- [ ] Minimap, full map and shared fog of war
+- [ ] Region discovery toasts with real sources
+- [ ] One astronaut per player (choose at start, takeover on death)
 
 ### M4 — Exploring
 - [ ] Collect, carry and deliver finds
 - [ ] Finds counted at advance and in the report
-- [ ] Role skills on the map
 - [ ] Suit oxygen, collapse and revive
 - [ ] Solar flare countdown and shelters
 - [ ] Dust devils and storm visibility
-- [ ] Pings
+- [ ] Landmarks with discovery cards
+- [ ] Random structures and natural formations
+- [ ] Relay beacons and the route home
+- [ ] Expedition goals
+- [ ] Role skills on the map and pings
 - [ ] Debrief Expedition section and ISRU lesson
 - [ ] Rebalanced with explorer bots
 
@@ -351,24 +609,36 @@ Each milestone is usable on its own. Work happens on `feat/v3-app-online-bigmap-
 
 ## 13. Refinements made while writing this spec (need the user's OK)
 
-1. **Suit oxygen refills once per round, not at the base.** Rounds have no clock, so if the base refilled your suit, the best play would be emptying the whole map in round 1. A mission could then take hours, and exploring would make the game too easy. With one charge per round, each EVA is a real decision. Standing at the base still pauses the drain.
-2. **Revive only, no carrying.** A fallen crewmate is revived on the spot. Carrying would need a new animation and new sync rules for little gain.
+1. **Suit oxygen refills once per round, not at the base.** Rounds have no clock, so if the base refilled your suit, the best play would be emptying the map in round 1. With one charge per round, each EVA is a real decision. Standing at the base still pauses the drain.
+2. **Revive only, no carrying.** A fallen crewmate is revived on the spot.
 3. **Items still in a backpack at round end** are banked at the start of the next round instead of being lost.
-4. **The server gains one dependency (`ws`).** `Play SOL 500.cmd` installs it once on its first run, which needs internet that one time. The app includes it.
+4. **The server gains one dependency (`ws`).** *(M1, done)*
+5. *v3.1:* **Beacons and hab pods refill once per crew member per round.** This stops endless-map farming (see §3.8).
+6. *v3.1:* **Random built structures belong to a fictional programme (the "Kestrel Survey").** They are labelled "story, fictional" in the game so players never mistake them for real missions. Natural formations and landmarks use real science with sources.
+7. *v3.1:* **Solo history is accepted from LAN devices too** (rate-limited). A teacher's or judge's PC then sees every solo game played on the same Wi-Fi.
+8. *v3.1:* **The admin key is put into the page by the server** for local requests, instead of being passed through the app's preload. One mechanism serves both the browser and the app.
 
 ## 14. Risks
 
 | Risk | Plan |
 |---|---|
-| WebSockets through quick tunnels fail or are unreliable | M1 spike first; fallback is HTTP long-polling (works through any proxy) |
+| Chunk building or painting stutters on slow laptops | Budget of 1–2 chunks per frame, idle callbacks, flat-colour fallback, prefetch in the direction of travel; measured in M3 |
+| Memory creeps up on long drives | Hard caps (64 data, 160 image chunks), LRU eviction, debug counters, a heap-snapshot test in QA |
+| Features overlap and wall off areas | Bounded, spaced features; precedence order; local flood-fill check; 300-seed reachability test |
+| Endless map makes exploring farmable | Per-round suit charges, backpack limits, refills once per round, capped richness; explorer bot plateau check |
+| Clients disagree about the world | Integer-only hashing, a pinned 1,000-chunk hash test run in Node, and a QA check in Chrome |
+| LAN admin password sent over plain HTTP | Clear warning, scrypt hashing, sessions, rate limits; access is off by default and never available through the share link |
 | Quick tunnels have no uptime guarantee | Fine for play sessions; the status shows errors and offers a new link |
 | Antivirus flags the unsigned app or the cloudflared download | Pinned version and hash check; documented "Run anyway" steps |
 | Missions get too long with exploring | Suit time per round is tunable; exploring stays optional; measured in playtests |
-| Slow laptops | Chunk cache, fewer particles, render only the visible area |
-| ISRU, lava-tube and dust-devil facts | Real NASA sources are found and checked in M4 before any in-game claim is written; no invented citations |
+| Region, landmark, ISRU, lava-tube and dust-devil facts | Real NASA or peer-reviewed sources are found and checked before any in-game claim is written; no invented citations |
 
 ## 15. Sources
 
-**Already in the game:** see the v1 spec §6.
-**Cloudflare quick-tunnel limits:** https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/
-**New science sources:** ISRU and water ice on Mars, lava tubes as shelter, and dust devils will be researched and verified in M4 and added to `src/i18n.js`.
+- **Already in the game:** see the v1 spec §6.
+- **Cloudflare quick-tunnel limits:** https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/
+- **To be found and verified:**
+  - **in M3:** region analogues (Gale and Jezero, the Bagnold Dunes, Valles Marineris, Arcadia Planitia ice, the Tharsis and Arsia Mons skylights);
+  - **in M4:** landmarks and formations (the Jezero delta, lava tubes, methane at Gale, HiRISE ice scarps, yardangs, ventifacts, dust-devil tracks) and the ISRU lesson.
+
+  Each will be added to `src/i18n.js` with its URL.
