@@ -19,14 +19,24 @@ let starting = null; // the pending start, so a double click can't open two tunn
 
 function sendStatus(s) { if (win && !win.isDestroyed()) win.webContents.send('online:status', s); }
 
+let generation = 0;  // bumped by stopOnline(), so a start still in flight knows it was cancelled
+
 async function doStartOnline() {
   if (!online) {
-    online = await tunnel.start({
+    const gen = generation;
+    let t = null;
+    t = await tunnel.start({
       port,
       binDir: path.join(app.getPath('userData'), 'bin'),
-      onStatus: sendStatus,
-      onExit: err => { online = null; sendStatus({ state: 'off', error: err ? err.code : null }); },
+      onStatus: s => { if (gen === generation) sendStatus(s); },
+      onExit: err => { if (online !== t) return; online = null; sendStatus({ state: 'off', error: err ? err.code : null }); },
     });
+    if (gen !== generation) { t.stop(); sendStatus({ state: 'off', error: null }); return { error: 'cancelled' }; }
+    online = t;
+    // New quick-tunnel names can take a few seconds to resolve: don't announce the link before it answers.
+    sendStatus({ state: 'starting' });
+    await tunnel.waitUntilReachable(t.url, { isCancelled: () => gen !== generation });
+    if (gen !== generation) return { error: 'cancelled' };
   }
   const qr = await QRCode.toDataURL(online.url, { margin: 1, width: 240, color: { dark: '#1b1417', light: '#ffffff' } });
   sendStatus({ state: 'on', url: online.url, qr });
@@ -39,6 +49,7 @@ function startOnline() {
 }
 
 function stopOnline() {
+  generation++;
   const o = online;
   online = null;
   if (o) o.stop();

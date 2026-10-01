@@ -1210,7 +1210,13 @@
   function lanChip() {
     const room = store.room;
     const status = store.lanStatus === 'error' ? h('span', { class: 'chip crit pulse' }, t('lan.lost')) : null;
-    return [h('span', { class: 'chip info' }, ico('wifi', 12), ' ', room.code), status];
+    const o = store.online;
+    let share = null;
+    if (window.solApp && isHost() && o) {
+      if (o.state === 'on') share = h('span', { class: 'chip ok', 'data-k': 'online-chip' }, ico('wifi', 12), ' ', t('online.chipOn'));
+      else if (o.state === 'off' && o.error) share = h('button', { class: 'chip crit', type: 'button', 'data-k': 'online-retry', onclick: startOnline }, t('online.chipRetry'));
+    }
+    return [h('span', { class: 'chip info' }, ico('wifi', 12), ' ', room.code), status, share];
   }
 
   // ---------- online share link (desktop app only) ----------
@@ -1241,7 +1247,7 @@
     store.online = { state: 'starting' };
     render();
     const r = await window.solApp.hostOnline();
-    if (r && r.error) store.online = { state: 'off', error: r.error };
+    if (r && r.error) store.online = { state: 'off', error: r.error === 'cancelled' ? null : r.error };
     render();
   }
 

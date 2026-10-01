@@ -80,4 +80,21 @@ async function start(opts) {
   });
 }
 
-module.exports = { start, ensureBinary, parseTunnelUrl, sha256File, PINNED };
+// Polls <url>/api/info until it answers, so friends don't hit a DNS error on a brand-new tunnel name.
+// Resolves true when reachable, false on timeout or cancel; never rejects.
+async function waitUntilReachable(url, opts = {}) {
+  const { timeoutMs = 20000, intervalMs = 1000, isCancelled } = opts;
+  const fetchImpl = opts.fetch || fetch;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (isCancelled && isCancelled()) return false;
+    try {
+      const res = await fetchImpl(url + '/api/info', { cache: 'no-store' });
+      if (res.ok) return true;
+    } catch (e) { /* not resolvable yet */ }
+    if (Date.now() + intervalMs > deadline) return false;
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+}
+
+module.exports = { start, ensureBinary, parseTunnelUrl, sha256File, waitUntilReachable, PINNED };

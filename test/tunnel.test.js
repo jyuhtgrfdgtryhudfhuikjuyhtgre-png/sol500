@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { parseTunnelUrl, ensureBinary, start } = require('../app/tunnel.js');
+const { parseTunnelUrl, ensureBinary, start, waitUntilReachable } = require('../app/tunnel.js');
 
 test("the share link is read from cloudflared's banner, never its API address", () => {
   const log = 'INF Requesting new quick Tunnel on trycloudflare.com...\n' +
@@ -58,4 +58,16 @@ test('a tunnel that never prints a link times out cleanly', async () => {
   await assert.rejects(
     start({ command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'], timeoutMs: 300 }),
     e => e.code === 'timeout');
+});
+
+test('the link is announced only once it answers', async () => {
+  let n = 0;
+  const flaky = async () => { if (++n < 3) throw new Error('ENOTFOUND'); return { ok: true }; };
+  assert.equal(await waitUntilReachable('https://x.trycloudflare.com', { fetch: flaky, intervalMs: 5 }), true);
+  assert.equal(n, 3);
+});
+
+test('a link that never answers gives up without failing', async () => {
+  const never = async () => ({ ok: false });
+  assert.equal(await waitUntilReachable('https://x.trycloudflare.com', { fetch: never, timeoutMs: 60, intervalMs: 20 }), false);
 });
