@@ -7,6 +7,8 @@
 <meta name="description" content="Run a Mars outpost for 500 sols: balance life support, radiation shielding, power and food. Real NASA numbers, English and Vietnamese, LAN co-op for up to 5 players.">
 <meta name="theme-color" content="#1b1417">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23b4532f'/%3E%3Ccircle cx='24' cy='24' r='5' fill='%237a3623'/%3E%3Ccircle cx='40' cy='38' r='7' fill='%237a3623'/%3E%3C/svg%3E">
+
+
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>window.SOL_APP = false;</script>
@@ -2549,6 +2551,148 @@ p { margin: 0; }
     'sf.jobs': "Crew jobs",
     'sf.cantMove': "{name} cannot move right now.",
     'lan.taken_err': 'Someone already took that seat.',
+    'title.admin': 'Admin',
+    'admin.title': 'Admin',
+    'admin.back': 'Back to game',
+    'admin.modeLocal': 'This PC',
+    'admin.modeLan': 'Wi-Fi admin',
+    'admin.tab.history': 'Game history',
+    'admin.tab.live': 'Live server',
+    'admin.tab.project': 'Project progress',
+    'admin.refresh': 'Refresh',
+    'admin.error': "Couldn't reach the server. Is SOL 500 still running?",
+    'admin.stale': 'The server restarted. Reload this page to keep going.',
+    'admin.reload': 'Reload',
+    'admin.loading': 'Loading…',
+    'admin.confirm': 'Are you sure?',
+    'admin.delete': 'Delete',
+    'admin.login.title': 'Admin login',
+    'admin.login.body': 'Enter the admin password set on the host PC.',
+    'admin.login.password': 'Password',
+    'admin.login.go': 'Log in',
+    'admin.login.bad': 'Wrong password.',
+    'admin.login.slow': 'Too many tries. Wait a minute, then try again.',
+    'admin.login.off': 'Wi-Fi access is switched off on the host PC.',
+    'admin.h.missions': 'Missions',
+    'admin.h.winRate': 'Win rate',
+    'admin.h.best': 'Best score',
+    'admin.h.finds': 'Finds',
+    'admin.h.empty': 'No missions yet. Every finished mission (solo, Wi-Fi or online) shows up here.',
+    'admin.h.scoreChart': 'Score per mission',
+    'admin.h.score': 'Score',
+    'admin.h.mission': 'Mission',
+    'admin.h.outcomes': 'Wins and losses',
+    'admin.h.causes': 'Why missions were lost',
+    'admin.h.noLosses': 'No mission has been lost yet.',
+    'admin.h.table': 'Data table',
+    'admin.h.csv': 'Export CSV',
+    'admin.h.clear': 'Clear all',
+    'admin.h.clearAsk': 'Delete all {n} missions from the history? This cannot be undone.',
+    'admin.h.deleteAsk': 'Delete mission {code} from {date}?',
+    'admin.h.details': 'Details',
+    'admin.col.date': 'Date',
+    'admin.col.mode': 'Mode',
+    'admin.col.code': 'Code',
+    'admin.col.players': 'Players',
+    'admin.col.outcome': 'Outcome',
+    'admin.col.cause': 'Cause',
+    'admin.col.score': 'Score',
+    'admin.col.grade': 'Grade',
+    'admin.col.sols': 'Sols',
+    'admin.mode.solo': 'Solo',
+    'admin.mode.lan': 'Wi-Fi',
+    'admin.mode.online': 'Online',
+    'admin.outcome.success': 'Success',
+    'admin.outcome.lost': 'Lost',
+    'admin.cause.hypoxia': 'No oxygen',
+    'admin.cause.dehydration': 'No water',
+    'admin.cause.starvation': 'No food',
+    'admin.cause.cold': 'Power loss and cold',
+    'admin.cause.habFault': 'HQ fault',
+    'admin.cause.radiationSickness': 'Radiation',
+    'admin.cause.injury': 'Injuries',
+    'admin.cause.rations': 'Short rations',
+    'admin.cause.health': 'Poor health',
+    'admin.d.title': 'Mission {code}',
+    'admin.d.difficulty': 'Difficulty',
+    'admin.d.crew': 'Crew',
+    'admin.d.crewN': '{n} astronauts',
+    'admin.d.achievements': 'Achievements',
+    'admin.d.none': 'None',
+    'admin.d.noPlayers': 'Not recorded',
+    'admin.l.uptime': 'Running for',
+    'admin.l.players': 'Players connected',
+    'admin.l.rooms': 'Rooms',
+    'admin.l.port': 'Port',
+    'admin.l.addresses': 'Wi-Fi addresses',
+    'admin.l.noAddresses': 'No Wi-Fi network found.',
+    'admin.l.share': 'Share link',
+    'admin.l.qr': 'QR code for the share link',
+    'admin.l.notSharing': 'Not sharing. Start a share link from a game lobby in the app.',
+    'admin.l.stopSharing': 'Stop sharing',
+    'admin.l.noRooms': 'No rooms are open right now.',
+    'admin.l.room': 'Room {code}',
+    'admin.l.roundSol': 'Round {r} · sol {s}',
+    'admin.l.host': 'host',
+    'admin.l.connected': 'Connected',
+    'admin.l.awaySince': 'Away since {time}',
+    'admin.l.remote': 'Share link',
+    'admin.l.noCrew': 'No astronaut yet',
+    'admin.l.kick': 'Kick',
+    'admin.l.kickAsk': 'Remove {name} from room {code}? They can join again with the room code.',
+    'admin.l.close': 'Close room',
+    'admin.l.closeAsk': 'Close room {code} for all {n} players? The game in it ends.',
+    'admin.l.events': 'Recent events',
+    'admin.l.noEvents': 'Nothing has happened yet.',
+    'admin.l.time': 'Time',
+    'admin.l.what': 'What happened',
+    'admin.l.name': 'Name',
+    'admin.l.astronaut': 'Astronaut',
+    'admin.l.status': 'Status',
+    'admin.l.via': 'Connected via',
+    'admin.phase.lobby': 'Lobby',
+    'admin.phase.manifest': 'Packing',
+    'admin.phase.ops': 'Playing',
+    'admin.phase.debrief': 'Debrief',
+    'admin.ev.roomCreated': '{name} opened room {code}',
+    'admin.ev.playerJoined': '{name} joined room {code}',
+    'admin.ev.playerReplaced': '{name} lost their seat in room {code}',
+    'admin.ev.playerLeft': '{name} left room {code}',
+    'admin.ev.playerKicked': '{name} was removed from room {code}',
+    'admin.ev.roundResolved': 'Room {code} finished round {round}',
+    'admin.ev.missionEnded': 'Room {code}: mission over ({outcome})',
+    'admin.ev.roomClosed': 'Room {code} closed',
+    'admin.ev.soloRecorded': '{name} finished a solo mission ({outcome})',
+    'admin.w.title': 'Wi-Fi access',
+    'admin.w.body': "Let another device on this Wi-Fi, such as a teacher's or a judge's laptop, open this panel with a password.",
+    'admin.w.warn': "Wi-Fi traffic is not encrypted. Use a password you don't use anywhere else.",
+    'admin.w.password': 'New password (8–64 characters)',
+    'admin.w.again': 'Type it again',
+    'admin.w.save': 'Save password',
+    'admin.w.saved': 'Password saved. Every Wi-Fi admin was logged out.',
+    'admin.w.mismatch': "The two passwords don't match.",
+    'admin.w.short': 'Use 8 to 64 characters.',
+    'admin.w.needPassword': 'Set a password first.',
+    'admin.w.access': 'Access from other devices',
+    'admin.w.sessions': 'Wi-Fi admins logged in: {n}',
+    'admin.w.logout': 'Log them all out',
+    'admin.w.how': 'On the other device, open {addr}/admin',
+    'admin.w.managed': 'Wi-Fi access is managed on the host PC.',
+    'admin.p.empty': 'No progress snapshot yet. Run "npm run progress" on the host PC.',
+    'admin.p.generated': 'Snapshot from {date}',
+    'admin.p.features': 'Features done',
+    'admin.p.done': '{n} of {m} done',
+    'admin.p.tests': 'Tests passing',
+    'admin.p.failing': '{n} failing',
+    'admin.p.commits': 'Commits',
+    'admin.p.lines': 'Lines of code',
+    'admin.p.sources': 'Science sources',
+    'admin.p.recent': 'Recent commits',
+    'admin.p.biggest': 'Biggest files (lines)',
+    'admin.p.refreshing': 'Running the tests…',
+    'admin.p.failed': 'The snapshot could not be made.',
+    'admin.p.hash': 'Commit',
+    'admin.p.subject': 'Change',
   };
 
   const vi = {
@@ -3182,6 +3326,148 @@ p { margin: 0; }
     'sf.jobs': "Việc của phi hành đoàn",
     'sf.cantMove': "{name} không thể di chuyển lúc này.",
     'lan.taken_err': 'Đã có người nhận vai này.',
+    'title.admin': 'Quản trị',
+    'admin.title': 'Quản trị',
+    'admin.back': 'Về trò chơi',
+    'admin.modeLocal': 'Máy này',
+    'admin.modeLan': 'Quản trị qua Wi-Fi',
+    'admin.tab.history': 'Lịch sử chơi',
+    'admin.tab.live': 'Máy chủ trực tiếp',
+    'admin.tab.project': 'Tiến độ dự án',
+    'admin.refresh': 'Làm mới',
+    'admin.error': 'Không kết nối được máy chủ. SOL 500 có còn đang chạy không?',
+    'admin.stale': 'Máy chủ đã khởi động lại. Hãy tải lại trang này để tiếp tục.',
+    'admin.reload': 'Tải lại',
+    'admin.loading': 'Đang tải…',
+    'admin.confirm': 'Bạn chắc chứ?',
+    'admin.delete': 'Xóa',
+    'admin.login.title': 'Đăng nhập quản trị',
+    'admin.login.body': 'Nhập mật khẩu quản trị đã đặt trên máy chủ.',
+    'admin.login.password': 'Mật khẩu',
+    'admin.login.go': 'Đăng nhập',
+    'admin.login.bad': 'Sai mật khẩu.',
+    'admin.login.slow': 'Thử quá nhiều lần. Đợi một phút rồi thử lại.',
+    'admin.login.off': 'Máy chủ đã tắt quyền truy cập qua Wi-Fi.',
+    'admin.h.missions': 'Nhiệm vụ',
+    'admin.h.winRate': 'Tỉ lệ thành công',
+    'admin.h.best': 'Điểm cao nhất',
+    'admin.h.finds': 'Vật phẩm tìm thấy',
+    'admin.h.empty': 'Chưa có nhiệm vụ nào. Mọi nhiệm vụ đã kết thúc (chơi đơn, Wi-Fi hay trực tuyến) sẽ hiện ở đây.',
+    'admin.h.scoreChart': 'Điểm từng nhiệm vụ',
+    'admin.h.score': 'Điểm',
+    'admin.h.mission': 'Nhiệm vụ',
+    'admin.h.outcomes': 'Thắng và thua',
+    'admin.h.causes': 'Vì sao nhiệm vụ thất bại',
+    'admin.h.noLosses': 'Chưa có nhiệm vụ nào thất bại.',
+    'admin.h.table': 'Bảng số liệu',
+    'admin.h.csv': 'Xuất CSV',
+    'admin.h.clear': 'Xóa tất cả',
+    'admin.h.clearAsk': 'Xóa toàn bộ {n} nhiệm vụ khỏi lịch sử? Không thể hoàn tác.',
+    'admin.h.deleteAsk': 'Xóa nhiệm vụ {code} ngày {date}?',
+    'admin.h.details': 'Chi tiết',
+    'admin.col.date': 'Ngày',
+    'admin.col.mode': 'Chế độ',
+    'admin.col.code': 'Mã',
+    'admin.col.players': 'Người chơi',
+    'admin.col.outcome': 'Kết quả',
+    'admin.col.cause': 'Nguyên nhân',
+    'admin.col.score': 'Điểm',
+    'admin.col.grade': 'Hạng',
+    'admin.col.sols': 'Sol',
+    'admin.mode.solo': 'Chơi đơn',
+    'admin.mode.lan': 'Wi-Fi',
+    'admin.mode.online': 'Trực tuyến',
+    'admin.outcome.success': 'Thành công',
+    'admin.outcome.lost': 'Thất bại',
+    'admin.cause.hypoxia': 'Hết oxy',
+    'admin.cause.dehydration': 'Hết nước',
+    'admin.cause.starvation': 'Hết thức ăn',
+    'admin.cause.cold': 'Mất điện và lạnh',
+    'admin.cause.habFault': 'Hỏng HQ',
+    'admin.cause.radiationSickness': 'Nhiễm xạ',
+    'admin.cause.injury': 'Chấn thương',
+    'admin.cause.rations': 'Thiếu khẩu phần',
+    'admin.cause.health': 'Sức khỏe kém',
+    'admin.d.title': 'Nhiệm vụ {code}',
+    'admin.d.difficulty': 'Độ khó',
+    'admin.d.crew': 'Phi hành đoàn',
+    'admin.d.crewN': '{n} phi hành gia',
+    'admin.d.achievements': 'Thành tích',
+    'admin.d.none': 'Không có',
+    'admin.d.noPlayers': 'Không ghi lại',
+    'admin.l.uptime': 'Đã chạy',
+    'admin.l.players': 'Người chơi đang kết nối',
+    'admin.l.rooms': 'Phòng',
+    'admin.l.port': 'Cổng',
+    'admin.l.addresses': 'Địa chỉ Wi-Fi',
+    'admin.l.noAddresses': 'Không tìm thấy mạng Wi-Fi.',
+    'admin.l.share': 'Liên kết chia sẻ',
+    'admin.l.qr': 'Mã QR của liên kết chia sẻ',
+    'admin.l.notSharing': 'Chưa chia sẻ. Hãy mở liên kết chia sẻ từ phòng chờ trong ứng dụng.',
+    'admin.l.stopSharing': 'Dừng chia sẻ',
+    'admin.l.noRooms': 'Hiện không có phòng nào đang mở.',
+    'admin.l.room': 'Phòng {code}',
+    'admin.l.roundSol': 'Vòng {r} · sol {s}',
+    'admin.l.host': 'chủ phòng',
+    'admin.l.connected': 'Đang kết nối',
+    'admin.l.awaySince': 'Vắng từ {time}',
+    'admin.l.remote': 'Liên kết chia sẻ',
+    'admin.l.noCrew': 'Chưa chọn phi hành gia',
+    'admin.l.kick': 'Mời ra',
+    'admin.l.kickAsk': 'Mời {name} ra khỏi phòng {code}? Họ có thể vào lại bằng mã phòng.',
+    'admin.l.close': 'Đóng phòng',
+    'admin.l.closeAsk': 'Đóng phòng {code} với cả {n} người chơi? Ván chơi trong phòng sẽ kết thúc.',
+    'admin.l.events': 'Sự kiện gần đây',
+    'admin.l.noEvents': 'Chưa có gì xảy ra.',
+    'admin.l.time': 'Thời gian',
+    'admin.l.what': 'Sự kiện',
+    'admin.l.name': 'Tên',
+    'admin.l.astronaut': 'Phi hành gia',
+    'admin.l.status': 'Trạng thái',
+    'admin.l.via': 'Kết nối qua',
+    'admin.phase.lobby': 'Phòng chờ',
+    'admin.phase.manifest': 'Chất hàng',
+    'admin.phase.ops': 'Đang chơi',
+    'admin.phase.debrief': 'Tổng kết',
+    'admin.ev.roomCreated': '{name} đã mở phòng {code}',
+    'admin.ev.playerJoined': '{name} đã vào phòng {code}',
+    'admin.ev.playerReplaced': '{name} đã mất chỗ trong phòng {code}',
+    'admin.ev.playerLeft': '{name} đã rời phòng {code}',
+    'admin.ev.playerKicked': '{name} đã bị mời ra khỏi phòng {code}',
+    'admin.ev.roundResolved': 'Phòng {code} đã xong vòng {round}',
+    'admin.ev.missionEnded': 'Phòng {code}: nhiệm vụ kết thúc ({outcome})',
+    'admin.ev.roomClosed': 'Phòng {code} đã đóng',
+    'admin.ev.soloRecorded': '{name} đã hoàn thành một nhiệm vụ chơi đơn ({outcome})',
+    'admin.w.title': 'Truy cập qua Wi-Fi',
+    'admin.w.body': 'Cho phép một thiết bị khác trong cùng Wi-Fi, như máy của giáo viên hay giám khảo, mở bảng này bằng mật khẩu.',
+    'admin.w.warn': 'Dữ liệu qua Wi-Fi không được mã hóa. Hãy dùng mật khẩu bạn không dùng ở nơi khác.',
+    'admin.w.password': 'Mật khẩu mới (8–64 ký tự)',
+    'admin.w.again': 'Nhập lại',
+    'admin.w.save': 'Lưu mật khẩu',
+    'admin.w.saved': 'Đã lưu mật khẩu. Mọi quản trị viên Wi-Fi đã bị đăng xuất.',
+    'admin.w.mismatch': 'Hai mật khẩu không khớp.',
+    'admin.w.short': 'Hãy dùng từ 8 đến 64 ký tự.',
+    'admin.w.needPassword': 'Hãy đặt mật khẩu trước.',
+    'admin.w.access': 'Truy cập từ thiết bị khác',
+    'admin.w.sessions': 'Quản trị viên Wi-Fi đang đăng nhập: {n}',
+    'admin.w.logout': 'Đăng xuất tất cả',
+    'admin.w.how': 'Trên thiết bị kia, mở {addr}/admin',
+    'admin.w.managed': 'Quyền truy cập Wi-Fi được quản lý trên máy chủ.',
+    'admin.p.empty': 'Chưa có ảnh chụp tiến độ. Hãy chạy "npm run progress" trên máy chủ.',
+    'admin.p.generated': 'Ảnh chụp lúc {date}',
+    'admin.p.features': 'Tính năng đã xong',
+    'admin.p.done': 'Xong {n}/{m}',
+    'admin.p.tests': 'Bài kiểm thử đạt',
+    'admin.p.failing': '{n} bài lỗi',
+    'admin.p.commits': 'Lần commit',
+    'admin.p.lines': 'Dòng mã',
+    'admin.p.sources': 'Nguồn khoa học',
+    'admin.p.recent': 'Commit gần đây',
+    'admin.p.biggest': 'Tệp lớn nhất (số dòng)',
+    'admin.p.refreshing': 'Đang chạy kiểm thử…',
+    'admin.p.failed': 'Không tạo được ảnh chụp.',
+    'admin.p.hash': 'Commit',
+    'admin.p.subject': 'Thay đổi',
   };
 
   const NOTES = {
@@ -3476,7 +3762,9 @@ p { margin: 0; }
 /*
  * SOL 500 — small SVG line charts for the debrief.
  * One y-axis per chart, 2 px lines, legend + direct end labels, crosshair tooltip, and a data table for screen readers.
- * config: { title, unit, series: [{ name, color, points: [[x, y], ...] }], refLines: [{ y, label }], xLabel, fmt }
+ * lineChart config: { title, unit, series: [{ name, color, points: [[x, y], ...] }], refLines: [{ y, label }], xLabel, fmt,
+ *                     xMin, xMax, xTicks (defaults: 0, max(500, data), 100: the sol axis) }
+ * barChart config:  { title, rows: [{ label, value }], color, fmt, tableLabel }: horizontal bars, one hue, value at the tip
  */
 (function (root) {
   'use strict';
@@ -3501,11 +3789,16 @@ p { margin: 0; }
     const fmt = cfg.fmt || (v => Math.round(v).toLocaleString());
     const series = cfg.series.filter(s => s.points.length);
     const xs = series.flatMap(s => s.points.map(p => p[0]));
-    const xMin = 0, xMax = Math.max(500, ...xs);
-    const yMaxData = Math.max(1, ...series.flatMap(s => s.points.map(p => p[1])), ...(cfg.refLines || []).map(r => r.y));
+    const ys = series.flatMap(s => s.points.map(p => p[1]));
+    const xMin = cfg.xMin != null ? cfg.xMin : 0;
+    const xMax = cfg.xMax != null ? cfg.xMax : Math.max(500, ...xs);
+    const xStep = cfg.xTicks || 100;
+    const yMaxData = Math.max(1, ...ys, ...(cfg.refLines || []).map(r => r.y));
     const yMax = niceMax(yMaxData * 1.05);
-    const X = x => M.l + (x - xMin) / (xMax - xMin) * (W - M.l - M.r);
-    const Y = y => H - M.b - (y / yMax) * (H - M.t - M.b);
+    const lowest = Math.min(0, ...ys);
+    const yMin = lowest < 0 ? -niceMax(-lowest * 1.05) : 0;
+    const X = x => M.l + (x - xMin) / Math.max(1e-9, xMax - xMin) * (W - M.l - M.r);
+    const Y = y => H - M.b - ((y - yMin) / (yMax - yMin)) * (H - M.t - M.b);
 
     const wrap = document.createElement('div');
     wrap.className = 'chart';
@@ -3529,13 +3822,13 @@ p { margin: 0; }
     // grid + y axis
     const ticks = 4;
     for (let i = 0; i <= ticks; i++) {
-      const v = (yMax / ticks) * i;
+      const v = yMin + ((yMax - yMin) / ticks) * i;
       const y = Y(v);
-      el('line', { x1: M.l, x2: W - M.r, y1: y, y2: y, stroke: 'var(--line)', 'stroke-width': i === 0 ? 1.2 : 0.8 }, svg);
+      el('line', { x1: M.l, x2: W - M.r, y1: y, y2: y, stroke: 'var(--line)', 'stroke-width': Math.abs(v) < 1e-9 ? 1.2 : 0.8 }, svg);
       const t = el('text', { x: M.l - 8, y: y + 4, 'text-anchor': 'end', fill: 'var(--fg-3)', 'font-size': 11, 'font-family': 'var(--font-data)' }, svg);
       t.textContent = fmt(v);
     }
-    for (let x = 0; x <= xMax; x += 100) {
+    for (let x = xMin; x <= xMax + 1e-9; x += xStep) {
       const t = el('text', { x: X(x), y: H - M.b + 18, 'text-anchor': 'middle', fill: 'var(--fg-3)', 'font-size': 11, 'font-family': 'var(--font-data)' }, svg);
       t.textContent = String(x);
     }
@@ -3653,7 +3946,79 @@ p { margin: 0; }
     return wrap;
   }
 
-  root.SolCharts = { lineChart };
+  // Horizontal bars for counts per category: one hue (it's magnitude, not identity), bars no thicker than 18 px,
+  // square at the baseline with a 4 px rounded tip, the value right after the tip, a tooltip per bar, and the table view.
+  function barChart(container, cfg) {
+    const fmt = cfg.fmt || (v => Math.round(v).toLocaleString());
+    const rows = cfg.rows || [];
+    const BAND = 30, BAR = 18, LW = 160, RW = 64, BW = 640;
+    const BH = Math.max(1, rows.length) * BAND + 8;
+    const max = Math.max(1, ...rows.map(r => r.value));
+    const len = v => (Math.max(0, v) / max) * (BW - LW - RW);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'chart';
+    const svg = el('svg', { viewBox: `0 0 ${BW} ${BH}`, role: 'img', 'aria-label': cfg.title || '' });
+    el('title', {}, svg).textContent = cfg.title || '';
+    el('line', { x1: LW, x2: LW, y1: 2, y2: BH - 2, stroke: 'var(--line)', 'stroke-width': 1 }, svg);
+    const tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.hidden = true;
+
+    rows.forEach((r, i) => {
+      const top = 4 + i * BAND;
+      const y = top + (BAND - BAR) / 2;
+      const w = len(r.value);
+      const label = el('text', { x: LW - 10, y: y + BAR / 2 + 4, 'text-anchor': 'end', fill: 'var(--fg-2)', 'font-size': 12 }, svg);
+      label.textContent = r.label;
+      if (w > 0) {
+        const rr = Math.min(4, w, BAR / 2);
+        const x2 = LW + w;
+        const d = `M${LW} ${y} H${x2 - rr} Q${x2} ${y} ${x2} ${y + rr} V${y + BAR - rr} Q${x2} ${y + BAR} ${x2 - rr} ${y + BAR} H${LW} Z`;
+        el('path', { d, fill: cfg.color }, svg);
+      }
+      const value = el('text', { x: LW + w + 8, y: y + BAR / 2 + 4, fill: 'var(--fg)', 'font-size': 12, 'font-family': 'var(--font-data)' }, svg);
+      value.textContent = fmt(r.value);
+      const hit = el('rect', { x: 0, y: top, width: BW, height: BAND, fill: 'transparent' }, svg);
+      const show = () => {
+        tip.textContent = '';
+        const b = document.createElement('b');
+        b.textContent = fmt(r.value);
+        tip.append(r.label + ' ', b);
+        tip.hidden = false;
+        tip.style.left = ((LW + w) / BW) * 100 + '%';
+        tip.style.top = (top / BH) * 100 + '%';
+      };
+      hit.addEventListener('pointermove', show);
+      hit.addEventListener('pointerdown', show);
+      hit.addEventListener('pointerleave', () => { tip.hidden = true; });
+    });
+
+    wrap.appendChild(svg);
+    wrap.appendChild(tip);
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.className = 'hint';
+    sum.textContent = cfg.tableLabel || 'Data table';
+    det.appendChild(sum);
+    const tw = document.createElement('div');
+    tw.className = 'tablewrap';
+    const table = document.createElement('table');
+    table.className = 'log';
+    const tb = table.createTBody();
+    for (const r of rows) {
+      const tr = tb.insertRow();
+      tr.insertCell().textContent = r.label;
+      tr.insertCell().textContent = fmt(r.value);
+    }
+    tw.appendChild(table);
+    det.appendChild(tw);
+    wrap.appendChild(det);
+    container.appendChild(wrap);
+    return wrap;
+  }
+
+  root.SolCharts = { lineChart, barChart };
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -3825,7 +4190,15 @@ p { margin: 0; }
   // Play-testing hook: drops the socket the way a Wi-Fi blip would, so reconnection can be checked in a real browser.
   function dropForTest() { if (ws) ws.close(); }
 
-  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, dropForTest, session: () => session };
+  // A finished solo game, for the host's admin panel. Fire and forget: the game never waits on it. The explored-map
+  // bitsets (from M3) are dropped first so the mission stays far under the server's 64 KB limit.
+  function recordSolo(mission, player) {
+    const m = Object.assign({}, mission);
+    if (m.expedition) m.expedition = Object.assign({}, m.expedition, { revealed: {} });
+    return post('/api/history/solo', { mission: m, player: player || '' });
+  }
+
+  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, dropForTest, recordSolo, session: () => session };
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -5126,6 +5499,12 @@ p { margin: 0; }
     }
   }
 
+  // The admin panel: the same window in the app (its navigation guard allows this origin), a new tab in a browser.
+  function openAdmin() {
+    if (window.solApp) location.href = '/admin';
+    else window.open('/admin', '_blank', 'noopener');
+  }
+
   // ---------- LAN helpers ----------
   const lanOn = () => !!(store.lan && store.room);
   const me = () => (lanOn() ? store.room.players.find(p => p.id === store.lan.playerId) : null);
@@ -5235,6 +5614,8 @@ p { margin: 0; }
     store.buildType = null;
     store.advice = null;
     checkBadges(state);
+    // Served by a SOL 500 server (not the offline file): the host's admin panel records the finished mission.
+    if (state.status !== 'active' && store.lanInfo && N) N.recordSolo(state, store.lanForm.name || '');
     store.modal = 'report';
     saveSolo();
     render();
@@ -5330,14 +5711,17 @@ p { margin: 0; }
           h('div', { class: 'divider' }),
           store.lanInfo
             ? h('div', { class: 'setup-row' },
-              window.solApp
-                ? h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
-                  h('button', { class: 'btn', type: 'button', 'data-k': 'host-game', onclick: () => { store.modal = 'lan'; render(); } }, ico('users'), t('title.host')),
-                  h('button', {
-                    class: 'btn', type: 'button', 'data-k': 'join-game',
-                    onclick: () => { store.modal = 'lan'; render(); const el = document.getElementById('lan-hostaddr'); if (el) el.focus(); },
-                  }, ico('wifi'), t('title.join')))
-                : h('button', { class: 'btn', type: 'button', 'data-k': 'lan', onclick: () => { store.modal = 'lan'; render(); } }, ico('wifi'), t('title.lan')),
+              h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+                window.solApp
+                  ? [
+                    h('button', { class: 'btn', type: 'button', 'data-k': 'host-game', onclick: () => { store.modal = 'lan'; render(); } }, ico('users'), t('title.host')),
+                    h('button', {
+                      class: 'btn', type: 'button', 'data-k': 'join-game',
+                      onclick: () => { store.modal = 'lan'; render(); const el = document.getElementById('lan-hostaddr'); if (el) el.focus(); },
+                    }, ico('wifi'), t('title.join')),
+                  ]
+                  : h('button', { class: 'btn', type: 'button', 'data-k': 'lan', onclick: () => { store.modal = 'lan'; render(); } }, ico('wifi'), t('title.lan')),
+                store.lanInfo.adminHere ? h('button', { class: 'btn', type: 'button', 'data-k': 'admin', onclick: openAdmin }, ico('lock'), t('title.admin')) : null),
               h('p', { class: 'hint' }, t('title.lanHint')))
             : h('p', { class: 'hint' }, ico('wifi', 14), ' ', t('title.lanOff')))),
         panel(t('title.loop'), [

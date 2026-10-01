@@ -571,13 +571,13 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] Windows installer builds
 
 ### M2 — Admin panel
-- [ ] Admin key and local-only access
-- [ ] Admin button in the browser and the app
-- [ ] Wi-Fi admin access with a password
-- [ ] Mission history recorded (solo, LAN, online)
-- [ ] History tab with totals, charts, table, CSV
-- [ ] Live server tab with kick and close
-- [ ] Project progress tab and generator
+- [x] Admin key and local-only access
+- [x] Admin button in the browser and the app
+- [x] Wi-Fi admin access with a password
+- [x] Mission history recorded (solo, LAN, online)
+- [x] History tab with totals, charts, table, CSV
+- [x] Live server tab with kick and close
+- [x] Project progress tab and generator
 
 ### M3 — Endless world
 - [ ] Deterministic endless worldgen with regions
