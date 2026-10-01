@@ -21,13 +21,17 @@ let starting = null; // the pending start, so a double click can't open two tunn
 function sendStatus(s) { if (win && !win.isDestroyed()) win.webContents.send('online:status', s); }
 
 let generation = 0;  // bumped by stopOnline(), so a start still in flight knows it was cancelled
+let abort = new AbortController(); // one per generation: stopOnline() aborts the download, the start and the probe
+const fail = (message, code) => Object.assign(new Error(message), { code });
 
 async function doStartOnline() {
   if (!online) {
     const gen = generation;
+    const signal = abort.signal;
     let t = null;
     t = await tunnel.start({
       port,
+      signal,
       binDir: path.join(app.getPath('userData'), 'bin'),
       onStatus: s => { if (gen === generation) sendStatus(s); },
       onExit: err => { if (online !== t) return; online = null; sendStatus({ state: 'off', error: err ? err.code : null }); },
@@ -36,8 +40,9 @@ async function doStartOnline() {
     online = t;
     // New quick-tunnel names can take a few seconds to resolve: don't announce the link before it answers.
     sendStatus({ state: 'starting' });
-    await tunnel.waitUntilReachable(t.url, { isCancelled: () => gen !== generation });
+    await tunnel.waitUntilReachable(t.url, { signal });
     if (gen !== generation) return { error: 'cancelled' };
+    if (online !== t) throw fail('the share link stopped while it was opening', 'exited');
   }
   const qr = await QRCode.toDataURL(online.url, { margin: 1, width: 240, color: { dark: '#1b1417', light: '#ffffff' } });
   sendStatus({ state: 'on', url: online.url, qr });
@@ -51,6 +56,8 @@ function startOnline() {
 
 function stopOnline() {
   generation++;
+  abort.abort();
+  abort = new AbortController();
   const o = online;
   online = null;
   if (o) o.stop();
@@ -69,7 +76,10 @@ function uiStartOnline() {
     if (!btn) return { error: 'no online button in the lobby' };
     btn.click();
     const link = await until('[data-k="online-url"]', 120000);
-    return link ? { url: link.textContent, room: SolUI.store.room && SolUI.store.room.code } : { error: (SolUI.store.online && SolUI.store.online.error) || 'no link' };
+    if (!link) return { error: (SolUI.store.online && SolUI.store.online.error) || 'no link' };
+    const chip = document.querySelector('[data-k="online-chip"]'); // the topbar chip opens the link dialog
+    if (chip) { chip.click(); await wait(500); }
+    return { url: link.textContent, room: SolUI.store.room && SolUI.store.room.code, dialog: SolUI.store.modal === 'online' && !!document.querySelector('.modal [data-k="online-url"]') };
   })()`);
 }
 
@@ -125,7 +135,13 @@ if (!app.requestSingleInstanceLock()) {
     }
     ipcMain.handle('app:info', () => ({ port }));
     ipcMain.handle('online:start', async () => {
-      try { return await startOnline(); } catch (e) { const error = e.code || 'failed'; sendStatus({ state: 'off', error }); return { error }; }
+      try {
+        return await startOnline();
+      } catch (e) {
+        const error = e.code || 'failed';
+        sendStatus({ state: 'off', error: error === 'cancelled' ? null : error }); // Cancel is not a failure
+        return { error };
+      }
     });
     ipcMain.handle('online:stop', () => { stopOnline(); return { ok: true }; });
     // "Join game": the host's game opens in the friend's normal browser, never in this window (it has window.solApp).

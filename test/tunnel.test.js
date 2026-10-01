@@ -71,3 +71,17 @@ test('a link that never answers gives up without failing', async () => {
   const never = async () => ({ ok: false });
   assert.equal(await waitUntilReachable('https://x.trycloudflare.com', { fetch: never, timeoutMs: 60, intervalMs: 20 }), false);
 });
+
+test('cancelling while the link is still opening stops cloudflared and reports "cancelled"', async () => {
+  const pidFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sol500-cancel-')), 'pid');
+  const script = 'require("fs").writeFileSync(' + JSON.stringify(pidFile) + ', String(process.pid)); setInterval(() => {}, 1000);';
+  const ac = new AbortController();
+  const started = start({ command: process.execPath, args: ['-e', script], signal: ac.signal, timeoutMs: 20000 });
+  const t0 = Date.now();
+  while (!fs.existsSync(pidFile) && Date.now() - t0 < 10000) await new Promise(r => setTimeout(r, 20));
+  await new Promise(r => setTimeout(r, Math.max(0, 100 - (Date.now() - t0))));
+  const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+  ac.abort();
+  await assert.rejects(started, e => e.code === 'cancelled');
+  assert.throws(() => process.kill(pid, 0), e => e.code === 'ESRCH', 'the child process is gone');
+});

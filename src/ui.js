@@ -1243,7 +1243,9 @@
         h('img', { src: o.qr, alt: t('online.qr'), width: 160, height: 160, style: 'border-radius:8px;background:#fff;padding:6px' }),
         h('p', { class: 'hint' }, t('online.hint', { code: store.room.code })));
     } else if (o.state === 'downloading' || o.state === 'starting') {
-      body.push(h('p', { class: 'muted' }, t(o.state === 'downloading' ? 'online.downloading' : 'online.starting')));
+      body.push(
+        h('p', { class: 'muted' }, t(o.state === 'downloading' ? 'online.downloading' : 'online.starting')),
+        h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-cancel', onclick: () => window.solApp.stopOnline() }, t('online.cancel')));
     } else {
       if (o.error) body.push(h('p', { class: 'crit' }, t('online.error')));
       body.push(h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'online-start', onclick: () => startOnline(false) }, ico('wifi', 16), t('online.start')));
@@ -1318,6 +1320,8 @@
   }
 
   function leaveRoom() {
+    // A host going back to solo play should no longer be reachable from the internet.
+    if (window.solApp && store.online && store.online.state !== 'off') window.solApp.stopOnline();
     N.act('leave');
     N.disconnect();
     N.clear();
