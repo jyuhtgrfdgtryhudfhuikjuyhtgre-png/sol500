@@ -10,6 +10,7 @@ const { createServer } = require('../server.js');
 const { pickPort } = require('./port.js');
 const QRCode = require('qrcode');
 const tunnel = require('./tunnel.js');
+const { joinUrl } = require('./join.js');
 
 let win = null;
 let server = null;
@@ -127,6 +128,15 @@ if (!app.requestSingleInstanceLock()) {
       try { return await startOnline(); } catch (e) { const error = e.code || 'failed'; sendStatus({ state: 'off', error }); return { error }; }
     });
     ipcMain.handle('online:stop', () => { stopOnline(); return { ok: true }; });
+    // "Join game": the host's game opens in the friend's normal browser, never in this window (it has window.solApp).
+    ipcMain.handle('join:open', async (e, req) => {
+      const from = (e.senderFrame && e.senderFrame.url) || (e.sender && e.sender.getURL()) || '';
+      if (!from.startsWith('http://localhost:' + port + '/')) return { error: 'forbidden' };
+      const url = joinUrl(req && req.address, req && req.code);
+      if (!url) return { error: 'badAddr' };
+      try { await shell.openExternal(url); } catch (err) { return { error: 'openFailed' }; }
+      return { ok: true };
+    });
     createWindow();
     if (process.env.SOL_SMOKE) require('./smoke.js').run({ win, port, app, startOnline: uiStartOnline });
   });

@@ -39,6 +39,7 @@
     room: null,
     lanStatus: null,
     lanError: null,
+    lanForm: { name: '', code: '', addr: '' }, // the "Play together" dialog's fields, kept across re-renders
     online: null,
     lastTurnSeen: null,
     toast: null,
@@ -334,7 +335,7 @@
                   h('button', { class: 'btn', type: 'button', 'data-k': 'host-game', onclick: () => { store.modal = 'lan'; render(); } }, ico('users'), t('title.host')),
                   h('button', {
                     class: 'btn', type: 'button', 'data-k': 'join-game',
-                    onclick: () => { store.modal = 'lan'; render(); const el = document.getElementById('lan-join'); if (el) el.focus(); },
+                    onclick: () => { store.modal = 'lan'; render(); const el = document.getElementById('lan-hostaddr'); if (el) el.focus(); },
                   }, ico('wifi'), t('title.join')))
                 : h('button', { class: 'btn', type: 'button', 'data-k': 'lan', onclick: () => { store.modal = 'lan'; render(); } }, ico('wifi'), t('title.lan')),
               h('p', { class: 'hint' }, t('title.lanHint')))
@@ -1355,6 +1356,14 @@
     N.connect(onRoom, onLanStatus, onPos);
   }
 
+  // Desktop app only: a friend's game on another PC opens in the normal browser (see app/join.js).
+  async function openHost(addr, code) {
+    const r = await window.solApp.openHost(addr, code);
+    if (r && r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
+    store.lanError = null;
+    toast(t('lan.opened'));
+  }
+
   function onPos(list) {
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.setRemote(list);
   }
@@ -1397,17 +1406,25 @@
       ]);
     }
     if (m === 'lan') {
-      let nameVal = '';
-      let codeVal = '';
+      const f = store.lanForm;
+      const joinBtn = h('button', { class: 'btn', type: 'button', 'data-k': 'lan-joinbtn', onclick: () => joinRoom(f.code, f.name || 'Crew') }, t('lan.join'));
       return modal(t('lan.title'), [
         h('p', { class: 'muted' }, t('title.lanHint')),
         h('div', { class: 'field' }, h('label', { for: 'lan-me' }, t('lan.name')),
-          h('input', { id: 'lan-me', class: 'input', maxlength: 24, oninput: e => { nameVal = e.target.value; } })),
-        h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'lan-host', onclick: () => hostRoom(nameVal || 'Host') }, ico('users', 16), t('lan.host')),
+          h('input', { id: 'lan-me', class: 'input', maxlength: 24, value: f.name, oninput: e => { f.name = e.target.value; } })),
+        h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'lan-host', onclick: () => hostRoom(f.name || 'Host') }, ico('users', 16), t('lan.host')),
         h('div', { class: 'divider' }),
+        // In the app, "Join game" means a friend's game on another PC: it opens in the normal browser.
+        window.solApp ? h('div', { class: 'field' }, h('label', { for: 'lan-hostaddr' }, t('lan.hostAddr')),
+          h('input', { id: 'lan-hostaddr', class: 'input', autocomplete: 'off', spellcheck: 'false', value: f.addr, oninput: e => { f.addr = e.target.value; } }),
+          h('p', { class: 'hint' }, t('lan.hostAddrHint'))) : null,
         h('div', { class: 'field' }, h('label', { for: 'lan-join' }, t('lan.room')),
-          h('input', { id: 'lan-join', class: 'input num', maxlength: 6, autocomplete: 'off', oninput: e => { codeVal = e.target.value; } })),
-        h('button', { class: 'btn', type: 'button', 'data-k': 'lan-joinbtn', onclick: () => joinRoom(codeVal, nameVal || 'Crew') }, t('lan.join')),
+          h('input', { id: 'lan-join', class: 'input num', maxlength: 6, autocomplete: 'off', value: f.code, oninput: e => { f.code = e.target.value; } })),
+        window.solApp
+          ? h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+            h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'lan-openhost', onclick: () => openHost(f.addr, f.code) }, ico('wifi', 16), t('lan.openHost')),
+            joinBtn)
+          : joinBtn,
         store.lanError ? h('p', { class: 'crit' }, store.lanError) : null,
       ]);
     }
@@ -1523,8 +1540,14 @@
         if (!info) return;
         store.lanInfo = info;
         const s = N.restore();
+        // Opened from a friend's "Join game" (…/?join=CODE): go straight to the join dialog with the code filled in.
+        let joinCode = null;
+        try { joinCode = new URLSearchParams(location.search).get('join'); } catch (e) { /* no query */ }
+        const invited = !s && !!joinCode && /^[A-Za-z]{1,6}$/.test(joinCode);
         if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos); }
+        else if (invited) { store.lanForm.code = joinCode.toUpperCase(); store.modal = 'lan'; }
         render();
+        if (invited) { const el = document.getElementById('lan-me'); if (el) el.focus(); }
       });
     }
   }
