@@ -543,7 +543,7 @@
       if (lanOn()) { const mine = me(); N.act('ready', { ready: !(mine && mine.ready) }); return; }
       if (surfaceHooks.canAdvance()) advance();
     },
-    sendPos: pos => { if (lanOn() && me() && me().crewId) N.act('pos', pos); },
+    sendPos: pos => { if (lanOn() && me() && me().crewId) N.sendPos(pos); },
   };
 
   function surfaceStage(s, p, f) {
