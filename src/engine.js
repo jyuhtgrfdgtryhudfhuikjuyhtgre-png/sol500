@@ -7,7 +7,8 @@
  *     modules: { type: { count, broken } }, crops: [age...],
  *     resources: { o2, water, food, spares, materials }, wallWater, cleanliness, morale,
  *     crew: [{ id, role, name, health, dose, status: 'active'|'down'|'dead', downTurns, revives, grounded, harm }],
- *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log }
+ *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log
+ *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition) }
  *
  * Plan (the player's decisions for one turn):
  *   { jobs: { crewId: job }, modulesOn: { type: bool }, rations: 'full'|'reduced', habMode: 'normal'|'austerity',
@@ -215,6 +216,15 @@
   }
 
   // ---------- mission ----------
+  // The exploring state (spec §4). M3 uses `revealed` (the shared fog) and `regions`; M4 fills in the rest.
+  function newExpedition() {
+    return {
+      v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
+      carried: {}, drops: [], banked: { water: 0, materials: 0, spares: 0, food: 0, o2: 0, science: 0, morale: 0, lines: [] },
+      goals: [], incidents: [], stats: {},
+    };
+  }
+
   function buildState(loadout, seed, eventsOn, level, size) {
     const difficulty = difficultyOf(level);
     const crewSize = crewSizeOf(size);
@@ -263,6 +273,8 @@
       pending: { discovery: false, injuries: [], breakdowns: [] },
       history: [],
       log: [],
+      pilot: null,              // solo: the crew member you walk as (co-op seats choose their own)
+      expedition: newExpedition(),
     };
     const order = ['recycler', 'oxygen', 'greenhouse', 'lab', 'rover', 'solar', 'battery', 'reactor', 'icedrill'];
     for (const type of order) for (let i = 0; i < L[type]; i++) autoPlace(s, type);
@@ -276,9 +288,29 @@
     const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false, o.difficulty, o.crewSize);
     if (o.coop) s.coop = true;
     if (o.names) for (const c of s.crew) if (o.names[c.id]) c.name = String(o.names[c.id]).slice(0, 24);
+    if (o.pilot != null) {
+      if (!s.crew.some(c => c.id === o.pilot)) throw new Error('Invalid pilot: ' + o.pilot);
+      s.pilot = o.pilot;
+    }
     beginTurn(s);
     s.history.push(snapshot(s, null));
     return s;
+  }
+
+  // Missions saved before v3 get the exploring state and a pilot when they load: the astronaut that player was
+  // walking as if they are still alive, otherwise the first active (then the first living) crew member.
+  function upgradeMission(m, opts) {
+    if (!m || typeof m !== 'object') return m;
+    const fresh = newExpedition();
+    if (!m.expedition || typeof m.expedition !== 'object') m.expedition = fresh;
+    else for (const k of Object.keys(fresh)) if (m.expedition[k] == null) m.expedition[k] = fresh[k];
+    if (m.pilot === undefined) {
+      const controlId = opts && opts.controlId;
+      const alive = c => c.status !== 'dead';
+      const pick = !m.coop && (m.crew.find(c => c.id === controlId && alive(c)) || m.crew.find(isActive) || m.crew.find(alive));
+      m.pilot = pick ? pick.id : null;
+    }
+    return m;
   }
 
   function shielding(s) {
@@ -945,6 +977,15 @@
       s.status = 'success';
     }
 
+    // Solo: if your astronaut died, you take over the first active crewmate (else the first living one).
+    report.pilot = null;
+    const pilot = s.pilot && s.crew.find(c => c.id === s.pilot);
+    if (pilot && pilot.status === 'dead') {
+      const next = s.crew.find(isActive) || s.crew.find(c => c.status !== 'dead') || null;
+      report.pilot = { from: pilot.id, to: next ? next.id : null };
+      s.pilot = next ? next.id : null;
+    }
+
     s.log.push({
       turn: report.turn, sol: report.sol, weather: report.weather,
       events: (state.events || []).map(e => e.type), choices: report.choices,
@@ -1097,5 +1138,6 @@
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
+    newExpedition, upgradeMission,
   };
 });

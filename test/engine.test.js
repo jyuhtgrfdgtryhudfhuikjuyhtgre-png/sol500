@@ -603,3 +603,65 @@ test('resolving a finished mission is refused', () => {
   const { state: done } = E.resolveTurn(st, E.defaultPlan(st));
   assert.throws(() => E.resolveTurn(done, E.defaultPlan(done)));
 });
+
+test("a new mission has an empty exploring state and, in solo play, the player's astronaut", () => {
+  const s = E.createMission({ seed: 'PILOT-0', loadout: kit(), events: false, pilot: 'minh' });
+  assert.equal(s.pilot, 'minh');
+  assert.equal(s.expedition.v, 2);
+  assert.deepEqual(s.expedition.revealed, {});
+  assert.deepEqual(s.expedition.regions, []);
+  assert.deepEqual(Object.keys(s.expedition).sort(),
+    ['banked', 'beacons', 'carried', 'drops', 'goals', 'incidents', 'kits', 'landmarks', 'refills', 'regions', 'revealed', 'sites', 'stats', 'structures', 'v']);
+  assert.equal(calm().pilot, null, 'no pilot unless one is chosen (co-op seats choose their own)');
+  assert.throws(() => E.createMission({ seed: 'PILOT-0', loadout: kit(), events: false, pilot: 'kai' }), /pilot/, 'kai is not in a crew of 4');
+  assert.throws(() => E.createMission({ seed: 'PILOT-0', loadout: kit(), events: false, pilot: 'nobody' }), /pilot/);
+});
+
+test('when your astronaut dies you take over the first active crewmate, and the report says so once', () => {
+  const s = E.createMission({ seed: 'PILOT-1', loadout: kit(), events: false, pilot: 'lena' });
+  s.crew[0].status = 'down';
+  s.crew[0].downTurns = D.REVIVE.window - 1;
+  const { state, report } = E.resolveTurn(s, allJobs(s, 'science'));
+  assert.equal(state.crew[0].status, 'dead');
+  assert.deepEqual(report.pilot, { from: 'lena', to: 'minh' });
+  assert.equal(state.pilot, 'minh');
+  const next = E.resolveTurn(state, allJobs(state, 'science'));
+  assert.equal(next.report.pilot, null, 'reported only once');
+  assert.equal(next.state.pilot, 'minh');
+});
+
+test('with nobody active, your astronaut passes to a crewmate who is down', () => {
+  const s = E.createMission({ seed: 'PILOT-2', loadout: kit(), events: false, pilot: 'lena' });
+  s.crew[0].status = 'down';
+  s.crew[0].downTurns = D.REVIVE.window - 1;
+  for (const c of s.crew.slice(1)) { c.status = 'down'; c.downTurns = 0; }
+  const { state, report } = E.resolveTurn(s, allJobs(s, 'science'));
+  assert.deepEqual(report.pilot, { from: 'lena', to: 'minh' });
+  assert.equal(state.pilot, 'minh');
+});
+
+test('saves from before v3 get the exploring state and a pilot when they load', () => {
+  const old = E.createMission({ seed: 'OLD-1', loadout: kit(), events: false });
+  delete old.expedition;
+  delete old.pilot;
+  const copy = () => JSON.parse(JSON.stringify(old));
+  const up = E.upgradeMission(copy(), { controlId: 'diego' });
+  assert.equal(up.pilot, 'diego', 'the astronaut they were walking as');
+  assert.deepEqual(up.expedition, E.newExpedition());
+  const dead = copy();
+  dead.crew[2].status = 'dead';
+  assert.equal(E.upgradeMission(dead, { controlId: 'diego' }).pilot, 'lena', 'a dead astronaut is not picked');
+  assert.equal(E.upgradeMission(copy(), {}).pilot, 'lena', 'no saved choice: the first active crew member');
+  const coop = copy();
+  coop.coop = true;
+  assert.equal(E.upgradeMission(coop, { controlId: 'diego' }).pilot, null, 'co-op seats choose their own');
+  const partial = copy();
+  partial.expedition = { v: 2, regions: ['dunes'] };
+  partial.pilot = 'amara';
+  const kept = E.upgradeMission(partial, { controlId: 'diego' });
+  assert.deepEqual(kept.expedition.regions, ['dunes'], 'what is there is kept');
+  assert.deepEqual(kept.expedition.revealed, {}, 'what is missing is filled in');
+  assert.equal(kept.pilot, 'amara');
+  assert.equal(E.upgradeMission(null), null);
+  assert.equal(E.resolveTurn(up, E.defaultPlan(up)).state.status, 'active', 'an upgraded save plays on');
+});

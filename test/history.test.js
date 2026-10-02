@@ -139,3 +139,10 @@ test('a history file that is valid JSON but not a list is set aside', t => {
   assert.deepEqual(createHistory({ dataDir: dir }).list(), []);
   assert.ok(fs.readdirSync(dir).some(f => /^history\.corrupt-\d+\.json$/.test(f)));
 });
+
+test('a solo mission is refused when its pilot is not one of its crew', () => {
+  const m = finishedMission('PILOT-H');
+  assert.equal(validMission(Object.assign({}, m, { pilot: 'lena' })), true);
+  assert.equal(validMission(Object.assign({}, m, { pilot: null })), true);
+  for (const pilot of ['kai', 'nobody', 42, {}, '__proto__']) assert.equal(validMission(Object.assign({}, m, { pilot })), false, String(pilot));
+});

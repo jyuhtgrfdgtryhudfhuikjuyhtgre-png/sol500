@@ -285,12 +285,16 @@ test('solo records are only taken from JSON posts, so another web page cannot fo
   assert.equal(cs.status, 200);
 });
 
-test('a solo post with an oversized or object pilot records no crewId', async t => {
+test('a solo post whose pilot is not one of its crew is refused, and nothing is recorded', async t => {
   const { srv, port } = await start();
   t.after(() => srv.close());
   const m = finishedMission();
-  await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: Object.assign({}, m, { pilot: 'p'.repeat(5000) }) } });
-  await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: Object.assign({}, m, { pilot: { a: 1 } }) } });
+  for (const pilot of ['p'.repeat(5000), { a: 1 }, 'kai']) {
+    const r = await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: Object.assign({}, m, { pilot }) } });
+    assert.equal(r.status, 400);
+  }
+  const ok = await call(port, 'local', 'POST', '/api/history/solo', { body: { mission: Object.assign({}, m, { pilot: 'diego' }) } });
+  assert.equal(ok.status, 200);
   const list = (await call(port, 'local', 'GET', '/api/admin/history', { headers: K(srv) })).json.records;
-  assert.deepEqual(list.map(r => r.players[0].crewId), [null, null]);
+  assert.deepEqual(list.map(r => r.players[0].crewId), ['diego']);
 });
