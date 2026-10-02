@@ -268,3 +268,18 @@ test("when a dropped player's grace period ends mid-round, the players still her
   t.mock.timers.tick(31000);
   assert.equal(room.mission.turn, 1);
 });
+
+test('during a mission nobody can take over a crew member who has died, but a living one is fine', () => {
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  const { player: guest } = R.join(room.code, 'Guest');
+  say(R, room, host, 'claim', { crewId: 'lena' });
+  say(R, room, guest, 'claim', { crewId: 'minh' });
+  assert.equal(say(R, room, host, 'launch').status, 200);
+  room.mission.crew.find(c => c.id === 'minh').status = 'dead';
+  const r = say(R, room, guest, 'claim', { crewId: 'minh' });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'deadCrew');
+  assert.equal(say(R, room, guest, 'claim', { crewId: 'diego' }).status, 200);
+  assert.equal(guest.crewId, 'diego');
+});

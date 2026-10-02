@@ -45,13 +45,15 @@
     toast: null,
     prevScreen: null,
     opsView: LS.get('opsView', 'surface'),
-    controlId: LS.get('controlId', null),
   };
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
-    store.mission = saved.mission;
+    // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
+    store.mission = E.upgradeMission(saved.mission, { controlId: LS.get('controlId', null) });
     store.plan = saved.plan || E.defaultPlan(saved.mission);
+    LS.set('save', { mission: store.mission, plan: store.plan }); // write the upgraded save back straight away
   }
+  LS.del('controlId'); // replaced by mission.pilot
 
   // ---------- helpers ----------
   const t = (k, p) => I.t(store.lang, k, p);
@@ -184,18 +186,29 @@
   }
 
   function launch() {
-    const L = store.loadout;
     if (lanOn()) { N.act('launch'); return; }
+    go('pilot');
+  }
+
+  // Solo: the mission starts once you choose the astronaut you will walk as.
+  function startMission(pilot) {
     const s = E.createMission({
-      seed: (store.seed || '').trim() || E.newMissionCode(), loadout: L, difficulty: store.settings.difficulty,
-      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names,
+      seed: (store.seed || '').trim() || E.newMissionCode(), loadout: store.loadout, difficulty: store.settings.difficulty,
+      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot,
     });
     store.mission = s;
     store.plan = E.defaultPlan(s);
     store.report = null;
     store.advice = null;
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset(); // "Fly again" reuses the code
     saveSolo();
     go('ops');
+  }
+
+  function pilotText(p) {
+    if (!p.to) return t('pilot.none');
+    const c = D.CREW.find(x => x.id === p.to);
+    return t('pilot.takeover', { name: crewName(p.to), role: t('role.' + c.role) });
   }
 
   function patchPlan(patch) {
@@ -246,6 +259,7 @@
     store.modal = 'report';
     saveSolo();
     render();
+    if (report.pilot && report.pilot.to) toast(pilotText(report.pilot));
   }
 
   function askAdvice() {
@@ -524,6 +538,29 @@
     ]);
   }
 
+  // ---------- choose your astronaut ----------
+  function viewPilot() {
+    if (!store.loadout) return viewTitle();
+    const crew = D.CREW.slice(0, store.settings.crewSize);
+    return [
+      topbar(),
+      h('section', { class: 'pilot' },
+        h('span', { class: 'eyebrow' }, t('pilot.step') + ' · ' + t('diff.' + store.settings.difficulty)),
+        h('h1', { style: 'font-size:var(--fs-2xl)' }, t('pilot.title')),
+        h('p', { class: 'muted', style: 'max-width:70ch' }, t('pilot.lead')),
+        h('div', { class: 'pilot-grid' }, crew.map((c, i) => h('button', {
+          type: 'button', class: 'pilot-card', 'data-k': 'pilot:' + c.id, onclick: () => startMission(c.id),
+        },
+          h('span', { html: A.portrait(c.role, 72, { variant: i }) }),
+          h('b', null, crewName(c.id)),
+          h('span', { class: 'role-tag', style: 'color:' + A.ROLE[c.role] }, t('role.' + c.role)),
+          h('span', { class: 'hint' }, t('role.' + c.role + '.skill')),
+          h('span', { class: 'btn btn-primary btn-sm' }, t('pilot.pick', { name: crewName(c.id) }))))),
+        h('div', { class: 'setup-actions' },
+          h('button', { class: 'btn btn-ghost', type: 'button', 'data-k': 'pilot-back', onclick: () => go('manifest') }, t('pilot.back')))),
+    ];
+  }
+
   // ---------- operations ----------
   function seasonKey(ls) {
     if (ls < 90) return 'season.spring';
@@ -536,13 +573,12 @@
     return Math.round(12.7 + 9.6 * Math.cos((2 * Math.PI * (sol - 262)) / 760));
   }
 
-  // Which crew member the local player walks around as.
+  // Which crew member the local player walks around as: your seat in co-op, mission.pilot in solo play.
   function controlId() {
     const s = mission();
     if (!s) return null;
     if (lanOn()) { const mine = me(); return mine ? mine.crewId : null; }
-    const pick = s.crew.find(c => c.id === store.controlId && c.status !== 'dead');
-    return (pick || s.crew.find(c => c.status === 'active') || s.crew[0]).id;
+    return s.pilot || null;
   }
 
   function setOpsView(v) {
@@ -575,13 +611,23 @@
     return h('div', { class: 'sf-stage' }, node);
   }
 
+  // Co-op: your astronaut died, or you have none: take over a free crewmate, or watch.
+  function seatPanel(s) {
+    if (!lanOn()) return null;
+    const mine = me();
+    const own = mine && mine.crewId ? s.crew.find(c => c.id === mine.crewId) : null;
+    if (own && own.status !== 'dead') return null;
+    const free = s.crew.filter(c => c.status === 'active' && !store.room.players.some(pl => pl.crewId === c.id && pl.connected));
+    return panel(t(own ? 'seat.lost' : 'seat.none'), [
+      h('p', { class: 'muted' }, t(free.length ? 'seat.pick' : 'seat.watch')),
+      free.length ? h('div', { class: 'seat-list' }, free.map(c => h('button', {
+        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => N.act('claim', { crewId: c.id }),
+      }, t('seat.take', { name: crewName(c.id), role: t('role.' + c.role) })))) : null,
+    ]);
+  }
+
   function surfaceSide(s, p, f) {
     const ctl = controlId();
-    const chooser = lanOn() ? null : h('div', { class: 'playas' }, s.crew.map((c, i) => h('button', {
-      type: 'button', class: 'playas-b', 'data-k': 'play:' + c.id, 'aria-pressed': String(c.id === ctl), disabled: c.status === 'dead',
-      title: crewName(c.id) + ' · ' + t('role.' + c.role),
-      onclick: () => { store.controlId = c.id; LS.set('controlId', c.id); render(); },
-    }, h('span', { html: A.portrait(c.role, 34, { variant: i, status: c.status }) }))));
     const jobs = panel(t('sf.jobs'), h('div', { class: 'jobrows' }, s.crew.map((c, i) => {
       const allowed = canControl(c.id) && c.status === 'active';
       const job = p.jobs[c.id];
@@ -599,7 +645,7 @@
         c.status === 'dead' ? h('span') : sel);
     })));
     return h('aside', { class: 'sf-side' },
-      chooser ? panel(t('sf.playAs'), chooser) : null,
+      seatPanel(s),
       eventsPanel(s, p),
       jobs,
       forecastPanel(s, p, f),
@@ -625,7 +671,7 @@
       opsTabs(),
       h('div', { class: 'ops' },
         h('div', { class: 'col col-1' }, eventsPanel(s, p), mapPanel(s, p, f), buildPanel(s, p, f)),
-        h('div', { class: 'col col-2' }, crewPanel(s, p, f)),
+        h('div', { class: 'col col-2' }, seatPanel(s), crewPanel(s, p, f)),
         h('div', { class: 'col col-3' }, forecastPanel(s, p, f), systemsPanel(s, p, f), ordersPanel(s, p), earthPanel(s, p), advancePanel(s, p))),
     ];
   }
@@ -1478,6 +1524,7 @@
     for (const id of r.injuries) li('warn', 'warn', t('rep.injury', { name: crewName(id) }));
     for (const id of r.downs) li('crit', 'crit', t('rep.down', { name: crewName(id) }));
     for (const id of r.deaths) li('crit', 'crit', t('rep.dead', { name: crewName(id) }));
+    if (r.pilot) li('users', r.pilot.to ? 'warn' : 'crit', pilotText(r.pilot));
     if (r.requested) li('rocket', 'muted', t('rep.requested', { kind: t('earth.' + r.requested) }));
     if (r.hypoxia > 0) li('crit', 'crit', t('w.o2_out'));
     if (r.dehydration > 0) li('crit', 'crit', t('w.water_out'));
@@ -1517,6 +1564,7 @@
     const name = screenName();
     let view;
     if (name === 'manifest') view = viewManifest();
+    else if (name === 'pilot') view = viewPilot();
     else if (name === 'ops') view = mission() && mission().status === 'active' ? viewOps() : viewDebrief();
     else if (name === 'debrief') view = viewDebrief();
     else if (name === 'lobby') view = viewLobby();

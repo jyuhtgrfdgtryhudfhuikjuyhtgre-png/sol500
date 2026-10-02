@@ -7,6 +7,8 @@
 <meta name="description" content="Run a Mars outpost for 500 sols: balance life support, radiation shielding, power and food. Real NASA numbers, English and Vietnamese, LAN co-op for up to 5 players.">
 <meta name="theme-color" content="#1b1417">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23b4532f'/%3E%3Ccircle cx='24' cy='24' r='5' fill='%237a3623'/%3E%3Ccircle cx='40' cy='38' r='7' fill='%237a3623'/%3E%3C/svg%3E">
+
+
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>window.SOL_APP = false;</script>
@@ -494,6 +496,25 @@ p { margin: 0; }
 .sf-note.faint { color: var(--fg-3); }
 .sf-stamina { position: absolute; left: 14px; top: 14px; width: 120px; height: 7px; border-radius: 7px; background: rgba(20, 14, 16, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); overflow: hidden; }
 .sf-stamina span { display: block; height: 100%; background: var(--ok); }
+.sf-hint { max-width: calc(100% - 380px); white-space: normal; text-align: center; border-radius: 12px; }
+.sf-region { position: absolute; left: 14px; top: 28px; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); padding: 3px 10px; border-radius: 999px; font-size: var(--fs-xs); color: var(--fg); font-weight: 600; }
+.sf-mini { position: absolute; right: 12px; top: 12px; width: 160px; height: 160px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #120a0c; pointer-events: auto; cursor: zoom-in; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+.sf-mini canvas { width: 100%; height: 100%; display: block; }
+.sf-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sf-map { position: absolute; inset: 0; background: #120a0c; pointer-events: auto; z-index: 3; }
+.sf-map canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.sf-map-head { position: absolute; left: 12px; right: 12px; top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(20, 14, 16, 0.88); border: 1px solid var(--line-2); border-radius: 10px; padding: 6px 8px 6px 12px; }
+.sf-map-head b { font-family: var(--font-display); margin-right: auto; }
+.sf-map-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: var(--fs-xs); color: var(--fg-2); }
+.sf-map-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.2); }
+.sf-map-head button { min-width: 34px; min-height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--raised); color: var(--fg); font-weight: 700; cursor: pointer; }
+.sf-map-head button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sf-map-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); margin: 0; background: rgba(20, 14, 16, 0.88); border: 1px solid var(--line-2); border-radius: 999px; padding: 5px 14px; font-size: var(--fs-xs); color: var(--fg-2); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.sf-debug { position: absolute; left: 12px; bottom: 12px; margin: 0; background: rgba(0, 0, 0, 0.72); color: #b8f7a8; font: 11px/1.4 var(--font-data); padding: 6px 8px; border-radius: 6px; white-space: pre; }
+@media (max-width: 640px), (pointer: coarse) {
+  .sf-mini { width: 112px; height: 112px; }
+  .sf-hint { max-width: calc(100% - 270px); }
+}
 .sf-joy, .sf-btn { display: none; }
 @media (pointer: coarse) {
   .sf-joy { display: block; position: absolute; left: 18px; bottom: 18px; width: 118px; height: 118px; border-radius: 50%; background: rgba(20, 14, 16, 0.45); border: 2px solid rgba(255, 255, 255, 0.18); touch-action: none; }
@@ -507,10 +528,11 @@ p { margin: 0; }
   .sf-hint { white-space: normal; text-align: center; border-radius: 12px; }
 }
 .sf-side { display: grid; gap: 12px; min-width: 0; }
-.playas { display: flex; gap: 8px; flex-wrap: wrap; }
-.playas-b { padding: 3px; border-radius: 50%; border: 2px solid transparent; background: transparent; cursor: pointer; line-height: 0; }
-.playas-b[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.playas-b:disabled { opacity: 0.35; cursor: not-allowed; }
+.pilot { display: grid; gap: 14px; padding: 8px 0 24px; }
+.pilot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.pilot-card { display: grid; grid-template-rows: auto auto auto 1fr auto; justify-items: center; gap: 6px; text-align: center; padding: 18px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--fg); cursor: pointer; font: inherit; }
+.pilot-card:hover, .pilot-card:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.seat-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .jobrows { display: grid; gap: 8px; }
 .jobrow { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--fs-sm); padding: 4px; border-radius: 8px; }
 .jobrow.me { background: var(--accent-soft); }
@@ -793,7 +815,8 @@ p { margin: 0; }
  *     modules: { type: { count, broken } }, crops: [age...],
  *     resources: { o2, water, food, spares, materials }, wallWater, cleanliness, morale,
  *     crew: [{ id, role, name, health, dose, status: 'active'|'down'|'dead', downTurns, revives, grounded, harm }],
- *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log }
+ *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log
+ *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition) }
  *
  * Plan (the player's decisions for one turn):
  *   { jobs: { crewId: job }, modulesOn: { type: bool }, rations: 'full'|'reduced', habMode: 'normal'|'austerity',
@@ -1001,6 +1024,15 @@ p { margin: 0; }
   }
 
   // ---------- mission ----------
+  // The exploring state (spec §4). M3 uses `revealed` (the shared fog) and `regions`; M4 fills in the rest.
+  function newExpedition() {
+    return {
+      v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
+      carried: {}, drops: [], banked: { water: 0, materials: 0, spares: 0, food: 0, o2: 0, science: 0, morale: 0, lines: [] },
+      goals: [], incidents: [], stats: {},
+    };
+  }
+
   function buildState(loadout, seed, eventsOn, level, size) {
     const difficulty = difficultyOf(level);
     const crewSize = crewSizeOf(size);
@@ -1049,6 +1081,8 @@ p { margin: 0; }
       pending: { discovery: false, injuries: [], breakdowns: [] },
       history: [],
       log: [],
+      pilot: null,              // solo: the crew member you walk as (co-op seats choose their own)
+      expedition: newExpedition(),
     };
     const order = ['recycler', 'oxygen', 'greenhouse', 'lab', 'rover', 'solar', 'battery', 'reactor', 'icedrill'];
     for (const type of order) for (let i = 0; i < L[type]; i++) autoPlace(s, type);
@@ -1062,9 +1096,29 @@ p { margin: 0; }
     const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false, o.difficulty, o.crewSize);
     if (o.coop) s.coop = true;
     if (o.names) for (const c of s.crew) if (o.names[c.id]) c.name = String(o.names[c.id]).slice(0, 24);
+    if (o.pilot != null) {
+      if (!s.crew.some(c => c.id === o.pilot)) throw new Error('Invalid pilot: ' + o.pilot);
+      s.pilot = o.pilot;
+    }
     beginTurn(s);
     s.history.push(snapshot(s, null));
     return s;
+  }
+
+  // Missions saved before v3 get the exploring state and a pilot when they load: the astronaut that player was
+  // walking as if they are still alive, otherwise the first active (then the first living) crew member.
+  function upgradeMission(m, opts) {
+    if (!m || typeof m !== 'object') return m;
+    const fresh = newExpedition();
+    if (!m.expedition || typeof m.expedition !== 'object') m.expedition = fresh;
+    else for (const k of Object.keys(fresh)) if (m.expedition[k] == null) m.expedition[k] = fresh[k];
+    if (m.pilot === undefined) {
+      const controlId = opts && opts.controlId;
+      const alive = c => c.status !== 'dead';
+      const pick = !m.coop && (m.crew.find(c => c.id === controlId && alive(c)) || m.crew.find(isActive) || m.crew.find(alive));
+      m.pilot = pick ? pick.id : null;
+    }
+    return m;
   }
 
   function shielding(s) {
@@ -1731,6 +1785,15 @@ p { margin: 0; }
       s.status = 'success';
     }
 
+    // Solo: if your astronaut died, you take over the first active crewmate (else the first living one).
+    report.pilot = null;
+    const pilot = s.pilot && s.crew.find(c => c.id === s.pilot);
+    if (pilot && pilot.status === 'dead') {
+      const next = s.crew.find(isActive) || s.crew.find(c => c.status !== 'dead') || null;
+      report.pilot = { from: pilot.id, to: next ? next.id : null };
+      s.pilot = next ? next.id : null;
+    }
+
     s.log.push({
       turn: report.turn, sol: report.sol, weather: report.weather,
       events: (state.events || []).map(e => e.type), choices: report.choices,
@@ -1883,6 +1946,7 @@ p { margin: 0; }
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
+    newExpedition, upgradeMission,
   };
 });
 
@@ -2466,6 +2530,7 @@ p { margin: 0; }
     'help.6': 'At 0 HP a crew member goes down. The medic on Rest & care, or anyone with a med bay, can revive them within 5 rounds. A second collapse is permanent.',
     'help.7': 'Each astronaut has a 300 mSv surface budget. Past it they are grounded and the mission loses a lot of score.',
     'help.8': 'Earth can drop food, water or materials from orbit a few times per mission, and Mission Control answers one question per round.',
+    'help.9': 'Explore: the world goes on in every direction. Walk or drive out of the base, and what you see stays on your map. Press M or tap the minimap to open the map. Each region of Mars looks different and comes with a real fact.',
 
     'notes.title': 'Science notes',
     'notes.lead': 'The numbers in SOL 500 come from real missions and NASA studies. Some are simplified for play; these notes say which.',
@@ -2520,8 +2585,19 @@ p { margin: 0; }
     'sf.surface': "Surface",
     'sf.consoleTab': "Mission console",
     'sf.aria': "Outpost surface. Move with WASD or the arrow keys, press E to interact, C opens the mission console.",
-    'sf.hintKeys': "WASD or arrows to move · Shift to sprint · E to interact · C for the console · click the ground to walk there",
-    'sf.hintTouch': "Drag the stick to move · hold » to sprint · tap E to interact · tap the ground to walk there",
+    'sf.hintKeys': "WASD or arrows to move · Shift to sprint · E to interact · M for the map · C for the console · click the ground to walk there",
+    'sf.hintTouch': "Drag the stick to move · hold » to sprint · tap E to interact · tap the minimap for the map · tap the ground to walk there",
+    'sf.minimap': 'Minimap. Select it to open the full map (M).',
+    'sf.mapTitle': 'Explored map',
+    'sf.mapHint': 'Drag or use the arrow keys to move · scroll or + − to zoom · M or Esc to close',
+    'sf.zoomIn': 'Zoom in',
+    'sf.zoomOut': 'Zoom out',
+    'region.plains': 'Plains',
+    'region.dunes': 'Dune Sea',
+    'region.craters': 'Crater Field',
+    'region.canyons': 'Canyon Lands',
+    'region.icy': 'Icy Plains',
+    'region.volcanic': 'Volcanic Flanks',
     'sf.interact': "Interact",
     'sf.sprint': "Sprint",
     'sf.you': "You",
@@ -2544,7 +2620,19 @@ p { margin: 0; }
     'sf.exitRover': "Leave the rover",
     'sf.roverSub': "Cross the site 2.6× faster",
     'sf.notYourCrew': "Another player controls this crew member.",
-    'sf.playAs': "You play as",
+    'pilot.step': 'Before launch',
+    'pilot.title': 'Choose your astronaut',
+    'pilot.lead': 'You walk the surface as this crew member for the whole mission. The others follow the jobs you give them in the console or the job list. If your astronaut dies, you take over a crewmate.',
+    'pilot.pick': 'Play as {name}',
+    'pilot.back': 'Back to the payload',
+    'pilot.takeover': 'You are now {name}, {role}.',
+    'pilot.none': 'No crewmate is left to take over.',
+    'seat.lost': 'Your astronaut was lost',
+    'seat.none': 'You have no astronaut',
+    'seat.pick': 'Take over a free crewmate to keep playing.',
+    'seat.watch': 'No crewmate is free, so you are watching the mission.',
+    'seat.take': 'Take over {name} ({role})',
+    'lan.deadCrew': 'That crew member has died.',
     'sf.jobs': "Crew jobs",
     'sf.cantMove': "{name} cannot move right now.",
     'lan.taken_err': 'Someone already took that seat.',
@@ -3244,6 +3332,7 @@ p { margin: 0; }
     'help.6': 'Hết HP, phi hành gia sẽ ngã gục. Bác sĩ làm Nghỉ & chăm sóc, hoặc bất kỳ ai khi có trạm y tế, có thể cứu trong vòng 5 vòng. Ngã gục lần thứ hai là mãi mãi.',
     'help.7': 'Mỗi phi hành gia có giới hạn 300 mSv trên bề mặt. Vượt qua sẽ bị cấm ra ngoài và nhiệm vụ mất nhiều điểm.',
     'help.8': 'Trái Đất có thể thả thực phẩm, nước hoặc vật liệu từ quỹ đạo vài lần mỗi nhiệm vụ, và Trung tâm điều khiển trả lời một câu hỏi mỗi vòng.',
+    'help.9': 'Khám phá: thế giới trải dài về mọi hướng. Hãy đi bộ hoặc lái xe ra khỏi căn cứ, những gì bạn nhìn thấy sẽ ở lại trên bản đồ. Nhấn M hoặc chạm bản đồ nhỏ để mở bản đồ. Mỗi vùng của sao Hỏa trông khác nhau và đi kèm một sự thật khoa học.',
 
     'notes.title': 'Ghi chú khoa học',
     'notes.lead': 'Các con số trong SOL 500 đến từ những sứ mệnh thật và nghiên cứu của NASA. Một số đã được đơn giản hóa để chơi; ghi chú sẽ nói rõ.',
@@ -3298,8 +3387,19 @@ p { margin: 0; }
     'sf.surface': "Bề mặt",
     'sf.consoleTab': "Bảng điều khiển",
     'sf.aria': "Bề mặt tiền đồn. Di chuyển bằng WASD hoặc phím mũi tên, nhấn E để tương tác, C để mở bảng điều khiển.",
-    'sf.hintKeys': "WASD hoặc phím mũi tên để đi · Shift để chạy · E để tương tác · C mở bảng điều khiển · bấm xuống đất để đi tới đó",
-    'sf.hintTouch': "Kéo cần điều khiển để đi · giữ » để chạy · chạm E để tương tác · chạm xuống đất để đi tới đó",
+    'sf.hintKeys': "WASD hoặc phím mũi tên để đi · Shift để chạy · E để tương tác · M mở bản đồ · C mở bảng điều khiển · bấm xuống đất để đi tới đó",
+    'sf.hintTouch': "Kéo cần điều khiển để đi · giữ » để chạy · chạm E để tương tác · chạm bản đồ nhỏ để mở bản đồ · chạm xuống đất để đi tới đó",
+    'sf.minimap': 'Bản đồ nhỏ. Chọn để mở bản đồ lớn (M).',
+    'sf.mapTitle': 'Bản đồ đã khám phá',
+    'sf.mapHint': 'Kéo hoặc dùng phím mũi tên để di chuyển · cuộn chuột hoặc + − để phóng to, thu nhỏ · M hoặc Esc để đóng',
+    'sf.zoomIn': 'Phóng to',
+    'sf.zoomOut': 'Thu nhỏ',
+    'region.plains': 'Đồng bằng',
+    'region.dunes': 'Biển cồn cát',
+    'region.craters': 'Cánh đồng hố va chạm',
+    'region.canyons': 'Vùng hẻm núi',
+    'region.icy': 'Đồng bằng băng',
+    'region.volcanic': 'Sườn núi lửa',
     'sf.interact': "Tương tác",
     'sf.sprint': "Chạy",
     'sf.you': "Bạn",
@@ -3322,7 +3422,19 @@ p { margin: 0; }
     'sf.exitRover': "Xuống xe",
     'sf.roverSub': "Đi khắp căn cứ nhanh gấp 2,6 lần",
     'sf.notYourCrew': "Người chơi khác đang điều khiển phi hành gia này.",
-    'sf.playAs': "Bạn điều khiển",
+    'pilot.step': 'Trước khi phóng',
+    'pilot.title': 'Chọn phi hành gia của bạn',
+    'pilot.lead': 'Bạn đi lại trên bề mặt sao Hỏa trong vai thành viên này suốt nhiệm vụ. Những người còn lại làm theo công việc bạn giao trong bảng điều khiển hoặc danh sách công việc. Nếu phi hành gia của bạn hy sinh, bạn sẽ điều khiển một đồng đội.',
+    'pilot.pick': 'Chơi trong vai {name}',
+    'pilot.back': 'Quay lại danh sách tải trọng',
+    'pilot.takeover': 'Bây giờ bạn là {name}, {role}.',
+    'pilot.none': 'Không còn đồng đội nào để tiếp quản.',
+    'seat.lost': 'Phi hành gia của bạn đã hy sinh',
+    'seat.none': 'Bạn chưa có phi hành gia',
+    'seat.pick': 'Hãy tiếp quản một đồng đội còn trống để tiếp tục chơi.',
+    'seat.watch': 'Không còn đồng đội nào trống nên bạn đang theo dõi nhiệm vụ.',
+    'seat.take': 'Tiếp quản {name} ({role})',
+    'lan.deadCrew': 'Thành viên này đã hy sinh.',
     'sf.jobs': "Việc của phi hành đoàn",
     'sf.cantMove': "{name} không thể di chuyển lúc này.",
     'lan.taken_err': 'Đã có người nhận vai này.',
@@ -4206,23 +4318,1468 @@ p { margin: 0; }
 </script>
 <script>
 /*
- * SOL 500 — the walkable surface: your astronaut moves around the outpost, builds on tiles,
- * inspects and switches machines, drives the rover, and meets the rest of the crew, who walk to their jobs.
- * Canvas 2D + a small DOM overlay. It never changes the mission itself: every action goes through ui.js hooks,
- * so the surface and the mission console always show the same plan.
+ * SOL 500 — the endless world. Every tile is a pure function of (seed, x, y), so a chunk can be built in any order,
+ * on any client or on the server, and always comes out byte-identical. The world is never sent over the network.
  *
- * API: SolSurface.mount(hooks) → element (persistent; re-attach it on every render)
- *      SolSurface.update({ mission, plan, forecast, controlId, canControl(id), crewName(id), t, lang })
- *      SolSurface.setRemote([{ crewId, x, y, dir, moving }])
+ * Determinism rules: integer hashing with Math.imul; the only floating-point maths is + − × ÷, %, Math.sqrt,
+ * Math.floor/ceil/abs/min/max, which IEEE 754 makes identical in every JavaScript engine. Math.sin/cos/atan2/pow/
+ * exp/hypot are never used here (engines may round them differently), and neither is Math.random.
+ *
+ * World tiles are integers in both directions (negative too). The base's 9×5 build grid has its top-left at
+ * (−4, −2), so the HQ is at (0, 0). Nothing that blocks is ever placed within FLAT_RADIUS tiles of the HQ.
+ *
+ * API: seedOf(missionSeed) → uint32 · regionAt(seed, x, y) → index into REGIONS
+ *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512) }   (32×32, row-major)
+ *      tileOf(chunk, lx, ly) · regionOf(chunk, lx, ly)
+ *      featuresNear(seed, x0, y0, x1, y1) → { canyons, craters, mesas } touching that tile box (inclusive)
+ *      hash(seed, a, b, c) → uint32 · unit(h) → [0, 1) · noise(seed, salt, x, y, size) → [0, 1]
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.SolWorldgen = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const CHUNK = 32;
+  const TILE = {
+    REGOLITH: 0, SAND: 1, DUNE: 2, BOULDER: 3, CLIFF: 4, RIM: 5, CRATER_FLOOR: 6, CANYON_FLOOR: 7, CANYON_WALL: 8,
+    RAMP: 9, ICE: 10, POLYGON: 11, LAVA: 12, TUBE_FLOOR: 13, TUBE_WALL: 14, SKYLIGHT: 15, STRUCT_FLOOR: 16,
+    STRUCT_WALL: 17, BASE: 18,
+  };
+  const NONE = 255; // "no feature here" in the feature layer
+  const BLOCKING = new Uint8Array(32);
+  for (const k of ['BOULDER', 'CLIFF', 'RIM', 'CANYON_WALL', 'TUBE_WALL', 'STRUCT_WALL']) BLOCKING[TILE[k]] = 1;
+  // Walking speed on each tile (the rover ignores it).
+  const SPEED = [];
+  for (let i = 0; i < 32; i++) SPEED.push(1);
+  SPEED[TILE.DUNE] = 0.7;
+
+  const REGIONS = ['plains', 'dunes', 'craters', 'canyons', 'icy', 'volcanic'];
+  const R = { PLAINS: 0, DUNES: 1, CRATERS: 2, CANYONS: 3, ICY: 4, VOLCANIC: 5 };
+  const BASE_RECT = { x: -4, y: -2, w: 9, h: 5 };
+  const FLAT_RADIUS = 12;
+  const REGION_CELL = 224, REGION_JITTER = 72, REGION_BLEND = 6;
+
+  // Sixteen compass directions as exact constants (no trigonometry at run time).
+  const C1 = 0.9238795325112867, C2 = 0.7071067811865476, C3 = 0.3826834323650898;
+  const DIRS16 = [[1, 0], [C1, C3], [C2, C2], [C3, C1], [0, 1], [-C3, C1], [-C2, C2], [-C1, C3],
+    [-1, 0], [-C1, -C3], [-C2, -C2], [-C3, -C1], [0, -1], [C3, -C1], [C2, -C2], [C1, -C3]];
+
+  // ---------- hashing and noise ----------
+  function mix(h) {
+    h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+    h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+  function hash(seed, a, b, c) {
+    let h = mix((seed ^ Math.imul(a | 0, 0x27d4eb2d)) >>> 0);
+    h = mix((h ^ Math.imul(b | 0, 0x165667b1)) >>> 0);
+    return mix((h ^ Math.imul((c | 0) + 0x5bd1e995, 0x9e3779b1)) >>> 0);
+  }
+  const unit = h => h / 4294967296;
+
+  function seedOf(missionSeed) {
+    const s = String(missionSeed) + '|world';
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    return mix(h >>> 0);
+  }
+
+  // Smooth value noise, 0..1, on a lattice `size` tiles apart.
+  function noise(seed, salt, x, y, size) {
+    const fx = Math.floor(x / size), fy = Math.floor(y / size);
+    const tx = (x - fx * size) / size, ty = (y - fy * size) / size;
+    const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const a = unit(hash(seed, fx, fy, salt)), b = unit(hash(seed, fx + 1, fy, salt));
+    const c = unit(hash(seed, fx, fy + 1, salt)), d = unit(hash(seed, fx + 1, fy + 1, salt));
+    const top = a + (b - a) * sx, bottom = c + (d - c) * sx;
+    return top + (bottom - top) * sy;
+  }
+
+  // ---------- regions: a jittered Voronoi diagram on a 224-tile grid ----------
+  const siteMemo = new Map();
+  function regionSite(seed, i, j) {
+    const k = seed + ':' + i + ':' + j;
+    let s = siteMemo.get(k);
+    if (s) return s;
+    if (i === 0 && j === 0) s = [0, 0, R.PLAINS]; // the base's cell: its site is the HQ and it is always Plains
+    else {
+      const h = hash(seed, i, j, 101), span = 2 * REGION_JITTER + 1;
+      s = [i * REGION_CELL + (h % span) - REGION_JITTER, j * REGION_CELL + ((h >>> 12) % span) - REGION_JITTER, hash(seed, i, j, 102) % REGIONS.length];
+    }
+    if (siteMemo.size > 4096) siteMemo.clear();
+    siteMemo.set(k, s);
+    return s;
+  }
+
+  // Every site that can be the nearest or second-nearest to a tile inside the box (row-major, so the order is stable).
+  function sitesFor(seed, x0, y0, x1, y1) {
+    const out = [];
+    const i0 = Math.floor(x0 / REGION_CELL + 0.5) - 1, i1 = Math.floor(x1 / REGION_CELL + 0.5) + 1;
+    const j0 = Math.floor(y0 / REGION_CELL + 0.5) - 1, j1 = Math.floor(y1 / REGION_CELL + 0.5) + 1;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) out.push(regionSite(seed, i, j));
+    return out;
+  }
+
+  function regionFrom(seed, sites, x, y) {
+    let d1 = Infinity, d2 = Infinity, r1 = 0, r2 = 0;
+    for (let n = 0; n < sites.length; n++) {
+      const s = sites[n];
+      const dx = x - s[0], dy = y - s[1], d = dx * dx + dy * dy;
+      if (d < d1) { d2 = d1; r2 = r1; d1 = d; r1 = s[2]; } else if (d < d2) { d2 = d; r2 = s[2]; }
+    }
+    if (r1 === r2) return r1;
+    const gap = Math.sqrt(d2) - Math.sqrt(d1);
+    if (gap >= REGION_BLEND) return r1;
+    // Borders are dithered over about REGION_BLEND tiles so the colours blend.
+    return unit(hash(seed, x, y, 103)) < 0.5 + 0.5 * gap / REGION_BLEND ? r1 : r2;
+  }
+
+  function regionAt(seed, x, y) { return regionFrom(seed, sitesFor(seed, x, y, x, y), x, y); }
+
+  // ---------- ground and boulders ----------
+  function ground(seed, r, x, y) {
+    if (r === R.DUNES) return noise(seed, 11, x, y, 7) > 0.36 ? TILE.DUNE : TILE.SAND;
+    if (r === R.ICY) return noise(seed, 12, x, y, 14) > 0.66 ? TILE.ICE : TILE.POLYGON;
+    if (r === R.VOLCANIC) return TILE.LAVA;
+    return noise(seed, 13, x, y, 20) > 0.72 ? TILE.SAND : TILE.REGOLITH;
+  }
+
+  // Chance that a tile is a boulder candidate, before thinning. The Volcanic Flanks have boulder fields.
+  const BOULDERS = [0.1, 0.03, 0.12, 0.12, 0.05, 0];
+  function boulderChance(seed, r, x, y) {
+    return r === R.VOLCANIC ? 0.15 + 0.5 * noise(seed, 14, x, y, 18) : BOULDERS[r];
+  }
+
+  const inFlat = (x, y) => x * x + y * y <= (FLAT_RADIUS + 1) * (FLAT_RADIUS + 1);
+  const inBase = (x, y) => x >= BASE_RECT.x && y >= BASE_RECT.y && x < BASE_RECT.x + BASE_RECT.w && y < BASE_RECT.y + BASE_RECT.h;
+  const inBox = (b, x, y) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
+
+  // A boulder stands alone: it is the strongest candidate among its eight neighbours and no feature touches it.
+  // Isolated single tiles can never close off a pocket of open ground.
+  function isBoulder(feat, cand, n, w) {
+    const v = cand[n];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const m = n + dy * w + dx;
+      if (feat[m] !== NONE || cand[m] >= v) return false;
+    }
+    return true;
+  }
+
+  // ---------- features: one per cell on coarse grids, bounded and spaced so open ground stays connected ----------
+  const CODE = {}; // kind → (feature, x, y) → tile code or NONE
+  const MESA_CELL = 48, CRATER_CELL = 64, CANYON_CELL = 128;
+  const MESA_CHANCE = [0.35, 0.1, 0.2, 0.6, 0.15, 0.3];
+  const CRATER_CHANCE = [0.25, 0.1, 0.8, 0.15, 0.2, 0.15];
+  const CANYON_CHANCE = 0.85;      // per cell inside Canyon Lands
+  const CLEAR = 3;                 // tiles always kept free between two features, and around the flat zone
+
+  const featMemo = new Map();
+  function memo(k, make) {
+    if (featMemo.has(k)) return featMemo.get(k);
+    const v = make();
+    if (featMemo.size > 8192) featMemo.clear();
+    featMemo.set(k, v);
+    return v;
+  }
+  const grow = (b, p) => [b[0] - p, b[1] - p, b[2] + p, b[3] + p];
+  const touch = (a, b) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+  function nearBase(box) {
+    const b = grow(box, CLEAR);
+    const dx = Math.max(b[0], 0, -b[2]), dy = Math.max(b[1], 0, -b[3]);
+    return dx * dx + dy * dy <= FLAT_RADIUS * FLAT_RADIUS;
+  }
+  function cellsTouching(box, size) {
+    const out = [];
+    for (let j = Math.floor(box[1] / size); j <= Math.floor(box[3] / size); j++) {
+      for (let i = Math.floor(box[0] / size); i <= Math.floor(box[2] / size); i++) out.push([i, j]);
+    }
+    return out;
+  }
+  const regionOfCell = (seed, i, j, size) => regionAt(seed, i * size + size / 2, j * size + size / 2);
+
+  // Canyon: in Canyon Lands, a bent segment 40–110 tiles long with a floor 3–5 wide. Both walls block, a ramp
+  // crosses them every 24 tiles and the ends are open. Highest precedence of the three.
+  function canyon(seed, i, j) {
+    return memo('n' + seed + ':' + i + ':' + j, () => {
+      if (regionOfCell(seed, i, j, CANYON_CELL) !== R.CANYONS) return null;
+      if (unit(hash(seed, i, j, 201)) >= CANYON_CHANCE) return null;
+      const h2 = hash(seed, i, j, 202), h3 = hash(seed, i, j, 203);
+      const len = 40 + (h2 % 65);
+      const hw = 1.5 + 0.5 * ((h2 >>> 8) % 3);
+      const dir = DIRS16[(h2 >>> 16) % 16], dx = dir[0], dy = dir[1], nx = -dy, ny = dx;
+      const b1 = (h3 % 13) - 6, b2 = ((h3 >>> 8) % 13) - 6;
+      const reach = len / 2 + 6 + hw + 1;
+      const room = Math.max(0, Math.floor(CANYON_CELL / 2 - 2 - reach));
+      const ox = room ? ((h3 >>> 16) % (2 * room + 1)) - room : 0, oy = room ? ((h3 >>> 24) % (2 * room + 1)) - room : 0;
+      const cx = i * CANYON_CELL + CANYON_CELL / 2 + ox, cy = j * CANYON_CELL + CANYON_CELL / 2 + oy;
+      const pts = [
+        [cx - dx * len / 2, cy - dy * len / 2],
+        [cx - dx * len / 6 + nx * b1, cy - dy * len / 6 + ny * b1],
+        [cx + dx * len / 6 + nx * b2, cy + dy * len / 6 + ny * b2],
+        [cx + dx * len / 2, cy + dy * len / 2],
+      ];
+      const segs = [];
+      let total = 0;
+      for (let k = 0; k < 3; k++) {
+        const ax = pts[k][0], ay = pts[k][1], bx = pts[k + 1][0], by = pts[k + 1][1];
+        const l = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+        segs.push({ ax, ay, bx, by, l, start: total });
+        total += l;
+      }
+      const e = hw + 1.5;
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      const box = [Math.floor(Math.min(...xs) - e), Math.floor(Math.min(...ys) - e), Math.ceil(Math.max(...xs) + e), Math.ceil(Math.max(...ys) + e)];
+      if (nearBase(box)) return null;
+      return { kind: 'canyon', i, j, pts, segs, hw, len: total, box };
+    });
+  }
+  CODE.canyon = function (c, x, y) {
+    let best = Infinity, along = 0;
+    for (let k = 0; k < 3; k++) {
+      const s = c.segs[k], vx = s.bx - s.ax, vy = s.by - s.ay;
+      let t = ((x - s.ax) * vx + (y - s.ay) * vy) / (s.l * s.l);
+      if ((k === 0 && t < 0) || (k === 2 && t > 1)) continue; // the ends stay open
+      if (t < 0) t = 0; else if (t > 1) t = 1;
+      const px = s.ax + vx * t - x, py = s.ay + vy * t - y, d = px * px + py * py;
+      if (d < best) { best = d; along = s.start + t * s.l; }
+    }
+    if (best === Infinity) return NONE;
+    const d = Math.sqrt(best);
+    if (d <= c.hw) return TILE.CANYON_FLOOR;
+    if (d > c.hw + 1) return NONE;
+    return along % 24 < 3 ? TILE.RAMP : TILE.CANYON_WALL;
+  };
+
+  // Crater: radius 4–12 (6–12 in the Crater Field), a walkable floor and a blocking rim with 2–3 gaps.
+  function crater(seed, i, j) {
+    return memo('c' + seed + ':' + i + ':' + j, () => {
+      const r0 = regionOfCell(seed, i, j, CRATER_CELL);
+      if (unit(hash(seed, i, j, 301)) >= CRATER_CHANCE[r0]) return null;
+      const h2 = hash(seed, i, j, 302);
+      const r = r0 === R.CRATERS ? 6 + (h2 % 7) : 4 + (h2 % 6);
+      const span = CRATER_CELL - 2 * (r + 3);
+      const x = i * CRATER_CELL + r + 3 + ((h2 >>> 8) % span), y = j * CRATER_CELL + r + 3 + ((h2 >>> 20) % span);
+      const n = 2 + ((h2 >>> 4) % 2), first = (h2 >>> 28) % 16, step = n === 2 ? 8 : 5;
+      const gaps = [];
+      for (let k = 0; k < n; k++) gaps.push(DIRS16[(first + k * step) % 16]);
+      const box = [x - r - 1, y - r - 1, x + r + 1, y + r + 1];
+      if (nearBase(box)) return null;
+      for (const [a, b] of cellsTouching(grow(box, CLEAR), CANYON_CELL)) {
+        const k = canyon(seed, a, b);
+        if (k && touch(grow(k.box, CLEAR), box)) return null;
+      }
+      return { kind: 'crater', i, j, x, y, r, gaps, box };
+    });
+  }
+  CODE.crater = function (c, x, y) {
+    const dx = x - c.x, dy = y - c.y, d = Math.sqrt(dx * dx + dy * dy);
+    if (d <= c.r - 1) return TILE.CRATER_FLOOR;
+    if (d > c.r + 0.5) return NONE;
+    for (const g of c.gaps) if (dx * g[0] + dy * g[1] > 0 && Math.abs(dx * g[1] - dy * g[0]) <= 1.2) return TILE.RAMP;
+    return TILE.RIM;
+  };
+
+  // Mesa: a solid star-shaped blob 4–14 tiles across, inset at least 6 tiles from its cell's edges.
+  function mesa(seed, i, j) {
+    return memo('m' + seed + ':' + i + ':' + j, () => {
+      const r0 = regionOfCell(seed, i, j, MESA_CELL);
+      if (unit(hash(seed, i, j, 401)) >= MESA_CHANCE[r0]) return null;
+      const h2 = hash(seed, i, j, 402);
+      const rad = 2.5 + 0.5 * (h2 % 6);
+      const a1 = 0.18 * unit(hash(seed, i, j, 403)), a2 = 0.12 * unit(hash(seed, i, j, 404));
+      const u1 = DIRS16[(h2 >>> 8) % 16], u2 = DIRS16[(h2 >>> 12) % 16];
+      const reach = Math.ceil(rad * 1.3) + 1, lo = 6 + reach, span = MESA_CELL - 2 * lo;
+      const x = i * MESA_CELL + lo + ((h2 >>> 16) % span), y = j * MESA_CELL + lo + ((h2 >>> 24) % span);
+      const box = [x - reach, y - reach, x + reach, y + reach];
+      if (nearBase(box)) return null;
+      const g = grow(box, CLEAR);
+      for (const [a, b] of cellsTouching(g, CANYON_CELL)) { const k = canyon(seed, a, b); if (k && touch(grow(k.box, CLEAR), box)) return null; }
+      for (const [a, b] of cellsTouching(g, CRATER_CELL)) { const c = crater(seed, a, b); if (c && touch(grow(c.box, CLEAR), box)) return null; }
+      return { kind: 'mesa', i, j, x, y, rad, a1, a2, u1, u2, box };
+    });
+  }
+  CODE.mesa = function (m, x, y) {
+    const dx = x - m.x, dy = y - m.y, d2 = dx * dx + dy * dy;
+    if (d2 === 0) return TILE.CLIFF;
+    const d = Math.sqrt(d2), ex = dx / d, ey = dy / d;
+    const p = ex * m.u2[0] + ey * m.u2[1];
+    const r = m.rad * (1 + m.a1 * (ex * m.u1[0] + ey * m.u1[1]) + m.a2 * (2 * p * p - 1));
+    return d <= r ? TILE.CLIFF : NONE;
+  };
+
+  // Every feature whose box touches the tile box [x0..x1] × [y0..y1]. A box always lies inside its own cell,
+  // so only the cells that touch the query box need looking at.
+  function featuresNear(seed, x0, y0, x1, y1) {
+    const box = [x0, y0, x1, y1];
+    const pick = (size, get) => {
+      const out = [];
+      for (const [i, j] of cellsTouching(box, size)) { const f = get(seed, i, j); if (f && touch(f.box, box)) out.push(f); }
+      return out;
+    };
+    return { canyons: pick(CANYON_CELL, canyon), craters: pick(CRATER_CELL, crater), mesas: pick(MESA_CELL, mesa) };
+  }
+
+  // Precedence when features overlap: canyon > crater > mesa (CLEAR keeps them apart, but the order is fixed).
+  function featureAt(f, x, y) {
+    for (const list of [f.canyons, f.craters, f.mesas]) {
+      for (const g of list) {
+        if (!inBox(g.box, x, y)) continue;
+        const t = CODE[g.kind](g, x, y);
+        if (t !== NONE) return t;
+      }
+    }
+    return NONE;
+  }
+
+  // ---------- chunks ----------
+  function chunk(seed, cx, cy) {
+    const x0 = cx * CHUNK, y0 = cy * CHUNK, w = CHUNK + 2;
+    const sites = sitesFor(seed, x0 - 1, y0 - 1, x0 + CHUNK, y0 + CHUNK);
+    const feats = featuresNear(seed, x0 - 1, y0 - 1, x0 + CHUNK, y0 + CHUNK);
+    // Pass 1 covers a 34×34 window (a 1-tile border) so the boulder rule can look at every neighbour.
+    const reg = new Uint8Array(w * w), feat = new Uint8Array(w * w), cand = new Uint32Array(w * w);
+    for (let wy = 0; wy < w; wy++) for (let wx = 0; wx < w; wx++) {
+      const x = x0 + wx - 1, y = y0 + wy - 1, n = wy * w + wx;
+      const r = regionFrom(seed, sites, x, y);
+      reg[n] = r;
+      const f = featureAt(feats, x, y);
+      feat[n] = f;
+      if (f === NONE && !inFlat(x, y) && unit(hash(seed, x, y, 8)) < boulderChance(seed, r, x, y)) cand[n] = (hash(seed, x, y, 7) | 1) >>> 0;
+    }
+    const tiles = new Uint8Array(CHUNK * CHUNK), regions = new Uint8Array(CHUNK * CHUNK / 2);
+    for (let ly = 0; ly < CHUNK; ly++) for (let lx = 0; lx < CHUNK; lx++) {
+      const x = x0 + lx, y = y0 + ly, n = (ly + 1) * w + lx + 1, i = ly * CHUNK + lx;
+      const r = reg[n];
+      regions[i >> 1] |= r << ((i & 1) * 4);
+      let t;
+      if (inBase(x, y)) t = TILE.BASE;
+      else if (feat[n] !== NONE) t = feat[n];
+      else if (cand[n] && isBoulder(feat, cand, n, w)) t = TILE.BOULDER;
+      else t = ground(seed, r, x, y);
+      tiles[i] = t;
+    }
+    return { cx, cy, tiles, regions };
+  }
+
+  const tileOf = (c, lx, ly) => c.tiles[ly * CHUNK + lx];
+  function regionOf(c, lx, ly) {
+    const i = ly * CHUNK + lx;
+    return (c.regions[i >> 1] >> ((i & 1) * 4)) & 15;
+  }
+
+  return {
+    CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16,
+    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear,
+  };
+});
+
+</script>
+<script>
+/*
+ * SOL 500 — fog of war bitsets. One bit per tile, one 32×32 set (128 bytes) per data chunk, saved in
+ * mission.expedition.revealed and shared in co-op as standard base64 under the chunk key "<cx>,<cy>".
+ * Shared by the browser and the server; every input from the network is checked, never trusted.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.SolFog = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  const SIZE = 32, BYTES = SIZE * SIZE / 8, CHARS = 172;
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const VAL = new Int16Array(128).fill(-1);
+  for (let i = 0; i < 64; i++) VAL[B64.charCodeAt(i)] = i;
+  const KEY = /^-?\d{1,6},-?\d{1,6}$/;
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+  const empty = () => new Uint8Array(BYTES);
+  function has(bits, lx, ly) { const i = ly * SIZE + lx; return (bits[i >> 3] >> (i & 7)) & 1; }
+  function set(bits, lx, ly) {
+    const i = ly * SIZE + lx, b = 1 << (i & 7);
+    if (bits[i >> 3] & b) return false;
+    bits[i >> 3] |= b;
+    return true;
+  }
+  function count(bits) {
+    let n = 0;
+    for (let i = 0; i < BYTES; i++) { let v = bits[i]; while (v) { v &= v - 1; n++; } }
+    return n;
+  }
+
+  function encode(bits) {
+    let s = '';
+    for (let i = 0; i < BYTES; i += 3) {
+      const two = i + 1 < BYTES, three = i + 2 < BYTES;
+      const n = (bits[i] << 16) | ((two ? bits[i + 1] : 0) << 8) | (three ? bits[i + 2] : 0);
+      s += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (two ? B64[(n >> 6) & 63] : '=') + (three ? B64[n & 63] : '=');
+    }
+    return s;
+  }
+
+  function decode(str) {
+    if (typeof str !== 'string' || str.length !== CHARS || str.charCodeAt(CHARS - 1) !== 61 /* '=' */) return null;
+    const out = new Uint8Array(BYTES);
+    let o = 0;
+    for (let i = 0; i < CHARS; i += 4) {
+      const last = i === CHARS - 4;
+      let n = 0;
+      for (let k = 0; k < 4; k++) {
+        if (last && k === 3) { n <<= 6; continue; }
+        const code = str.charCodeAt(i + k);
+        const v = code < 128 ? VAL[code] : -1;
+        if (v < 0) return null;
+        n = (n << 6) | v;
+      }
+      out[o++] = (n >> 16) & 255;
+      out[o++] = (n >> 8) & 255;
+      if (!last) out[o++] = n & 255;
+    }
+    return out;
+  }
+
+  function orInto(target, bits) {
+    let changed = false;
+    for (let i = 0; i < BYTES; i++) {
+      const v = target[i] | bits[i];
+      if (v !== target[i]) { target[i] = v; changed = true; }
+    }
+    return changed;
+  }
+
+  // Merges a { key: base64 } diff into a { key: base64 } map in place and returns only what changed.
+  // Bad keys and values are skipped; `limit` (optional) caps how many chunks the map may hold.
+  function mergeMap(map, diff, limit) {
+    const changed = {};
+    if (!diff || typeof diff !== 'object' || Array.isArray(diff)) return changed;
+    let size = Object.keys(map).length;
+    for (const k of Object.keys(diff)) {
+      if (!KEY.test(k)) continue;
+      const bits = decode(diff[k]);
+      if (!bits) continue;
+      const had = own(map, k) ? decode(map[k]) : null;
+      if (had) {
+        if (orInto(had, bits)) { map[k] = encode(had); changed[k] = map[k]; }
+        continue;
+      }
+      if (!own(map, k)) {
+        if (limit != null && size >= limit) continue;
+        size++;
+      }
+      map[k] = encode(bits);
+      changed[k] = map[k];
+    }
+    return changed;
+  }
+
+  return { SIZE, BYTES, KEY, empty, has, set, count, encode, decode, orInto, mergeMap };
+});
+
+</script>
+<script>
+/*
+ * SOL 500 — the surface's model of the endless world: which 32×32 data chunks are live, what blocks a step,
+ * short paths, the build queue and the fog the crew has seen. No DOM, so the Node tests cover all of it;
+ * src/surface-paint.js draws what this module knows.
+ *
+ * Data chunks are made when the player comes within MAKE chunks and deleted beyond KEEP (the gap avoids churn
+ * at the edge). The base's four chunks are always kept, and a hard cap drops the least recently used first.
+ * A deleted chunk is rebuilt from (seed, cx, cy), so it comes back identical. Fog is kept apart and survives.
+ *
+ * API: SolWorld.create(missionSeed, { cap }) → world (the object returned at the bottom of create)
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./worldgen.js'), require('./fog.js'));
+  else root.SolWorld = factory(root.SolWorldgen, root.SolFog);
+})(typeof self !== 'undefined' ? self : this, function (W, F) {
+  'use strict';
+  const CH = W.CHUNK;
+  const MAKE = 2, KEEP = 3, CAP = 64;
+  const PATH_HALF = 32; // click-to-walk searches a 64×64-tile box around the walker
+  const BASE_CHUNKS = ['-1,-1', '0,-1', '-1,0', '0,0'];
+  const key = (cx, cy) => cx + ',' + cy;
+  const chunkOf = t => Math.floor(t / CH);
+  const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  function create(missionSeed, opts) {
+    const cap = (opts && opts.cap) || CAP;
+    const seed = W.seedOf(missionSeed);
+    const data = new Map();      // key → { c: chunk, used }
+    const fog = new Map();       // key → Uint8Array(128): the tiles seen
+    const fogText = new Map();   // key → the last base64 sent or merged, so an unchanged value is skipped quickly
+    const stamp = new Map();     // key → bumps whenever that chunk's fog changes (the painter redraws its mini image)
+    const dirty = new Set();     // chunks with fog not yet handed out by takeFog()
+    const pinned = new Set(BASE_CHUNKS);
+    let overlay = new Set();
+    let queue = [];
+    let tick = 0, built = 0;
+
+    // ---------- data chunks ----------
+    function evictOver() {
+      while (data.size > cap) {
+        let oldest = null, oldestKey = null;
+        for (const [k, e] of data) if (!pinned.has(k) && (!oldest || e.used < oldest.used)) { oldest = e; oldestKey = k; }
+        if (!oldestKey) return;
+        data.delete(oldestKey);
+      }
+    }
+    function get(cx, cy) {
+      const k = key(cx, cy);
+      let e = data.get(k);
+      if (e) { e.used = ++tick; return e.c; }
+      e = { c: W.chunk(seed, cx, cy), used: ++tick };
+      data.set(k, e);
+      built++;
+      evictOver();
+      return e.c;
+    }
+    function peek(cx, cy) { const e = data.get(key(cx, cy)); return e ? e.c : null; }
+    // For far chunks the map needs once (their mini image): never kept, so they can't push out the player's chunks.
+    function dataFor(cx, cy) { return peek(cx, cy) || W.chunk(seed, cx, cy); }
+
+    function tile(tx, ty) {
+      const cx = chunkOf(tx), cy = chunkOf(ty);
+      return get(cx, cy).tiles[(ty - cy * CH) * CH + (tx - cx * CH)];
+    }
+    function region(tx, ty) {
+      const cx = chunkOf(tx), cy = chunkOf(ty);
+      return W.regionOf(get(cx, cy), tx - cx * CH, ty - cy * CH);
+    }
+    // Base things the world doesn't know about (the HQ, the reactor, the lander, rocks on the build grid) block too.
+    function setOverlay(tiles) { overlay = new Set(tiles.map(t => t[0] + ',' + t[1])); }
+    const isBlocked = (tx, ty) => overlay.has(tx + ',' + ty) || W.BLOCKING[tile(tx, ty)] === 1;
+    const speed = (tx, ty) => W.SPEED[tile(tx, ty)];
+
+    // Breadth-first search inside a 64×64-tile box around the start. Returns the tile steps (start excluded),
+    // [] when already there, or null.
+    function findPath(sx, sy, gx, gy, allowGoalBlocked) {
+      if (Math.abs(gx - sx) > PATH_HALF || Math.abs(gy - sy) > PATH_HALF) return null;
+      const size = PATH_HALF * 2 + 1, ox = sx - PATH_HALF, oy = sy - PATH_HALF;
+      const at = (x, y) => (y - oy) * size + (x - ox);
+      const prev = new Int32Array(size * size).fill(-1);
+      const q = new Int32Array(size * size);
+      const start = at(sx, sy), goal = at(gx, gy);
+      prev[start] = start;
+      let head = 0, tail = 0;
+      q[tail++] = start;
+      while (head < tail) {
+        const n = q[head++];
+        if (n === goal) break;
+        const x = ox + (n % size), y = oy + Math.floor(n / size);
+        for (const [dx, dy] of STEPS) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < ox || ny < oy || nx >= ox + size || ny >= oy + size) continue;
+          const m = at(nx, ny);
+          if (prev[m] !== -1) continue;
+          if (!(allowGoalBlocked && m === goal) && isBlocked(nx, ny)) continue;
+          prev[m] = n;
+          q[tail++] = m;
+        }
+      }
+      if (prev[goal] === -1) return null;
+      const path = [];
+      for (let n = goal; n !== start; n = prev[n]) path.unshift([ox + (n % size), oy + Math.floor(n / size)]);
+      return path;
+    }
+
+    // Keeps the chunks near the player and queues the missing ones, nearest to where the player is heading first.
+    function retain(tx, ty, hx, hy) {
+      const pcx = chunkOf(tx), pcy = chunkOf(ty);
+      for (const [k, e] of data) {
+        if (!pinned.has(k) && Math.max(Math.abs(e.c.cx - pcx), Math.abs(e.c.cy - pcy)) > KEEP) data.delete(k);
+      }
+      const hcx = chunkOf(hx == null ? tx : hx), hcy = chunkOf(hy == null ? ty : hy);
+      const want = [];
+      for (let cy = pcy - MAKE; cy <= pcy + MAKE; cy++) for (let cx = pcx - MAKE; cx <= pcx + MAKE; cx++) {
+        if (!data.has(key(cx, cy))) want.push([cx, cy, (cx - hcx) * (cx - hcx) + (cy - hcy) * (cy - hcy)]);
+      }
+      want.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+      queue = want;
+    }
+    // Builds at most one queued chunk; returns whether it built one.
+    function work() {
+      while (queue.length) {
+        const [cx, cy] = queue.shift();
+        if (data.has(key(cx, cy))) continue;
+        get(cx, cy);
+        return true;
+      }
+      return false;
+    }
+
+    // ---------- fog ----------
+    function bits(cx, cy, make) {
+      const k = key(cx, cy);
+      let b = fog.get(k);
+      if (!b && make) { b = F.empty(); fog.set(k, b); }
+      return b || null;
+    }
+    const bump = k => stamp.set(k, (stamp.get(k) || 0) + 1);
+    // Marks every tile within r tiles of (tx, ty) as seen; returns how many were new.
+    function reveal(tx, ty, r) {
+      let n = 0;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r) continue;
+        const x = tx + dx, y = ty + dy, cx = chunkOf(x), cy = chunkOf(y);
+        if (F.set(bits(cx, cy, true), x - cx * CH, y - cy * CH)) {
+          n++;
+          const k = key(cx, cy);
+          dirty.add(k);
+          bump(k);
+        }
+      }
+      return n;
+    }
+    function seen(tx, ty) {
+      const cx = chunkOf(tx), cy = chunkOf(ty), b = fog.get(key(cx, cy));
+      return !!b && F.has(b, tx - cx * CH, ty - cy * CH) === 1;
+    }
+    // The chunks newly seen since the last call, as { key: base64 }. Whole chunks are sent: merging is an OR,
+    // so sending a bit twice is harmless.
+    function takeFog() {
+      const out = {};
+      for (const k of dirty) { out[k] = F.encode(fog.get(k)); fogText.set(k, out[k]); }
+      dirty.clear();
+      return out;
+    }
+    // Merges fog from the saved mission or from teammates; returns the keys whose fog changed.
+    function mergeFog(map) {
+      const changed = [];
+      if (!map || typeof map !== 'object') return changed;
+      for (const k of Object.keys(map)) {
+        const text = map[k];
+        if (!F.KEY.test(k) || fogText.get(k) === text) continue;
+        const incoming = F.decode(text);
+        if (!incoming) continue;
+        fogText.set(k, text);
+        const b = fog.get(k);
+        if (!b) { fog.set(k, incoming); changed.push(k); bump(k); continue; }
+        if (F.orInto(b, incoming)) { changed.push(k); bump(k); }
+      }
+      return changed;
+    }
+
+    return {
+      seed, get, peek, dataFor, tile, region, setOverlay, isBlocked, speed, findPath, retain, work,
+      reveal, seen, takeFog, mergeFog,
+      fogBits: (cx, cy) => bits(cx, cy, false),
+      fogStamp: k => stamp.get(k) || 0,
+      fogKeys: () => [...fog.keys()],
+      liveKeys: () => [...data.keys()],
+      stats: () => ({ data: data.size, cap, queue: queue.length, fog: fog.size, built }),
+    };
+  }
+
+  return { create, chunkOf, MAKE, KEEP, CAP, PATH_HALF };
+});
+
+</script>
+<script>
+/*
+ * SOL 500 — everything on the surface drawn with Canvas 2D:
+ *   the ground, as 256-px image chunks (4×4 tiles) painted from the world data. Decor that crosses a chunk edge is
+ *   replayed by every chunk it touches, clipped to itself, so there are no seams; painting is seeded from
+ *   (seed, chunk), so a deleted chunk is repainted with exactly the same picture;
+ *   the fog over the view; the minimap's one-pixel-per-tile "mini" images of explored chunks;
+ *   and the sprites: astronauts, name tags, rocks, the lander and status badges.
+ *
+ * API: SolPaint.createPainter(world, { canvas, cap, now }) → painter · SolPaint.drawFog(...) · SolPaint.decorFor(...)
+ *      SolPaint.tileRGB(code, region) · SolPaint.REGION_COLORS · SolPaint.sprites
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./worldgen.js'), require('./fog.js'));
+  else root.SolPaint = factory(root.SolWorldgen, root.SolFog);
+})(typeof self !== 'undefined' ? self : this, function (W, F) {
+  'use strict';
+  const T = 64, IMG = 4, PX = IMG * T, CH = W.CHUNK, CAP = 160, MINI_CAP = 512;
+  const TL = W.TILE;
+
+  // ---------- colours ----------
+  // Regolith looks different in each region; the other codes have one colour each.
+  const REGION_GROUND = [[116, 58, 37], [67, 48, 43], [104, 82, 72], [134, 72, 44], [177, 158, 146], [59, 45, 44]];
+  const REGION_COLORS = ['#b4532f', '#4a3530', '#7d675c', '#c06a3a', '#cfe0e6', '#2f2526'];
+  const UNDER_BOULDER = [TL.REGOLITH, TL.DUNE, TL.REGOLITH, TL.REGOLITH, TL.POLYGON, TL.LAVA];
+  const CODE_RGB = [];
+  CODE_RGB[TL.SAND] = [77, 49, 41];
+  CODE_RGB[TL.DUNE] = [88, 57, 45];
+  CODE_RGB[TL.BOULDER] = [76, 59, 55];
+  CODE_RGB[TL.CLIFF] = [154, 92, 60];
+  CODE_RGB[TL.RIM] = [164, 108, 76];
+  CODE_RGB[TL.CRATER_FLOOR] = [88, 46, 31];
+  CODE_RGB[TL.CANYON_FLOOR] = [104, 56, 36];
+  CODE_RGB[TL.CANYON_WALL] = [62, 32, 23];
+  CODE_RGB[TL.RAMP] = [142, 85, 54];
+  CODE_RGB[TL.ICE] = [207, 227, 234];
+  CODE_RGB[TL.POLYGON] = [177, 156, 144];
+  CODE_RGB[TL.LAVA] = [59, 45, 44];
+  CODE_RGB[TL.BASE] = [128, 70, 45];
+  function tileRGB(code, region) {
+    if (code === TL.REGOLITH || CODE_RGB[code] == null) return REGION_GROUND[region] || REGION_GROUND[0];
+    return CODE_RGB[code];
+  }
+  const channel = v => Math.min(255, Math.round(v));
+  const css = (rgb, k) => 'rgb(' + channel(rgb[0] * k) + ',' + channel(rgb[1] * k) + ',' + channel(rgb[2] * k) + ')';
+  const RAISED = new Uint8Array(32);
+  for (const k of ['CLIFF', 'RIM', 'CANYON_WALL']) RAISED[TL[k]] = 1;
+  // A gentle brightness drift across the ground. It comes from smooth noise, so tiles never show as a checkerboard.
+  const shade = (world, tx, ty) => 0.96 + 0.08 * W.noise(world.seed, 920, tx, ty, 5);
+
+  // ---------- one tile of ground ----------
+  function paintTile(g, world, tx, ty) {
+    const code = world.tile(tx, ty);
+    if (RAISED[code]) return; // painted after the decor, in paintRaised
+    const reg = world.region(tx, ty);
+    const h = W.hash(world.seed, tx, ty, 900);
+    const X = tx * T, Y = ty * T;
+    // A boulder sits on its region's usual ground, drawn just like that ground (the rock goes on top in paintRaised).
+    const look = code === TL.BOULDER ? UNDER_BOULDER[reg] : code;
+    g.fillStyle = css(tileRGB(look, reg), shade(world, tx, ty));
+    g.fillRect(X, Y, T, T);
+    if (look === TL.DUNE) { // ripples across the wind; the ends line up with the next tile's, so they run on unbroken
+      g.strokeStyle = 'rgba(140,96,74,0.45)';
+      g.lineWidth = 2;
+      for (let k = 0; k < 4; k++) { const y = Y + 8 + k * 16; g.beginPath(); g.moveTo(X, y); g.quadraticCurveTo(X + 32, y - 3 - ((h >>> (4 + k * 2)) & 3) * 2, X + T, y); g.stroke(); }
+    } else if (look === TL.POLYGON) { // ground cracked into polygons by freezing and thawing
+      g.strokeStyle = 'rgba(120,98,88,0.55)';
+      g.lineWidth = 1.5;
+      const a = 12 + ((h >>> 4) % 40), b = 12 + ((h >>> 10) % 40);
+      g.beginPath(); g.moveTo(X + a, Y); g.lineTo(X + b, Y + T); g.moveTo(X, Y + b); g.lineTo(X + T, Y + a); g.stroke();
+    } else if (look === TL.ICE) {
+      g.strokeStyle = 'rgba(255,255,255,0.8)';
+      g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(X + 8, Y + 20); g.lineTo(X + 22, Y + 26); g.lineTo(X + 32, Y + 17); g.lineTo(X + 46, Y + 28); g.stroke();
+      g.beginPath(); g.moveTo(X + 12, Y + 44); g.lineTo(X + 24, Y + 40); g.lineTo(X + 33, Y + 48); g.lineTo(X + 48, Y + 43); g.stroke();
+    } else if (look === TL.LAVA) {
+      g.fillStyle = 'rgba(20,14,14,0.5)';
+      for (let k = 0; k < 6; k++) { const v = W.hash(world.seed, tx, ty, 901 + k); g.fillRect(X + (v % 60), Y + ((v >>> 8) % 60), 2 + ((v >>> 16) % 3), 2 + ((v >>> 20) % 3)); }
+    } else if (code === TL.CANYON_FLOOR) {
+      g.fillStyle = 'rgba(190,120,80,0.16)';
+      g.fillRect(X, Y + 18, T, 5);
+      g.fillRect(X, Y + 44, T, 4);
+    } else if (code === TL.CRATER_FLOOR) {
+      g.fillStyle = 'rgba(30,10,6,0.12)';
+      g.fillRect(X, Y, T, T);
+    } else if (code === TL.BASE) { // compacted regolith with the build grid's dashed lines
+      const B = W.BASE_RECT;
+      g.strokeStyle = 'rgba(255,220,190,0.12)';
+      g.lineWidth = 1;
+      g.setLineDash([4, 6]);
+      g.beginPath();
+      g.moveTo(X, Y); g.lineTo(X + T, Y);
+      g.moveTo(X, Y); g.lineTo(X, Y + T);
+      if (tx === B.x + B.w - 1) { g.moveTo(X + T, Y); g.lineTo(X + T, Y + T); }
+      if (ty === B.y + B.h - 1) { g.moveTo(X, Y + T); g.lineTo(X + T, Y + T); }
+      g.stroke();
+      g.setLineDash([]);
+    }
+  }
+
+  // Things that stand up (mesa cliffs, crater rims, canyon walls, boulders) go on top of the decor.
+  function paintRaised(g, world, tx, ty) {
+    const code = world.tile(tx, ty);
+    const X = tx * T, Y = ty * T;
+    if (RAISED[code]) {
+      g.fillStyle = css(tileRGB(code, world.region(tx, ty)), shade(world, tx, ty));
+      g.fillRect(X, Y, T, T);
+      const below = world.tile(tx, ty + 1) !== code, above = world.tile(tx, ty - 1) !== code;
+      if (code === TL.CLIFF) {
+        g.fillStyle = 'rgba(255,214,170,0.10)';
+        g.fillRect(X, Y, T, T);
+        if (above) { g.fillStyle = 'rgba(255,230,200,0.22)'; g.fillRect(X, Y, T, 3); }
+        if (below) {
+          g.fillStyle = '#4a2618';
+          g.fillRect(X, Y + T - 22, T, 22);
+          g.fillStyle = 'rgba(0,0,0,0.25)';
+          g.fillRect(X, Y + T - 6, T, 6);
+        }
+      } else {
+        if (above) { g.fillStyle = code === TL.RIM ? 'rgba(255,214,170,0.22)' : 'rgba(255,214,170,0.12)'; g.fillRect(X, Y, T, 4); }
+        if (below) { g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(X, Y + T - 10, T, 10); }
+      }
+    } else if (code === TL.BOULDER) {
+      const h = W.hash(world.seed, tx, ty, 902);
+      drawRock(g, { wx: tx, wy: ty, s: 0.7 + (h % 31) / 100, ox: ((h >>> 8) % 9) - 4, oy: ((h >>> 12) % 7) - 3 });
+    }
+  }
+
+  // ---------- decor ----------
+  const GROUND = new Uint8Array(32);
+  for (const k of ['REGOLITH', 'SAND', 'DUNE', 'CRATER_FLOOR', 'CANYON_FLOOR', 'ICE', 'POLYGON', 'LAVA']) GROUND[TL[k]] = 1;
+  const DECOR = [
+    ['blotch', 'blotch', 'pebbles', 'pit'],   // Plains
+    ['ripple', 'ripple', 'blotch'],           // Dune Sea
+    ['pit', 'pit', 'pebbles', 'blotch'],      // Crater Field
+    ['strata', 'pebbles', 'blotch'],          // Canyon Lands
+    ['crack', 'frost', 'blotch'],             // Icy Plains
+    ['vesicles', 'pebbles', 'blotch'],        // Volcanic Flanks
+  ];
+  // The decor that belongs to one image chunk. Each piece reaches at most 58 px from its centre, so it can only
+  // spill into the next chunk; every chunk it touches replays it, clipped to itself.
+  function decorFor(world, ix, iy) {
+    const out = [];
+    const n = 5 + (W.hash(world.seed, ix, iy, 910) % 6);
+    for (let i = 0; i < n; i++) {
+      const h = W.hash(world.seed, ix * 16 + i, iy, 911);
+      const x = ix * PX + (h % PX), y = iy * PX + ((h >>> 8) % PX);
+      const tx = Math.floor(x / T), ty = Math.floor(y / T);
+      if (!GROUND[world.tile(tx, ty)]) continue;
+      const kinds = DECOR[world.region(tx, ty)];
+      out.push({ kind: kinds[(h >>> 16) % kinds.length], x, y, s: 8 + ((h >>> 20) % 28), h });
+    }
+    return out;
+  }
+  function drawDecor(g, d) {
+    const x = d.x, y = d.y, s = d.s, h = d.h;
+    if (d.kind === 'blotch') {
+      g.fillStyle = h & 1 ? 'rgba(40,14,8,0.10)' : 'rgba(200,120,80,0.07)';
+      g.beginPath(); g.ellipse(x, y, s * 1.4, s * 0.8, ((h >>> 3) % 7) * 0.4, 0, Math.PI * 2); g.fill();
+    } else if (d.kind === 'pebbles') {
+      g.fillStyle = h & 2 ? '#5a2a1b' : '#8f4d33';
+      for (let k = 0; k < 6; k++) g.fillRect(x + ((h >>> (k * 3)) % 24) - 12, y + ((h >>> (k * 3 + 1)) % 16) - 8, 2 + (k & 1), 2);
+    } else if (d.kind === 'pit') {
+      g.fillStyle = 'rgba(40,14,8,0.25)';
+      g.beginPath(); g.ellipse(x, y, s, s * 0.62, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(210,140,100,0.25)';
+      g.lineWidth = 2;
+      g.beginPath(); g.ellipse(x, y + 1, s, s * 0.62, 0, Math.PI * 0.05, Math.PI * 0.95); g.stroke();
+    } else if (d.kind === 'ripple') {
+      g.strokeStyle = 'rgba(120,84,64,0.35)';
+      g.lineWidth = 1.5;
+      for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(x - s * 1.5, y + k * 7); g.quadraticCurveTo(x, y + k * 7 - 5, x + s * 1.5, y + k * 7); g.stroke(); }
+    } else if (d.kind === 'strata') {
+      g.strokeStyle = 'rgba(214,160,110,0.22)';
+      g.lineWidth = 2;
+      for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(x - s * 1.6, y + k * 6); g.lineTo(x + s * 1.6, y + k * 6 + 2); g.stroke(); }
+    } else if (d.kind === 'crack') {
+      g.strokeStyle = 'rgba(110,90,80,0.5)';
+      g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(x - s, y); g.lineTo(x - s / 3, y - 5); g.lineTo(x + s / 3, y + 4); g.lineTo(x + s, y - 2); g.stroke();
+    } else if (d.kind === 'frost') {
+      g.fillStyle = 'rgba(240,248,255,0.18)';
+      g.beginPath(); g.ellipse(x, y, s * 1.2, s * 0.7, 0, 0, Math.PI * 2); g.fill();
+    } else if (d.kind === 'vesicles') {
+      g.fillStyle = 'rgba(15,10,10,0.45)';
+      for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(x + ((h >>> (k * 2)) % 30) - 15, y + ((h >>> (k * 2 + 5)) % 20) - 10, 1.5 + (k & 1), 0, Math.PI * 2); g.fill(); }
+    }
+  }
+
+  function paintChunk(world, ix, iy, canvas) {
+    const g = canvas.getContext('2d');
+    const tx0 = ix * IMG, ty0 = iy * IMG;
+    g.setTransform(1, 0, 0, 1, -ix * PX, -iy * PX); // draw in world pixels
+    for (let ty = ty0; ty < ty0 + IMG; ty++) for (let tx = tx0; tx < tx0 + IMG; tx++) paintTile(g, world, tx, ty);
+    g.save();
+    g.beginPath();
+    g.rect(ix * PX, iy * PX, PX, PX);
+    g.clip();
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const d of decorFor(world, ix + dx, iy + dy)) drawDecor(g, d);
+    g.restore();
+    for (let ty = ty0; ty < ty0 + IMG; ty++) for (let tx = tx0; tx < tx0 + IMG; tx++) paintRaised(g, world, tx, ty);
+  }
+
+  // ---------- the painter: image chunks and mini images, with their caches ----------
+  function createPainter(world, opts) {
+    const o = opts || {};
+    const makeCanvas = o.canvas || ((w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; });
+    const now = o.now || (() => performance.now());
+    const cap = o.cap || CAP;
+    const images = new Map(); // "ix,iy" → { c, ix, iy, used }
+    const minis = new Map();  // "cx,cy" → { c, stamp, used }
+    const miniWant = new Set();
+    const times = [];
+    let queue = [], view = null, need = 0, tick = 0, renders = 0;
+
+    const inView = e => !!view && e.ix >= view[0] && e.ix <= view[2] && e.iy >= view[1] && e.iy <= view[3];
+    // The cap never pushes out a chunk the current view needs: a very wide window just keeps more.
+    function evictImages() {
+      const limit = Math.max(cap, need);
+      while (images.size > limit) {
+        let oldest = null, oldestKey = null;
+        for (const [k, e] of images) if (!inView(e) && (!oldest || e.used < oldest.used)) { oldest = e; oldestKey = k; }
+        if (!oldestKey) return;
+        images.delete(oldestKey);
+      }
+    }
+    function retainView(x0, y0, x1, y1) {
+      const a = Math.floor(x0 / PX) - 1, b = Math.floor(y0 / PX) - 1, c = Math.floor(x1 / PX) + 1, d = Math.floor(y1 / PX) + 1;
+      view = [a, b, c, d];
+      need = (c - a + 1) * (d - b + 1);
+      for (const [k, e] of images) if (e.ix < a - 1 || e.ix > c + 1 || e.iy < b - 1 || e.iy > d + 1) images.delete(k);
+      const mx = (a + c) / 2, my = (b + d) / 2, want = [];
+      for (let iy = b; iy <= d; iy++) for (let ix = a; ix <= c; ix++) {
+        if (!images.has(ix + ',' + iy)) want.push([ix, iy, (ix - mx) * (ix - mx) + (iy - my) * (iy - my)]);
+      }
+      want.sort((p, q) => p[2] - q[2]);
+      queue = want;
+      evictImages();
+    }
+    // Paints queued chunks until the deadline (but at least `atLeast` of them); returns how many it painted.
+    function work(deadline, atLeast) {
+      let n = 0;
+      while (queue.length && (n < (atLeast || 0) || now() < deadline)) {
+        const [ix, iy] = queue.shift();
+        const k = ix + ',' + iy;
+        if (images.has(k)) continue;
+        const t0 = now();
+        const c = makeCanvas(PX, PX);
+        paintChunk(world, ix, iy, c);
+        times.push(now() - t0);
+        if (times.length > 200) times.shift();
+        images.set(k, { c, ix, iy, used: ++tick });
+        evictImages();
+        n++;
+      }
+      return n;
+    }
+    function drawGround(ctx, x0, y0, x1, y1) {
+      const a = Math.floor(x0 / PX), b = Math.floor(y0 / PX), c = Math.floor(x1 / PX), d = Math.floor(y1 / PX);
+      for (let iy = b; iy <= d; iy++) for (let ix = a; ix <= c; ix++) {
+        const e = images.get(ix + ',' + iy);
+        if (e) {
+          e.used = ++tick;
+          // one extra pixel of overlap hides the hairline seam between neighbours at fractional zooms
+          ctx.drawImage(e.c, 0, 0, PX, PX, ix * PX, iy * PX, PX + 1, PX + 1);
+        } else flat(ctx, ix, iy);
+      }
+    }
+    // A chunk not painted yet is drawn as flat tile colours from its data, so there are never holes.
+    function flat(ctx, ix, iy) {
+      for (let ty = iy * IMG; ty < iy * IMG + IMG; ty++) for (let tx = ix * IMG; tx < ix * IMG + IMG; tx++) {
+        const cx = Math.floor(tx / CH), cy = Math.floor(ty / CH), data = world.peek(cx, cy);
+        const lx = tx - cx * CH, ly = ty - cy * CH;
+        ctx.fillStyle = css(data ? tileRGB(data.tiles[ly * CH + lx], W.regionOf(data, lx, ly)) : REGION_GROUND[0], 1);
+        ctx.fillRect(tx * T, ty * T, T + 0.5, T + 0.5);
+      }
+    }
+
+    // One pixel per tile, seen tiles only; redrawn when that chunk's fog changes.
+    function renderMini(c, data, fogBits) {
+      const g = c.getContext('2d');
+      const img = g.createImageData(CH, CH), px = img.data;
+      for (let ly = 0; ly < CH; ly++) for (let lx = 0; lx < CH; lx++) {
+        const o4 = (ly * CH + lx) * 4;
+        if (!F.has(fogBits, lx, ly)) { px[o4 + 3] = 0; continue; }
+        const rgb = tileRGB(data.tiles[ly * CH + lx], W.regionOf(data, lx, ly));
+        px[o4] = rgb[0]; px[o4 + 1] = rgb[1]; px[o4 + 2] = rgb[2]; px[o4 + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+      renders++;
+    }
+    function mini(cx, cy, build) {
+      const k = cx + ',' + cy;
+      const fogBits = world.fogBits(cx, cy);
+      if (!fogBits) return null;
+      const st = world.fogStamp(k);
+      let e = minis.get(k);
+      if (e && e.stamp === st) { e.used = ++tick; return e.c; }
+      const data = build ? world.dataFor(cx, cy) : world.peek(cx, cy);
+      if (!data) { miniWant.add(k); return e ? e.c : null; }
+      if (!e) { e = { c: makeCanvas(CH, CH), stamp: st, used: 0 }; minis.set(k, e); }
+      renderMini(e.c, data, fogBits);
+      e.stamp = st;
+      e.used = ++tick;
+      miniWant.delete(k);
+      while (minis.size > MINI_CAP) {
+        let oldest = null, oldestKey = null;
+        for (const [mk, me] of minis) if (!oldest || me.used < oldest.used) { oldest = me; oldestKey = mk; }
+        minis.delete(oldestKey);
+      }
+      return e.c;
+    }
+    // Builds queued mini images (far explored chunks the map wants) until the deadline, at least one per call.
+    function workMinis(deadline) {
+      let n = 0;
+      for (const k of [...miniWant]) {
+        if (n > 0 && now() >= deadline) break;
+        miniWant.delete(k);
+        const [cx, cy] = k.split(',').map(Number);
+        mini(cx, cy, true);
+        n++;
+      }
+      return n;
+    }
+
+    // Browser QA: a hash of a painted chunk's pixels proves a deleted chunk comes back identical.
+    function chunkHash(ix, iy) {
+      const e = images.get(ix + ',' + iy);
+      if (!e) return null;
+      const px = e.c.getContext('2d').getImageData(0, 0, PX, PX).data;
+      let h = 2166136261;
+      for (let i = 0; i < px.length; i++) h = Math.imul(h ^ px[i], 16777619);
+      return (h >>> 0).toString(16).padStart(8, '0');
+    }
+    function stats() {
+      const sorted = times.slice().sort((a, b) => a - b);
+      return {
+        images: images.size, cap: Math.max(cap, need), queue: queue.length, minis: minis.size, miniQueue: miniWant.size,
+        renders, paintMedian: sorted.length ? sorted[sorted.length >> 1] : 0,
+      };
+    }
+    return {
+      retainView, work, drawGround, workMinis, chunkHash, stats,
+      mini: (cx, cy) => mini(cx, cy, false),
+      has: (ix, iy) => images.has(ix + ',' + iy),
+      pending: () => queue.map(q => [q[0], q[1]]),
+    };
+  }
+
+  // ---------- fog over the view ----------
+  // Unseen tiles are covered; seen tiles outside your view radius are dimmed; tiles in view are clear.
+  const FOG = '#120a0c';
+  function drawFog(ctx, world, x0, y0, x1, y1, px, py, rad) {
+    const tx0 = Math.floor(x0 / T), ty0 = Math.floor(y0 / T), tx1 = Math.floor(x1 / T), ty1 = Math.floor(y1 / T);
+    ctx.fillStyle = FOG;
+    for (let ty = ty0; ty <= ty1; ty++) {
+      const ky = Math.floor(ty / CH), ly = ty - ky * CH;
+      let run = null, kx = null, fogBits = null;
+      for (let tx = tx0; tx <= tx1 + 1; tx++) {
+        let hidden = false;
+        if (tx <= tx1) {
+          const cx = Math.floor(tx / CH);
+          if (cx !== kx) { kx = cx; fogBits = world.fogBits(cx, ky); }
+          hidden = !fogBits || !F.has(fogBits, tx - cx * CH, ly);
+        }
+        if (hidden && run === null) run = tx;
+        else if (!hidden && run !== null) { ctx.fillRect(run * T, ty * T, (tx - run) * T, T + 0.5); run = null; }
+      }
+    }
+    const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad);
+    g.addColorStop(0, 'rgba(10,6,8,0)');
+    g.addColorStop(1, 'rgba(10,6,8,0.5)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+
+  // ---------- sprites (moved from surface.js) ----------
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawRock(ctx, d) {
+    const cx = d.wx * T + T / 2 + (d.ox || 0), cy = d.wy * T + T / 2 + (d.oy || 0);
+    const s = d.s;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 14 * s, 22 * s, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#4c3b37';
+    ctx.beginPath(); ctx.ellipse(cx - 4 * s, cy + 4 * s, 20 * s, 14 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5e4a45';
+    ctx.beginPath(); ctx.ellipse(cx + 10 * s, cy - 2 * s, 12 * s, 10 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#6f5a54';
+    ctx.beginPath(); ctx.ellipse(cx - 8 * s, cy - 1 * s, 7 * s, 3 * s, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawLander(ctx, wx, wy) {
+    const cx = wx * T + T / 2, cy = wy * T + T / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(0, 22, 34, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#9aa0a6';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-18, 2); ctx.lineTo(-30, 22); ctx.moveTo(18, 2); ctx.lineTo(30, 22); ctx.moveTo(0, 6); ctx.lineTo(0, 22); ctx.stroke();
+    ctx.fillStyle = '#c9c1b5';
+    ctx.beginPath(); ctx.moveTo(-24, 4); ctx.lineTo(24, 4); ctx.lineTo(16, -14); ctx.lineTo(-16, -14); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d9aa7a';
+    ctx.fillRect(-22, -2, 44, 5);
+    ctx.fillStyle = '#86b8ea';
+    ctx.fillRect(-12, -12, 7, 12); ctx.fillRect(5, -12, 7, 12);
+    ctx.restore();
+  }
+
+  function badge(ctx, x, y, kind) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (kind === 'broken') {
+      ctx.fillStyle = '#f46e5f';
+      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2a1214';
+      ctx.fillRect(-1.5, -5.5, 3, 7); ctx.fillRect(-1.5, 3, 3, 2.6);
+    } else {
+      ctx.fillStyle = '#3a2e33';
+      ctx.strokeStyle = '#9a877f';
+      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#f2b84f';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(0, 1, 4.5, -Math.PI * 0.25, Math.PI * 1.25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 0); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // a: { x, y, dir, phase, moving, you, down, rover, working, color }. Name tags are queued in `tags`
+  // and laid out by drawTags once every sprite is drawn.
+  function drawAvatar(ctx, a, name, time, tags, roverImg) {
+    const color = a.color || '#ccc';
+    const x = a.x, y = a.y;
+    const tag = (tx, ty, text, c, you) => { if (text) tags.push({ x: tx, y: ty, text, color: c, you }); };
+    ctx.save();
+    if (a.you) {
+      const pulse = 0.55 + 0.45 * Math.sin(time * 4);
+      ctx.strokeStyle = `rgba(140,188,236,${0.5 + pulse * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(x, y + 2, 17, 6, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 12, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    if (a.rover) {
+      if (roverImg) {
+        ctx.save();
+        if (a.dir === 'left') { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); }
+        ctx.drawImage(roverImg, x - 34, y - 52, 68, 68);
+        ctx.restore();
+      }
+      tag(x, y - 50, name, color, a.you);
+      ctx.restore();
+      return;
+    }
+    if (a.down) {
+      ctx.translate(x, y - 6);
+      ctx.fillStyle = '#e9e2d8';
+      roundRect(ctx, -16, -6, 26, 12, 5); ctx.fill();
+      ctx.fillStyle = color; ctx.fillRect(-10, -6, 3, 12);
+      ctx.fillStyle = '#f3eee7'; ctx.beginPath(); ctx.arc(14, 0, 8, 0, Math.PI * 2); ctx.fill();
+      const pulse = 0.5 + 0.5 * Math.sin(time * 5);
+      ctx.fillStyle = `rgba(244,110,95,${0.6 + pulse * 0.4})`;
+      ctx.fillRect(-2, -26, 4, 14); ctx.fillRect(-7, -21, 14, 4);
+      ctx.restore();
+      tag(x, y - 34, name, '#f46e5f', a.you);
+      return;
+    }
+    const bob = a.moving ? Math.abs(Math.sin(a.phase)) * 2 : Math.sin(time * 2 + x) * 0.6;
+    const swing = a.moving ? Math.sin(a.phase) * 4 : 0;
+    // legs
+    ctx.fillStyle = '#d6cec3';
+    roundRect(ctx, x - 7, y - 11 + (swing > 0 ? 0 : 1), 6, 11 - (swing > 0 ? 0 : 1) + Math.max(0, swing * 0.3), 2); ctx.fill();
+    roundRect(ctx, x + 1, y - 11 + (swing < 0 ? 0 : 1), 6, 11 - (swing < 0 ? 0 : 1) + Math.max(0, -swing * 0.3), 2); ctx.fill();
+    ctx.fillStyle = '#6d6266';
+    ctx.fillRect(x - 7, y - 2, 6, 2); ctx.fillRect(x + 1, y - 2, 6, 2);
+    const by = y - 12 - bob;
+    // backpack behind (visible from the sides and back)
+    if (a.dir !== 'down') {
+      ctx.fillStyle = '#9da3a9';
+      const bx = a.dir === 'left' ? x + 4 : a.dir === 'right' ? x - 14 : x - 9;
+      roundRect(ctx, bx, by - 18, a.dir === 'up' ? 18 : 10, 16, 3); ctx.fill();
+    }
+    // arms
+    ctx.fillStyle = '#e1d9ce';
+    roundRect(ctx, x - 13, by - 17 + swing * 0.5, 5, 12, 2.5); ctx.fill();
+    roundRect(ctx, x + 8, by - 17 - swing * 0.5, 5, 12, 2.5); ctx.fill();
+    // torso
+    ctx.fillStyle = '#ece5db';
+    roundRect(ctx, x - 9, by - 19, 18, 19, 5); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.fillRect(x - 9, by - 9, 18, 3);
+    if (a.dir === 'down') { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 4, by - 14, 2.2, 0, Math.PI * 2); ctx.fill(); }
+    // helmet
+    const hy = by - 27;
+    ctx.fillStyle = '#f4efe8';
+    ctx.strokeStyle = '#b9afa4';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, hy, 10.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = color;
+    roundRect(ctx, x - 3.5, hy - 12, 7, 3, 1.5); ctx.fill();
+    if (a.dir !== 'up') {
+      const ox = a.dir === 'left' ? -3 : a.dir === 'right' ? 3 : 0;
+      const grad = ctx.createLinearGradient(x, hy - 6, x, hy + 6);
+      grad.addColorStop(0, '#0e1a2b');
+      grad.addColorStop(0.65, '#1f3c62');
+      grad.addColorStop(1, color);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.ellipse(x + ox, hy + 1, a.dir === 'down' ? 7.5 : 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(x + ox - 1, hy, 4.5, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
+    }
+    if (a.working) {
+      const wob = Math.sin(time * 6) * 1.5;
+      ctx.fillStyle = 'rgba(20,14,16,0.85)';
+      ctx.beginPath(); ctx.arc(x + 15, hy - 14 + wob, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x + 15, hy - 14 + wob, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    tag(x, hy - 17, name, color, a.you);
+  }
+
+  // Name tags are laid out after all sprites so they never pile on top of each other.
+  function drawTags(ctx, tags) {
+    const placed = [];
+    ctx.font = '600 10px "Be Vietnam Pro", system-ui, sans-serif';
+    const list = tags.slice().sort((a, b) => (b.you - a.you) || (b.y - a.y));
+    for (const tg of list) {
+      const w = ctx.measureText(tg.text).width + 16;
+      let y = tg.y;
+      for (let i = 0; i < 6; i++) {
+        const hit = placed.some(r => Math.abs(r.x - tg.x) < (r.w + w) / 2 + 2 && Math.abs(r.y - y) < 16);
+        if (!hit) break;
+        y -= 16;
+      }
+      placed.push({ x: tg.x, y, w });
+      drawTag(ctx, tg.x, y, tg.text, tg.color, tg.you, w);
+    }
+    tags.length = 0;
+  }
+
+  function drawTag(ctx, x, y, text, color, you, w) {
+    ctx.save();
+    ctx.fillStyle = you ? 'rgba(140,188,236,0.92)' : 'rgba(20,14,16,0.78)';
+    roundRect(ctx, x - w / 2, y - 14, w, 15, 7); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x - w / 2 + 7, y - 6.5, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = you ? '#0c1a29' : '#f4e9df';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x - w / 2 + 12, y - 6.2);
+    ctx.restore();
+  }
+
+  return {
+    IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander },
+  };
+});
+
+</script>
+<script>
+/*
+ * SOL 500 — the minimap (160×160 tiles, one pixel per tile, centred on you) and the full-screen map of everything
+ * the crew has explored, with pan and zoom. Both draw the painter's one-pixel-per-tile "mini" images of explored
+ * chunks, so they never need the full ground painting. Also formats the debug overlay (?debug=chunks or F3).
+ *
+ * API: SolMap.create({ t, onOpen, onClose }) → map
+ *        map.attach(world, painter)          a new mission's world
+ *        map.minimap · map.el                elements for the surface overlay
+ *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }] } (world pixels)
+ *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
+ *        map.frame(state, deadline)          every animation frame (does nothing while closed)
+ *        map.relabel()                       after a language change
+ *      SolMap.debugText(stats) → string
  */
 (function (root) {
   'use strict';
-  const D = root.SolData, E = root.SolEngine, A = root.SolArt;
-  const T = 64, PAD = 3;
-  const GW = D.GRID.w + PAD * 2, GH = D.GRID.h + PAD * 2;
-  const WW = GW * T, WH = GH * T;
+  const W = root.SolWorldgen, P = root.SolPaint;
+  const T = 64, CH = W.CHUNK, MINI = 160;
+  const ZOOMS = [1, 2, 3, 4, 6, 8]; // screen pixels per tile on the full map
+  const PAN = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
+
+  function create(opts) {
+    const t = opts.t;
+    let world = null, painter = null, last = null, lastMini = -1e9;
+    let open = false, zi = 2, cx = 0, cy = 0, drag = null;
+    const dpr = () => Math.min(2, root.devicePixelRatio || 1);
+    const node = (tag, cls, text) => {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    };
+
+    // The HQ, then every crew member as a dot in their role colour (you with a white ring).
+    function markers(g, st, at) {
+      const [bx, by] = at(T / 2, T / 2); // the HQ is tile (0, 0)
+      g.fillStyle = '#f4e9df';
+      g.strokeStyle = '#120a0c';
+      g.lineWidth = 1;
+      g.fillRect(bx - 3.5, by - 3.5, 7, 7);
+      g.strokeRect(bx - 3.5, by - 3.5, 7, 7);
+      for (const c of st.crew) {
+        const [x, y] = at(c.x, c.y);
+        g.fillStyle = c.color;
+        g.beginPath(); g.arc(x, y, c.you ? 3.5 : 2.5, 0, Math.PI * 2); g.fill();
+        if (c.you) { g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.stroke(); }
+      }
+    }
+
+    // ---------- minimap ----------
+    const minimap = node('button', 'sf-mini');
+    minimap.type = 'button';
+    const mc = node('canvas');
+    minimap.appendChild(mc);
+    minimap.addEventListener('click', () => openMap());
+
+    function drawMini(st, now) {
+      last = st;
+      if (!world || open || now - lastMini < 150) return;
+      lastMini = now;
+      const size = minimap.clientWidth || MINI, k = dpr();
+      if (mc.width !== Math.round(size * k)) { mc.width = Math.round(size * k); mc.height = Math.round(size * k); }
+      const g = mc.getContext('2d');
+      const z = size / MINI; // CSS pixels per tile: 1, or less on small screens
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.imageSmoothingEnabled = false;
+      g.fillStyle = '#120a0c';
+      g.fillRect(0, 0, mc.width, mc.height);
+      const ox = Math.floor(st.px / T) - MINI / 2, oy = Math.floor(st.py / T) - MINI / 2;
+      for (let ky = Math.floor(oy / CH); ky <= Math.floor((oy + MINI - 1) / CH); ky++) {
+        for (let kx = Math.floor(ox / CH); kx <= Math.floor((ox + MINI - 1) / CH); kx++) {
+          const c = painter.mini(kx, ky);
+          if (c) blit(g, c, kx * CH - ox, ky * CH - oy, k * z);
+        }
+      }
+      g.setTransform(k, 0, 0, k, 0, 0);
+      markers(g, st, (x, y) => [(x / T - ox) * z, (y / T - oy) * z]);
+    }
+
+    // Draws a chunk's mini image snapped to whole device pixels (s = device pixels per tile), so neighbouring
+    // chunks meet exactly, with no seam.
+    function blit(g, c, tx, ty, s) {
+      const x0 = Math.round(tx * s), y0 = Math.round(ty * s), x1 = Math.round((tx + CH) * s), y1 = Math.round((ty + CH) * s);
+      g.drawImage(c, x0, y0, x1 - x0, y1 - y0);
+    }
+
+    // ---------- full map ----------
+    const el = node('div', 'sf-map');
+    el.hidden = true;
+    el.setAttribute('role', 'dialog');
+    const fc = node('canvas');
+    const head = node('div', 'sf-map-head');
+    const title = node('b');
+    const legend = node('div', 'sf-map-legend');
+    const button = (label, onClick) => { const b = node('button', null, label); b.type = 'button'; b.addEventListener('click', onClick); return b; };
+    const zoomOut = button('−', () => zoom(-1)), zoomIn = button('+', () => zoom(1)), shut = button('×', () => closeMap());
+    head.append(title, legend, zoomOut, zoomIn, shut);
+    const hint = node('p', 'sf-map-hint');
+    el.append(fc, head, hint);
+
+    function relabel() {
+      title.textContent = t('sf.mapTitle');
+      hint.textContent = t('sf.mapHint');
+      el.setAttribute('aria-label', t('sf.mapTitle'));
+      minimap.setAttribute('aria-label', t('sf.minimap'));
+      zoomIn.setAttribute('aria-label', t('sf.zoomIn'));
+      zoomOut.setAttribute('aria-label', t('sf.zoomOut'));
+      shut.setAttribute('aria-label', t('common.close'));
+      legend.textContent = '';
+      W.REGIONS.forEach((id, i) => {
+        const item = node('span');
+        const swatch = node('i');
+        swatch.style.background = P.REGION_COLORS[i];
+        item.append(swatch, document.createTextNode(t('region.' + id)));
+        legend.appendChild(item);
+      });
+    }
+
+    function openMap(st) {
+      if (!world) return;
+      const s = st || last;
+      if (s) { cx = s.px / T; cy = s.py / T; }
+      open = true;
+      el.hidden = false;
+      if (opts.onOpen) opts.onOpen();
+      shut.focus({ preventScroll: true });
+    }
+    function closeMap() {
+      if (!open) return;
+      open = false;
+      el.hidden = true;
+      drag = null;
+      if (opts.onClose) opts.onClose();
+    }
+    function zoom(d) { zi = Math.max(0, Math.min(ZOOMS.length - 1, zi + d)); }
+    // Keys while the map is open; returns true when the key was used.
+    function key(e) {
+      if (e.code === 'Escape' || e.code === 'KeyM') { closeMap(); return true; }
+      if (e.key === '+' || e.key === '=') { zoom(1); return true; }
+      if (e.key === '-' || e.key === '_') { zoom(-1); return true; }
+      const d = PAN[e.code];
+      if (!d) return false;
+      const step = 48 / ZOOMS[zi];
+      cx += d[0] * step;
+      cy += d[1] * step;
+      return true;
+    }
+    fc.addEventListener('pointerdown', e => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; fc.setPointerCapture(e.pointerId); });
+    fc.addEventListener('pointermove', e => {
+      if (!drag || drag.id !== e.pointerId) return;
+      const z = ZOOMS[zi];
+      cx -= (e.clientX - drag.x) / z;
+      cy -= (e.clientY - drag.y) / z;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+    });
+    const endDrag = () => { drag = null; };
+    fc.addEventListener('pointerup', endDrag);
+    fc.addEventListener('pointercancel', endDrag);
+    fc.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+
+    function frame(st, deadline) {
+      last = st;
+      if (!open || !world) return;
+      painter.workMinis(deadline);
+      const k = dpr(), w = el.clientWidth, h = el.clientHeight;
+      if (fc.width !== Math.round(w * k) || fc.height !== Math.round(h * k)) { fc.width = Math.round(w * k); fc.height = Math.round(h * k); }
+      const g = fc.getContext('2d');
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.imageSmoothingEnabled = false;
+      g.fillStyle = '#120a0c';
+      g.fillRect(0, 0, fc.width, fc.height);
+      const z = ZOOMS[zi], ox = cx - w / 2 / z, oy = cy - h / 2 / z;
+      for (const fk of world.fogKeys()) {
+        const comma = fk.indexOf(',');
+        const kx = Number(fk.slice(0, comma)), ky = Number(fk.slice(comma + 1));
+        const sx = (kx * CH - ox) * z, sy = (ky * CH - oy) * z;
+        if (sx > w || sy > h || sx + CH * z < 0 || sy + CH * z < 0) continue;
+        const c = painter.mini(kx, ky);
+        if (c) blit(g, c, kx * CH - ox, ky * CH - oy, k * z);
+      }
+      g.setTransform(k, 0, 0, k, 0, 0);
+      markers(g, st, (x, y) => [(x / T - ox) * z, (y / T - oy) * z]);
+    }
+
+    return {
+      minimap, el, drawMini, frame, key, relabel,
+      attach(w, p) { world = w; painter = p; closeMap(); },
+      open: openMap, close: closeMap, isOpen: () => open,
+    };
+  }
+
+  function debugText(s) {
+    return [
+      'fps ' + s.fps,
+      'data ' + s.world.data + '/' + s.world.cap + '  queue ' + s.world.queue + '  built ' + s.world.built,
+      'images ' + s.paint.images + '/' + s.paint.cap + '  queue ' + s.paint.queue + '  paint ' + s.paint.paintMedian.toFixed(2) + ' ms',
+      'minis ' + s.paint.minis + ' (+' + s.paint.miniQueue + ')  fog chunks ' + s.world.fog,
+      'tile ' + s.tile.join(',') + '  chunk ' + s.chunk.join(',') + '  ' + s.region,
+    ].join('\n');
+  }
+
+  root.SolMap = { create, debugText };
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+/*
+ * SOL 500 — the walkable surface: your astronaut walks around the outpost and out into the endless world, builds on
+ * tiles, inspects and switches machines, drives the rover, and meets the rest of the crew, who walk to their jobs.
+ * Canvas 2D + a small DOM overlay. It never changes the mission itself: every action goes through ui.js hooks,
+ * so the surface and the mission console always show the same plan.
+ * The world model is src/surface-world.js, the painting src/surface-paint.js, the minimap and map src/surface-map.js.
+ *
+ * API: SolSurface.mount(hooks) → element (persistent; re-attach it on every render)
+ *      SolSurface.update({ mission, plan, forecast, controlId, canControl(id), crewName(id), t, lang, fog })
+ *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
+ *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
+ * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
+ *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId)
+ */
+(function (root) {
+  'use strict';
+  const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap;
+  const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander } = P.sprites;
+  const T = 64;
+  const BASE = W.BASE_RECT;
+  const LANDER = [-6, -4];
   const SPEED = 150, SPRINT_X = 1.75, ROVER_X = 2.6, NPC_SPEED = 115;
+  const VIEW_FOOT = 8, VIEW_ROVER = 10; // tiles you can see around you (dust storms will shrink this in M4)
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+  const DEBUG = /[?&]debug=chunks\b/.test((root.location && root.location.search) || '');
   const tkey = (x, y) => x + ',' + y;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -4239,8 +5796,9 @@ p { margin: 0; }
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  const gridToWorld = (gx, gy) => [gx + PAD, gy + PAD];
-  const worldToGrid = (wx, wy) => [wx - PAD, wy - PAD];
+    // The 9×5 build grid sits with its top-left at world tile (−4, −2), so the HQ is at (0, 0).
+  const gridToWorld = (gx, gy) => [gx + BASE.x, gy + BASE.y];
+  const worldToGrid = (wx, wy) => [wx - BASE.x, wy - BASE.y];
   const inGrid = (gx, gy) => gx >= 0 && gy >= 0 && gx < D.GRID.w && gy < D.GRID.h;
   const center = (wx, wy) => [wx * T + T / 2, wy * T + T / 2];
 
@@ -4259,87 +5817,55 @@ p { margin: 0; }
   function ready(img) { return img && img.complete && img.naturalWidth > 0; }
 
   // ---------- world model ----------
+  // A mission (by its code) gets its own world, painter and fog; reset() forces a fresh one for a new mission.
   function world() {
     const m = S.data && S.data.mission;
     if (!m) return null;
-    if (S.worldSeed === m.seed + '|' + m.loadout.solar + '|' + m.crewSize && S.world) {
-      refreshWorld(m);
-      return S.world;
-    }
-    const r = seeded(m.seed + '|decor');
-    const decor = [];
-    const lander = { wx: 1, wy: 1 };
-    const padTiles = [];
-    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-      const [gx, gy] = worldToGrid(x, y);
-      if (!inGrid(gx, gy) && !(x === lander.wx && y === lander.wy)) padTiles.push([x, y]);
-    }
-    for (let i = padTiles.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [padTiles[i], padTiles[j]] = [padTiles[j], padTiles[i]]; }
-    const rocks = padTiles.slice(0, 11).filter(([x, y]) => !(y === PAD + D.GRID.hq[1] && (x < PAD || x >= PAD + D.GRID.w)));
-    for (const [x, y] of rocks) decor.push({ kind: 'rock', wx: x, wy: y, s: 0.7 + r() * 0.6, v: r() });
-    const craters = [];
-    for (let i = 0; i < 14; i++) craters.push({ x: r() * WW, y: r() * WH, r: 12 + r() * 34 });
-    S.world = { decor, lander, craters, rockSet: new Set(rocks.map(([x, y]) => tkey(x, y))) };
-    S.worldSeed = m.seed + '|' + m.loadout.solar + '|' + m.crewSize;
-    S.ground = null;
+    if (S.world && S.worldSeed === m.seed) return S.world;
+    S.world = SW.create(m.seed);
+    S.painter = P.createPainter(S.world);
+    S.map.attach(S.world, S.painter);
+    S.worldSeed = m.seed;
+    S.world.reveal(0, 0, W.FLAT_RADIUS); // the crew knows their own base
     S.player = null;
     S.npcs = {};
+    S.region = null;
+    S.seenAt = [NaN, NaN, 0];
+    S.camSnap = true;
     refreshWorld(m);
     return S.world;
   }
 
-  function refreshWorld(m) {
-    const w = S.world;
-    const blocked = new Set(w.rockSet);
-    blocked.add(tkey(w.lander.wx, w.lander.wy));
-    for (const [gx, gy] of m.terrain.rock) blocked.add(tkey(...gridToWorld(gx, gy)));
-    // Crews walk between the machines; only the HQ and the reactor (radiation) are solid.
-    const structAt = new Map();
-    for (const tile of m.layout) {
-      const [wx, wy] = gridToWorld(tile.x, tile.y);
-      structAt.set(tkey(wx, wy), tile);
-      if (tile.type === 'hab' || tile.type === 'reactor') blocked.add(tkey(wx, wy));
-    }
-    w.blocked = blocked;
-    w.structAt = structAt;
-    w.ice = new Set(m.terrain.ice.map(([x, y]) => tkey(x, y)));
-    w.gridRock = new Set(m.terrain.rock.map(([x, y]) => tkey(x, y)));
+  function reset() {
+    if (!S) return;
+    S.world = null;
+    S.worldSeed = null;
   }
 
-  function isBlocked(wx, wy) {
-    if (wx < 0 || wy < 0 || wx >= GW || wy >= GH) return true;
-    return S.world.blocked.has(tkey(wx, wy));
+  // The base's own blockers (the HQ, the reactor, the lander, rocks on the build grid) and the grid lookups.
+  function refreshWorld(m) {
+    const blocked = [LANDER];
+    for (const [gx, gy] of m.terrain.rock) blocked.push(gridToWorld(gx, gy));
+    // Crews walk between the machines; only the HQ and the reactor (radiation) are solid.
+    for (const tile of m.layout) if (tile.type === 'hab' || tile.type === 'reactor') blocked.push(gridToWorld(tile.x, tile.y));
+    S.world.setOverlay(blocked);
+    S.base = {
+      ice: new Set(m.terrain.ice.map(([x, y]) => tkey(x, y))),
+      gridRock: new Set(m.terrain.rock.map(([x, y]) => tkey(x, y))),
+    };
   }
+
+  const isBlocked = (wx, wy) => S.world.isBlocked(wx, wy);
 
   function hitsWall(x, y) {
     const pts = [[x - 10, y - 6], [x + 10, y - 6], [x - 10, y + 4], [x + 10, y + 4]];
     return pts.some(([px, py]) => isBlocked(Math.floor(px / T), Math.floor(py / T)));
   }
 
-  // Breadth-first search over world tiles; returns tile-centre waypoints.
+  // Breadth-first search over world tiles inside a 64×64-tile box around the walker; returns tile-centre waypoints.
   function findPath(fromX, fromY, goalWx, goalWy, allowGoalBlocked) {
-    const sx = clamp(Math.floor(fromX / T), 0, GW - 1), sy = clamp(Math.floor(fromY / T), 0, GH - 1);
-    const goal = tkey(goalWx, goalWy);
-    const prev = new Map([[tkey(sx, sy), null]]);
-    const q = [[sx, sy]];
-    let found = null;
-    while (q.length) {
-      const [x, y] = q.shift();
-      if (tkey(x, y) === goal) { found = [x, y]; break; }
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = x + dx, ny = y + dy, k = tkey(nx, ny);
-        if (prev.has(k)) continue;
-        if (isBlocked(nx, ny) && !(allowGoalBlocked && k === goal)) continue;
-        prev.set(k, [x, y]);
-        q.push([nx, ny]);
-      }
-    }
-    if (!found) return null;
-    const path = [];
-    let cur = found;
-    while (cur) { path.unshift(center(cur[0], cur[1])); cur = prev.get(tkey(cur[0], cur[1])); }
-    path.shift();
-    return path;
+    const steps = S.world.findPath(Math.floor(fromX / T), Math.floor(fromY / T), goalWx, goalWy, allowGoalBlocked);
+    return steps && steps.map(([x, y]) => center(x, y));
   }
 
   function spotNear(gx, gy, rnd) {
@@ -4359,6 +5885,13 @@ p { margin: 0; }
     return center(hx, hy + 2);
   }
 
+  // Your astronaut appears beside the HQ when a mission (or a fresh world) starts.
+  function ensurePlayer() {
+    if (S.player) return;
+    const [x, y] = spawnPoint();
+    S.player = { x, y, dir: 'down', phase: 0, moving: false, stamina: 100, path: null, inRover: false, crewId: S.data.controlId };
+  }
+
   // ---------- setup ----------
   function mount(hooks) {
     if (S) { S.hooks = hooks; return S.el; }
@@ -4374,16 +5907,26 @@ p { margin: 0; }
     S = {
       el, canvas, ctx: canvas.getContext('2d'), overlay, hooks,
       keys: new Set(), joy: { x: 0, y: 0, id: null }, sprintHeld: false,
-      player: null, npcs: {}, remote: {}, images: {}, particles: [], ground: null,
-      world: null, worldSeed: null, data: null, focus: null, menuOpen: null,
-      view: { w: 0, h: 0, zoom: 1, dpr: 1, camX: 0, camY: 0 }, time: 0, last: 0,
+      player: null, npcs: {}, remote: {}, images: {}, particles: [], tags: [],
+      world: null, painter: null, map: null, base: null, worldSeed: null, data: null, focus: null, menuOpen: null,
+      view: { w: 0, h: 0, zoom: 1, dpr: 1, camX: 0, camY: 0 }, time: 0, last: 0, fps: 60, camSnap: true,
       lastSent: 0, lastSentKey: '', hintUntil: 14, touch: false,
+      region: null, seenAt: [NaN, NaN, 0], fogSent: 0, debug: DEBUG, debugAt: 0, lang: null, qa: { ghost: false, speed: 1 },
     };
     S.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }) });
     buildOverlay();
     bindInput();
     if (window.ResizeObserver) new ResizeObserver(resize).observe(el);
     requestAnimationFrame(loop);
+    // When the browser is idle, paint more of the ground than the frame budget allows.
+    if (window.requestIdleCallback) {
+      const idle = d => {
+        if (S.painter && S.el.isConnected && !document.hidden) S.painter.work(performance.now() + Math.max(0, d.timeRemaining() - 1), 0);
+        window.requestIdleCallback(idle, { timeout: 500 });
+      };
+      window.requestIdleCallback(idle, { timeout: 500 });
+    }
     return el;
   }
 
@@ -4426,7 +5969,11 @@ p { margin: 0; }
     S.btnAct.type = 'button';
     S.btnRun = el('button', 'sf-btn sf-run', '»');
     S.btnRun.type = 'button';
-    o.append(S.hint, S.stamina, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun);
+        S.regionChip = el('div', 'sf-region');
+    S.regionChip.hidden = true;
+    S.debugBox = el('pre', 'sf-debug');
+    S.debugBox.hidden = !S.debug;
+    o.append(S.hint, S.stamina, S.regionChip, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
     S.btnAct.addEventListener('click', () => interact());
     const runOn = e => { e.preventDefault(); S.sprintHeld = true; S.btnRun.classList.add('on'); };
     const runOff = () => { S.sprintHeld = false; S.btnRun.classList.remove('on'); };
@@ -4465,6 +6012,9 @@ p { margin: 0; }
     const MOVE = { KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1 };
     window.addEventListener('keydown', e => {
       if (!S.el.isConnected || typing(e) || document.querySelector('.modal-back')) return;
+      if (S.map.isOpen()) { if (S.map.key(e)) e.preventDefault(); return; }
+      if (e.code === 'KeyM' && !e.repeat) { openMap(); e.preventDefault(); return; }
+      if (e.code === 'F3') { S.debug = !S.debug; S.debugBox.hidden = !S.debug; e.preventDefault(); return; }
       if (MOVE[e.code]) { S.keys.add(e.code); if (S.player) S.player.path = null; e.preventDefault(); }
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.add('Shift');
       if (e.code === 'KeyE' && !e.repeat) { interact(); e.preventDefault(); }
@@ -4482,7 +6032,7 @@ p { margin: 0; }
     });
     window.addEventListener('blur', () => S.keys.clear());
     S.canvas.addEventListener('pointerdown', e => {
-      if (!S.player || !S.world) return;
+      if (!S.player || !S.world || S.map.isOpen()) return;
       S.canvas.focus({ preventScroll: true });
       const r = S.canvas.getBoundingClientRect();
       const wx = (e.clientX - r.left) / S.view.zoom + S.view.camX;
@@ -4508,20 +6058,29 @@ p { margin: 0; }
     });
   }
 
+  function openMap() {
+    if (!S.world || !S.player) return;
+    S.map.open(mapState());
+  }
+
   // ---------- data from ui.js ----------
   function update(data) {
     S.data = data;
     if (!data.mission) return;
     world();
-    if (!S.player) {
-      const [x, y] = spawnPoint();
-      S.player = { x, y, dir: 'down', phase: 0, moving: false, stamina: 100, path: null, inRover: false, crewId: data.controlId };
-    }
+    refreshWorld(data.mission);
+    if (data.fog) S.world.mergeFog(data.fog);
+    ensurePlayer();
     S.player.crewId = data.controlId;
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
     S.btnAct.setAttribute('aria-label', t('sf.interact'));
     S.btnRun.setAttribute('aria-label', t('sf.sprint'));
+    if (data.lang !== S.lang) {
+      S.lang = data.lang;
+      S.map.relabel();
+      if (S.region != null) S.regionChip.textContent = t('region.' + W.REGIONS[S.region]);
+    }
     if (S.menuOpen) renderMenu();
   }
 
@@ -4536,20 +6095,82 @@ p { margin: 0; }
     S.remote = next;
   }
 
+  // Fog a teammate revealed (co-op). ui.js keeps it too, so a rebuilt world gets it back through update().
+  function mergeFog(map) { if (S && S.world) S.world.mergeFog(map); }
+
   // ---------- simulation ----------
   function loop(ts) {
     requestAnimationFrame(loop);
     if (!S.el.isConnected || document.hidden || !S.data || !S.data.mission) { S.last = ts; return; }
-    const dt = Math.min(0.05, (ts - (S.last || ts)) / 1000);
+    const t0 = performance.now();
+    const raw = ts - (S.last || ts);
+    if (raw > 0) S.fps += (1000 / raw - S.fps) * 0.05;
+    const dt = Math.min(0.05, raw / 1000);
     S.last = ts;
     S.time += dt;
     world();
+    ensurePlayer();
     stepPlayer(dt);
     stepNpcs(dt);
     stepRemote(dt);
     stepFocus();
+    stream(t0);
+    explore(ts);
     draw();
+    const st = mapState();
+    S.map.drawMini(st, ts);
+    S.map.frame(st, performance.now() + 6);
+    if (S.debug && ts - S.debugAt > 250) { S.debugAt = ts; drawDebugText(); }
     maybeSend(ts);
+  }
+
+  // Chunk streaming: keep the data near you (at most one new chunk a frame, the ones ahead of you first)
+  // and paint ground until about 4 ms of this frame are used (always at least one chunk, so nothing stalls).
+  function stream(t0) {
+    const p = S.player;
+    const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T);
+    const [dx, dy] = p.moving ? DIRS[p.dir] : [0, 0];
+    S.world.retain(tx, ty, tx + dx * 2 * W.CHUNK, ty + dy * 2 * W.CHUNK);
+    S.world.work();
+    const v = S.view, viewW = v.w / v.zoom, viewH = v.h / v.zoom;
+    S.painter.retainView(v.camX, v.camY, v.camX + viewW, v.camY + viewH);
+    S.painter.work(t0 + 4, 1);
+  }
+
+  // What you can see becomes explored, and a new region shows its name. New fog goes out once a second.
+  function explore(ts) {
+    const p = S.player, me = controlledCrew();
+    if (!me || me.status === 'dead') return;
+    const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), r = p.inRover ? VIEW_ROVER : VIEW_FOOT;
+    if (tx !== S.seenAt[0] || ty !== S.seenAt[1] || r !== S.seenAt[2]) {
+      S.seenAt = [tx, ty, r];
+      S.world.reveal(tx, ty, r);
+      const reg = S.world.region(tx, ty);
+      if (reg !== S.region) {
+        S.region = reg;
+        S.regionChip.hidden = false;
+        S.regionChip.textContent = t('region.' + W.REGIONS[reg]);
+        if (S.hooks.enterRegion) S.hooks.enterRegion(W.REGIONS[reg]);
+      }
+    }
+    if (ts - S.fogSent > 1000) {
+      S.fogSent = ts;
+      const diff = S.world.takeFog();
+      if (S.hooks.reveal && Object.keys(diff).length) S.hooks.reveal(diff);
+    }
+  }
+
+  function mapState() {
+    if (!S.player) return { px: 0, py: 0, crew: [] };
+    return { px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })) };
+  }
+
+  function drawDebugText() {
+    const tx = Math.floor(S.player.x / T), ty = Math.floor(S.player.y / T);
+    S.debugBox.textContent = SM.debugText({
+      fps: Math.round(S.fps), world: S.world.stats(), paint: S.painter.stats(),
+      tile: [tx, ty], chunk: [SW.chunkOf(tx), SW.chunkOf(ty)], region: S.region == null ? '-' : W.REGIONS[S.region],
+    });
   }
 
   function controlledCrew() {
@@ -4593,11 +6214,12 @@ p { margin: 0; }
     p.stamina = clamp(p.stamina + (sprinting ? -32 : 18) * dt, 0, 100);
     if (moving) {
       const nx = vx / Math.max(1, len), ny = vy / Math.max(1, len);
-      const sp = SPEED * (sprinting ? SPRINT_X : 1) * (p.inRover ? ROVER_X : 1) * Math.min(1, len);
+      const ground = p.inRover ? 1 : S.world.speed(Math.floor(p.x / T), Math.floor(p.y / T)); // dunes slow walking
+      const sp = SPEED * (sprinting ? SPRINT_X : 1) * (p.inRover ? ROVER_X : 1) * ground * S.qa.speed * Math.min(1, len);
       const stuck = hitsWall(p.x, p.y);
       const mx = p.x + nx * sp * dt, my = p.y + ny * sp * dt;
-      if (stuck || !hitsWall(mx, p.y)) p.x = clamp(mx, 12, WW - 12);
-      if (stuck || !hitsWall(p.x, my)) p.y = clamp(my, 20, WH - 6);
+      if (S.qa.ghost || stuck || !hitsWall(mx, p.y)) p.x = mx;
+      if (S.qa.ghost || stuck || !hitsWall(p.x, my)) p.y = my;
       if (Math.abs(nx) > Math.abs(ny)) p.dir = nx > 0 ? 'right' : 'left'; else p.dir = ny > 0 ? 'down' : 'up';
       p.phase += dt * sp / 26;
       S.hintUntil = Math.min(S.hintUntil, S.time + 3);
@@ -4630,11 +6252,13 @@ p { margin: 0; }
     return spotNear(hq[0], hq[1], rnd);
   }
 
+  // The crew who aren't you stay at the base: EVA work happens on the open ring 6–11 tiles from the HQ.
   function quarry(rnd) {
-    for (let i = 0; i < 20; i++) {
-      const x = Math.floor(rnd() * GW), y = Math.floor(rnd() * GH);
-      const [gx, gy] = worldToGrid(x, y);
-      if (!inGrid(gx, gy) && !isBlocked(x, y)) { const [cx, cy] = center(x, y); return [cx + (rnd() - 0.5) * 30, cy + (rnd() - 0.5) * 20]; }
+    for (let i = 0; i < 30; i++) {
+      const x = Math.floor(rnd() * 23) - 11, y = Math.floor(rnd() * 23) - 11, d2 = x * x + y * y;
+      if (d2 < 36 || d2 > 121 || isBlocked(x, y)) continue;
+      const [cx, cy] = center(x, y);
+      return [cx + (rnd() - 0.5) * 30, cy + (rnd() - 0.5) * 20];
     }
     return spawnPoint();
   }
@@ -4705,17 +6329,18 @@ p { margin: 0; }
     const m = S.data.mission;
     const out = [];
     const byId = id => m.crew.find(c => c.id === id);
+    const color = role => A.ROLE[role] || '#ccc';
     const me = controlledCrew();
-    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down', rover: S.player.inRover });
+    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down', rover: S.player.inRover });
     for (const [id, n] of Object.entries(S.npcs)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, x: n.x, y: n.y, dir: n.dir, phase: n.phase, moving: n.moving, down: c.status === 'down', working: n.working, job: n.job });
+      out.push({ id, role: c.role, color: color(c.role), x: n.x, y: n.y, dir: n.dir, phase: n.phase, moving: n.moving, down: c.status === 'down', working: n.working, job: n.job });
     }
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down', rover: r.rover });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down', rover: r.rover });
     }
     return out;
   }
@@ -4723,8 +6348,7 @@ p { margin: 0; }
   function focusAt(wx, wy) {
     const m = S.data.mission;
     const [gx, gy] = worldToGrid(wx, wy);
-    const w = S.world;
-    if (wx === w.lander.wx && wy === w.lander.wy) return { kind: 'lander', key: 'lander', wx, wy };
+    if (wx === LANDER[0] && wy === LANDER[1]) return { kind: 'lander', key: 'lander', wx, wy };
     if (!inGrid(gx, gy)) return null;
     const tile = m.layout.find(x => x.x === gx && x.y === gy);
     if (tile) {
@@ -4736,8 +6360,8 @@ p { margin: 0; }
     if (pr) return { kind: 'project', key: 'p:' + gx + ',' + gy, gx, gy, wx, wy, project: pr };
     const bi = (S.data.plan.builds || []).findIndex(b => b.x === gx && b.y === gy);
     if (bi >= 0) return { kind: 'queued', key: 'q:' + gx + ',' + gy, gx, gy, wx, wy, index: bi };
-    if (w.gridRock.has(tkey(gx, gy))) return { kind: 'rock', key: 'r:' + gx + ',' + gy, gx, gy, wx, wy };
-    return { kind: 'empty', key: 'e:' + gx + ',' + gy, gx, gy, wx, wy, ice: w.ice.has(tkey(gx, gy)) };
+    if (S.base.gridRock.has(tkey(gx, gy))) return { kind: 'rock', key: 'r:' + gx + ',' + gy, gx, gy, wx, wy };
+    return { kind: 'empty', key: 'e:' + gx + ',' + gy, gx, gy, wx, wy, ice: S.base.ice.has(tkey(gx, gy)) };
   }
 
   function stepFocus() {
@@ -4963,279 +6587,53 @@ p { margin: 0; }
   }
 
   // ---------- drawing ----------
-  function buildGround() {
-    const m = S.data.mission;
-    const c = document.createElement('canvas');
-    c.width = WW;
-    c.height = WH;
-    const g = c.getContext('2d');
-    const r = seeded(m.seed + '|ground');
-    const shades = ['#6c3523', '#733a25', '#7a3e27', '#683322', '#70381f'];
-    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-      g.fillStyle = shades[Math.floor(r() * shades.length)];
-      g.fillRect(x * T, y * T, T, T);
-    }
-    // soft noise blotches
-    for (let i = 0; i < 260; i++) {
-      g.fillStyle = r() < 0.5 ? 'rgba(40,14,8,0.10)' : 'rgba(200,120,80,0.07)';
-      g.beginPath();
-      g.ellipse(r() * WW, r() * WH, 8 + r() * 40, 5 + r() * 22, r() * Math.PI, 0, Math.PI * 2);
-      g.fill();
-    }
-    for (const cr of S.world.craters) {
-      g.fillStyle = 'rgba(40,14,8,0.25)';
-      g.beginPath(); g.ellipse(cr.x, cr.y, cr.r, cr.r * 0.62, 0, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = 'rgba(210,140,100,0.25)';
-      g.lineWidth = 2;
-      g.beginPath(); g.ellipse(cr.x, cr.y + 1, cr.r, cr.r * 0.62, 0, Math.PI * 0.05, Math.PI * 0.95); g.stroke();
-    }
-    for (let i = 0; i < 900; i++) {
-      g.fillStyle = r() < 0.6 ? '#5a2a1b' : '#8f4d33';
-      g.fillRect(r() * WW, r() * WH, 1.5 + r() * 1.5, 1.5 + r() * 1.5);
-    }
-    // the base pad: compacted regolith
-    const px = PAD * T, py = PAD * T;
-    g.fillStyle = 'rgba(230,170,120,0.07)';
-    g.fillRect(px, py, D.GRID.w * T, D.GRID.h * T);
-    g.strokeStyle = 'rgba(255,220,190,0.10)';
-    g.lineWidth = 1;
-    g.setLineDash([4, 6]);
-    for (let x = 0; x <= D.GRID.w; x++) { g.beginPath(); g.moveTo(px + x * T, py); g.lineTo(px + x * T, py + D.GRID.h * T); g.stroke(); }
-    for (let y = 0; y <= D.GRID.h; y++) { g.beginPath(); g.moveTo(px, py + y * T); g.lineTo(px + D.GRID.w * T, py + y * T); g.stroke(); }
-    g.setLineDash([]);
-    // ice tiles
-    for (const [gx, gy] of m.terrain.ice) {
-      const [wx, wy] = gridToWorld(gx, gy);
-      const X = wx * T, Y = wy * T;
-      g.fillStyle = '#8fb6c7';
-      g.fillRect(X + 2, Y + 2, T - 4, T - 4);
-      g.strokeStyle = '#e1f3fa';
-      g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(X + 8, Y + 20); g.lineTo(X + 22, Y + 26); g.lineTo(X + 32, Y + 17); g.lineTo(X + 46, Y + 28); g.stroke();
-      g.beginPath(); g.moveTo(X + 12, Y + 44); g.lineTo(X + 24, Y + 40); g.lineTo(X + 33, Y + 48); g.lineTo(X + 48, Y + 43); g.stroke();
-    }
-    // rover tracks
-    g.strokeStyle = 'rgba(40,14,8,0.28)';
-    g.lineWidth = 3;
-    g.setLineDash([5, 4]);
-    const [hx, hy] = center(...gridToWorld(D.GRID.hq[0], D.GRID.hq[1]));
-    for (const off of [-6, 6]) {
-      g.beginPath();
-      g.moveTo(hx + off, hy + T * 2.6);
-      g.bezierCurveTo(hx + 80 + off, WH - 40, WW - 140, WH - 90 + off, WW - 10, WH - 150 + off);
-      g.stroke();
-    }
-    g.setLineDash([]);
-    S.ground = c;
-  }
-
-  function drawRock(ctx, d) {
-    const [cx, cy] = center(d.wx, d.wy);
-    const s = d.s;
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath(); ctx.ellipse(cx, cy + 14 * s, 22 * s, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#4c3b37';
-    ctx.beginPath(); ctx.ellipse(cx - 4 * s, cy + 4 * s, 20 * s, 14 * s, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#5e4a45';
-    ctx.beginPath(); ctx.ellipse(cx + 10 * s, cy - 2 * s, 12 * s, 10 * s, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#6f5a54';
-    ctx.beginPath(); ctx.ellipse(cx - 8 * s, cy - 1 * s, 7 * s, 3 * s, 0, 0, Math.PI * 2); ctx.fill();
-  }
-
-  function drawLander(ctx) {
-    const [cx, cy] = center(S.world.lander.wx, S.world.lander.wy);
+  // ?debug=chunks or F3: data chunk borders (yellow, 32 tiles) and image chunk borders (blue, 4 tiles).
+  function drawChunkBorders(ctx, x0, y0, x1, y1) {
+    const lines = (size, color, width) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width / S.view.zoom;
+      ctx.beginPath();
+      for (let x = Math.floor(x0 / size) * size; x <= x1; x += size) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+      for (let y = Math.floor(y0 / size) * size; y <= y1; y += size) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+      ctx.stroke();
+    };
     ctx.save();
-    ctx.translate(cx, cy);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath(); ctx.ellipse(0, 22, 34, 9, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#9aa0a6';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-18, 2); ctx.lineTo(-30, 22); ctx.moveTo(18, 2); ctx.lineTo(30, 22); ctx.moveTo(0, 6); ctx.lineTo(0, 22); ctx.stroke();
-    ctx.fillStyle = '#c9c1b5';
-    ctx.beginPath(); ctx.moveTo(-24, 4); ctx.lineTo(24, 4); ctx.lineTo(16, -14); ctx.lineTo(-16, -14); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#d9aa7a';
-    ctx.fillRect(-22, -2, 44, 5);
-    ctx.fillStyle = '#86b8ea';
-    ctx.fillRect(-12, -12, 7, 12); ctx.fillRect(5, -12, 7, 12);
-    ctx.restore();
-  }
-
-  function drawAvatar(ctx, a, name) {
-    const color = A.ROLE[a.role] || '#ccc';
-    const x = a.x, y = a.y;
-    ctx.save();
-    if (a.you) {
-      const pulse = 0.55 + 0.45 * Math.sin(S.time * 4);
-      ctx.strokeStyle = `rgba(140,188,236,${0.5 + pulse * 0.4})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(x, y + 2, 17, 6, 0, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(x, y + 2, 12, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    if (a.rover) {
-      const img = moduleImage('rover', 1);
-      if (ready(img)) {
-        ctx.save();
-        if (a.dir === 'left') { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); }
-        ctx.drawImage(img, x - 34, y - 52, 68, 68);
-        ctx.restore();
-      }
-      tag(ctx, x, y - 50, name, color, a.you);
-      ctx.restore();
-      return;
-    }
-    if (a.down) {
-      ctx.translate(x, y - 6);
-      ctx.fillStyle = '#e9e2d8';
-      roundRect(ctx, -16, -6, 26, 12, 5); ctx.fill();
-      ctx.fillStyle = color; ctx.fillRect(-10, -6, 3, 12);
-      ctx.fillStyle = '#f3eee7'; ctx.beginPath(); ctx.arc(14, 0, 8, 0, Math.PI * 2); ctx.fill();
-      const pulse = 0.5 + 0.5 * Math.sin(S.time * 5);
-      ctx.fillStyle = `rgba(244,110,95,${0.6 + pulse * 0.4})`;
-      ctx.fillRect(-2, -26, 4, 14); ctx.fillRect(-7, -21, 14, 4);
-      ctx.restore();
-      tag(ctx, x, y - 34, name, '#f46e5f', a.you);
-      return;
-    }
-    const bob = a.moving ? Math.abs(Math.sin(a.phase)) * 2 : Math.sin(S.time * 2 + x) * 0.6;
-    const swing = a.moving ? Math.sin(a.phase) * 4 : 0;
-    // legs
-    ctx.fillStyle = '#d6cec3';
-    roundRect(ctx, x - 7, y - 11 + (swing > 0 ? 0 : 1), 6, 11 - (swing > 0 ? 0 : 1) + Math.max(0, swing * 0.3), 2); ctx.fill();
-    roundRect(ctx, x + 1, y - 11 + (swing < 0 ? 0 : 1), 6, 11 - (swing < 0 ? 0 : 1) + Math.max(0, -swing * 0.3), 2); ctx.fill();
-    ctx.fillStyle = '#6d6266';
-    ctx.fillRect(x - 7, y - 2, 6, 2); ctx.fillRect(x + 1, y - 2, 6, 2);
-    const by = y - 12 - bob;
-    // backpack behind (visible from the sides and back)
-    if (a.dir !== 'down') {
-      ctx.fillStyle = '#9da3a9';
-      const bx = a.dir === 'left' ? x + 4 : a.dir === 'right' ? x - 14 : x - 9;
-      roundRect(ctx, bx, by - 18, a.dir === 'up' ? 18 : 10, 16, 3); ctx.fill();
-    }
-    // arms
-    ctx.fillStyle = '#e1d9ce';
-    roundRect(ctx, x - 13, by - 17 + swing * 0.5, 5, 12, 2.5); ctx.fill();
-    roundRect(ctx, x + 8, by - 17 - swing * 0.5, 5, 12, 2.5); ctx.fill();
-    // torso
-    ctx.fillStyle = '#ece5db';
-    roundRect(ctx, x - 9, by - 19, 18, 19, 5); ctx.fill();
-    ctx.fillStyle = color;
-    ctx.fillRect(x - 9, by - 9, 18, 3);
-    if (a.dir === 'down') { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 4, by - 14, 2.2, 0, Math.PI * 2); ctx.fill(); }
-    // helmet
-    const hy = by - 27;
-    ctx.fillStyle = '#f4efe8';
-    ctx.strokeStyle = '#b9afa4';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(x, hy, 10.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = color;
-    roundRect(ctx, x - 3.5, hy - 12, 7, 3, 1.5); ctx.fill();
-    if (a.dir !== 'up') {
-      const ox = a.dir === 'left' ? -3 : a.dir === 'right' ? 3 : 0;
-      const grad = ctx.createLinearGradient(x, hy - 6, x, hy + 6);
-      grad.addColorStop(0, '#0e1a2b');
-      grad.addColorStop(0.65, '#1f3c62');
-      grad.addColorStop(1, color);
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.ellipse(x + ox, hy + 1, a.dir === 'down' ? 7.5 : 6, 6, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-      ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(x + ox - 1, hy, 4.5, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
-    }
-    if (a.working) {
-      const wob = Math.sin(S.time * 6) * 1.5;
-      ctx.fillStyle = 'rgba(20,14,16,0.85)';
-      ctx.beginPath(); ctx.arc(x + 15, hy - 14 + wob, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(x + 15, hy - 14 + wob, 3, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-    tag(ctx, x, hy - 17, name, color, a.you);
-  }
-
-  function tag(ctx, x, y, text, color, you) {
-    if (!text) return;
-    S.tags.push({ x, y, text, color, you });
-  }
-
-  // Name tags are laid out after all sprites so they never pile on top of each other.
-  function drawTags(ctx) {
-    const placed = [];
-    ctx.font = '600 10px "Be Vietnam Pro", system-ui, sans-serif';
-    const list = S.tags.slice().sort((a, b) => (b.you - a.you) || (b.y - a.y));
-    for (const tg of list) {
-      const w = ctx.measureText(tg.text).width + 16;
-      let y = tg.y;
-      for (let i = 0; i < 6; i++) {
-        const hit = placed.some(r => Math.abs(r.x - tg.x) < (r.w + w) / 2 + 2 && Math.abs(r.y - y) < 16);
-        if (!hit) break;
-        y -= 16;
-      }
-      placed.push({ x: tg.x, y, w });
-      drawTag(ctx, tg.x, y, tg.text, tg.color, tg.you, w);
-    }
-    S.tags.length = 0;
-  }
-
-  function drawTag(ctx, x, y, text, color, you, w) {
-    ctx.save();
-    ctx.fillStyle = you ? 'rgba(140,188,236,0.92)' : 'rgba(20,14,16,0.78)';
-    roundRect(ctx, x - w / 2, y - 14, w, 15, 7); ctx.fill();
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(x - w / 2 + 7, y - 6.5, 2.6, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = you ? '#0c1a29' : '#f4e9df';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, x - w / 2 + 12, y - 6.2);
-    ctx.restore();
-  }
-
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  function badge(ctx, x, y, kind) {
-    ctx.save();
-    ctx.translate(x, y);
-    if (kind === 'broken') {
-      ctx.fillStyle = '#f46e5f';
-      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#2a1214';
-      ctx.fillRect(-1.5, -5.5, 3, 7); ctx.fillRect(-1.5, 3, 3, 2.6);
-    } else {
-      ctx.fillStyle = '#3a2e33';
-      ctx.strokeStyle = '#9a877f';
-      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = '#f2b84f';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.arc(0, 1, 4.5, -Math.PI * 0.25, Math.PI * 1.25); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 0); ctx.stroke();
-    }
+    lines(P.PX, 'rgba(140,188,236,0.3)', 1);
+    lines(W.CHUNK * T, 'rgba(255,220,80,0.8)', 2);
     ctx.restore();
   }
 
   function draw() {
     const ctx = S.ctx, v = S.view, m = S.data.mission, plan = S.data.plan, fc = S.data.forecast;
     if (!v.w) resize();
-    if (!S.ground) buildGround();
     const p = S.player;
     const viewW = v.w / v.zoom, viewH = v.h / v.zoom;
-    const targetX = clamp(p.x - viewW / 2, Math.min(0, (WW - viewW) / 2), Math.max(0, WW - viewW));
-    const targetY = clamp(p.y - 20 - viewH / 2, Math.min(0, (WH - viewH) / 2), Math.max(0, WH - viewH));
+    // The camera follows you anywhere: the world has no edges.
+    const targetX = p.x - viewW / 2, targetY = p.y - 20 - viewH / 2;
+    if (S.camSnap) { v.camX = targetX; v.camY = targetY; S.camSnap = false; }
     v.camX += (targetX - v.camX) * 0.15;
     v.camY += (targetY - v.camY) * 0.15;
+    const x0 = v.camX, y0 = v.camY, x1 = x0 + viewW, y1 = y0 + viewH;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#3a1d14';
     ctx.fillRect(0, 0, S.canvas.width, S.canvas.height);
     const k = v.dpr * v.zoom;
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
-    ctx.drawImage(S.ground, 0, 0);
+    S.painter.drawGround(ctx, x0, y0, x1, y1);
+
+    // buried ice at the base: the only cue for where the ice drill can go
+    ctx.save();
+    ctx.fillStyle = '#8fb6c7';
+    ctx.strokeStyle = '#e1f3fa';
+    ctx.lineWidth = 1.5;
+    for (const [gx, gy] of m.terrain.ice) {
+      const [wx, wy] = gridToWorld(gx, gy);
+      const X = wx * T, Y = wy * T;
+      ctx.fillRect(X + 2, Y + 2, T - 4, T - 4);
+      ctx.beginPath(); ctx.moveTo(X + 8, Y + 20); ctx.lineTo(X + 22, Y + 26); ctx.lineTo(X + 32, Y + 17); ctx.lineTo(X + 46, Y + 28); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(X + 12, Y + 44); ctx.lineTo(X + 24, Y + 40); ctx.lineTo(X + 33, Y + 48); ctx.lineTo(X + 48, Y + 43); ctx.stroke();
+    }
+    ctx.restore();
 
     // HQ shield layers and water wall
     const [hwx, hwy] = gridToWorld(D.GRID.hq[0], D.GRID.hq[1]);
@@ -5305,16 +6703,17 @@ p { margin: 0; }
         ctx.fillStyle = '#8cbcec'; roundRect(ctx, wx * T + 8, wy * T + T - 7, 48 * pr.progress / pr.work, 4, 2); ctx.fill();
       } });
     }
-    for (const d of S.world.decor) sprites.push({ y: d.wy * T + T / 2 + 10, draw: () => drawRock(ctx, d) });
     for (const [gx, gy] of m.terrain.rock) {
       const [wx, wy] = gridToWorld(gx, gy);
       sprites.push({ y: wy * T + T / 2 + 10, draw: () => drawRock(ctx, { wx, wy, s: 1 }) });
     }
-    sprites.push({ y: S.world.lander.wy * T + T / 2 + 22, draw: () => drawLander(ctx) });
+    sprites.push({ y: LANDER[1] * T + T / 2 + 22, draw: () => drawLander(ctx, LANDER[0], LANDER[1]) });
+    const roverImg = moduleImage('rover', 1);
     for (const a of avatars()) {
+      if (a.x < x0 - T * 2 || a.x > x1 + T * 2 || a.y < y0 - T || a.y > y1 + T * 3) continue; // off screen
       let name = S.data.crewName(a.id);
       if (a.you) name = t('sf.you') + ' · ' + name;
-      sprites.push({ y: a.y, draw: () => drawAvatar(ctx, a, name) });
+      sprites.push({ y: a.y, draw: () => drawAvatar(ctx, a, name, S.time, S.tags, ready(roverImg) ? roverImg : null) });
     }
     // lost crew are remembered with a small flag beside the HQ
     m.crew.filter(c => c.status === 'dead').forEach((c, i) => {
@@ -5326,9 +6725,11 @@ p { margin: 0; }
       } });
     });
     sprites.sort((a, b) => a.y - b.y);
-    S.tags = [];
     for (const s of sprites) s.draw();
-    drawTags(ctx);
+    // the fog over what you can't see, then the name tags on top of it
+    P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, (p.inRover ? VIEW_ROVER : VIEW_FOOT) * T);
+    drawTags(ctx, S.tags);
+    if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
 
     // weather, in screen space
     ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
@@ -5360,15 +6761,29 @@ p { margin: 0; }
     if (!S || !S.player) return null;
     const toScreen = (x, y) => [(x - S.view.camX) * S.view.zoom, (y - S.view.camY) * S.view.zoom];
     const tileScreen = (gx, gy) => { const [wx, wy] = gridToWorld(gx, gy); return toScreen(wx * T + T / 2, wy * T + T / 2); };
+    const tx = Math.floor(S.player.x / T), ty = Math.floor(S.player.y / T);
     return {
       player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, stamina: S.player.stamina, path: S.player.path && S.player.path.length },
       lastTap: S.lastTap, focus: S.focus && S.focus.kind, menu: S.menuOpen, npcs: Object.keys(S.npcs), tileScreen, toScreen,
       remote: JSON.parse(JSON.stringify(S.remote)),
-      blocked: (wx, wy) => isBlocked(wx, wy), path: (tx, ty) => findPath(S.player.x, S.player.y, tx, ty, true),
+      blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true),
+      tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
+      world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
     };
   }
 
-  root.SolSurface = { mount, update, setRemote, isMounted: () => !!S, probe };
+  // Browser QA helpers, only with ?debug=chunks: hold keys, board the rover anywhere, drive through rocks,
+  // speed up, jump, and hash a painted image chunk to prove a deleted chunk comes back identical.
+  const qa = {
+    hold(code, on) { if (on) S.keys.add(code); else S.keys.delete(code); },
+    board(on) { S.player.inRover = on !== false; },
+    ghost(on) { S.qa.ghost = !!on; },
+    speed(x) { S.qa.speed = Math.max(0.1, Number(x) || 1); },
+    chunkHash(ix, iy) { return S.painter.chunkHash(ix, iy); },
+    teleport(tx, ty) { S.player.x = tx * T + T / 2; S.player.y = ty * T + T / 2; S.player.path = null; S.camSnap = true; },
+  };
+
+  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe }, DEBUG ? { qa } : {});
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -5420,13 +6835,15 @@ p { margin: 0; }
     toast: null,
     prevScreen: null,
     opsView: LS.get('opsView', 'surface'),
-    controlId: LS.get('controlId', null),
   };
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
-    store.mission = saved.mission;
+    // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
+    store.mission = E.upgradeMission(saved.mission, { controlId: LS.get('controlId', null) });
     store.plan = saved.plan || E.defaultPlan(saved.mission);
+    LS.set('save', { mission: store.mission, plan: store.plan }); // write the upgraded save back straight away
   }
+  LS.del('controlId'); // replaced by mission.pilot
 
   // ---------- helpers ----------
   const t = (k, p) => I.t(store.lang, k, p);
@@ -5559,18 +6976,29 @@ p { margin: 0; }
   }
 
   function launch() {
-    const L = store.loadout;
     if (lanOn()) { N.act('launch'); return; }
+    go('pilot');
+  }
+
+  // Solo: the mission starts once you choose the astronaut you will walk as.
+  function startMission(pilot) {
     const s = E.createMission({
-      seed: (store.seed || '').trim() || E.newMissionCode(), loadout: L, difficulty: store.settings.difficulty,
-      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names,
+      seed: (store.seed || '').trim() || E.newMissionCode(), loadout: store.loadout, difficulty: store.settings.difficulty,
+      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot,
     });
     store.mission = s;
     store.plan = E.defaultPlan(s);
     store.report = null;
     store.advice = null;
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset(); // "Fly again" reuses the code
     saveSolo();
     go('ops');
+  }
+
+  function pilotText(p) {
+    if (!p.to) return t('pilot.none');
+    const c = D.CREW.find(x => x.id === p.to);
+    return t('pilot.takeover', { name: crewName(p.to), role: t('role.' + c.role) });
   }
 
   function patchPlan(patch) {
@@ -5621,6 +7049,7 @@ p { margin: 0; }
     store.modal = 'report';
     saveSolo();
     render();
+    if (report.pilot && report.pilot.to) toast(pilotText(report.pilot));
   }
 
   function askAdvice() {
@@ -5899,6 +7328,29 @@ p { margin: 0; }
     ]);
   }
 
+  // ---------- choose your astronaut ----------
+  function viewPilot() {
+    if (!store.loadout) return viewTitle();
+    const crew = D.CREW.slice(0, store.settings.crewSize);
+    return [
+      topbar(),
+      h('section', { class: 'pilot' },
+        h('span', { class: 'eyebrow' }, t('pilot.step') + ' · ' + t('diff.' + store.settings.difficulty)),
+        h('h1', { style: 'font-size:var(--fs-2xl)' }, t('pilot.title')),
+        h('p', { class: 'muted', style: 'max-width:70ch' }, t('pilot.lead')),
+        h('div', { class: 'pilot-grid' }, crew.map((c, i) => h('button', {
+          type: 'button', class: 'pilot-card', 'data-k': 'pilot:' + c.id, onclick: () => startMission(c.id),
+        },
+          h('span', { html: A.portrait(c.role, 72, { variant: i }) }),
+          h('b', null, crewName(c.id)),
+          h('span', { class: 'role-tag', style: 'color:' + A.ROLE[c.role] }, t('role.' + c.role)),
+          h('span', { class: 'hint' }, t('role.' + c.role + '.skill')),
+          h('span', { class: 'btn btn-primary btn-sm' }, t('pilot.pick', { name: crewName(c.id) }))))),
+        h('div', { class: 'setup-actions' },
+          h('button', { class: 'btn btn-ghost', type: 'button', 'data-k': 'pilot-back', onclick: () => go('manifest') }, t('pilot.back')))),
+    ];
+  }
+
   // ---------- operations ----------
   function seasonKey(ls) {
     if (ls < 90) return 'season.spring';
@@ -5911,13 +7363,12 @@ p { margin: 0; }
     return Math.round(12.7 + 9.6 * Math.cos((2 * Math.PI * (sol - 262)) / 760));
   }
 
-  // Which crew member the local player walks around as.
+  // Which crew member the local player walks around as: your seat in co-op, mission.pilot in solo play.
   function controlId() {
     const s = mission();
     if (!s) return null;
     if (lanOn()) { const mine = me(); return mine ? mine.crewId : null; }
-    const pick = s.crew.find(c => c.id === store.controlId && c.status !== 'dead');
-    return (pick || s.crew.find(c => c.status === 'active') || s.crew[0]).id;
+    return s.pilot || null;
   }
 
   function setOpsView(v) {
@@ -5950,13 +7401,23 @@ p { margin: 0; }
     return h('div', { class: 'sf-stage' }, node);
   }
 
+  // Co-op: your astronaut died, or you have none: take over a free crewmate, or watch.
+  function seatPanel(s) {
+    if (!lanOn()) return null;
+    const mine = me();
+    const own = mine && mine.crewId ? s.crew.find(c => c.id === mine.crewId) : null;
+    if (own && own.status !== 'dead') return null;
+    const free = s.crew.filter(c => c.status === 'active' && !store.room.players.some(pl => pl.crewId === c.id && pl.connected));
+    return panel(t(own ? 'seat.lost' : 'seat.none'), [
+      h('p', { class: 'muted' }, t(free.length ? 'seat.pick' : 'seat.watch')),
+      free.length ? h('div', { class: 'seat-list' }, free.map(c => h('button', {
+        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => N.act('claim', { crewId: c.id }),
+      }, t('seat.take', { name: crewName(c.id), role: t('role.' + c.role) })))) : null,
+    ]);
+  }
+
   function surfaceSide(s, p, f) {
     const ctl = controlId();
-    const chooser = lanOn() ? null : h('div', { class: 'playas' }, s.crew.map((c, i) => h('button', {
-      type: 'button', class: 'playas-b', 'data-k': 'play:' + c.id, 'aria-pressed': String(c.id === ctl), disabled: c.status === 'dead',
-      title: crewName(c.id) + ' · ' + t('role.' + c.role),
-      onclick: () => { store.controlId = c.id; LS.set('controlId', c.id); render(); },
-    }, h('span', { html: A.portrait(c.role, 34, { variant: i, status: c.status }) }))));
     const jobs = panel(t('sf.jobs'), h('div', { class: 'jobrows' }, s.crew.map((c, i) => {
       const allowed = canControl(c.id) && c.status === 'active';
       const job = p.jobs[c.id];
@@ -5974,7 +7435,7 @@ p { margin: 0; }
         c.status === 'dead' ? h('span') : sel);
     })));
     return h('aside', { class: 'sf-side' },
-      chooser ? panel(t('sf.playAs'), chooser) : null,
+      seatPanel(s),
       eventsPanel(s, p),
       jobs,
       forecastPanel(s, p, f),
@@ -6000,7 +7461,7 @@ p { margin: 0; }
       opsTabs(),
       h('div', { class: 'ops' },
         h('div', { class: 'col col-1' }, eventsPanel(s, p), mapPanel(s, p, f), buildPanel(s, p, f)),
-        h('div', { class: 'col col-2' }, crewPanel(s, p, f)),
+        h('div', { class: 'col col-2' }, seatPanel(s), crewPanel(s, p, f)),
         h('div', { class: 'col col-3' }, forecastPanel(s, p, f), systemsPanel(s, p, f), ordersPanel(s, p), earthPanel(s, p), advancePanel(s, p))),
     ];
   }
@@ -6790,7 +8251,7 @@ p { margin: 0; }
     const m = store.modal;
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
+        [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
     }
     if (m === 'notes') {
       return modal(t('notes.title'), [
@@ -6853,6 +8314,7 @@ p { margin: 0; }
     for (const id of r.injuries) li('warn', 'warn', t('rep.injury', { name: crewName(id) }));
     for (const id of r.downs) li('crit', 'crit', t('rep.down', { name: crewName(id) }));
     for (const id of r.deaths) li('crit', 'crit', t('rep.dead', { name: crewName(id) }));
+    if (r.pilot) li('users', r.pilot.to ? 'warn' : 'crit', pilotText(r.pilot));
     if (r.requested) li('rocket', 'muted', t('rep.requested', { kind: t('earth.' + r.requested) }));
     if (r.hypoxia > 0) li('crit', 'crit', t('w.o2_out'));
     if (r.dehydration > 0) li('crit', 'crit', t('w.water_out'));
@@ -6892,6 +8354,7 @@ p { margin: 0; }
     const name = screenName();
     let view;
     if (name === 'manifest') view = viewManifest();
+    else if (name === 'pilot') view = viewPilot();
     else if (name === 'ops') view = mission() && mission().status === 'active' ? viewOps() : viewDebrief();
     else if (name === 'debrief') view = viewDebrief();
     else if (name === 'lobby') view = viewLobby();
