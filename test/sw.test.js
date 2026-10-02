@@ -26,3 +26,13 @@ test('the service worker never caches or replays the admin page', () => {
   assert.equal(handled(onFetch, 'http://localhost:5050/api/history/solo'), false);
   assert.equal(handled(onFetch, 'http://localhost:5050/src/ui.js'), true, 'the game still works offline');
 });
+
+test('every script the page loads is in the offline cache', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  const scripts = [...html.matchAll(/<script src="(src\/[a-z0-9-]+\.js)"><\/script>/g)].map(m => m[1]);
+  for (const s of ['src/worldgen.js', 'src/fog.js', 'src/surface-world.js', 'src/surface-paint.js', 'src/surface-map.js']) assert.ok(scripts.includes(s), s + ' is loaded by index.html');
+  for (const s of scripts) assert.ok(sw.includes("'" + s + "'"), s + ' is cached by sw.js');
+  assert.ok(scripts.indexOf('src/surface-map.js') < scripts.indexOf('src/surface.js') && scripts.indexOf('src/surface.js') < scripts.indexOf('src/ui.js'), 'load order');
+  assert.match(sw, /const CACHE = 'sol500-v2'/);
+});
