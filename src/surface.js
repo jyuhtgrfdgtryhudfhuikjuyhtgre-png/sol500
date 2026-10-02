@@ -864,6 +864,20 @@
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
     S.painter.drawGround(ctx, x0, y0, x1, y1);
 
+    // buried ice at the base: the only cue for where the ice drill can go
+    ctx.save();
+    ctx.fillStyle = '#8fb6c7';
+    ctx.strokeStyle = '#e1f3fa';
+    ctx.lineWidth = 1.5;
+    for (const [gx, gy] of m.terrain.ice) {
+      const [wx, wy] = gridToWorld(gx, gy);
+      const X = wx * T, Y = wy * T;
+      ctx.fillRect(X + 2, Y + 2, T - 4, T - 4);
+      ctx.beginPath(); ctx.moveTo(X + 8, Y + 20); ctx.lineTo(X + 22, Y + 26); ctx.lineTo(X + 32, Y + 17); ctx.lineTo(X + 46, Y + 28); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(X + 12, Y + 44); ctx.lineTo(X + 24, Y + 40); ctx.lineTo(X + 33, Y + 48); ctx.lineTo(X + 48, Y + 43); ctx.stroke();
+    }
+    ctx.restore();
+
     // HQ shield layers and water wall
     const [hwx, hwy] = gridToWorld(D.GRID.hq[0], D.GRID.hq[1]);
     const [hcx, hcy] = center(hwx, hwy);
