@@ -148,9 +148,161 @@
     return true;
   }
 
-  // ---------- features (filled in by the feature generators) ----------
+  // ---------- features: one per cell on coarse grids, bounded and spaced so open ground stays connected ----------
   const CODE = {}; // kind → (feature, x, y) → tile code or NONE
-  function featuresNear() { return { canyons: [], craters: [], mesas: [] }; }
+  const MESA_CELL = 48, CRATER_CELL = 64, CANYON_CELL = 128;
+  const MESA_CHANCE = [0.35, 0.1, 0.2, 0.6, 0.15, 0.3];
+  const CRATER_CHANCE = [0.25, 0.1, 0.8, 0.15, 0.2, 0.15];
+  const CANYON_CHANCE = 0.85;      // per cell inside Canyon Lands
+  const CLEAR = 3;                 // tiles always kept free between two features, and around the flat zone
+
+  const featMemo = new Map();
+  function memo(k, make) {
+    if (featMemo.has(k)) return featMemo.get(k);
+    const v = make();
+    if (featMemo.size > 8192) featMemo.clear();
+    featMemo.set(k, v);
+    return v;
+  }
+  const grow = (b, p) => [b[0] - p, b[1] - p, b[2] + p, b[3] + p];
+  const touch = (a, b) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+  function nearBase(box) {
+    const b = grow(box, CLEAR);
+    const dx = Math.max(b[0], 0, -b[2]), dy = Math.max(b[1], 0, -b[3]);
+    return dx * dx + dy * dy <= FLAT_RADIUS * FLAT_RADIUS;
+  }
+  function cellsTouching(box, size) {
+    const out = [];
+    for (let j = Math.floor(box[1] / size); j <= Math.floor(box[3] / size); j++) {
+      for (let i = Math.floor(box[0] / size); i <= Math.floor(box[2] / size); i++) out.push([i, j]);
+    }
+    return out;
+  }
+  const regionOfCell = (seed, i, j, size) => regionAt(seed, i * size + size / 2, j * size + size / 2);
+
+  // Canyon: in Canyon Lands, a bent segment 40–110 tiles long with a floor 3–5 wide. Both walls block, a ramp
+  // crosses them every 24 tiles and the ends are open. Highest precedence of the three.
+  function canyon(seed, i, j) {
+    return memo('n' + seed + ':' + i + ':' + j, () => {
+      if (regionOfCell(seed, i, j, CANYON_CELL) !== R.CANYONS) return null;
+      if (unit(hash(seed, i, j, 201)) >= CANYON_CHANCE) return null;
+      const h2 = hash(seed, i, j, 202), h3 = hash(seed, i, j, 203);
+      const len = 40 + (h2 % 65);
+      const hw = 1.5 + 0.5 * ((h2 >>> 8) % 3);
+      const dir = DIRS16[(h2 >>> 16) % 16], dx = dir[0], dy = dir[1], nx = -dy, ny = dx;
+      const b1 = (h3 % 13) - 6, b2 = ((h3 >>> 8) % 13) - 6;
+      const reach = len / 2 + 6 + hw + 1;
+      const room = Math.max(0, Math.floor(CANYON_CELL / 2 - 2 - reach));
+      const ox = room ? ((h3 >>> 16) % (2 * room + 1)) - room : 0, oy = room ? ((h3 >>> 24) % (2 * room + 1)) - room : 0;
+      const cx = i * CANYON_CELL + CANYON_CELL / 2 + ox, cy = j * CANYON_CELL + CANYON_CELL / 2 + oy;
+      const pts = [
+        [cx - dx * len / 2, cy - dy * len / 2],
+        [cx - dx * len / 6 + nx * b1, cy - dy * len / 6 + ny * b1],
+        [cx + dx * len / 6 + nx * b2, cy + dy * len / 6 + ny * b2],
+        [cx + dx * len / 2, cy + dy * len / 2],
+      ];
+      const segs = [];
+      let total = 0;
+      for (let k = 0; k < 3; k++) {
+        const ax = pts[k][0], ay = pts[k][1], bx = pts[k + 1][0], by = pts[k + 1][1];
+        const l = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+        segs.push({ ax, ay, bx, by, l, start: total });
+        total += l;
+      }
+      const e = hw + 1.5;
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      const box = [Math.floor(Math.min(...xs) - e), Math.floor(Math.min(...ys) - e), Math.ceil(Math.max(...xs) + e), Math.ceil(Math.max(...ys) + e)];
+      if (nearBase(box)) return null;
+      return { kind: 'canyon', i, j, pts, segs, hw, len: total, box };
+    });
+  }
+  CODE.canyon = function (c, x, y) {
+    let best = Infinity, along = 0;
+    for (let k = 0; k < 3; k++) {
+      const s = c.segs[k], vx = s.bx - s.ax, vy = s.by - s.ay;
+      let t = ((x - s.ax) * vx + (y - s.ay) * vy) / (s.l * s.l);
+      if ((k === 0 && t < 0) || (k === 2 && t > 1)) continue; // the ends stay open
+      if (t < 0) t = 0; else if (t > 1) t = 1;
+      const px = s.ax + vx * t - x, py = s.ay + vy * t - y, d = px * px + py * py;
+      if (d < best) { best = d; along = s.start + t * s.l; }
+    }
+    if (best === Infinity) return NONE;
+    const d = Math.sqrt(best);
+    if (d <= c.hw) return TILE.CANYON_FLOOR;
+    if (d > c.hw + 1) return NONE;
+    return along % 24 < 3 ? TILE.RAMP : TILE.CANYON_WALL;
+  };
+
+  // Crater: radius 4–12 (6–12 in the Crater Field), a walkable floor and a blocking rim with 2–3 gaps.
+  function crater(seed, i, j) {
+    return memo('c' + seed + ':' + i + ':' + j, () => {
+      const r0 = regionOfCell(seed, i, j, CRATER_CELL);
+      if (unit(hash(seed, i, j, 301)) >= CRATER_CHANCE[r0]) return null;
+      const h2 = hash(seed, i, j, 302);
+      const r = r0 === R.CRATERS ? 6 + (h2 % 7) : 4 + (h2 % 6);
+      const span = CRATER_CELL - 2 * (r + 3);
+      const x = i * CRATER_CELL + r + 3 + ((h2 >>> 8) % span), y = j * CRATER_CELL + r + 3 + ((h2 >>> 20) % span);
+      const n = 2 + ((h2 >>> 4) % 2), first = (h2 >>> 28) % 16, step = n === 2 ? 8 : 5;
+      const gaps = [];
+      for (let k = 0; k < n; k++) gaps.push(DIRS16[(first + k * step) % 16]);
+      const box = [x - r - 1, y - r - 1, x + r + 1, y + r + 1];
+      if (nearBase(box)) return null;
+      for (const [a, b] of cellsTouching(grow(box, CLEAR), CANYON_CELL)) {
+        const k = canyon(seed, a, b);
+        if (k && touch(grow(k.box, CLEAR), box)) return null;
+      }
+      return { kind: 'crater', i, j, x, y, r, gaps, box };
+    });
+  }
+  CODE.crater = function (c, x, y) {
+    const dx = x - c.x, dy = y - c.y, d = Math.sqrt(dx * dx + dy * dy);
+    if (d <= c.r - 1) return TILE.CRATER_FLOOR;
+    if (d > c.r + 0.5) return NONE;
+    for (const g of c.gaps) if (dx * g[0] + dy * g[1] > 0 && Math.abs(dx * g[1] - dy * g[0]) <= 1.2) return TILE.RAMP;
+    return TILE.RIM;
+  };
+
+  // Mesa: a solid star-shaped blob 4–14 tiles across, inset at least 6 tiles from its cell's edges.
+  function mesa(seed, i, j) {
+    return memo('m' + seed + ':' + i + ':' + j, () => {
+      const r0 = regionOfCell(seed, i, j, MESA_CELL);
+      if (unit(hash(seed, i, j, 401)) >= MESA_CHANCE[r0]) return null;
+      const h2 = hash(seed, i, j, 402);
+      const rad = 2.5 + 0.5 * (h2 % 6);
+      const a1 = 0.18 * unit(hash(seed, i, j, 403)), a2 = 0.12 * unit(hash(seed, i, j, 404));
+      const u1 = DIRS16[(h2 >>> 8) % 16], u2 = DIRS16[(h2 >>> 12) % 16];
+      const reach = Math.ceil(rad * 1.3) + 1, lo = 6 + reach, span = MESA_CELL - 2 * lo;
+      const x = i * MESA_CELL + lo + ((h2 >>> 16) % span), y = j * MESA_CELL + lo + ((h2 >>> 24) % span);
+      const box = [x - reach, y - reach, x + reach, y + reach];
+      if (nearBase(box)) return null;
+      const g = grow(box, CLEAR);
+      for (const [a, b] of cellsTouching(g, CANYON_CELL)) { const k = canyon(seed, a, b); if (k && touch(grow(k.box, CLEAR), box)) return null; }
+      for (const [a, b] of cellsTouching(g, CRATER_CELL)) { const c = crater(seed, a, b); if (c && touch(grow(c.box, CLEAR), box)) return null; }
+      return { kind: 'mesa', i, j, x, y, rad, a1, a2, u1, u2, box };
+    });
+  }
+  CODE.mesa = function (m, x, y) {
+    const dx = x - m.x, dy = y - m.y, d2 = dx * dx + dy * dy;
+    if (d2 === 0) return TILE.CLIFF;
+    const d = Math.sqrt(d2), ex = dx / d, ey = dy / d;
+    const p = ex * m.u2[0] + ey * m.u2[1];
+    const r = m.rad * (1 + m.a1 * (ex * m.u1[0] + ey * m.u1[1]) + m.a2 * (2 * p * p - 1));
+    return d <= r ? TILE.CLIFF : NONE;
+  };
+
+  // Every feature whose box touches the tile box [x0..x1] × [y0..y1]. A box always lies inside its own cell,
+  // so only the cells that touch the query box need looking at.
+  function featuresNear(seed, x0, y0, x1, y1) {
+    const box = [x0, y0, x1, y1];
+    const pick = (size, get) => {
+      const out = [];
+      for (const [i, j] of cellsTouching(box, size)) { const f = get(seed, i, j); if (f && touch(f.box, box)) out.push(f); }
+      return out;
+    };
+    return { canyons: pick(CANYON_CELL, canyon), craters: pick(CRATER_CELL, crater), mesas: pick(MESA_CELL, mesa) };
+  }
+
+  // Precedence when features overlap: canyon > crater > mesa (CLEAR keeps them apart, but the order is fixed).
   function featureAt(f, x, y) {
     for (const list of [f.canyons, f.craters, f.mesas]) {
       for (const g of list) {
