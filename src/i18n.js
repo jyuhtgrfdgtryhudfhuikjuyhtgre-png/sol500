@@ -23,7 +23,16 @@
     conjunction: { label: "NASA JPL: What's Mars solar conjunction, and why does it matter?", url: 'https://www.jpl.nasa.gov/news/whats-mars-solar-conjunction-and-why-does-it-matter/' },
     veggie: { label: 'NASA: Growing plants in space (Veggie)', url: 'https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/' },
     dra5: { label: 'NASA SP-2009-566: Human Exploration of Mars, Design Reference Architecture 5.0', url: 'https://ntrs.nasa.gov/citations/20090040343' },
+    jezero: { label: 'NASA JPL: Mars 2020 Perseverance landing press kit, landing site (Jezero Crater)', url: 'https://www.jpl.nasa.gov/news/press_kits/mars_2020/landing/mission/landing_site/' },
+    bagnold: { label: "NASA JPL (2015): NASA's Curiosity Mars rover heads toward active dunes", url: 'https://www.jpl.nasa.gov/news/nasas-curiosity-mars-rover-heads-toward-active-dunes/' },
+    dichotomy: { label: 'NASA Astrobiology (2018): Rare metals on Mars and Earth implicate colossal impacts', url: 'https://astrobiology.nasa.gov/news/rare-metals-on-mars-and-earth-implicate-colossal-impacts/' },
+    valles: { label: 'NASA Science: Valles Marineris, the Grand Canyon of Mars', url: 'https://science.nasa.gov/resource/valles-marineris-the-grand-canyon-of-mars/' },
+    iceMap: { label: "NASA JPL (2019): NASA's treasure map for water ice on Mars", url: 'https://www.jpl.nasa.gov/news/nasas-treasure-map-for-water-ice-on-mars' },
+    skylights: { label: 'NASA JPL (2007): Seven possible cave skylights on Mars (PIA09929)', url: 'https://www.jpl.nasa.gov/images/pia09929-seven-possible-cave-skylights-on-mars/' },
   };
+
+  // The real place each region of the endless map is modelled on (its fact cites this source).
+  const REGION_SOURCES = { plains: 'jezero', dunes: 'bagnold', craters: 'dichotomy', canyons: 'valles', icy: 'iceMap', volcanic: 'skylights' };
 
   const en = {
     'app.name': 'SOL 500',
@@ -644,6 +653,14 @@
     'region.canyons': 'Canyon Lands',
     'region.icy': 'Icy Plains',
     'region.volcanic': 'Volcanic Flanks',
+    'region.new': 'New region',
+    'region.source': 'Source',
+    'region.fact.plains': 'Like the floor of Jezero Crater, where Perseverance landed. This 45-km crater held a lake about 3.5 billion years ago, fed by a river that built a delta. "Jezero" means "lake" in several Slavic languages.',
+    'region.fact.dunes': 'Like the Bagnold Dunes at the foot of Mount Sharp, which Curiosity set out to study in 2015. No one had ever visited active dunes anywhere but Earth. Seen from orbit, some of them move about 1 m every Earth year.',
+    'region.fact.craters': 'Like the southern highlands. Mars has two faces: its southern half is ancient, heavily cratered ground, while the north is younger and smoother, reshaped by volcanoes.',
+    'region.fact.canyons': 'Like Valles Marineris, the Grand Canyon of Mars: about 3,870 km long, up to 600 km across, and about 9.3 km deep at its deepest.',
+    'region.fact.icy': 'Like Arcadia Planitia, where orbiters mapped water ice less than 30 cm under the ground. "You wouldn\'t need a backhoe to dig up this ice. You could use a shovel," said NASA scientist Sylvain Piqueux.',
+    'region.fact.volcanic': "Like the slopes of the volcano Arsia Mons. NASA's Mars Odyssey spotted seven very dark holes there, about 100 to 225 m across, that may be skylights into caves.",
     'sf.interact': "Interact",
     'sf.sprint': "Sprint",
     'sf.you': "You",
@@ -1446,6 +1463,14 @@
     'region.canyons': 'Vùng hẻm núi',
     'region.icy': 'Đồng bằng băng',
     'region.volcanic': 'Sườn núi lửa',
+    'region.new': 'Vùng mới',
+    'region.source': 'Nguồn',
+    'region.fact.plains': 'Giống như đáy hố Jezero, nơi tàu Perseverance hạ cánh. Hố rộng 45 km này từng chứa một hồ nước khoảng 3,5 tỷ năm trước, do một con sông bồi đắp thành châu thổ. "Jezero" nghĩa là "hồ" trong một số ngôn ngữ Slav.',
+    'region.fact.dunes': 'Giống như cồn cát Bagnold dưới chân núi Sharp, nơi tàu Curiosity bắt đầu nghiên cứu năm 2015. Trước đó chưa ai từng đến một cồn cát đang di chuyển ở bất kỳ đâu ngoài Trái Đất. Nhìn từ quỹ đạo, một số cồn cát dịch chuyển khoảng 1 m mỗi năm Trái Đất.',
+    'region.fact.craters': 'Giống như vùng cao nguyên phía nam. Sao Hỏa có hai bộ mặt: nửa phía nam là vùng đất cổ xưa chi chít hố va chạm, còn phía bắc trẻ hơn và bằng phẳng hơn, được núi lửa định hình lại.',
+    'region.fact.canyons': 'Giống như Valles Marineris, "Grand Canyon của sao Hỏa": dài khoảng 3.870 km, rộng tới 600 km và sâu khoảng 9,3 km ở chỗ sâu nhất.',
+    'region.fact.icy': 'Giống như đồng bằng Arcadia, nơi các tàu quỹ đạo phát hiện băng nước nằm dưới mặt đất chưa đến 30 cm. Nhà khoa học NASA Sylvain Piqueux nói: "Bạn không cần máy xúc để đào lớp băng này. Một cái xẻng là đủ."',
+    'region.fact.volcanic': 'Giống như sườn núi lửa Arsia Mons. Tàu Mars Odyssey của NASA đã phát hiện ở đây bảy hố rất tối, rộng khoảng 100 đến 225 m, có thể là cửa sổ trời dẫn vào hang động.',
     'sf.interact': "Tương tác",
     'sf.sprint': "Chạy",
     'sf.you': "Bạn",
@@ -1644,6 +1669,7 @@
       { title: 'Fresh food', body: 'Astronauts grow lettuce and other crops in the ISS Veggie chamber. Studies show that tending plants and eating fresh food help crew morale.', src: ['veggie'] },
       { title: 'Mission length', body: 'NASA’s Design Reference Architecture 5.0 plans a conjunction-class mission with about 500 days on the surface while Earth and Mars line up again for the trip home. Cargo landers go ahead of the crew, which inspired the orbital supply drops.', src: ['dra5'] },
       { title: 'What is simplified', body: 'Rounds are 25 sols long. Shielding percentages, build times, breakdown rates and science points are game values, chosen so that the trade-offs behave like the real ones.', src: [] },
+      { title: 'Regions of Mars', body: 'The six regions of the endless map are modelled on real places: the floor of Jezero Crater (Plains), the Bagnold Dunes (Dune Sea), the cratered southern highlands (Crater Field), Valles Marineris (Canyon Lands), the shallow ice of Arcadia Planitia (Icy Plains) and the possible cave skylights of Arsia Mons (Volcanic Flanks).', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights'] },
     ],
     vi: [
       { title: 'Bức xạ trên bề mặt', body: 'Thiết bị RAD trên Curiosity đo được khoảng 0,64 mSv mỗi sol tại hố Gale. Sao Hỏa không có từ trường toàn cầu và khí quyển mỏng, nên tia vũ trụ xuống tới mặt đất. SOL 500 dùng con số này, giảm đi nhờ lớp che chắn của bạn.', src: ['hassler'] },
@@ -1659,6 +1685,7 @@
       { title: 'Rau tươi', body: 'Phi hành gia trồng xà lách và các loại cây khác trong buồng Veggie trên ISS. Nghiên cứu cho thấy chăm cây và ăn rau tươi giúp tinh thần phi hành đoàn.', src: ['veggie'] },
       { title: 'Độ dài nhiệm vụ', body: 'Kiến trúc tham chiếu 5.0 của NASA dự kiến nhiệm vụ kiểu giao hội với khoảng 500 ngày trên bề mặt, chờ Trái Đất và sao Hỏa thẳng hàng lại để trở về. Các tàu chở hàng đi trước phi hành đoàn, và đó là cảm hứng cho các chuyến hàng từ quỹ đạo.', src: ['dra5'] },
       { title: 'Điều gì đã được đơn giản hóa', body: 'Mỗi vòng dài 25 sol. Phần trăm che chắn, thời gian xây, tỉ lệ hỏng hóc và điểm khoa học là giá trị của trò chơi, được chọn để các sự đánh đổi diễn ra giống thực tế.', src: [] },
+      { title: 'Các vùng của sao Hỏa', body: 'Sáu vùng trên bản đồ vô tận được mô phỏng theo những nơi có thật: đáy hố Jezero (Đồng bằng), cồn cát Bagnold (Biển cồn cát), cao nguyên phía nam chi chít hố va chạm (Cánh đồng hố va chạm), Valles Marineris (Vùng hẻm núi), lớp băng nông ở đồng bằng Arcadia (Đồng bằng băng) và các cửa sổ hang động có thể có trên núi Arsia Mons (Sườn núi lửa).', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights'] },
     ],
   };
 
@@ -1677,5 +1704,5 @@
     return (STR[lang] && STR[lang][key] != null) || en[key] != null;
   }
 
-  return { t, has, STR, SOURCES, NOTES, LANGS: ['en', 'vi'] };
+  return { t, has, STR, SOURCES, REGION_SOURCES, NOTES, LANGS: ['en', 'vi'] };
 });

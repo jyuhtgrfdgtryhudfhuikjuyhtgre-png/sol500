@@ -36,3 +36,19 @@ test('the admin panel has every string it uses, in both languages', () => {
     assert.deepEqual(missing, [], 'missing in ' + lang);
   }
 });
+
+test('every region has a name and a real fact with a checked source, in both languages', () => {
+  const W = require('../src/worldgen.js');
+  for (const id of W.REGIONS) {
+    for (const lang of ['en', 'vi']) {
+      assert.ok(I.STR[lang]['region.' + id], lang + ' name of ' + id);
+      assert.ok(I.STR[lang]['region.fact.' + id], lang + ' fact for ' + id);
+    }
+    assert.notEqual(I.STR.vi['region.fact.' + id], I.STR.en['region.fact.' + id], 'translated: ' + id);
+    const src = I.SOURCES[I.REGION_SOURCES[id]];
+    assert.ok(src && src.label && /^https:\/\//.test(src.url), 'source for ' + id);
+  }
+  for (const lang of ['en', 'vi']) {
+    assert.ok(I.NOTES[lang].some(n => W.REGIONS.every(id => n.src.includes(I.REGION_SOURCES[id]))), lang + ': the science notes list the region sources');
+  }
+});

@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet;
+  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -45,6 +45,8 @@
     toast: null,
     prevScreen: null,
     opsView: LS.get('opsView', 'surface'),
+    regionsSeen: (rs => (rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }))(LS.get('regionsSeen', null)),
+    regionCard: null,
   };
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
@@ -163,6 +165,17 @@
     else LS.del('save');
   }
   function saveSettings() { LS.set('settings', store.settings); }
+
+  // Exploring changes the mission every second, so its save is written at most every few seconds (and on leaving).
+  let saveTimer = null;
+  function saveSoloSoon() {
+    if (saveTimer) return;
+    saveTimer = setTimeout(() => { saveTimer = null; saveSolo(); }, 4000);
+  }
+  // Phones and installed apps often skip pagehide when the OS kills a backgrounded page, so a hidden page flushes too.
+  function flushSolo() { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; saveSolo(); } }
+  window.addEventListener('pagehide', flushSolo);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSolo(); });
 
   // ---------- actions ----------
   function go(screen) {
@@ -561,6 +574,35 @@
     ];
   }
 
+  // ---------- regions ----------
+  // The first time you walk into a region in a mission: its name and one real fact, with the source.
+  let regionTimer = null;
+  function showRegionCard(id) {
+    const s = mission();
+    const key = s.seed + '|' + (lanOn() ? 'coop' : 'solo');
+    if (store.regionsSeen.key !== key) store.regionsSeen = { key, list: [] };
+    if (store.regionsSeen.list.includes(id)) return;
+    store.regionsSeen.list.push(id);
+    LS.set('regionsSeen', store.regionsSeen);
+    store.regionCard = id;
+    render();
+    clearTimeout(regionTimer);
+    regionTimer = setTimeout(() => { if (store.regionCard === id) { store.regionCard = null; render(); } }, 15000);
+  }
+
+  function regionCard() {
+    const id = store.regionCard;
+    if (!id) return null;
+    const src = I.SOURCES[I.REGION_SOURCES[id]];
+    return h('aside', { class: 'region-card', role: 'status', 'aria-live': 'polite' },
+      h('div', { class: 'region-card-h' },
+        h('span', { class: 'eyebrow' }, t('region.new')),
+        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => { store.regionCard = null; render(); } }, '×')),
+      h('h3', null, t('region.' + id)),
+      h('p', null, t('region.fact.' + id)),
+      h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)));
+  }
+
   // ---------- operations ----------
   function seasonKey(ls) {
     if (ls < 90) return 'season.spring';
@@ -600,6 +642,18 @@
       if (surfaceHooks.canAdvance()) advance();
     },
     sendPos: pos => { if (lanOn() && me() && me().crewId) N.sendPos(pos); },
+    reveal: diff => {
+      const s = mission();
+      if (!s || !s.expedition || lanOn()) return; // co-op fog is shared through the server instead
+      F.mergeMap(s.expedition.revealed, diff, 4096);
+      saveSoloSoon();
+    },
+    enterRegion: id => {
+      const s = mission();
+      if (!s || !s.expedition || !W.REGIONS.includes(id)) return;
+      if (!lanOn() && !s.expedition.regions.includes(id)) { s.expedition.regions.push(id); saveSoloSoon(); }
+      showRegionCard(id);
+    },
   };
 
   function surfaceStage(s, p, f) {
@@ -607,8 +661,9 @@
     const node = window.SolSurface.mount(surfaceHooks);
     window.SolSurface.update({
       mission: s, plan: p, forecast: f, controlId: controlId(), canControl, crewName, t, lang: store.lang,
+      fog: s.expedition ? s.expedition.revealed : null,
     });
-    return h('div', { class: 'sf-stage' }, node);
+    return h('div', { class: 'sf-stage' }, node, regionCard());
   }
 
   // Co-op: your astronaut died, or you have none: take over a free crewmate, or watch.

@@ -449,7 +449,14 @@ p { margin: 0; }
 .ops-tabs { margin-top: 12px; display: inline-flex; }
 .ops-tabs button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding-inline: 16px; }
 .sf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px; margin-top: 12px; align-items: start; }
-.sf-stage { min-width: 0; }
+.sf-stage { min-width: 0; position: relative; }
+.region-card { position: absolute; left: 12px; top: 56px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
+.region-card-h { display: flex; justify-content: space-between; align-items: center; }
+.region-card h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); }
+.region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
+.region-card .src { font-size: var(--fs-xs); }
+.region-card a { color: var(--accent); }
+@media (max-width: 640px) { .region-card { top: 136px; } }
 .sf-root { position: relative; height: min(74vh, 780px); min-height: 440px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #3a1d14; touch-action: none; user-select: none; -webkit-user-select: none; }
 .sf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
 .sf-canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
