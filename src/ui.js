@@ -577,6 +577,18 @@
   // ---------- regions ----------
   // The first time you walk into a region in a mission: its name and one real fact, with the source.
   let regionTimer = null;
+  // Sets the card and changes the live stage in place. The walking loop gets here, and a render() would move the surface
+  // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
+  function setRegionCard(id) {
+    store.regionCard = id;
+    const stage = document.querySelector('.sf-stage');
+    if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
+    const old = stage.querySelector('.region-card'), card = regionCard();
+    if (old && card) old.replaceWith(card);
+    else if (card) stage.appendChild(card);
+    else if (old) old.remove();
+  }
+
   function showRegionCard(id) {
     const s = mission();
     const key = s.seed + '|' + (lanOn() ? 'coop' : 'solo');
@@ -584,10 +596,9 @@
     if (store.regionsSeen.list.includes(id)) return;
     store.regionsSeen.list.push(id);
     LS.set('regionsSeen', store.regionsSeen);
-    store.regionCard = id;
-    render();
+    setRegionCard(id);
     clearTimeout(regionTimer);
-    regionTimer = setTimeout(() => { if (store.regionCard === id) { store.regionCard = null; render(); } }, 15000);
+    regionTimer = setTimeout(() => { if (store.regionCard === id) setRegionCard(null); }, 15000);
   }
 
   function regionCard() {
@@ -597,7 +608,7 @@
     return h('aside', { class: 'region-card', role: 'status', 'aria-live': 'polite' },
       h('div', { class: 'region-card-h' },
         h('span', { class: 'eyebrow' }, t('region.new')),
-        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => { store.regionCard = null; render(); } }, '×')),
+        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setRegionCard(null) }, '×')),
       h('h3', null, t('region.' + id)),
       h('p', null, t('region.fact.' + id)),
       h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)));
