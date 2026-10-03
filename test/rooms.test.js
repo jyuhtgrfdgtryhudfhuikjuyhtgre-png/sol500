@@ -283,3 +283,98 @@ test('during a mission nobody can take over a crew member who has died, but a li
   assert.equal(say(R, room, guest, 'claim', { crewId: 'diego' }).status, 200);
   assert.equal(guest.crewId, 'diego');
 });
+
+const F = require('../src/fog.js');
+const fogOf = cells => { const b = F.empty(); for (const [x, y] of cells) F.set(b, x, y); return F.encode(b); };
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function inMission() {
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  const { player: guest } = R.join(room.code, 'Guest');
+  say(R, room, host, 'claim', { crewId: 'lena' });
+  say(R, room, guest, 'claim', { crewId: 'minh' });
+  say(R, room, host, 'launch');
+  const hc = fakeClient(), gc = fakeClient();
+  R.attach(room, host, hc);
+  R.attach(room, guest, gc);
+  return { R, room, host, guest, hc, gc };
+}
+
+test('positions can be negative: the world goes on west and north of the base', async () => {
+  const { R, room, guest, hc } = inMission();
+  R.position(room, guest, { x: -5000, y: -99999999 });
+  await wait(150);
+  const pos = hc.got.filter(m => m.type === 'pos').at(-1).data.find(p => p.crewId === 'minh');
+  assert.equal(pos.x, -5000);
+  assert.equal(pos.y, -64000000);
+});
+
+test('fog one player reveals reaches everyone once, merged, within half a second', async () => {
+  const { R, room, guest, hc, gc } = inMission();
+  const before = hc.got.length;
+  assert.equal(R.reveal(room, guest, { '0,0': fogOf([[1, 1]]) }), null);
+  assert.equal(R.reveal(room, guest, { '0,0': fogOf([[2, 2]]), '-1,2': fogOf([[5, 5]]) }), null);
+  await wait(650);
+  const fogs = hc.got.slice(before).filter(m => m.type === 'fog');
+  assert.equal(fogs.length, 1);
+  const merged = F.decode(fogs[0].data['0,0']);
+  assert.equal(F.has(merged, 1, 1) + F.has(merged, 2, 2), 2);
+  assert.ok(fogs[0].data['-1,2']);
+  assert.ok(gc.got.some(m => m.type === 'fog'), 'the sender hears it too');
+  assert.deepEqual(Object.keys(room.mission.expedition.revealed).sort(), ['-1,2', '0,0']);
+});
+
+test('bad fog is ignored without breaking anything, and the caps hold', () => {
+  const { R, room, guest } = inMission();
+  for (const bad of [null, 'x', 7, ['a'], { 'x,y': fogOf([[0, 0]]) }, { '0,0': 'short' }, JSON.parse('{"__proto__":"' + fogOf([[0, 0]]) + '"}')]) {
+    assert.ok([null, 'badFog'].includes(R.reveal(room, guest, bad)));
+  }
+  assert.deepEqual(room.mission.expedition.revealed, {});
+  assert.equal(Object.getPrototypeOf(room.mission.expedition.revealed), Object.prototype);
+  const many = {};
+  for (let i = 0; i < 100; i++) many[i + ',0'] = fogOf([[0, 0]]);
+  R.reveal(room, guest, many);
+  assert.equal(Object.keys(room.mission.expedition.revealed).length, 64, 'at most 64 chunks per message');
+  for (let i = 0; i < 4200; i++) room.mission.expedition.revealed[i + ',9'] = fogOf([[0, 0]]);
+  R.reveal(room, guest, { '7,7777': fogOf([[0, 0]]) });
+  assert.equal(room.mission.expedition.revealed['7,7777'], undefined, 'a mission holds at most 4,096 fog chunks');
+  const R2 = createRooms();
+  const { room: r2, player: h2 } = R2.create('Host');
+  assert.equal(R2.reveal(r2, h2, { '0,0': fogOf([[0, 0]]) }), 'noCrew');
+  say(R2, r2, h2, 'claim', { crewId: 'lena' });
+  assert.equal(R2.reveal(r2, h2, { '0,0': fogOf([[0, 0]]) }), 'badPhase', 'no mission yet');
+});
+
+test('room messages leave the fog out, and a tab that attaches gets the whole fog', () => {
+  const { R, room, host, guest } = inMission();
+  R.reveal(room, guest, { '3,-4': fogOf([[1, 2]]) });
+  assert.deepEqual(R.publicRoom(room).mission.expedition.revealed, {});
+  assert.ok(room.mission.expedition.revealed['3,-4'], 'the server keeps it');
+  const late = fakeClient();
+  R.attach(room, host, late);
+  assert.deepEqual(late.got.map(m => m.type).slice(-2), ['room', 'fog']);
+  assert.deepEqual(Object.keys(late.got.at(-1).data), ['3,-4']);
+});
+
+test('flying again starts with no fog and no regions, and no old fog arrives later', async () => {
+  const { R, room, host, guest, hc } = inMission();
+  say(R, room, guest, 'region', { region: 'dunes' });
+  R.reveal(room, guest, { '0,0': fogOf([[1, 1]]) });
+  say(R, room, host, 'restart');
+  const mark = hc.got.length;
+  assert.equal(say(R, room, host, 'launch').status, 200);
+  await wait(650);
+  assert.equal(hc.got.slice(mark).filter(m => m.type === 'fog').length, 0, 'no stale fog');
+  assert.deepEqual(room.mission.expedition.revealed, {});
+  assert.deepEqual(room.mission.expedition.regions, []);
+});
+
+test('a region found by anyone is recorded once; made-up regions are refused', () => {
+  const { R, room, guest, host } = inMission();
+  assert.equal(say(R, room, guest, 'region', { region: 'dunes' }).status, 200);
+  assert.equal(say(R, room, host, 'region', { region: 'dunes' }).status, 200);
+  assert.deepEqual(room.mission.expedition.regions, ['dunes']);
+  const bad = say(R, room, guest, 'region', { region: 'atlantis' });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.body.error, 'badRegion');
+});

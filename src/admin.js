@@ -44,6 +44,8 @@
 
   // ---------- helpers ----------
   const t = (k, p) => I.t(S.lang, k, p);
+  // Room events and phases added after this panel was written show their raw name instead of a bare key.
+  const label = (prefix, k, p) => (I.has(S.lang, prefix + k) ? t(prefix + k, p) : k);
   const locale = () => (S.lang === 'vi' ? 'vi-VN' : 'en-US');
   const nf = n => new Intl.NumberFormat(locale()).format(n);
   const dateTime = iso => new Date(iso).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' });
@@ -417,7 +419,7 @@
 
   // The live and project tabs register themselves in the next block of this file (Task 11).
   window.SolAdmin = {
-    S, h, add, ico, panel, stat, emptyPanel, api, ask, closeModal, flash, render, renderModal, t, nf, dateTime, clock, VIEWS, LOADERS, MODE,
+    S, h, add, ico, panel, stat, emptyPanel, api, ask, closeModal, flash, render, renderModal, t, label, nf, dateTime, clock, VIEWS, LOADERS, MODE,
     poll: { get timer() { return pollTimer; }, set timer(v) { pollTimer = v; }, stop: stopPolling },
   };
 
@@ -432,7 +434,7 @@
 (function () {
   'use strict';
   const X = window.SolAdmin;
-  const { S, h, add, ico, panel, stat, emptyPanel, api, ask, closeModal, flash, render, t, nf, dateTime, clock, MODE } = X;
+  const { S, h, add, ico, panel, stat, emptyPanel, api, ask, closeModal, flash, render, t, label, nf, dateTime, clock, MODE } = X;
   const C = window.SolCharts;
   const POLL_MS = 2000;
   let pollGen = 0;
@@ -540,7 +542,7 @@
       poll();
     });
     const head = h('div', { class: 'adm-room-h' },
-      h('span', { class: 'chip' }, t('admin.phase.' + r.phase)),
+      h('span', { class: 'chip' }, label('admin.phase.', r.phase)),
       r.round != null ? h('span', { class: 'hint num' }, t('admin.l.roundSol', { r: r.round, s: r.sol })) : null,
       r.everRemote ? h('span', { class: 'chip info' }, ico('earth', 12), t('admin.mode.online')) : null,
       h('button', { class: 'btn btn-sm btn-danger', type: 'button', 'data-k': 'close:' + r.code, onclick: closeIt }, t('admin.l.close')));
@@ -565,7 +567,7 @@
       h('thead', null, h('tr', null, h('th', { scope: 'col' }, t('admin.l.time')), h('th', { scope: 'col' }, t('admin.l.what')))),
       h('tbody', null, list.map(ev => h('tr', null,
         h('td', { class: 'num' }, clock(ev.at)),
-        h('td', null, t('admin.ev.' + ev.type, { name: ev.name || '', code: ev.code || '', round: ev.round, outcome: ev.outcome ? t('admin.outcome.' + ev.outcome) : '' })))))));
+        h('td', null, label('admin.ev.', ev.type, { name: ev.name || '', code: ev.code || '', round: ev.round, outcome: ev.outcome ? t('admin.outcome.' + ev.outcome) : '' })))))));
   }
 
   function liveDynamic() {

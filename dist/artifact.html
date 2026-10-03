@@ -4173,7 +4173,7 @@ p { margin: 0; }
   const KEY = 'sol500.lan';
   let session = null;
   let ws = null;        // the live socket, or null
-  let handlers = null;  // { onRoom, onStatus, onPos } while connected
+  let handlers = null;  // { onRoom, onStatus, onPos, onFog } while connected
   let retry = 0;
   let timer = null;
   let gen = 0;          // bumped by disconnect(): tells an in-flight recover() it is stale
@@ -4235,10 +4235,10 @@ p { margin: 0; }
     return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?' + q.toString();
   }
 
-  function connect(onRoom, onStatus, onPos) {
+  function connect(onRoom, onStatus, onPos, onFog) {
     if (!session) return;
     disconnect();
-    handlers = { onRoom, onStatus, onPos };
+    handlers = { onRoom, onStatus, onPos, onFog };
     open();
   }
 
@@ -4256,6 +4256,7 @@ p { margin: 0; }
       if (!msg) return;
       if (msg.t === 'room') h.onRoom(msg.d);
       else if (msg.t === 'pos') { if (h.onPos) h.onPos(msg.d); }
+      else if (msg.t === 'fog') { if (h.onFog) h.onFog(msg.d); }
       else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone(msg.d.kind);
     };
     sock.onclose = () => {
@@ -4328,6 +4329,13 @@ p { margin: 0; }
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'pos', d: pos }));
   }
 
+  // Newly seen fog goes over the socket. Returns false when it isn't open, so the caller keeps it and tries again.
+  function sendReveal(map) {
+    if (!ws || ws.readyState !== 1) return false;
+    ws.send(JSON.stringify({ t: 'reveal', d: map }));
+    return true;
+  }
+
   // Play-testing hook: drops the socket the way a Wi-Fi blip would, so reconnection can be checked in a real browser.
   function dropForTest() { if (ws) ws.close(); }
 
@@ -4339,7 +4347,7 @@ p { margin: 0; }
     return post('/api/history/solo', { mission: m, player: player || '' });
   }
 
-  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, dropForTest, recordSolo, session: () => session };
+  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, sendReveal, dropForTest, recordSolo, session: () => session };
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -6864,6 +6872,7 @@ p { margin: 0; }
     opsView: LS.get('opsView', 'surface'),
     regionsSeen: (rs => (rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }))(LS.get('regionsSeen', null)),
     regionCard: null,
+    fog: {},
   };
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
@@ -6957,6 +6966,17 @@ p { margin: 0; }
   const lanOn = () => !!(store.lan && store.room);
   const me = () => (lanOn() ? store.room.players.find(p => p.id === store.lan.playerId) : null);
   const isHost = () => !lanOn() || store.room.hostId === store.lan.playerId;
+  // Fog waiting to go to the server: kept until the socket takes it, sent 64 chunks per message.
+  let fogOut = {};
+  function flushFog() {
+    const keys = Object.keys(fogOut);
+    for (let i = 0; i < keys.length; i += 64) {
+      const part = {};
+      for (const k of keys.slice(i, i + 64)) part[k] = fogOut[k];
+      if (!N.sendReveal(part)) return;
+      for (const k of Object.keys(part)) delete fogOut[k];
+    }
+  }
   const mission = () => (lanOn() ? store.room.mission : store.mission);
   const currentPlan = () => (lanOn() ? store.room.plan : store.plan);
   function namesMap() { return lanOn() ? (store.room.settings.names || {}) : store.names; }
@@ -7472,14 +7492,23 @@ p { margin: 0; }
     sendPos: pos => { if (lanOn() && me() && me().crewId) N.sendPos(pos); },
     reveal: diff => {
       const s = mission();
-      if (!s || !s.expedition || lanOn()) return; // co-op fog is shared through the server instead
+      if (!s || !s.expedition) return;
+      if (lanOn()) {
+        F.mergeMap(store.fog, diff, 4096);
+        F.mergeMap(fogOut, diff);
+        flushFog();
+        return;
+      }
       F.mergeMap(s.expedition.revealed, diff, 4096);
       saveSoloSoon();
     },
     enterRegion: id => {
       const s = mission();
       if (!s || !s.expedition || !W.REGIONS.includes(id)) return;
-      if (!lanOn() && !s.expedition.regions.includes(id)) { s.expedition.regions.push(id); saveSoloSoon(); }
+      if (!s.expedition.regions.includes(id)) {
+        if (lanOn()) N.act('region', { region: id });
+        else { s.expedition.regions.push(id); saveSoloSoon(); }
+      }
       showRegionCard(id);
     },
   };
@@ -7489,7 +7518,7 @@ p { margin: 0; }
     const node = window.SolSurface.mount(surfaceHooks);
     window.SolSurface.update({
       mission: s, plan: p, forecast: f, controlId: controlId(), canControl, crewName, t, lang: store.lang,
-      fog: s.expedition ? s.expedition.revealed : null,
+      fog: lanOn() ? store.fog : (s.expedition ? s.expedition.revealed : null),
     });
     return h('div', { class: 'sf-stage' }, node, regionCard());
   }
@@ -8273,7 +8302,14 @@ p { margin: 0; }
 
   function onRoom(room) {
     const prevTurn = store.lastTurnSeen;
+    const hadMission = !!(store.room && store.room.mission);
     store.room = room;
+    // A new co-op mission (a launch, or a launch after "Fly again") starts with a fresh world and no fog.
+    if (room.mission && !hadMission) {
+      store.fog = {};
+      fogOut = {};
+      if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
+    }
     if (room.mission) {
       if (prevTurn != null && room.mission.turn > prevTurn && room.lastReport) {
         store.report = room.lastReport;
@@ -8298,6 +8334,7 @@ p { margin: 0; }
       return;
     }
     store.lanStatus = status;
+    if (status === 'open') flushFog(); // fog seen while the socket was down
     render();
   }
 
@@ -8306,7 +8343,7 @@ p { margin: 0; }
     if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos);
+    N.connect(onRoom, onLanStatus, onPos, onFog);
   }
 
   async function joinRoom(code, name) {
@@ -8314,7 +8351,7 @@ p { margin: 0; }
     if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos);
+    N.connect(onRoom, onLanStatus, onPos, onFog);
   }
 
   // Desktop app only: a friend's game on another PC opens in the normal browser (see app/join.js).
@@ -8327,6 +8364,12 @@ p { margin: 0; }
 
   function onPos(list) {
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.setRemote(list);
+  }
+
+  // Fog a teammate revealed: kept for a rebuilt surface, and drawn straight away without a full re-render.
+  function onFog(map) {
+    F.mergeMap(store.fog, map, 4096);
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.mergeFog(map);
   }
 
   // ---------- dialogs ----------
@@ -8513,7 +8556,7 @@ p { margin: 0; }
         let joinCode = null;
         try { joinCode = new URLSearchParams(location.search).get('join'); } catch (e) { /* no query */ }
         const invited = !s && !!joinCode && /^[A-Za-z]{1,6}$/.test(joinCode);
-        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos); }
+        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog); }
         else if (invited) { store.lanForm.code = joinCode.toUpperCase(); store.modal = 'lan'; }
         render();
         if (invited) { const el = document.getElementById('lan-me'); if (el) el.focus(); }

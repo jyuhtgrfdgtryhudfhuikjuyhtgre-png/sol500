@@ -246,3 +246,25 @@ test('a socket that stops answering pings is dropped; one that answers stays', a
   assert.equal(healthy.readyState, WsClient.OPEN);
   healthy.close();
 });
+
+test('fog revealed over the socket reaches the other players', async () => {
+  const { srv, base } = await start();
+  try {
+    const host = await post(base, '/api/room/create', { name: 'Host' });
+    const guest = await post(base, '/api/room/join', { code: host.code, name: 'Guest' });
+    await act(base, host, 'claim', { crewId: 'lena' });
+    await act(base, guest, 'claim', { crewId: 'minh' });
+    await act(base, host, 'launch');
+    const hws = openWs(base, host), gws = openWs(base, guest);
+    await next(hws, isRoom);
+    await next(gws, isRoom);
+    const bits = new Uint8Array(128);
+    bits[0] = 1;
+    const text = Buffer.from(bits).toString('base64');
+    gws.send(JSON.stringify({ t: 'reveal', d: { '-2,3': text } }));
+    const fog = await next(hws, m => m.t === 'fog' && m.d['-2,3']);
+    assert.equal(fog.d['-2,3'], text);
+    hws.close();
+    gws.close();
+  } finally { srv.close(); }
+});

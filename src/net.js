@@ -8,7 +8,7 @@
   const KEY = 'sol500.lan';
   let session = null;
   let ws = null;        // the live socket, or null
-  let handlers = null;  // { onRoom, onStatus, onPos } while connected
+  let handlers = null;  // { onRoom, onStatus, onPos, onFog } while connected
   let retry = 0;
   let timer = null;
   let gen = 0;          // bumped by disconnect(): tells an in-flight recover() it is stale
@@ -70,10 +70,10 @@
     return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?' + q.toString();
   }
 
-  function connect(onRoom, onStatus, onPos) {
+  function connect(onRoom, onStatus, onPos, onFog) {
     if (!session) return;
     disconnect();
-    handlers = { onRoom, onStatus, onPos };
+    handlers = { onRoom, onStatus, onPos, onFog };
     open();
   }
 
@@ -91,6 +91,7 @@
       if (!msg) return;
       if (msg.t === 'room') h.onRoom(msg.d);
       else if (msg.t === 'pos') { if (h.onPos) h.onPos(msg.d); }
+      else if (msg.t === 'fog') { if (h.onFog) h.onFog(msg.d); }
       else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone(msg.d.kind);
     };
     sock.onclose = () => {
@@ -163,6 +164,13 @@
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'pos', d: pos }));
   }
 
+  // Newly seen fog goes over the socket. Returns false when it isn't open, so the caller keeps it and tries again.
+  function sendReveal(map) {
+    if (!ws || ws.readyState !== 1) return false;
+    ws.send(JSON.stringify({ t: 'reveal', d: map }));
+    return true;
+  }
+
   // Play-testing hook: drops the socket the way a Wi-Fi blip would, so reconnection can be checked in a real browser.
   function dropForTest() { if (ws) ws.close(); }
 
@@ -174,5 +182,5 @@
     return post('/api/history/solo', { mission: m, player: player || '' });
   }
 
-  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, dropForTest, recordSolo, session: () => session };
+  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, sendReveal, dropForTest, recordSolo, session: () => session };
 })(typeof self !== 'undefined' ? self : this);
