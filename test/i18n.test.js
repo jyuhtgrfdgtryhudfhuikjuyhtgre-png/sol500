@@ -52,3 +52,16 @@ test('every region has a name and a real fact with a checked source, in both lan
     assert.ok(I.NOTES[lang].some(n => W.REGIONS.every(id => n.src.includes(I.REGION_SOURCES[id]))), lang + ': the science notes list the region sources');
   }
 });
+
+test('the Plains fact cites a page from after the landing and claims nothing that page does not say', () => {
+  // https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/ (Feb. 18, 2021) says
+  // "has touched down at Jezero Crater", "Some 28 miles (45 kilometers) wide" and "3.5 billion years ago the crater had its
+  // own river delta and was filled with water". It does not say what the word "Jezero" means.
+  assert.match(I.SOURCES.jezero.url, /\/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet\/$/);
+  for (const lang of ['en', 'vi']) {
+    const fact = I.STR[lang]['region.fact.plains'];
+    assert.match(fact, /45/, lang + ': the width');
+    assert.match(fact, /3[.,]5/, lang + ': the age');
+    assert.doesNotMatch(fact, /slav/i, lang + ': the meaning of the name is not on that page');
+  }
+});
