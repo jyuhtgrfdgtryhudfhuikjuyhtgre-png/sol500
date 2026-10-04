@@ -630,14 +630,16 @@ test('when your astronaut dies you take over the first active crewmate, and the 
   assert.equal(next.state.pilot, 'minh');
 });
 
-test('with nobody active, your astronaut passes to a crewmate who is down', () => {
+test('with nobody active the mission is lost: no takeover, and the pilot stays the astronaut you walked as', () => {
   const s = E.createMission({ seed: 'PILOT-2', loadout: kit(), events: false, pilot: 'lena' });
   s.crew[0].status = 'down';
   s.crew[0].downTurns = D.REVIVE.window - 1;
   for (const c of s.crew.slice(1)) { c.status = 'down'; c.downTurns = 0; }
   const { state, report } = E.resolveTurn(s, allJobs(s, 'science'));
-  assert.deepEqual(report.pilot, { from: 'lena', to: 'minh' });
-  assert.equal(state.pilot, 'minh');
+  assert.equal(state.status, 'lost');
+  assert.equal(state.crew[0].status, 'dead');
+  assert.deepEqual(report.pilot, { from: 'lena', to: null }, 'nobody to take over');
+  assert.equal(state.pilot, 'lena', 'the history credits the astronaut that was played');
 });
 
 test('saves from before v3 get the exploring state and a pilot when they load', () => {

@@ -1785,13 +1785,14 @@ p { margin: 0; }
       s.status = 'success';
     }
 
-    // Solo: if your astronaut died, you take over the first active crewmate (else the first living one).
+    // Solo: if your astronaut died, you take over the first active crewmate. With nobody active the mission is over
+    // (status 'lost' above), so nobody takes over and the pilot stays the astronaut you walked as.
     report.pilot = null;
     const pilot = s.pilot && s.crew.find(c => c.id === s.pilot);
     if (pilot && pilot.status === 'dead') {
-      const next = s.crew.find(isActive) || s.crew.find(c => c.status !== 'dead') || null;
+      const next = s.crew.find(isActive) || null;
       report.pilot = { from: pilot.id, to: next ? next.id : null };
-      s.pilot = next ? next.id : null;
+      if (next) s.pilot = next.id;
     }
 
     s.log.push({
