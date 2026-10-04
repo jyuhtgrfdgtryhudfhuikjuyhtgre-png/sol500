@@ -369,6 +369,32 @@ test('flying again starts with no fog and no regions, and no old fog arrives lat
   assert.deepEqual(room.mission.expedition.regions, []);
 });
 
+test('every launch raises a counter the room announces, so a tab that missed a restart can tell the mission changed', () => {
+  const R0 = createRooms();
+  const { room: fresh } = R0.create('Host');
+  assert.equal(R0.publicRoom(fresh).launch, 0, 'no mission launched yet');
+  const { R, room, host } = inMission();
+  assert.equal(R.publicRoom(room).launch, 1, 'the first launch');
+  const seed = room.mission.seed;
+  say(R, room, host, 'restart');
+  assert.equal(R.publicRoom(room).launch, 1, 'a restart is not a launch');
+  assert.equal(say(R, room, host, 'settings', { seed }).status, 200);
+  assert.equal(say(R, room, host, 'launch').status, 200);
+  assert.equal(room.mission.seed, seed, 'the same code again');
+  assert.equal(R.publicRoom(room).launch, 2, 'but a different launch');
+});
+
+test('flying again forgets where everyone stood in the last mission', async () => {
+  const { R, room, host, guest, hc } = inMission();
+  R.position(room, guest, { x: 9000, y: -4000 });
+  assert.equal(room.positions.minh.x, 9000);
+  say(R, room, host, 'restart');
+  assert.deepEqual(room.positions, {});
+  assert.deepEqual(R.publicRoom(room).positions, []);
+  await wait(150); // the throttled message for that old position goes out when the room is already empty
+  assert.deepEqual(hc.got.filter(m => m.type === 'pos').at(-1).data, []);
+});
+
 test('a region found by anyone is recorded once; made-up regions are refused', () => {
   const { R, room, guest, host } = inMission();
   assert.equal(say(R, room, guest, 'region', { region: 'dunes' }).status, 200);

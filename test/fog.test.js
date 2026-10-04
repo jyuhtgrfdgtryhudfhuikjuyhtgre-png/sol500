@@ -52,6 +52,20 @@ test('merging ORs the bits and reports only the chunks that changed', () => {
   assert.deepEqual(F.mergeMap(map, { '0,0': F.encode(b) }), {}, 'nothing new the second time');
 });
 
+test('a room frame with a mission under a different launch number means this tab missed a restart', () => {
+  const frame = launch => ({ launch, mission: {} });
+  assert.equal(F.isNewLaunch(null, frame(1)), true, 'the first frame of a room, or the first after a restart this tab saw');
+  assert.equal(F.isNewLaunch(1, frame(1)), false, 'the same mission again');
+  assert.equal(F.isNewLaunch(1, frame(2)), true, 'the restart and the relaunch were missed: same code, new mission');
+  assert.equal(F.isNewLaunch(1, { launch: 1, mission: null }), false, 'a lobby frame has no mission to reset for');
+  assert.equal(F.isNewLaunch(null, { launch: 0, mission: null }), false);
+  assert.equal(F.isNewLaunch(null, null), false);
+  assert.equal(F.isNewLaunch(null, {}), false);
+  // a server without the counter resets once per room, not on every frame
+  assert.equal(F.isNewLaunch(null, { mission: {} }), true);
+  assert.equal(F.isNewLaunch(undefined, { mission: {} }), false);
+});
+
 test('hostile fog is skipped: odd keys, prototype keys, wrong values, non-objects, and the chunk cap', () => {
   const v = F.encode(randomBits(5));
   const map = {};

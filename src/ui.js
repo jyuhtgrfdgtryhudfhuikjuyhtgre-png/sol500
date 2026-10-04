@@ -48,6 +48,7 @@
     regionsSeen: (rs => (rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }))(LS.get('regionsSeen', null)),
     regionCard: null,
     fog: {},
+    launchSeen: null, // co-op: the launch number of the mission this tab last showed (see SolFog.isNewLaunch)
   };
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
@@ -151,6 +152,13 @@
       if (!N.sendReveal(part)) return;
       for (const k of Object.keys(part)) delete fogOut[k];
     }
+  }
+  // A new mission or room starts with a fresh map: this tab's fog, the fog still waiting to be sent, and the surface's world.
+  function forgetFog() {
+    store.fog = {};
+    fogOut = {};
+    store.launchSeen = null;
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
   }
   const mission = () => (lanOn() ? store.room.mission : store.mission);
   const currentPlan = () => (lanOn() ? store.room.plan : store.plan);
@@ -1472,20 +1480,19 @@
     N.clear();
     store.lan = null;
     store.room = null;
+    forgetFog();
     go('title');
   }
 
   function onRoom(room) {
     const prevTurn = store.lastTurnSeen;
-    const hadMission = !!(store.room && store.room.mission);
     store.room = room;
-    // A new co-op mission (a launch, or a launch after "Fly again") starts with a fresh world and no fog.
-    if (room.mission && !hadMission) {
-      store.fog = {};
-      fogOut = {};
-      if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
-    }
+    // A new co-op mission (a launch, a launch after "Fly again", or one whose restart this tab missed while offline, even
+    // under the same mission code) starts with a fresh world and no fog, and none of the old fog may still be sent.
+    if (F.isNewLaunch(store.launchSeen, room)) forgetFog();
+    store.launchSeen = room.mission ? room.launch : null;
     if (room.mission) {
+      flushFog(); // fog seen while the socket was down goes out now that this tab knows which mission the server is on
       if (prevTurn != null && room.mission.turn > prevTurn && room.lastReport) {
         store.report = room.lastReport;
         checkBadges(room.mission);
@@ -1502,6 +1509,7 @@
   function onLanStatus(status, kind) {
     if (status === 'gone') {
       store.lan = null; store.room = null; store.lanStatus = null;
+      forgetFog();
       // The room is over: an app host should no longer be reachable from the internet.
       if (window.solApp && store.online && store.online.state !== 'off') window.solApp.stopOnline();
       go('title');
@@ -1509,7 +1517,8 @@
       return;
     }
     store.lanStatus = status;
-    if (status === 'open') flushFog(); // fog seen while the socket was down
+    // Fog seen while the socket was down is sent by onRoom, once the first room frame says which mission the server is on:
+    // sending it here could put an old mission's fog into a new mission or room.
     render();
   }
 

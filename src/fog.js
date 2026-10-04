@@ -94,5 +94,12 @@
     return changed;
   }
 
-  return { SIZE, BYTES, KEY, empty, has, set, count, encode, decode, orInto, mergeMap };
+  // Co-op: the fog a tab holds belongs to the mission it last showed (`seen` = that launch's number, null for none).
+  // A room frame with a mission under another launch number means the tab missed a restart, even when the new mission
+  // has the same code, so the tab's fog (and any fog still waiting to be sent) is stale and must go.
+  function isNewLaunch(seen, room) {
+    return !!room && !!room.mission && room.launch !== seen;
+  }
+
+  return { SIZE, BYTES, KEY, empty, has, set, count, encode, decode, orInto, mergeMap, isNewLaunch };
 });
