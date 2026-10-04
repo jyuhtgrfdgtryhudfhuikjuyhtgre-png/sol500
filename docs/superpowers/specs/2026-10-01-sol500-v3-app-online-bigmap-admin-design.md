@@ -70,7 +70,7 @@ The world is divided into regions using a jittered Voronoi diagram on a 224-tile
 |---|---|---|---|---|
 | Plains | rust regolith | few boulders, small craters | balanced | Gale crater floor / Jezero plains |
 | Dune Sea | dark basaltic sand | dunes everywhere, few blockers | few finds, more dust devils | Bagnold Dunes (Curiosity) |
-| Crater Field | grey-brown, pitted | many craters with rims | science ×1.5, ice in crater floors | heavily cratered southern highlands |
+| Crater Field | grey-brown, pitted | many craters with rims | science ×1.5, ice in crater floors | ancient cratered southern highlands |
 | Canyon Lands | layered red and tan | canyon segments, mesas | layered-rock science, ice in canyons | Valles Marineris |
 | Icy Plains | pale, polygon-cracked | flat, polygon ground, ice scarps | ice ×3, colder (suit drain +10 %) | Arcadia Planitia shallow ice; exposed ice scarps |
 | Volcanic Flanks | dark lava rock | boulder fields, lava tubes | metal ×1.5, caves ×3 | Tharsis / Arsia Mons skylights |
@@ -580,13 +580,13 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] Project progress tab and generator
 
 ### M3 — Endless world
-- [ ] Deterministic endless worldgen with regions
-- [ ] Terrain features with reachability guarantees
-- [ ] Chunk streaming: out-of-range chunks deleted and rebuilt identically
-- [ ] Smooth rendering at 50+ fps with flat memory
-- [ ] Minimap, full map and shared fog of war
-- [ ] Region discovery toasts with real sources
-- [ ] One astronaut per player (choose at start, takeover on death)
+- [x] Deterministic endless worldgen with regions
+- [x] Terrain features with reachability guarantees
+- [x] Chunk streaming: out-of-range chunks deleted and rebuilt identically
+- [x] Smooth rendering at 50+ fps with flat memory
+- [x] Minimap, full map and shared fog of war
+- [x] Region discovery toasts with real sources
+- [x] One astronaut per player (choose at start, takeover on death)
 
 ### M4 — Exploring
 - [ ] Collect, carry and deliver finds
