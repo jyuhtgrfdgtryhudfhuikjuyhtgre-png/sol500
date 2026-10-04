@@ -6912,9 +6912,17 @@ p { margin: 0; }
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
     // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
-    store.mission = E.upgradeMission(saved.mission, { controlId: LS.get('controlId', null) });
-    store.plan = saved.plan || E.defaultPlan(saved.mission);
-    LS.set('save', { mission: store.mission, plan: store.plan }); // write the upgraded save back straight away
+    // A save that can't be read (damaged, or edited by hand) is dropped, so the app still opens on its home screen.
+    try {
+      store.mission = E.upgradeMission(saved.mission, { controlId: LS.get('controlId', null) });
+      store.plan = saved.plan || E.defaultPlan(saved.mission);
+      LS.set('save', { mission: store.mission, plan: store.plan }); // write the upgraded save back straight away
+    } catch (e) {
+      console.warn('SOL 500: dropped a saved mission that could not be read:', e);
+      store.mission = null;
+      store.plan = null;
+      LS.del('save');
+    }
   }
   LS.del('controlId'); // replaced by mission.pilot
 
