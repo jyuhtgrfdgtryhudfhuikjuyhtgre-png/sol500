@@ -10,7 +10,7 @@
  *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
  *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
  * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
- *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId)
+ *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId)
  */
 (function (root) {
   'use strict';
@@ -212,8 +212,12 @@
     S.btnAct.type = 'button';
     S.btnRun = el('button', 'sf-btn sf-run', '»');
     S.btnRun.type = 'button';
-        S.regionChip = el('div', 'sf-region');
+    // The name of the region you are in; selecting it shows that region's card (and its real NASA fact) again.
+    S.regionChip = el('button', 'sf-region');
+    S.regionChip.type = 'button';
+    S.regionChip.setAttribute('data-k', 'region-chip'); // a re-render restores the focus by data-k
     S.regionChip.hidden = true;
+    S.regionChip.addEventListener('click', () => { if (S.region != null && S.hooks.reopenRegion) S.hooks.reopenRegion(W.REGIONS[S.region]); });
     S.debugBox = el('pre', 'sf-debug');
     S.debugBox.hidden = !S.debug;
     o.append(S.hint, S.stamina, S.regionChip, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
@@ -337,7 +341,7 @@
     if (data.lang !== S.lang) {
       S.lang = data.lang;
       S.map.relabel();
-      if (S.region != null) S.regionChip.textContent = t('region.' + W.REGIONS[S.region]);
+      if (S.region != null) showRegionName();
     }
     if (S.menuOpen) renderMenu();
   }
@@ -395,6 +399,13 @@
     S.painter.work(t0 + 4, 1);
   }
 
+  function showRegionName() {
+    const name = t('region.' + W.REGIONS[S.region]);
+    S.regionChip.hidden = false;
+    S.regionChip.textContent = name;
+    S.regionChip.setAttribute('aria-label', t('region.reread', { name }));
+  }
+
   // What you can see becomes explored, and a new region shows its name. New fog goes out once a second.
   function explore(ts) {
     const p = S.player, me = controlledCrew();
@@ -406,8 +417,7 @@
       const reg = S.world.region(tx, ty);
       if (reg !== S.region) {
         S.region = reg;
-        S.regionChip.hidden = false;
-        S.regionChip.textContent = t('region.' + W.REGIONS[reg]);
+        showRegionName();
         if (S.hooks.enterRegion) S.hooks.enterRegion(W.REGIONS[reg]);
       }
     }

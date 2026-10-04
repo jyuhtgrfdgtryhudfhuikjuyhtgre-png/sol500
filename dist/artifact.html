@@ -499,7 +499,10 @@ p { margin: 0; }
 .sf-stamina { position: absolute; left: 14px; top: 14px; width: 120px; height: 7px; border-radius: 7px; background: rgba(20, 14, 16, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); overflow: hidden; }
 .sf-stamina span { display: block; height: 100%; background: var(--ok); }
 .sf-hint { max-width: calc(100% - 380px); white-space: normal; text-align: center; border-radius: 12px; }
-.sf-region { position: absolute; left: 14px; top: 28px; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); padding: 3px 10px; border-radius: 999px; font-size: var(--fs-xs); color: var(--fg); font-weight: 600; }
+.sf-region { position: absolute; left: 14px; top: 28px; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); padding: 3px 10px; border-radius: 999px; font-family: inherit; font-size: var(--fs-xs); color: var(--fg); font-weight: 600; cursor: pointer; pointer-events: auto; }
+.sf-region::after { content: 'i'; display: inline-grid; place-items: center; width: 14px; height: 14px; margin-left: 6px; border: 1px solid currentColor; border-radius: 50%; font: italic 700 10px/1 var(--font-display); opacity: 0.7; vertical-align: 1px; }
+.sf-region:hover, .sf-region:focus-visible { border-color: var(--accent); }
+.sf-region:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sf-mini { position: absolute; right: 12px; top: 12px; width: 160px; height: 160px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #120a0c; pointer-events: auto; cursor: zoom-in; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
 .sf-mini canvas { width: 100%; height: 100%; display: block; }
 .sf-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -2615,6 +2618,8 @@ p { margin: 0; }
     'region.icy': 'Icy Plains',
     'region.volcanic': 'Volcanic Flanks',
     'region.new': 'New region',
+    'region.note': 'Region note',
+    'region.reread': '{name}: read about this region',
     'region.source': 'Source',
     'region.fact.plains': 'Like the floor of Jezero Crater, where Perseverance landed. About 3.5 billion years ago this 45-km crater had its own river delta and was filled with water.',
     'region.fact.dunes': 'Like the Bagnold Dunes at the foot of Mount Sharp, which Curiosity set out to study in 2015. No one had ever visited active dunes anywhere but Earth. Seen from orbit, some of them move as much as about 1 m every Earth year.',
@@ -3425,6 +3430,8 @@ p { margin: 0; }
     'region.icy': 'Đồng bằng băng',
     'region.volcanic': 'Sườn núi lửa',
     'region.new': 'Vùng mới',
+    'region.note': 'Ghi chú về vùng',
+    'region.reread': '{name}: đọc về vùng này',
     'region.source': 'Nguồn',
     'region.fact.plains': 'Giống như đáy hố Jezero, nơi tàu Perseverance hạ cánh. Khoảng 3,5 tỷ năm trước, hố rộng 45 km này từng có châu thổ sông riêng và chứa đầy nước.',
     'region.fact.dunes': 'Giống như cồn cát Bagnold dưới chân núi Sharp, nơi tàu Curiosity bắt đầu nghiên cứu năm 2015. Trước đó chưa ai từng đến một cồn cát đang di chuyển ở bất kỳ đâu ngoài Trái Đất. Nhìn từ quỹ đạo, một số cồn cát dịch chuyển lên tới khoảng 1 m mỗi năm Trái Đất.',
@@ -5827,7 +5834,7 @@ p { margin: 0; }
  *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
  *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
  * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
- *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId)
+ *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId)
  */
 (function (root) {
   'use strict';
@@ -6029,8 +6036,12 @@ p { margin: 0; }
     S.btnAct.type = 'button';
     S.btnRun = el('button', 'sf-btn sf-run', '»');
     S.btnRun.type = 'button';
-        S.regionChip = el('div', 'sf-region');
+    // The name of the region you are in; selecting it shows that region's card (and its real NASA fact) again.
+    S.regionChip = el('button', 'sf-region');
+    S.regionChip.type = 'button';
+    S.regionChip.setAttribute('data-k', 'region-chip'); // a re-render restores the focus by data-k
     S.regionChip.hidden = true;
+    S.regionChip.addEventListener('click', () => { if (S.region != null && S.hooks.reopenRegion) S.hooks.reopenRegion(W.REGIONS[S.region]); });
     S.debugBox = el('pre', 'sf-debug');
     S.debugBox.hidden = !S.debug;
     o.append(S.hint, S.stamina, S.regionChip, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
@@ -6154,7 +6165,7 @@ p { margin: 0; }
     if (data.lang !== S.lang) {
       S.lang = data.lang;
       S.map.relabel();
-      if (S.region != null) S.regionChip.textContent = t('region.' + W.REGIONS[S.region]);
+      if (S.region != null) showRegionName();
     }
     if (S.menuOpen) renderMenu();
   }
@@ -6212,6 +6223,13 @@ p { margin: 0; }
     S.painter.work(t0 + 4, 1);
   }
 
+  function showRegionName() {
+    const name = t('region.' + W.REGIONS[S.region]);
+    S.regionChip.hidden = false;
+    S.regionChip.textContent = name;
+    S.regionChip.setAttribute('aria-label', t('region.reread', { name }));
+  }
+
   // What you can see becomes explored, and a new region shows its name. New fog goes out once a second.
   function explore(ts) {
     const p = S.player, me = controlledCrew();
@@ -6223,8 +6241,7 @@ p { margin: 0; }
       const reg = S.world.region(tx, ty);
       if (reg !== S.region) {
         S.region = reg;
-        S.regionChip.hidden = false;
-        S.regionChip.textContent = t('region.' + W.REGIONS[reg]);
+        showRegionName();
         if (S.hooks.enterRegion) S.hooks.enterRegion(W.REGIONS[reg]);
       }
     }
@@ -7468,18 +7485,35 @@ p { margin: 0; }
   }
 
   // ---------- regions ----------
-  // The first time you walk into a region in a mission: its name and one real fact, with the source.
-  let regionTimer = null;
+  // The first time you walk into a region in a mission: its name and one real fact, with the source. The region's name on
+  // the surface is a button that shows the card again. The card stays while the mouse is on it or it has keyboard focus
+  // (WCAG 2.2.1), and goes 15 s after that.
+  let regionTimer = null, regionIsNew = true;
   // Sets the card and changes the live stage in place. The walking loop gets here, and a render() would move the surface
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
   function setRegionCard(id) {
     store.regionCard = id;
+    if (!id) clearTimeout(regionTimer);
     const stage = document.querySelector('.sf-stage');
     if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
     const old = stage.querySelector('.region-card'), card = regionCard();
     if (old && card) old.replaceWith(card);
     else if (card) stage.appendChild(card);
     else if (old) old.remove();
+  }
+
+  // The card closes 15 s from now, unless by then the mouse is on it or it has keyboard focus: it then waits another 15 s.
+  // The mouse or the focus leaving the card (see regionCard) starts the 15 s again. Touch never holds it: :hover sticks
+  // after a tap, so only a mouse (hover: hover) counts.
+  const canHover = () => !!window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  function armRegionTimer() {
+    clearTimeout(regionTimer);
+    if (!store.regionCard) return;
+    regionTimer = setTimeout(() => {
+      const card = document.querySelector('.region-card');
+      if (card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement))) armRegionTimer();
+      else setRegionCard(null);
+    }, 15000);
   }
 
   function showRegionCard(id) {
@@ -7489,22 +7523,34 @@ p { margin: 0; }
     if (store.regionsSeen.list.includes(id)) return;
     store.regionsSeen.list.push(id);
     LS.set('regionsSeen', store.regionsSeen);
+    regionIsNew = true;
     setRegionCard(id);
-    clearTimeout(regionTimer);
-    regionTimer = setTimeout(() => { if (store.regionCard === id) setRegionCard(null); }, 15000);
+    armRegionTimer();
+  }
+
+  // The region's name on the surface was selected: read its card again, for another 15 s.
+  function reopenRegionCard(id) {
+    regionIsNew = false;
+    setRegionCard(id);
+    armRegionTimer();
   }
 
   function regionCard() {
     const id = store.regionCard;
     if (!id) return null;
     const src = I.SOURCES[I.REGION_SOURCES[id]];
-    return h('aside', { class: 'region-card', role: 'status', 'aria-live': 'polite' },
+    const card = h('aside', {
+      class: 'region-card', role: 'status', 'aria-live': 'polite',
+      onpointerleave: e => { if (e.pointerType === 'mouse') armRegionTimer(); },
+      onfocusout: e => { if (!card.contains(e.relatedTarget)) armRegionTimer(); },
+    },
       h('div', { class: 'region-card-h' },
-        h('span', { class: 'eyebrow' }, t('region.new')),
+        h('span', { class: 'eyebrow' }, t(regionIsNew ? 'region.new' : 'region.note')),
         h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setRegionCard(null) }, '×')),
       h('h3', null, t('region.' + id)),
       h('p', null, t('region.fact.' + id)),
       h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)));
+    return card;
   }
 
   // ---------- operations ----------
@@ -7567,6 +7613,7 @@ p { margin: 0; }
       }
       showRegionCard(id);
     },
+    reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
   };
 
   function surfaceStage(s, p, f) {

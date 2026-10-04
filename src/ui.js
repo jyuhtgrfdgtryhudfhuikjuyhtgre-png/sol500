@@ -603,18 +603,35 @@
   }
 
   // ---------- regions ----------
-  // The first time you walk into a region in a mission: its name and one real fact, with the source.
-  let regionTimer = null;
+  // The first time you walk into a region in a mission: its name and one real fact, with the source. The region's name on
+  // the surface is a button that shows the card again. The card stays while the mouse is on it or it has keyboard focus
+  // (WCAG 2.2.1), and goes 15 s after that.
+  let regionTimer = null, regionIsNew = true;
   // Sets the card and changes the live stage in place. The walking loop gets here, and a render() would move the surface
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
   function setRegionCard(id) {
     store.regionCard = id;
+    if (!id) clearTimeout(regionTimer);
     const stage = document.querySelector('.sf-stage');
     if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
     const old = stage.querySelector('.region-card'), card = regionCard();
     if (old && card) old.replaceWith(card);
     else if (card) stage.appendChild(card);
     else if (old) old.remove();
+  }
+
+  // The card closes 15 s from now, unless by then the mouse is on it or it has keyboard focus: it then waits another 15 s.
+  // The mouse or the focus leaving the card (see regionCard) starts the 15 s again. Touch never holds it: :hover sticks
+  // after a tap, so only a mouse (hover: hover) counts.
+  const canHover = () => !!window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  function armRegionTimer() {
+    clearTimeout(regionTimer);
+    if (!store.regionCard) return;
+    regionTimer = setTimeout(() => {
+      const card = document.querySelector('.region-card');
+      if (card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement))) armRegionTimer();
+      else setRegionCard(null);
+    }, 15000);
   }
 
   function showRegionCard(id) {
@@ -624,22 +641,34 @@
     if (store.regionsSeen.list.includes(id)) return;
     store.regionsSeen.list.push(id);
     LS.set('regionsSeen', store.regionsSeen);
+    regionIsNew = true;
     setRegionCard(id);
-    clearTimeout(regionTimer);
-    regionTimer = setTimeout(() => { if (store.regionCard === id) setRegionCard(null); }, 15000);
+    armRegionTimer();
+  }
+
+  // The region's name on the surface was selected: read its card again, for another 15 s.
+  function reopenRegionCard(id) {
+    regionIsNew = false;
+    setRegionCard(id);
+    armRegionTimer();
   }
 
   function regionCard() {
     const id = store.regionCard;
     if (!id) return null;
     const src = I.SOURCES[I.REGION_SOURCES[id]];
-    return h('aside', { class: 'region-card', role: 'status', 'aria-live': 'polite' },
+    const card = h('aside', {
+      class: 'region-card', role: 'status', 'aria-live': 'polite',
+      onpointerleave: e => { if (e.pointerType === 'mouse') armRegionTimer(); },
+      onfocusout: e => { if (!card.contains(e.relatedTarget)) armRegionTimer(); },
+    },
       h('div', { class: 'region-card-h' },
-        h('span', { class: 'eyebrow' }, t('region.new')),
+        h('span', { class: 'eyebrow' }, t(regionIsNew ? 'region.new' : 'region.note')),
         h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setRegionCard(null) }, '×')),
       h('h3', null, t('region.' + id)),
       h('p', null, t('region.fact.' + id)),
       h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)));
+    return card;
   }
 
   // ---------- operations ----------
@@ -702,6 +731,7 @@
       }
       showRegionCard(id);
     },
+    reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
   };
 
   function surfaceStage(s, p, f) {
