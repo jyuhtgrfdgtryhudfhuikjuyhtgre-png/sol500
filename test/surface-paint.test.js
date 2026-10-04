@@ -102,3 +102,45 @@ test("a far explored chunk's mini image is queued, and building it never pushes 
   assert.ok(p.mini(9, 9));
   assert.deepEqual(world.liveKeys().sort(), ['0,0', '1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '7,0']);
 });
+
+// A context that records every call, in order, as [name, ...args].
+function recorder() {
+  const calls = [];
+  const ctx = new Proxy({}, {
+    get(t, p) { if (p in t) return t[p]; return (...a) => { calls.push([p, ...a]); }; },
+    set(t, p, v) { t[p] = v; return true; },
+  });
+  return { ctx, calls };
+}
+// The two crack strokes on an ice tile whose top-left corner is (X, Y) in world pixels.
+const cracks = (X, Y) => [
+  ['beginPath'], ['moveTo', X + 8, Y + 20], ['lineTo', X + 22, Y + 26], ['lineTo', X + 32, Y + 17], ['lineTo', X + 46, Y + 28], ['stroke'],
+  ['beginPath'], ['moveTo', X + 12, Y + 44], ['lineTo', X + 24, Y + 40], ['lineTo', X + 33, Y + 48], ['lineTo', X + 48, Y + 43], ['stroke'],
+];
+
+test('the ice cracks are one shared drawing, with the exact strokes the two earlier copies made', () => {
+  const { ctx, calls } = recorder();
+  P.sprites.drawIceCracks(ctx, 640, -128);
+  assert.deepEqual(calls, cracks(640, -128));
+});
+
+test('an ice tile of the ground is painted with those cracks at its corner', () => {
+  const W = require('../src/worldgen.js');
+  const world = SW.create('PAINT-ICE');
+  let tile = null;
+  for (let y = -3000; y <= 3000 && !tile; y += 32) {
+    for (let x = -3000; x <= 3000 && !tile; x += 32) {
+      if (W.regionAt(world.seed, x, y) !== 4) continue; // the Icy Plains
+      for (let dy = 0; dy < 32 && !tile; dy++) for (let dx = 0; dx < 32 && !tile; dx++) if (world.tile(x + dx, y + dy) === W.TILE.ICE) tile = [x + dx, y + dy];
+    }
+  }
+  assert.ok(tile, 'an ice tile somewhere in the Icy Plains');
+  const rec = recorder();
+  const p = P.createPainter(world, { canvas: (w, h) => ({ width: w, height: h, getContext: () => rec.ctx }), now: () => 0 });
+  const [ix, iy] = [Math.floor(tile[0] / 4), Math.floor(tile[1] / 4)];
+  p.retainView(ix * 256, iy * 256, ix * 256 + 255, iy * 256 + 255);
+  p.work(Infinity);
+  const want = JSON.stringify(cracks(tile[0] * 64, tile[1] * 64));
+  const at = rec.calls.findIndex((c, i) => c[0] === 'beginPath' && JSON.stringify(rec.calls.slice(i, i + 12)) === want);
+  assert.ok(at >= 0, 'the cracks were drawn at the ice tile');
+});

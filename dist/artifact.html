@@ -5041,7 +5041,6 @@ p { margin: 0; }
   // ---------- colours ----------
   // Regolith looks different in each region; the other codes have one colour each.
   const REGION_GROUND = [[116, 58, 37], [67, 48, 43], [104, 82, 72], [134, 72, 44], [177, 158, 146], [59, 45, 44]];
-  const REGION_COLORS = ['#b4532f', '#4a3530', '#7d675c', '#c06a3a', '#cfe0e6', '#2f2526'];
   const UNDER_BOULDER = [TL.REGOLITH, TL.DUNE, TL.REGOLITH, TL.REGOLITH, TL.POLYGON, TL.LAVA];
   const CODE_RGB = [];
   CODE_RGB[TL.SAND] = [77, 49, 41];
@@ -5061,6 +5060,9 @@ p { margin: 0; }
     if (code === TL.REGOLITH || CODE_RGB[code] == null) return REGION_GROUND[region] || REGION_GROUND[0];
     return CODE_RGB[code];
   }
+  // The map legend's swatch for each region: its usual ground (the one under its boulders), exactly as the minimap and the map paint it.
+  const hex = rgb => '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('');
+  const REGION_COLORS = UNDER_BOULDER.map((code, region) => hex(tileRGB(code, region)));
   const channel = v => Math.min(255, Math.round(v));
   const css = (rgb, k) => 'rgb(' + channel(rgb[0] * k) + ',' + channel(rgb[1] * k) + ',' + channel(rgb[2] * k) + ')';
   const RAISED = new Uint8Array(32);
@@ -5091,8 +5093,7 @@ p { margin: 0; }
     } else if (look === TL.ICE) {
       g.strokeStyle = 'rgba(255,255,255,0.8)';
       g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(X + 8, Y + 20); g.lineTo(X + 22, Y + 26); g.lineTo(X + 32, Y + 17); g.lineTo(X + 46, Y + 28); g.stroke();
-      g.beginPath(); g.moveTo(X + 12, Y + 44); g.lineTo(X + 24, Y + 40); g.lineTo(X + 33, Y + 48); g.lineTo(X + 48, Y + 43); g.stroke();
+      drawIceCracks(g, X, Y);
     } else if (look === TL.LAVA) {
       g.fillStyle = 'rgba(20,14,14,0.5)';
       for (let k = 0; k < 6; k++) { const v = W.hash(world.seed, tx, ty, 901 + k); g.fillRect(X + (v % 60), Y + ((v >>> 8) % 60), 2 + ((v >>> 16) % 3), 2 + ((v >>> 20) % 3)); }
@@ -5405,6 +5406,13 @@ p { margin: 0; }
     ctx.closePath();
   }
 
+  // The two crack lines on an ice tile whose top-left corner is (X, Y) in world pixels, in the current stroke style:
+  // the ice of the ground and the buried ice at the base look the same.
+  function drawIceCracks(g, X, Y) {
+    g.beginPath(); g.moveTo(X + 8, Y + 20); g.lineTo(X + 22, Y + 26); g.lineTo(X + 32, Y + 17); g.lineTo(X + 46, Y + 28); g.stroke();
+    g.beginPath(); g.moveTo(X + 12, Y + 44); g.lineTo(X + 24, Y + 40); g.lineTo(X + 33, Y + 48); g.lineTo(X + 48, Y + 43); g.stroke();
+  }
+
   function drawRock(ctx, d) {
     const cx = d.wx * T + T / 2 + (d.ox || 0), cy = d.wy * T + T / 2 + (d.oy || 0);
     const s = d.s;
@@ -5585,7 +5593,7 @@ p { margin: 0; }
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander },
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks },
   };
 });
 
@@ -5651,6 +5659,9 @@ p { margin: 0; }
       last = st;
       if (!world || open || now - lastMini < 150) return;
       lastMini = now;
+      // Explored chunks at the edge have no live data (a teammate's fog, a resumed save): build the image the last redraw
+      // queued for them, about one every 150 ms, so the minimap never waits for the full map to open.
+      painter.workMinis(now + 1);
       const size = minimap.clientWidth || MINI, k = dpr();
       if (mc.width !== Math.round(size * k)) { mc.width = Math.round(size * k); mc.height = Math.round(size * k); }
       const g = mc.getContext('2d');
@@ -5726,9 +5737,9 @@ p { margin: 0; }
       if (opts.onClose) opts.onClose();
     }
     function zoom(d) { zi = Math.max(0, Math.min(ZOOMS.length - 1, zi + d)); }
-    // Keys while the map is open; returns true when the key was used.
+    // Keys while the map is open; returns true when the key was used. A held M repeats keydown: only the press closes the map.
     function key(e) {
-      if (e.code === 'Escape' || e.code === 'KeyM') { closeMap(); return true; }
+      if (e.code === 'Escape' || (e.code === 'KeyM' && !e.repeat)) { closeMap(); return true; }
       if (e.key === '+' || e.key === '=') { zoom(1); return true; }
       if (e.key === '-' || e.key === '_') { zoom(-1); return true; }
       const d = PAN[e.code];
@@ -5815,7 +5826,7 @@ p { margin: 0; }
 (function (root) {
   'use strict';
   const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap;
-  const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander } = P.sprites;
+  const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks } = P.sprites;
   const T = 64;
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
@@ -6018,20 +6029,22 @@ p { margin: 0; }
     S.debugBox.hidden = !S.debug;
     o.append(S.hint, S.stamina, S.regionChip, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
     S.btnAct.addEventListener('click', () => interact());
-    const runOn = e => { e.preventDefault(); S.sprintHeld = true; S.btnRun.classList.add('on'); };
-    const runOff = () => { S.sprintHeld = false; S.btnRun.classList.remove('on'); };
+    // The stick and the sprint button follow their finger on the window, filtered by its pointer id: a re-render moves this
+    // node into a new stage, which releases the pad's pointer capture, and the finger can then slide off or lift anywhere.
+    // The pad has no move/up/cancel handlers of its own, so nothing is handled twice.
+    const runOn = e => { e.preventDefault(); S.runId = e.pointerId; S.sprintHeld = true; S.btnRun.classList.add('on'); };
+    const runOff = e => { if (e.pointerId !== S.runId) return; S.runId = null; S.sprintHeld = false; S.btnRun.classList.remove('on'); };
     S.btnRun.addEventListener('pointerdown', runOn);
-    S.btnRun.addEventListener('pointerup', runOff);
     S.btnRun.addEventListener('pointerleave', runOff);
     S.pad.addEventListener('pointerdown', e => {
       S.joy.id = e.pointerId;
       S.pad.setPointerCapture(e.pointerId);
       joyMove(e);
     });
-    S.pad.addEventListener('pointermove', e => { if (S.joy.id === e.pointerId) joyMove(e); });
-    const joyEnd = () => { S.joy = { x: 0, y: 0, id: null }; S.knob.style.transform = ''; };
-    S.pad.addEventListener('pointerup', joyEnd);
-    S.pad.addEventListener('pointercancel', joyEnd);
+    const joyEnd = e => { if (S.joy.id !== e.pointerId) return; S.joy = { x: 0, y: 0, id: null }; S.knob.style.transform = ''; };
+    window.addEventListener('pointermove', e => { if (S.joy.id === e.pointerId) joyMove(e); });
+    window.addEventListener('pointerup', e => { joyEnd(e); runOff(e); });
+    window.addEventListener('pointercancel', e => { joyEnd(e); runOff(e); });
   }
 
   function joyMove(e) {
@@ -6055,9 +6068,10 @@ p { margin: 0; }
     const MOVE = { KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1 };
     window.addEventListener('keydown', e => {
       if (!S.el.isConnected || typing(e) || document.querySelector('.modal-back')) return;
+      // F3 first, even with the map open: the debug overlay toggles (once, however long it is held) and the browser's find bar never opens.
+      if (e.code === 'F3') { if (!e.repeat) { S.debug = !S.debug; S.debugBox.hidden = !S.debug; } e.preventDefault(); return; }
       if (S.map.isOpen()) { if (S.map.key(e)) e.preventDefault(); return; }
       if (e.code === 'KeyM' && !e.repeat) { openMap(); e.preventDefault(); return; }
-      if (e.code === 'F3') { S.debug = !S.debug; S.debugBox.hidden = !S.debug; e.preventDefault(); return; }
       if (MOVE[e.code]) { S.keys.add(e.code); if (S.player) S.player.path = null; e.preventDefault(); }
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.add('Shift');
       if (e.code === 'KeyE' && !e.repeat) { interact(); e.preventDefault(); }
@@ -6106,6 +6120,17 @@ p { margin: 0; }
     S.map.open(mapState());
   }
 
+  // A takeover (your astronaut died) or a claim (co-op): you are now this crewmate, standing where they stood (their walk at the
+  // base, or where their player had them), not where the astronaut before you was. Their NPC goes with them.
+  function moveToCrewmate(id) {
+    const p = S.player, from = S.npcs[id] || S.remote[id];
+    const [x, y] = from ? [from.x, from.y] : spawnPoint();
+    Object.assign(p, { x, y, dir: (from && from.dir) || 'down', path: null, inRover: false, autoFocus: null, faceTo: null });
+    delete S.npcs[id];
+    S.pendingAuto = null;
+    S.camSnap = true;
+  }
+
   // ---------- data from ui.js ----------
   function update(data) {
     S.data = data;
@@ -6114,6 +6139,7 @@ p { margin: 0; }
     refreshWorld(data.mission);
     if (data.fog) S.world.mergeFog(data.fog);
     ensurePlayer();
+    if (data.controlId && S.player.crewId !== data.controlId) moveToCrewmate(data.controlId);
     S.player.crewId = data.controlId;
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
@@ -6673,8 +6699,7 @@ p { margin: 0; }
       const [wx, wy] = gridToWorld(gx, gy);
       const X = wx * T, Y = wy * T;
       ctx.fillRect(X + 2, Y + 2, T - 4, T - 4);
-      ctx.beginPath(); ctx.moveTo(X + 8, Y + 20); ctx.lineTo(X + 22, Y + 26); ctx.lineTo(X + 32, Y + 17); ctx.lineTo(X + 46, Y + 28); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(X + 12, Y + 44); ctx.lineTo(X + 24, Y + 40); ctx.lineTo(X + 33, Y + 48); ctx.lineTo(X + 48, Y + 43); ctx.stroke();
+      drawIceCracks(ctx, X, Y);
     }
     ctx.restore();
 
@@ -6808,6 +6833,7 @@ p { margin: 0; }
     return {
       player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, stamina: S.player.stamina, path: S.player.path && S.player.path.length },
       lastTap: S.lastTap, focus: S.focus && S.focus.kind, menu: S.menuOpen, npcs: Object.keys(S.npcs), tileScreen, toScreen,
+      npcAt: Object.fromEntries(Object.entries(S.npcs).map(([id, n]) => [id, [n.x, n.y]])),
       remote: JSON.parse(JSON.stringify(S.remote)),
       blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true),
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),

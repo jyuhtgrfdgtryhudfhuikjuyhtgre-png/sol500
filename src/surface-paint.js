@@ -20,7 +20,6 @@
   // ---------- colours ----------
   // Regolith looks different in each region; the other codes have one colour each.
   const REGION_GROUND = [[116, 58, 37], [67, 48, 43], [104, 82, 72], [134, 72, 44], [177, 158, 146], [59, 45, 44]];
-  const REGION_COLORS = ['#b4532f', '#4a3530', '#7d675c', '#c06a3a', '#cfe0e6', '#2f2526'];
   const UNDER_BOULDER = [TL.REGOLITH, TL.DUNE, TL.REGOLITH, TL.REGOLITH, TL.POLYGON, TL.LAVA];
   const CODE_RGB = [];
   CODE_RGB[TL.SAND] = [77, 49, 41];
@@ -40,6 +39,9 @@
     if (code === TL.REGOLITH || CODE_RGB[code] == null) return REGION_GROUND[region] || REGION_GROUND[0];
     return CODE_RGB[code];
   }
+  // The map legend's swatch for each region: its usual ground (the one under its boulders), exactly as the minimap and the map paint it.
+  const hex = rgb => '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('');
+  const REGION_COLORS = UNDER_BOULDER.map((code, region) => hex(tileRGB(code, region)));
   const channel = v => Math.min(255, Math.round(v));
   const css = (rgb, k) => 'rgb(' + channel(rgb[0] * k) + ',' + channel(rgb[1] * k) + ',' + channel(rgb[2] * k) + ')';
   const RAISED = new Uint8Array(32);
@@ -70,8 +72,7 @@
     } else if (look === TL.ICE) {
       g.strokeStyle = 'rgba(255,255,255,0.8)';
       g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(X + 8, Y + 20); g.lineTo(X + 22, Y + 26); g.lineTo(X + 32, Y + 17); g.lineTo(X + 46, Y + 28); g.stroke();
-      g.beginPath(); g.moveTo(X + 12, Y + 44); g.lineTo(X + 24, Y + 40); g.lineTo(X + 33, Y + 48); g.lineTo(X + 48, Y + 43); g.stroke();
+      drawIceCracks(g, X, Y);
     } else if (look === TL.LAVA) {
       g.fillStyle = 'rgba(20,14,14,0.5)';
       for (let k = 0; k < 6; k++) { const v = W.hash(world.seed, tx, ty, 901 + k); g.fillRect(X + (v % 60), Y + ((v >>> 8) % 60), 2 + ((v >>> 16) % 3), 2 + ((v >>> 20) % 3)); }
@@ -384,6 +385,13 @@
     ctx.closePath();
   }
 
+  // The two crack lines on an ice tile whose top-left corner is (X, Y) in world pixels, in the current stroke style:
+  // the ice of the ground and the buried ice at the base look the same.
+  function drawIceCracks(g, X, Y) {
+    g.beginPath(); g.moveTo(X + 8, Y + 20); g.lineTo(X + 22, Y + 26); g.lineTo(X + 32, Y + 17); g.lineTo(X + 46, Y + 28); g.stroke();
+    g.beginPath(); g.moveTo(X + 12, Y + 44); g.lineTo(X + 24, Y + 40); g.lineTo(X + 33, Y + 48); g.lineTo(X + 48, Y + 43); g.stroke();
+  }
+
   function drawRock(ctx, d) {
     const cx = d.wx * T + T / 2 + (d.ox || 0), cy = d.wy * T + T / 2 + (d.oy || 0);
     const s = d.s;
@@ -564,6 +572,6 @@
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander },
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks },
   };
 });

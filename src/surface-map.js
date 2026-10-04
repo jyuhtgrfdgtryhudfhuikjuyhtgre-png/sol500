@@ -58,6 +58,9 @@
       last = st;
       if (!world || open || now - lastMini < 150) return;
       lastMini = now;
+      // Explored chunks at the edge have no live data (a teammate's fog, a resumed save): build the image the last redraw
+      // queued for them, about one every 150 ms, so the minimap never waits for the full map to open.
+      painter.workMinis(now + 1);
       const size = minimap.clientWidth || MINI, k = dpr();
       if (mc.width !== Math.round(size * k)) { mc.width = Math.round(size * k); mc.height = Math.round(size * k); }
       const g = mc.getContext('2d');
@@ -133,9 +136,9 @@
       if (opts.onClose) opts.onClose();
     }
     function zoom(d) { zi = Math.max(0, Math.min(ZOOMS.length - 1, zi + d)); }
-    // Keys while the map is open; returns true when the key was used.
+    // Keys while the map is open; returns true when the key was used. A held M repeats keydown: only the press closes the map.
     function key(e) {
-      if (e.code === 'Escape' || e.code === 'KeyM') { closeMap(); return true; }
+      if (e.code === 'Escape' || (e.code === 'KeyM' && !e.repeat)) { closeMap(); return true; }
       if (e.key === '+' || e.key === '=') { zoom(1); return true; }
       if (e.key === '-' || e.key === '_') { zoom(-1); return true; }
       const d = PAN[e.code];

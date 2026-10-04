@@ -15,7 +15,7 @@
 (function (root) {
   'use strict';
   const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap;
-  const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander } = P.sprites;
+  const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks } = P.sprites;
   const T = 64;
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
@@ -218,20 +218,22 @@
     S.debugBox.hidden = !S.debug;
     o.append(S.hint, S.stamina, S.regionChip, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
     S.btnAct.addEventListener('click', () => interact());
-    const runOn = e => { e.preventDefault(); S.sprintHeld = true; S.btnRun.classList.add('on'); };
-    const runOff = () => { S.sprintHeld = false; S.btnRun.classList.remove('on'); };
+    // The stick and the sprint button follow their finger on the window, filtered by its pointer id: a re-render moves this
+    // node into a new stage, which releases the pad's pointer capture, and the finger can then slide off or lift anywhere.
+    // The pad has no move/up/cancel handlers of its own, so nothing is handled twice.
+    const runOn = e => { e.preventDefault(); S.runId = e.pointerId; S.sprintHeld = true; S.btnRun.classList.add('on'); };
+    const runOff = e => { if (e.pointerId !== S.runId) return; S.runId = null; S.sprintHeld = false; S.btnRun.classList.remove('on'); };
     S.btnRun.addEventListener('pointerdown', runOn);
-    S.btnRun.addEventListener('pointerup', runOff);
     S.btnRun.addEventListener('pointerleave', runOff);
     S.pad.addEventListener('pointerdown', e => {
       S.joy.id = e.pointerId;
       S.pad.setPointerCapture(e.pointerId);
       joyMove(e);
     });
-    S.pad.addEventListener('pointermove', e => { if (S.joy.id === e.pointerId) joyMove(e); });
-    const joyEnd = () => { S.joy = { x: 0, y: 0, id: null }; S.knob.style.transform = ''; };
-    S.pad.addEventListener('pointerup', joyEnd);
-    S.pad.addEventListener('pointercancel', joyEnd);
+    const joyEnd = e => { if (S.joy.id !== e.pointerId) return; S.joy = { x: 0, y: 0, id: null }; S.knob.style.transform = ''; };
+    window.addEventListener('pointermove', e => { if (S.joy.id === e.pointerId) joyMove(e); });
+    window.addEventListener('pointerup', e => { joyEnd(e); runOff(e); });
+    window.addEventListener('pointercancel', e => { joyEnd(e); runOff(e); });
   }
 
   function joyMove(e) {
@@ -255,9 +257,10 @@
     const MOVE = { KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1 };
     window.addEventListener('keydown', e => {
       if (!S.el.isConnected || typing(e) || document.querySelector('.modal-back')) return;
+      // F3 first, even with the map open: the debug overlay toggles (once, however long it is held) and the browser's find bar never opens.
+      if (e.code === 'F3') { if (!e.repeat) { S.debug = !S.debug; S.debugBox.hidden = !S.debug; } e.preventDefault(); return; }
       if (S.map.isOpen()) { if (S.map.key(e)) e.preventDefault(); return; }
       if (e.code === 'KeyM' && !e.repeat) { openMap(); e.preventDefault(); return; }
-      if (e.code === 'F3') { S.debug = !S.debug; S.debugBox.hidden = !S.debug; e.preventDefault(); return; }
       if (MOVE[e.code]) { S.keys.add(e.code); if (S.player) S.player.path = null; e.preventDefault(); }
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.add('Shift');
       if (e.code === 'KeyE' && !e.repeat) { interact(); e.preventDefault(); }
@@ -306,6 +309,17 @@
     S.map.open(mapState());
   }
 
+  // A takeover (your astronaut died) or a claim (co-op): you are now this crewmate, standing where they stood (their walk at the
+  // base, or where their player had them), not where the astronaut before you was. Their NPC goes with them.
+  function moveToCrewmate(id) {
+    const p = S.player, from = S.npcs[id] || S.remote[id];
+    const [x, y] = from ? [from.x, from.y] : spawnPoint();
+    Object.assign(p, { x, y, dir: (from && from.dir) || 'down', path: null, inRover: false, autoFocus: null, faceTo: null });
+    delete S.npcs[id];
+    S.pendingAuto = null;
+    S.camSnap = true;
+  }
+
   // ---------- data from ui.js ----------
   function update(data) {
     S.data = data;
@@ -314,6 +328,7 @@
     refreshWorld(data.mission);
     if (data.fog) S.world.mergeFog(data.fog);
     ensurePlayer();
+    if (data.controlId && S.player.crewId !== data.controlId) moveToCrewmate(data.controlId);
     S.player.crewId = data.controlId;
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
@@ -873,8 +888,7 @@
       const [wx, wy] = gridToWorld(gx, gy);
       const X = wx * T, Y = wy * T;
       ctx.fillRect(X + 2, Y + 2, T - 4, T - 4);
-      ctx.beginPath(); ctx.moveTo(X + 8, Y + 20); ctx.lineTo(X + 22, Y + 26); ctx.lineTo(X + 32, Y + 17); ctx.lineTo(X + 46, Y + 28); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(X + 12, Y + 44); ctx.lineTo(X + 24, Y + 40); ctx.lineTo(X + 33, Y + 48); ctx.lineTo(X + 48, Y + 43); ctx.stroke();
+      drawIceCracks(ctx, X, Y);
     }
     ctx.restore();
 
@@ -1008,6 +1022,7 @@
     return {
       player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, stamina: S.player.stamina, path: S.player.path && S.player.path.length },
       lastTap: S.lastTap, focus: S.focus && S.focus.kind, menu: S.menuOpen, npcs: Object.keys(S.npcs), tileScreen, toScreen,
+      npcAt: Object.fromEntries(Object.entries(S.npcs).map(([id, n]) => [id, [n.x, n.y]])),
       remote: JSON.parse(JSON.stringify(S.remote)),
       blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true),
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
