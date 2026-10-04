@@ -534,6 +534,12 @@ p { margin: 0; }
   .sf-menu { bottom: 146px; max-height: calc(100% - 160px); }
   .sf-hint { white-space: normal; text-align: center; border-radius: 12px; }
 }
+@media (max-width: 640px) {
+  /* A full-width strip under the minimap, in the slot the region card takes on a phone (top: 136px, above): never a tall narrow column.
+     While the card shows, the hint steps aside, so the two never overlap. */
+  .sf-hint { top: 136px; left: 12px; right: 12px; transform: none; max-width: none; }
+  .sf-stage:has(.region-card) .sf-hint { display: none; }
+}
 .sf-side { display: grid; gap: 12px; min-width: 0; }
 .pilot { display: grid; gap: 14px; padding: 8px 0 24px; }
 .pilot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
