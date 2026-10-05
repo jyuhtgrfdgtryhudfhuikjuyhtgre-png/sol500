@@ -84,6 +84,22 @@ test('an empty suit outside asks for a collapse once; a solo collapse sends you 
   assert.equal(s.eva.state().benched, true);
   assert.equal(s.eva.canMove(outside(0, 0), 3 * T + 40, 32), false, 'you cannot leave the base zone until the next round');
   assert.equal(s.eva.canMove(outside(0, 0), 1 * T, 32), true, 'but you can walk about inside it');
+
+  // Focus 3: co-op revive scenario (down→up transition at sync guards the revive-heartbeat race).
+  // When another crew member revives a collapsed one, the revived person's suit is restored via sync.
+  const coop = E.createMission({ seed: 'EVA-2', loadout: E.referenceKit('commander', 4), events: false, coop: true, pilot: 'minh' });
+  const s2 = setup({ mission: coop });
+  const collapsePos = { x: 30 * T + 32, y: 4 * T + 32 };
+  // Directly collapse minh via expedition rule.
+  X.collapse(s2.m, 'minh', collapsePos);
+  s2.eva.sync({ mission: s2.m, controlId: 'minh', lang: 'en' });
+  assert.equal(s2.eva.state().collapsed, true, 'minh is now collapsed');
+  // Another crew member revives minh from the same position.
+  X.revive(s2.m, 'diego', 'minh', collapsePos);
+  // When minh syncs after being revived, the down→up transition should restore the revived suit.
+  s2.eva.sync({ mission: s2.m, controlId: 'minh', lang: 'en' });
+  assert.equal(s2.eva.state().collapsed, false, 'minh is no longer collapsed after revive');
+  assert.equal(s2.eva.state().suit, D.EXPEDITION.reviveSuit, 'revived crew member gets reviveSuit via down→up sync');
 });
 
 test('walking into the base zone with a load delivers it, once', async () => {
@@ -127,6 +143,20 @@ test('a new round means a full suit again, and says so', () => {
   const look = s.eva.sync({ mission: next, controlId: 'minh', lang: 'en' });
   assert.equal(look.round, true);
   assert.equal(s.eva.state().suit, D.EXPEDITION.suit);
+
+  // Focus 3: a reload or a dropped connection survives (suit, rover, collapse).
+  // Fresh-look sync (different turn or mission id) must restore suit and roverDriven from mission state.
+  s.m.expedition.suits.minh = 40;
+  s.m.expedition.roverDriven = 100;
+  s.eva.sync({ mission: s.m, controlId: 'minh', lang: 'en' });
+  assert.equal(s.eva.state().suit, 40, 'fresh-look sync restores suit from mission.expedition.suits');
+  assert.equal(s.eva.report().driven, 100, 'fresh-look sync restores roverDriven from mission.expedition');
+
+  // In solo mode, a benched crew member stays benched after fresh-look sync.
+  X.collapse(s.m, 'minh', { x: 30 * T + 32, y: 4 * T + 32 });
+  assert.equal(s.eva.state().benched, true);
+  s.eva.sync({ mission: s.m, controlId: 'minh', lang: 'en' });
+  assert.equal(s.eva.state().benched, true, 'fresh-look sync preserves benched state in solo mode');
 });
 
 test('nobody moves on an empty suit or a flat rover battery', () => {
