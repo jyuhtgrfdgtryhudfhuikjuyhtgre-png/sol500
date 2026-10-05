@@ -10,7 +10,9 @@
  * (−4, −2), so the HQ is at (0, 0). Nothing that blocks is ever placed within FLAT_RADIUS tiles of the HQ.
  *
  * API: seedOf(missionSeed) → uint32 · regionAt(seed, x, y) → index into REGIONS
- *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512) }   (32×32, row-major)
+ *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds }   (32×32, row-major)
+ *        finds: [{ n, x, y, kind, ring, region, sub? }] in world tiles; a find's id is "<cx>,<cy>:<n>"
+ *      ringOf(x, y) → 0 inner · 1 middle · 2 outer · 3 far
  *      tileOf(chunk, lx, ly) · regionOf(chunk, lx, ly)
  *      featuresNear(seed, x0, y0, x1, y1) → { canyons, craters, mesas } touching that tile box (inclusive)
  *      hash(seed, a, b, c) → uint32 · unit(h) → [0, 1) · noise(seed, salt, x, y, size) → [0, 1]
@@ -314,6 +316,61 @@
     return NONE;
   }
 
+  // ---------- finds (spec §2.4): darts thrown inside the chunk, 3 tiles from its edges ----------
+  // A chunk places its own finds without looking at its neighbours. Every find stands on open ground, and the reachability
+  // test proves all open ground near the base is connected, so every find can be reached on foot.
+  const RINGS = [20, 40, 80];                   // inner ≤ 20 < middle ≤ 40 < outer ≤ 80 < far, in tiles from the HQ
+  const FIND_KINDS = ['ice', 'metal', 'pod', 'science'];
+  const FIND_DARTS = 24, FIND_EDGE = 3, FIND_GAP = 5;
+  const FIND_DENSITY = [1.6, 0.8, 1.6, 1.6, 1.8, 1.6]; // finds a chunk aims for, by region (the Dune Sea has few)
+  const RING_DENSITY = [0.3, 0.6, 1, 1];               // fewer finds close to the base
+  const KIND_WEIGHTS = [                             // ice, metal, pod, science, by region
+    [0, 1.5, 1.5, 0.5], [0, 1.2, 2.5, 0.35], [0, 1.5, 0, 0.75], [0, 1.5, 0, 0.75], [6, 0.6, 0, 0.35], [0, 2.25, 0, 0.35],
+  ];
+  const ICY_GROUND = new Uint8Array(32);             // ice deposits lie in crater floors and canyons in any region
+  for (const k of ['CRATER_FLOOR', 'CANYON_FLOOR', 'ICE']) ICY_GROUND[TILE[k]] = 1;
+  const SCIENCE_SUBS = [['delta', 'vent'], ['meteorite'], ['meteorite', 'layered'], ['layered', 'vent'], ['layered'], ['layered', 'meteorite']];
+
+  function ringOf(x, y) {
+    const d2 = x * x + y * y;
+    return d2 <= RINGS[0] * RINGS[0] ? 0 : d2 <= RINGS[1] * RINGS[1] ? 1 : d2 <= RINGS[2] * RINGS[2] ? 2 : 3;
+  }
+
+  // Crater floors and canyon floors hold ice: the chunk that owns a crater's centre (or a canyon's middle) puts an ice
+  // deposit there first. Then darts land at random spots.
+  function placeFinds(seed, cx, cy, tiles, regions, feats) {
+    const out = [], span = CHUNK - 2 * FIND_EDGE;
+    const x0 = cx * CHUNK, y0 = cy * CHUNK;
+    const own = (x, y) => x - x0 >= FIND_EDGE && y - y0 >= FIND_EDGE && x - x0 < CHUNK - FIND_EDGE && y - y0 < CHUNK - FIND_EDGE;
+    const spots = feats.craters.map(c => [c.x, c.y])
+      .concat(feats.canyons.map(k => [Math.floor((k.pts[1][0] + k.pts[2][0]) / 2), Math.floor((k.pts[1][1] + k.pts[2][1]) / 2)]));
+    for (const [x, y] of spots) {
+      if (!own(x, y) || inFlat(x, y)) continue;
+      const n = (y - y0) * CHUNK + (x - x0);
+      if (!ICY_GROUND[tiles[n]]) continue;
+      out.push({ n: out.length, x, y, kind: 'ice', ring: ringOf(x, y), region: (regions[n >> 1] >> ((n & 1) * 4)) & 15 });
+    }
+    for (let i = 0; i < FIND_DARTS; i++) {
+      const h = hash(seed, cx, cy, 500 + i);
+      const lx = FIND_EDGE + (h % span), ly = FIND_EDGE + ((h >>> 8) % span), n = ly * CHUNK + lx;
+      const x = cx * CHUNK + lx, y = cy * CHUNK + ly;
+      if (inFlat(x, y)) continue;
+      const code = tiles[n];
+      if (BLOCKING[code] || code === TILE.BASE) continue;
+      const r = (regions[n >> 1] >> ((n & 1) * 4)) & 15, ring = ringOf(x, y);
+      if (unit(hash(seed, cx, cy, 540 + i)) >= FIND_DENSITY[r] * RING_DENSITY[ring] / FIND_DARTS) continue;
+      if (out.some(f => Math.abs(f.x - x) < FIND_GAP && Math.abs(f.y - y) < FIND_GAP)) continue;
+      const w = KIND_WEIGHTS[r].slice();
+      if (ICY_GROUND[code]) w[0] += 6;
+      let pick = unit(hash(seed, cx, cy, 580 + i)) * (w[0] + w[1] + w[2] + w[3]), k = 0;
+      while (k < 3 && pick >= w[k]) { pick -= w[k]; k++; }
+      const f = { n: out.length, x, y, kind: FIND_KINDS[k], ring, region: r };
+      if (k === 3) f.sub = SCIENCE_SUBS[r][(h >>> 16) % SCIENCE_SUBS[r].length];
+      out.push(f);
+    }
+    return out;
+  }
+
   // ---------- chunks ----------
   function chunk(seed, cx, cy) {
     const x0 = cx * CHUNK, y0 = cy * CHUNK, w = CHUNK + 2;
@@ -341,7 +398,7 @@
       else t = ground(seed, r, x, y);
       tiles[i] = t;
     }
-    return { cx, cy, tiles, regions };
+    return { cx, cy, tiles, regions, finds: placeFinds(seed, cx, cy, tiles, regions, feats) };
   }
 
   const tileOf = (c, lx, ly) => c.tiles[ly * CHUNK + lx];
@@ -351,7 +408,7 @@
   }
 
   return {
-    CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16,
-    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear,
+    CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16, RINGS, FIND_KINDS,
+    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear, ringOf,
   };
 });
