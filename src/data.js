@@ -228,6 +228,36 @@
       grades: [['S', 1400], ['A', 1200], ['B', 1000], ['C', 800]],
     },
 
+    // Exploring (spec §3). Seconds are real time on the surface; distances are world tiles (the HQ is tile 0, 0).
+    EXPEDITION: {
+      suit: 150,                // a full suit: seconds outside the base zone, per crew member per round
+      drain: { sprint: 2, rover: 0.5, icy: 1.1 }, // drain factors: sprinting, driving the rover, the cold Icy Plains
+      baseZone: 2,              // tiles around the HQ either way: the suit pauses here and finds are delivered here
+      reach: 1.5,               // tiles of slack on every action checked against a position
+      pack: 3, packRover: 8,    // loads you can carry on foot and in the rover
+      hold: { load: 3, survey: 5, pickup: 3, revive: 4 }, // seconds of holding E
+      canister: { suit: 45, o2: 30 }, // an O₂ canister: +45 s of suit now, or +30 kg of base O₂ if carried home
+      reviveSuit: 30,           // a revived crew member stands up with this much suit
+      collapse: { health: 20, morale: 3 }, // an empty suit outside: lost at the next advance
+      roverHome: 6,             // a rover left within this many tiles of the HQ goes back to its bay
+      roverRange: 400,          // tiles the rover's battery drives per round (it recharges overnight)
+      maxDrops: 40,             // dropped loads kept in the mission (the oldest go first)
+    },
+    // What one load of each find gives (spec §3.1). Arrays run inner, middle, outer, far (worldgen RINGS).
+    FINDS: {
+      ice: { loads: [3, 4, 5, 6], res: 'water', kg: 40 },
+      metal: { loads: [3, 4, 4, 5], res: 'materials', kg: 40 },
+      pod: { loads: [3, 3, 3, 3], food: 60 },   // each load: a spare kit, 60 kg of food or an O₂ canister
+      science: { loads: [1, 1, 1, 1], science: [20, 35, 60, 80], craters: 1.5 },
+    },
+    // Role skills on the map (spec §3.3): factors on how long you hold E, and the scientist's extra science.
+    SKILLS: {
+      scientist: { science: 0.5, scienceBonus: 1.5 },
+      engineer: { metal: 0.5, pod: 0.5 },
+      biologist: { ice: 0.5, sight: 16 },
+      medic: { revive: 0.5 },
+    },
+
     ACHIEVEMENTS: ['first_sol', 'sol500', 'full_crew', 'revived', 'storm_survivor', 'closed_loop',
       'green_thumb', 'lead_apron', 'builder', 'fortress', 'scrapper', 'self_reliant', 'explorer',
       'grade_s', 'lightweight', 'flare_dodger', 'oxygen_hero', 'team_player'],

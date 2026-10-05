@@ -611,7 +611,8 @@ test("a new mission has an empty exploring state and, in solo play, the player's
   assert.deepEqual(s.expedition.revealed, {});
   assert.deepEqual(s.expedition.regions, []);
   assert.deepEqual(Object.keys(s.expedition).sort(),
-    ['banked', 'beacons', 'carried', 'drops', 'goals', 'incidents', 'kits', 'landmarks', 'refills', 'regions', 'revealed', 'sites', 'stats', 'structures', 'v']);
+    ['banked', 'beacons', 'benched', 'carried', 'collapsed', 'drops', 'goals', 'incidents', 'kits', 'landmarks', 'refills', 'regions',
+      'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v']);
   assert.equal(calm().pilot, null, 'no pilot unless one is chosen (co-op seats choose their own)');
   assert.throws(() => E.createMission({ seed: 'PILOT-0', loadout: kit(), events: false, pilot: 'kai' }), /pilot/, 'kai is not in a crew of 4');
   assert.throws(() => E.createMission({ seed: 'PILOT-0', loadout: kit(), events: false, pilot: 'nobody' }), /pilot/);
@@ -666,4 +667,137 @@ test('saves from before v3 get the exploring state and a pilot when they load', 
   assert.equal(kept.pilot, 'amara');
   assert.equal(E.upgradeMission(null), null);
   assert.equal(E.resolveTurn(up, E.defaultPlan(up)).state.status, 'active', 'an upgraded save plays on');
+});
+
+// ---------- exploring: the bank and the advance (M4a) ----------
+
+const ICE = { kind: 'ice', res: 'water', amount: 40, id: '3,1:0', region: 4 };
+const METAL = { kind: 'metal', res: 'materials', amount: 40, id: '2,2:1', region: 0 };
+const SURVEY = { kind: 'science', res: 'science', amount: 35, id: '2,2:2', region: 0, sub: 'delta' };
+
+test('delivered finds count when the round advances, and the report lists them per crew member, find and region', () => {
+  const plain = calm();
+  const s = calm();
+  E.bankItem(s.expedition.banked, 'minh', ICE);
+  E.bankItem(s.expedition.banked, 'minh', ICE);
+  E.bankItem(s.expedition.banked, 'minh', METAL);
+  E.bankItem(s.expedition.banked, 'diego', SURVEY);
+  const a = E.resolveTurn(plain, E.defaultPlan(plain));
+  const b = E.resolveTurn(s, E.defaultPlan(s));
+  assert.equal(Math.round(b.state.resources.water - a.state.resources.water), 80);
+  assert.equal(Math.round(b.state.resources.materials - a.state.resources.materials), 40);
+  assert.equal(Math.round(b.state.science - a.state.science), 35);
+  assert.deepEqual(b.report.expedition.got, { water: 80, materials: 40, spares: 0, food: 0, o2: 0, science: 35, morale: 0 });
+  assert.deepEqual(b.report.expedition.lines, [
+    { crewId: 'minh', kind: 'ice', res: 'water', region: 4, amount: 80, loads: 2, late: false },
+    { crewId: 'minh', kind: 'metal', res: 'materials', region: 0, amount: 40, loads: 1, late: false },
+    { crewId: 'diego', kind: 'science', res: 'science', region: 0, amount: 35, loads: 1, late: false },
+  ]);
+  assert.deepEqual(b.state.expedition.banked, { water: 0, materials: 0, spares: 0, food: 0, o2: 0, science: 0, morale: 0, lines: [] }, 'spent');
+  assert.equal(E.resolveTurn(b.state, E.defaultPlan(b.state)).report.expedition.lines.length, 0, 'counted once');
+});
+
+test('the forecast includes the bank, so a delivery shows in the HUD before the round advances', () => {
+  const s = calm();
+  const before = E.forecast(s, E.defaultPlan(s)).delta.water;
+  E.bankItem(s.expedition.banked, 'lena', ICE);
+  assert.equal(Math.round(E.forecast(s, E.defaultPlan(s)).delta.water - before), 40);
+});
+
+test('a load still in a backpack is banked at the start of the next round and marked late', () => {
+  const s = calm();
+  s.expedition.carried = { lena: [ICE, METAL] };
+  const r1 = E.resolveTurn(s, E.defaultPlan(s));
+  assert.deepEqual(r1.state.expedition.carried, {});
+  assert.equal(r1.report.expedition.lines.length, 0, 'nothing delivered this round');
+  assert.equal(r1.state.expedition.banked.water, 40);
+  assert.equal(r1.state.expedition.banked.materials, 40);
+  assert.ok(r1.state.expedition.banked.lines.every(l => l.late && l.crewId === 'lena'));
+  const r2 = E.resolveTurn(r1.state, E.defaultPlan(r1.state));
+  assert.equal(r2.report.expedition.got.water, 40, 'counted one round late');
+});
+
+test('a collapse outside costs that astronaut 20 health and the crew 3 morale at the advance, once', () => {
+  const plain = calm(), s = calm();
+  for (const m of [plain, s]) { m.crew[1].health = 70; m.morale = 60; }
+  s.expedition.incidents = [{ crewId: 'minh', kind: 'collapse' }];
+  const a = E.resolveTurn(plain, E.defaultPlan(plain)), b = E.resolveTurn(s, E.defaultPlan(s));
+  assert.equal(Math.round(a.state.crew[1].health - b.state.crew[1].health), 20);
+  assert.equal(Math.round(a.state.morale - b.state.morale), 3);
+  assert.deepEqual(b.report.expedition.incidents, [{ crewId: 'minh', kind: 'collapse' }]);
+  assert.deepEqual(b.state.expedition.incidents, [], 'spent');
+});
+
+test('in co-op an astronaut still collapsed at the advance counts as a collapse and leaves the load where they fell', () => {
+  const s = E.createMission({ seed: 'COOP-X', loadout: kit(), events: false, coop: true });
+  s.crew[2].health = 50;
+  const plain = JSON.parse(JSON.stringify(s));
+  s.expedition.collapsed = { diego: { x: 900, y: -640 } };
+  s.expedition.carried = { diego: [ICE, SURVEY], minh: [METAL] };
+  const a = E.resolveTurn(plain, E.defaultPlan(plain)), b = E.resolveTurn(s, E.defaultPlan(s));
+  assert.equal(Math.round(a.state.crew[2].health - b.state.crew[2].health), 20);
+  assert.deepEqual(b.report.expedition.incidents, [{ crewId: 'diego', kind: 'collapse' }]);
+  assert.deepEqual(b.state.expedition.drops, [{ id: '0:diego', x: 900, y: -640, items: [ICE, SURVEY] }]);
+  assert.equal(b.state.expedition.banked.materials, 40, "minh's load is banked as usual");
+  assert.equal(b.state.expedition.banked.water, 0, "diego's load is not");
+  assert.deepEqual(b.state.expedition.collapsed, {});
+});
+
+test('everyone starts the next round at the base with a full suit; a driven rover comes home, a parked one stays', () => {
+  const s = calm();
+  Object.assign(s.expedition, { suits: { lena: 12 }, benched: ['minh'], rover: { driver: 'lena' } });
+  const next = E.resolveTurn(s, E.defaultPlan(s)).state.expedition;
+  assert.deepEqual(next.suits, {});
+  assert.deepEqual(next.benched, []);
+  assert.equal(next.rover, null);
+  const p = calm();
+  p.expedition.rover = { x: 3200, y: 640 };
+  assert.deepEqual(E.resolveTurn(p, E.defaultPlan(p)).state.expedition.rover, { x: 3200, y: 640 });
+});
+
+test('a mission keeps at most maxDrops dropped loads, the oldest going first', () => {
+  const s = E.createMission({ seed: 'DROPS', loadout: kit(), events: false, coop: true });
+  s.expedition.drops = Array.from({ length: D.EXPEDITION.maxDrops }, (_, i) => ({ id: 'old' + i, x: 0, y: 0, items: [ICE] }));
+  s.expedition.collapsed = { lena: { x: 64, y: 64 } };
+  s.expedition.carried = { lena: [METAL] };
+  const drops = E.resolveTurn(s, E.defaultPlan(s)).state.expedition.drops;
+  assert.equal(drops.length, D.EXPEDITION.maxDrops);
+  assert.equal(drops[0].id, 'old1');
+  assert.equal(drops[drops.length - 1].id, '0:lena');
+});
+
+test('bankItem ignores unknown resources and treats a bad amount as zero', () => {
+  const bank = E.newExpedition().banked;
+  E.bankItem(bank, 'lena', { kind: 'ice', res: 'gold', amount: 9, region: 0 });
+  E.bankItem(bank, 'lena', { kind: 'ice', res: 'morale', amount: 9, region: 0 });
+  E.bankItem(bank, 'lena', { kind: 'ice', res: 'water', amount: -5, region: 0 });
+  E.bankItem(bank, 'lena', null);
+  assert.equal(bank.water, 0);
+  assert.equal(bank.morale, 0);
+  assert.equal(bank.lines.length, 1);
+});
+
+test('a saved exploring state with missing or malformed fields is repaired field by field', () => {
+  const m = calm();
+  m.pilot = 'nobody';
+  m.expedition = {
+    v: 2, revealed: [], sites: 'x', carried: null, regions: ['plains'], drops: {}, rover: 7, suits: [], kits: 'two',
+    banked: { water: 'a', science: 12, lines: 5 },
+  };
+  const up = E.upgradeMission(m, {});
+  const x = up.expedition;
+  assert.deepEqual(x.revealed, {});
+  assert.deepEqual(x.sites, {});
+  assert.deepEqual(x.carried, {});
+  assert.deepEqual(x.regions, ['plains'], 'good fields are kept');
+  assert.deepEqual(x.drops, []);
+  assert.equal(x.rover, null);
+  assert.deepEqual(x.suits, {});
+  assert.equal(x.kits, 0);
+  assert.equal(x.banked.water, 0);
+  assert.equal(x.banked.science, 12);
+  assert.deepEqual(x.banked.lines, []);
+  assert.deepEqual(x.collapsed, {}, 'fields a v3.2 save never had are added');
+  assert.equal(up.pilot, 'lena', 'a pilot who is not in the crew is chosen again');
+  assert.deepEqual(E.upgradeMission(calm(), {}).expedition, E.newExpedition(), 'a good one is untouched');
 });

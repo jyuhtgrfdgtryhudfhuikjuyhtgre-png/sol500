@@ -9,6 +9,8 @@
  *     crew: [{ id, role, name, health, dose, status: 'active'|'down'|'dead', downTurns, revives, grounded, harm }],
  *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log
  *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition) }
+ *   Exploring: what the crew delivers is banked in expedition.banked and added when the round advances (applyExpedition);
+ *   the rules for collecting and carrying finds live in src/expedition.js.
  *
  * Plan (the player's decisions for one turn):
  *   { jobs: { crewId: job }, modulesOn: { type: bool }, rations: 'full'|'reduced', habMode: 'normal'|'austerity',
@@ -216,13 +218,57 @@
   }
 
   // ---------- mission ----------
-  // The exploring state (spec §4). M3 uses `revealed` (the shared fog) and `regions`; M4 fills in the rest.
+  // The exploring state (spec §4). M3 uses `revealed` (the shared fog) and `regions`. M4a adds the finds:
+  //   sites { findId: loadsLeft } (touched finds only) · carried { crewId: [item] } · drops [{ id, x, y, items }] (world px)
+  //   banked { water, materials, spares, food, o2, science, morale, lines } (added at the next advance)
+  //   incidents [{ crewId, kind }] · stats { crewId: { finds: { kind: loads } } }
+  //   suits { crewId: seconds left } (missing = full) · collapsed { crewId: { x, y } } (co-op, waiting for a revive)
+  //   benched [crewId] (solo: collapsed, back at the base for the rest of the round) · rover: null at its bay,
+  //   { x, y } parked out on the map, or { driver } while someone drives it · roverDriven: tiles driven this round.
+  // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
+  const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
+  function freshBank() {
+    const b = { lines: [] };
+    for (const k of BANK_RES) b[k] = 0;
+    return b;
+  }
   function newExpedition() {
     return {
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
-      carried: {}, drops: [], banked: { water: 0, materials: 0, spares: 0, food: 0, o2: 0, science: 0, morale: 0, lines: [] },
-      goals: [], incidents: [], stats: {},
+      carried: {}, drops: [], banked: freshBank(), goals: [], incidents: [], stats: {},
+      suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
     };
+  }
+
+  // Missing or malformed fields (an old save, a hand-edited one) are replaced with fresh ones, so the rules never
+  // meet the wrong type. Returns the repaired expedition (a new one if it wasn't an object at all).
+  function repairExpedition(x) {
+    const fresh = newExpedition();
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return fresh;
+    const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
+    for (const k of Object.keys(fresh)) {
+      const want = fresh[k], have = x[k];
+      let ok;
+      if (Array.isArray(want)) ok = Array.isArray(have);
+      else if (want === null) ok = have === null || isMap(have);
+      else if (typeof want === 'object') ok = isMap(have);
+      else ok = typeof have === typeof want && Number.isFinite(have);
+      if (!ok) x[k] = want;
+    }
+    for (const k of BANK_RES) if (!Number.isFinite(x.banked[k])) x.banked[k] = 0;
+    if (!Array.isArray(x.banked.lines)) x.banked.lines = [];
+    return x;
+  }
+
+  // Adds one item to a bank. Report lines are summed per crew member, find kind, resource and region; `late` marks
+  // items banked from a backpack at the start of the next round (spec §3.1).
+  function bankItem(bank, crewId, item, late) {
+    if (!item || !BANK_RES.includes(item.res) || item.res === 'morale') return;
+    const amount = Math.max(0, Number(item.amount) || 0);
+    bank[item.res] += amount;
+    const line = bank.lines.find(l => l.crewId === crewId && l.kind === item.kind && l.res === item.res && l.region === item.region && l.late === !!late);
+    if (line) { line.amount += amount; line.loads += 1; }
+    else bank.lines.push({ crewId, kind: item.kind, res: item.res, region: item.region, amount, loads: 1, late: !!late });
   }
 
   function buildState(loadout, seed, eventsOn, level, size) {
@@ -301,9 +347,9 @@
   // walking as if they are still alive, otherwise the first active (then the first living) crew member.
   function upgradeMission(m, opts) {
     if (!m || typeof m !== 'object') return m;
-    const fresh = newExpedition();
-    if (!m.expedition || typeof m.expedition !== 'object') m.expedition = fresh;
-    else for (const k of Object.keys(fresh)) if (m.expedition[k] == null) m.expedition[k] = fresh[k];
+    m.expedition = repairExpedition(m.expedition);
+    // A pilot who isn't in the crew (a hand-edited save) is chosen again, the same way as for an old save.
+    if (m.pilot != null && !(m.crew || []).some(c => c.id === m.pilot)) m.pilot = undefined;
     if (m.pilot === undefined) {
       const controlId = opts && opts.controlId;
       const alive = c => c.status !== 'dead';
@@ -506,6 +552,8 @@
       production: {}, consumption: {}, delta: {}, crew: [], power: null, science: 0,
       started: [], completed: [], revived: [], downs: [], deaths: [], requested: null,
     };
+    // Exploring: what the crew delivered this round, and what went wrong outside, count before anything else.
+    report.expedition = applyExpedition(s);
     const living = s.crew.filter(c => c.status !== 'dead');
     const n = living.length;
     const workers = s.crew.filter(isActive);
@@ -898,6 +946,53 @@
     return { state: s, report };
   }
 
+  // The bank goes into the base's stocks; each collapse outside (recorded, or a co-op crew member still waiting for a
+  // revive) costs that astronaut health and the crew morale. Returns what the report shows.
+  function applyExpedition(s) {
+    const x = s.expedition;
+    if (!x || !x.banked) return null;
+    const got = {};
+    for (const k of BANK_RES) got[k] = Math.max(0, Number(x.banked[k]) || 0);
+    for (const k of ['water', 'materials', 'spares', 'food', 'o2']) s.resources[k] += got[k];
+    s.science += got.science;
+    s.morale = clamp(s.morale + got.morale, 0, 100);
+    const incidents = (x.incidents || []).map(i => ({ crewId: i.crewId, kind: i.kind }));
+    for (const id of Object.keys(x.collapsed || {})) incidents.push({ crewId: id, kind: 'collapse' });
+    for (const inc of incidents) {
+      const c = s.crew.find(k => k.id === inc.crewId);
+      if (!c || c.status !== 'active') continue;
+      c.health = clamp(c.health - D.EXPEDITION.collapse.health, 0, 100);
+      s.morale = clamp(s.morale - D.EXPEDITION.collapse.morale, 0, 100);
+    }
+    return { got, lines: (x.banked.lines || []).map(l => Object.assign({}, l)), incidents };
+  }
+
+  // After a round: the bank and the incidents are spent; what is still in a backpack is banked for the next round (a
+  // one-round delay), except that a co-op astronaut still collapsed outside leaves their load where they fell. Everyone
+  // starts the next round at the base with a full suit, and the rover comes home with whoever was driving it.
+  function rollExpedition(s, endedTurn) {
+    const x = s.expedition;
+    if (!x) return;
+    const next = freshBank();
+    for (const crewId of Object.keys(x.carried || {})) {
+      const items = x.carried[crewId];
+      if (!Array.isArray(items) || !items.length) continue;
+      const spot = (x.collapsed || {})[crewId];
+      if (spot) x.drops.push({ id: endedTurn + ':' + crewId, x: spot.x, y: spot.y, items });
+      else for (const it of items) bankItem(next, crewId, it, true);
+    }
+    while (x.drops.length > D.EXPEDITION.maxDrops) x.drops.shift();
+    x.banked = next;
+    x.carried = {};
+    x.incidents = [];
+    x.collapsed = {};
+    x.benched = [];
+    x.suits = {};
+    x.refills = {};
+    x.roverDriven = 0;
+    if (x.rover && x.rover.driver) x.rover = null;
+  }
+
   function runway(s, report) {
     const perSol = k => report.delta[k] / D.TURN_SOLS;
     const out = {};
@@ -966,6 +1061,7 @@
 
   function resolveTurn(state, plan) {
     const { state: s, report } = simulate(state, plan, true);
+    rollExpedition(s, s.turn);
     s.turn += 1;
     s.sol += D.TURN_SOLS;
 
@@ -1139,6 +1235,6 @@
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
-    newExpedition, upgradeMission,
+    newExpedition, upgradeMission, repairExpedition, bankItem,
   };
 });
