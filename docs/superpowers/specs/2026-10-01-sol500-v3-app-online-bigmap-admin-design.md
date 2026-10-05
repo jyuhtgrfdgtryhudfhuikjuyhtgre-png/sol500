@@ -1,6 +1,6 @@
 # SOL 500 v3 — Desktop App · Online Share Link · Endless World · Admin Panel
 
-**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 shipped (v3.2.0); M4–M5 to do
+**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 shipped (v3.2.0); M4 split into M4a–M4d (2026-10-05), M4a planned; M5 to do
 **Builds on:** `2026-09-30-sol500-mars-outpost-design.md` (v1/v2: engine, roles, LAN co-op, walkable outpost)
 **Branches:** one `feat/…` branch per milestone, off `master`
 
@@ -539,18 +539,22 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
    - region toasts with sources;
    - the debug overlay;
    - one-astronaut control.
-4. **M4: Exploring.**
-   - finds and carrying;
-   - suit O₂, collapse and revive;
-   - flares, devils and storms;
-   - landmarks and discovery cards;
-   - random structures and formations;
-   - relay beacons;
-   - expedition goals;
-   - role skills and pings;
-   - the debrief section;
-   - ISRU and other sources;
-   - rebalancing.
+4. **M4: Exploring.** Built as four parts (the user split it on 2026-10-05). Each part gets its own branch, plan, reviews, QA, merge and installer:
+   - **M4a, expedition core (v3.3.0):**
+     - finds and carrying;
+     - suit O₂, collapse and revive;
+     - rover parking and its battery;
+     - the server's world cache and checked actions;
+     - an explorer bot that keeps the balance targets.
+   - **M4b, dangers (v3.4.0):** flares and shelters, caves, dust devils, and storms that shrink the view.
+   - **M4c, points of interest (v3.5.0):** landmarks and discovery cards, random structures and formations, and their sources.
+   - **M4d, progression and team (v3.6.0):**
+     - relay beacons and the route home;
+     - expedition goals;
+     - role skills and pings;
+     - the debrief section;
+     - ISRU and other sources;
+     - the final rebalance.
 5. **M5: Polish.**
    - every string in EN + VI;
    - the M1 follow-ups for M5;
@@ -589,18 +593,19 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] One astronaut per player (choose at start, takeover on death)
 
 ### M4 — Exploring
-- [ ] Collect, carry and deliver finds
-- [ ] Finds counted at advance and in the report
-- [ ] Suit oxygen, collapse and revive
-- [ ] Solar flare countdown and shelters
-- [ ] Dust devils and storm visibility
-- [ ] Landmarks with discovery cards
-- [ ] Random structures and natural formations
-- [ ] Relay beacons and the route home
-- [ ] Expedition goals
-- [ ] Role skills on the map and pings
-- [ ] Debrief Expedition section and ISRU lesson
-- [ ] Rebalanced with explorer bots
+- [ ] Collect, carry and deliver finds (M4a)
+- [ ] Finds counted at advance and in the report (M4a)
+- [ ] Suit oxygen, collapse and revive (M4a)
+- [ ] Rover parking and its battery (M4a)
+- [ ] Solar flare countdown and shelters (M4b)
+- [ ] Dust devils and storm visibility (M4b)
+- [ ] Landmarks with discovery cards (M4c)
+- [ ] Random structures and natural formations (M4c)
+- [ ] Relay beacons and the route home (M4d)
+- [ ] Expedition goals (M4d)
+- [ ] Role skills on the map and pings (M4d)
+- [ ] Debrief Expedition section and ISRU lesson (M4d)
+- [ ] Rebalanced with explorer bots (M4d)
 
 ### M5 — Polish
 - [ ] English + Vietnamese for every new screen
@@ -617,6 +622,11 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 6. *v3.1:* **Random built structures belong to a fictional programme (the "Kestrel Survey").** They are labelled "story, fictional" in the game so players never mistake them for real missions. Natural formations and landmarks use real science with sources.
 7. *v3.1:* **Solo history is accepted from LAN devices too** (rate-limited). A teacher's or judge's PC then sees every solo game played on the same Wi-Fi.
 8. *v3.1:* **The admin key is put into the page by the server** for local requests, instead of being passed through the app's preload. One mechanism serves both the browser and the app.
+9. *M4a:* **The rover has a battery.**
+   - It drives 400 tiles a round and recharges overnight.
+   - Working on a find from the rover drains the suit at the walking rate, because you step out to work.
+   - Without this, the explorer runs had the rover hauling about five times what a walker does: about 35 loads a round and about 5,500 science a mission.
+   - Real Mars rovers are limited by their power in the same way.
 
 ## 14. Risks
 
