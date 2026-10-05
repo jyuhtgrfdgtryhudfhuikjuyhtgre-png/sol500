@@ -84,6 +84,11 @@ test('a survey gives science by distance, half again in the Crater Field and hal
   assert.equal(X.itemFor(m, f, 0, 'biologist').amount, Math.round(base));
   assert.equal(X.itemFor(m, f, 0, 'scientist').amount, Math.round(base * 1.5));
   assert.equal(X.itemFor(m, f, 0, 'biologist').sub, f.sub);
+  // Also test Crater Field bonus: find a Crater Field science and verify ×1.5 for biologist, ×2.25 for scientist
+  const craterF = first(m, 'science', g => W.REGIONS[g.region] === 'craters');
+  const craterBase = D.FINDS.science.science[craterF.ring];
+  assert.equal(X.itemFor(m, craterF, 0, 'biologist').amount, Math.round(craterBase * 1.5));
+  assert.equal(X.itemFor(m, craterF, 0, 'scientist').amount, Math.round(craterBase * 1.5 * 1.5));
 });
 
 test("a cargo pod's loads are fixed by the mission code, whoever opens it, and include all three kinds", () => {
@@ -153,6 +158,20 @@ test('solo: an empty suit counts as a collapse at once, the load stays where you
   assert.equal(X.suitOf(m, 'minh'), 0);
   assert.equal(X.collect(m, 'minh', f.id, spot).error, 'benched');
   assert.equal(X.collapse(m, 'minh', spot).error, 'benched', 'only once');
+  // Test maxDrops cap: with 40 drops, a new collapse should remove the oldest
+  const m2 = solo();
+  m2.expedition.drops = Array.from({ length: 40 }, (_, i) => ({
+    id: i + ':crew',
+    x: 100 + i,
+    y: 200 + i,
+    items: [{ kind: 'metal', res: 'materials', amount: 40, id: '0,0:' + i, region: 0 }]
+  }));
+  const oldest = m2.expedition.drops[0];
+  X.collect(m2, 'minh', first(m2, 'metal').id, at(first(m2, 'metal').x, first(m2, 'metal').y));
+  X.collapse(m2, 'minh', at(500, 500));
+  assert.equal(m2.expedition.drops.length, 40, 'still at maxDrops');
+  assert.notDeepEqual(m2.expedition.drops[0], oldest, 'oldest drop was removed');
+  assert.deepEqual(m2.expedition.drops[39].id.endsWith(':minh'), true, 'newest drop is last');
 });
 
 test('co-op: a collapsed crew member waits; a crewmate standing by revives them with 30 s of suit', () => {
@@ -165,6 +184,10 @@ test('co-op: a collapsed crew member waits; a crewmate standing by revives them 
   assert.equal(X.revive(m, 'lena', 'diego', at(33, 4)).error, 'tooFar');
   assert.equal(X.revive(m, 'diego', 'diego', spot).error, 'collapsed');
   assert.equal(X.revive(m, 'lena', 'minh', spot).error, 'notCollapsed');
+  // Test revive guard at __proto__: should not crash and should return notCollapsed
+  const beforeProto = JSON.stringify(m.expedition);
+  assert.equal(X.revive(m, 'lena', '__proto__', spot).error, 'notCollapsed');
+  assert.equal(JSON.stringify(m.expedition), beforeProto, 'revive at __proto__ leaves expedition unchanged');
   assert.deepEqual(X.revive(m, 'lena', 'diego', at(31, 4)), { ok: true });
   assert.deepEqual(m.expedition.collapsed, {});
   assert.equal(X.suitOf(m, 'diego'), 30);
@@ -182,6 +205,8 @@ test('a dropped load can be picked up again, as much as fits', () => {
   assert.equal(r.items.length, 2);
   assert.equal(r.left, 2);
   assert.equal(m.expedition.carried.minh.length, 3);
+  // Test pickUp full error: with full backpack, pickUp fails
+  assert.equal(X.pickUp(m, 'minh', '3:lena', { x: 2000, y: 640 }).error, 'full');
   m.expedition.carried.minh = [];
   X.pickUp(m, 'minh', '3:lena', { x: 2000, y: 640 });
   assert.deepEqual(m.expedition.drops, [], 'an emptied drop is gone');
@@ -192,8 +217,18 @@ test('the rover: one driver at a time, 8 loads, parked where you get out or back
   const bay = X.bay(m);
   assert.ok(bay, 'the rover has a bay');
   assert.equal(X.board(m, 'minh', { x: bay.x + 3 * T, y: bay.y }).error, 'tooFar');
+  // Test 2-tile reach: 1.9 tiles succeeds, 2.1 tiles fails
+  assert.deepEqual(X.board(m, 'minh', { x: bay.x + 1.9 * T, y: bay.y }), { ok: true });
+  X.park(m, 'minh', { x: 0, y: 0 }); // park to test boarding again
+  assert.equal(X.board(m, 'minh', { x: bay.x + 2.1 * T, y: bay.y }).error, 'tooFar');
+  // Re-board by current driver
   assert.deepEqual(X.board(m, 'minh', bay), { ok: true });
   assert.equal(X.board(m, 'lena', bay).error, 'taken');
+  // Test JSON round trip: serialize and deserialize mission
+  const mRoundtrip = JSON.parse(JSON.stringify(m));
+  assert.deepEqual(X.board(mRoundtrip, 'minh', bay), { ok: true }, 'driver can re-board after JSON round trip');
+  assert.equal(X.board(mRoundtrip, 'lena', bay).error, 'taken', 'other crew gets taken after JSON round trip');
+  // Continue with original mission
   assert.equal(X.capacity(m, 'minh'), 8);
   assert.equal(X.park(m, 'lena', bay).error, 'notDriving');
   assert.deepEqual(X.park(m, 'minh', at(40, -12)), { ok: true, home: false });
@@ -223,8 +258,11 @@ test('the suit level a game reports is kept between empty and full, and ignored 
   assert.equal(X.suitOf(m, 'lena'), D.EXPEDITION.suit);
   X.setSuit(m, 'lena', -4);
   assert.equal(X.suitOf(m, 'lena'), 0);
+  // Test junk input: set non-zero value first, then junk, verify it's ignored
+  X.setSuit(m, 'lena', 50);
+  assert.equal(X.suitOf(m, 'lena'), 50);
   X.setSuit(m, 'lena', 'abc');
-  assert.equal(X.suitOf(m, 'lena'), 0);
+  assert.equal(X.suitOf(m, 'lena'), 50, 'junk input is ignored and preserves previous value');
   X.setSuit(m, 'nobody', 5);
   assert.equal(m.expedition.suits.nobody, undefined);
   X.collapse(m, 'minh', at(30, 0));
@@ -246,6 +284,17 @@ test('the shared world cache never holds more than 256 chunks', () => {
   const m = solo('EXP-CACHE');
   for (let i = 0; i < 300; i++) X.findsIn(m, i, -i);
   assert.ok(X.cacheSize() <= 256);
+  // Verify cache key includes world seed: same chunk from same mission should match world chunk
+  const cx = 5, cy = -3;
+  const cached = X.findsIn(m, cx, cy);
+  const worldChunk = W.chunk(W.seedOf(m.seed), cx, cy);
+  assert.deepEqual(cached, worldChunk.finds, 'cache returns same finds as world chunk');
+  // Different seed should have different finds for the same coordinates
+  const mDiff = solo('DIFFERENT-SEED');
+  const cachedDiff = X.findsIn(mDiff, cx, cy);
+  const worldDiffChunk = W.chunk(W.seedOf(mDiff.seed), cx, cy);
+  assert.deepEqual(cachedDiff, worldDiffChunk.finds, 'different seed has different chunk');
+  assert.notDeepEqual(cached, cachedDiff, 'chunks from different seeds are not equal');
 });
 
 test("the rover's battery drives 400 tiles a round; it only counts up, and a flat rover can't be boarded", () => {
