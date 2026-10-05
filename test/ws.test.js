@@ -76,7 +76,7 @@ test('positions sent over the socket reach the other players', async () => {
     await next(gws, isRoom);
     gws.send(JSON.stringify({ t: 'pos', d: { x: 300, y: 200, dir: 'left', moving: true } }));
     const pos = await next(hws, m => m.t === 'pos' && m.d.some(p => p.crewId === 'minh'));
-    assert.deepEqual(pos.d.find(p => p.crewId === 'minh'), { crewId: 'minh', x: 300, y: 200, dir: 'left', moving: true, rover: false });
+    assert.deepEqual(pos.d.find(p => p.crewId === 'minh'), { crewId: 'minh', x: 300, y: 200, dir: 'left', moving: true, rover: false, suit: null, load: 0 });
     hws.close(); gws.close();
   } finally { srv.close(); }
 });

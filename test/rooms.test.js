@@ -404,3 +404,99 @@ test('a region found by anyone is recorded once; made-up regions are refused', (
   assert.equal(bad.status, 400);
   assert.equal(bad.body.error, 'badRegion');
 });
+
+// ---------- exploring in co-op (M4a) ----------
+
+const X = require('../src/expedition.js');
+const T = 64;
+const at = (tx, ty) => ({ x: Math.round((tx + 0.5) * T), y: Math.round((ty + 0.5) * T) });
+function firstFind(m, kind) {
+  for (let r = 1; r < 6; r++) for (let cy = -r; cy < r; cy++) for (let cx = -r; cx < r; cx++) {
+    for (const f of X.findsIn(m, cx, cy)) if (f.kind === kind) return X.findById(m, cx + ',' + cy + ':' + f.n);
+  }
+  throw new Error('no ' + kind);
+}
+
+test('co-op: collecting is checked against where the server last saw you, and everyone sees the result', () => {
+  const { R, room, guest, hc } = inMission();
+  const f = firstFind(room.mission, 'metal');
+  assert.equal(say(R, room, guest, 'collect', { find: f.id }).body.error, 'badPos', 'no position yet');
+  R.position(room, guest, at(f.x + 5, f.y));
+  assert.equal(say(R, room, guest, 'collect', { find: f.id }).body.error, 'tooFar');
+  R.position(room, guest, at(f.x, f.y));
+  const mark = hc.got.length;
+  assert.equal(say(R, room, guest, 'collect', { find: f.id }).status, 200);
+  assert.equal(room.mission.expedition.carried.minh.length, 1);
+  const frame = hc.got.slice(mark).find(m => m.type === 'room');
+  assert.equal(frame.data.mission.expedition.carried.minh.length, 1, 'the host sees the load');
+  assert.equal(frame.data.mission.expedition.sites[f.id], f.left - 1);
+  assert.equal(say(R, room, guest, 'collect', { find: 'made-up' }).body.error, 'noFind');
+});
+
+test('co-op: delivering only counts at the base, as the server sees it', () => {
+  const { R, room, guest } = inMission();
+  const f = firstFind(room.mission, 'metal');
+  R.position(room, guest, at(f.x, f.y));
+  say(R, room, guest, 'collect', { find: f.id });
+  assert.equal(say(R, room, guest, 'deliver').body.error, 'notAtBase');
+  R.position(room, guest, at(0, 2));
+  assert.equal(say(R, room, guest, 'deliver').status, 200);
+  assert.equal(room.mission.expedition.banked.materials, 40);
+});
+
+test('co-op: a collapse waits for a revive from a crewmate standing by', () => {
+  const { R, room, host, guest } = inMission();
+  R.position(room, guest, at(30, 0));
+  assert.equal(say(R, room, guest, 'collapse').status, 200);
+  assert.ok(room.mission.expedition.collapsed.minh);
+  R.position(room, host, at(36, 0));
+  assert.equal(say(R, room, host, 'revive', { target: 'minh' }).body.error, 'tooFar');
+  assert.equal(say(R, room, host, 'revive', { target: '__proto__' }).body.error, 'notCollapsed');
+  R.position(room, host, at(31, 0));
+  assert.equal(say(R, room, host, 'revive', { target: 'minh' }).status, 200);
+  assert.equal(X.suitOf(room.mission, 'minh'), 30);
+});
+
+test("positions carry each astronaut's suit level and load, and the server keeps the suit in the mission", async () => {
+  const { R, room, guest, hc } = inMission();
+  R.position(room, guest, Object.assign(at(20, 0), { suit: 88.4 }));
+  assert.equal(X.suitOf(room.mission, 'minh'), 88.4);
+  await wait(150);
+  const last = hc.got.filter(m => m.type === 'pos').at(-1).data.find(p => p.crewId === 'minh');
+  assert.equal(last.suit, 88);
+  assert.equal(last.load, 0);
+  R.position(room, guest, Object.assign(at(20, 0), { suit: 'lots' }));
+  assert.equal(X.suitOf(room.mission, 'minh'), 88.4, 'a bad value is ignored');
+});
+
+test('co-op: one driver at a time, and only the driver reports the battery', () => {
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  const { player: guest } = R.join(room.code, 'Guest');
+  say(R, room, host, 'claim', { crewId: 'lena' });
+  say(R, room, guest, 'claim', { crewId: 'minh' });
+  say(R, room, host, 'phase', { phase: 'manifest' });
+  const L = Object.assign({}, room.loadout, { rover: 1, waterwall: 0 });
+  say(R, room, host, 'loadout', { loadout: L });
+  assert.equal(say(R, room, host, 'launch').status, 200);
+  const bay = X.bay(room.mission);
+  R.position(room, host, bay);
+  R.position(room, guest, bay);
+  assert.equal(say(R, room, host, 'board').status, 200);
+  assert.equal(say(R, room, guest, 'board').body.error, 'taken');
+  R.position(room, guest, Object.assign({}, bay, { driven: 300 }));
+  assert.equal(room.mission.expedition.roverDriven, 0);
+  R.position(room, host, Object.assign(at(40, 0), { rover: true, driven: 120 }));
+  assert.equal(room.mission.expedition.roverDriven, 120);
+  assert.equal(say(R, room, host, 'park').status, 200);
+  assert.deepEqual(room.mission.expedition.rover, at(40, 0));
+});
+
+test('exploring actions need a mission and a seat', () => {
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  assert.equal(say(R, room, host, 'collect', { find: '1,1:0' }).body.error, 'badPhase');
+  const { R: R2, room: r2, host: h2 } = inMission();
+  say(R2, r2, h2, 'claim', { crewId: null });
+  assert.equal(say(R2, r2, h2, 'deliver').body.error, 'noCrew');
+});
