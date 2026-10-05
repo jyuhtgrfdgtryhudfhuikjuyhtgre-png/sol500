@@ -682,16 +682,25 @@ test('delivered finds count when the round advances, and the report lists them p
   E.bankItem(s.expedition.banked, 'minh', ICE);
   E.bankItem(s.expedition.banked, 'minh', METAL);
   E.bankItem(s.expedition.banked, 'diego', SURVEY);
+  E.bankItem(s.expedition.banked, 'lena', { kind: 'pod', res: 'food', amount: 60, id: '1,1:3', region: 1 });
+  E.bankItem(s.expedition.banked, 'lena', { kind: 'pod', res: 'spares', amount: 1, id: '1,1:4', region: 1 });
+  E.bankItem(s.expedition.banked, 'kai', { kind: 'canister', res: 'o2', amount: 30, id: '1,1:5', region: 1 });
   const a = E.resolveTurn(plain, E.defaultPlan(plain));
   const b = E.resolveTurn(s, E.defaultPlan(s));
   assert.equal(Math.round(b.state.resources.water - a.state.resources.water), 80);
   assert.equal(Math.round(b.state.resources.materials - a.state.resources.materials), 40);
+  assert.equal(Math.round(b.state.resources.food - a.state.resources.food), 60);
+  assert.equal(Math.round(b.state.resources.spares - a.state.resources.spares), 1);
+  assert.equal(Math.round(b.state.resources.o2 - a.state.resources.o2), 30);
   assert.equal(Math.round(b.state.science - a.state.science), 35);
-  assert.deepEqual(b.report.expedition.got, { water: 80, materials: 40, spares: 0, food: 0, o2: 0, science: 35, morale: 0 });
+  assert.deepEqual(b.report.expedition.got, { water: 80, materials: 40, spares: 1, food: 60, o2: 30, science: 35, morale: 0 });
   assert.deepEqual(b.report.expedition.lines, [
     { crewId: 'minh', kind: 'ice', res: 'water', region: 4, amount: 80, loads: 2, late: false },
     { crewId: 'minh', kind: 'metal', res: 'materials', region: 0, amount: 40, loads: 1, late: false },
     { crewId: 'diego', kind: 'science', res: 'science', region: 0, amount: 35, loads: 1, late: false },
+    { crewId: 'lena', kind: 'pod', res: 'food', region: 1, amount: 60, loads: 1, late: false },
+    { crewId: 'lena', kind: 'pod', res: 'spares', region: 1, amount: 1, loads: 1, late: false },
+    { crewId: 'kai', kind: 'canister', res: 'o2', region: 1, amount: 30, loads: 1, late: false },
   ]);
   assert.deepEqual(b.state.expedition.banked, { water: 0, materials: 0, spares: 0, food: 0, o2: 0, science: 0, morale: 0, lines: [] }, 'spent');
   assert.equal(E.resolveTurn(b.state, E.defaultPlan(b.state)).report.expedition.lines.length, 0, 'counted once');
@@ -702,19 +711,50 @@ test('the forecast includes the bank, so a delivery shows in the HUD before the 
   const before = E.forecast(s, E.defaultPlan(s)).delta.water;
   E.bankItem(s.expedition.banked, 'lena', ICE);
   assert.equal(Math.round(E.forecast(s, E.defaultPlan(s)).delta.water - before), 40);
+
+  // Runway and food_low warning with delivery
+  const s2 = calm();
+  s2.resources.food = 250;
+  const g = E.forecast(s2, E.defaultPlan(s2));  // without the bank delivery
+  E.bankItem(s2.expedition.banked, 'lena', { kind: 'pod', res: 'food', amount: 180, id: '1,1:0', region: 1 });
+  const f = E.forecast(s2, E.defaultPlan(s2));  // with the bank delivery
+  assert.ok(Number.isFinite(f.runway.food));
+  assert.ok(f.runway.food < 2 * D.TURN_SOLS);
+  const expected = f.after.food / (-g.delta.food / D.TURN_SOLS);
+  assert.ok(Math.abs(f.runway.food - expected) / expected < 1e-9);
+  assert.ok(f.warnings.some(w => w.code === 'food_low'), 'food_low still warns with delivery');
+
+  // Science with delivery
+  const s3 = calm();
+  const g3 = E.forecast(s3, E.defaultPlan(s3));  // without delivery
+  E.bankItem(s3.expedition.banked, 'diego', { kind: 'science', res: 'science', amount: 60, id: '2,2:0', region: 0 });
+  const f3 = E.forecast(s3, E.defaultPlan(s3));  // with delivery
+  assert.equal(f3.science, g3.science + 60);
+  assert.equal(f3.after.science, s3.science + f3.science);
 });
 
 test('a load still in a backpack is banked at the start of the next round and marked late', () => {
   const s = calm();
   s.expedition.carried = { lena: [ICE, METAL] };
+  E.bankItem(s.expedition.banked, 'lena', ICE);  // on-time ice item, same crew, kind, region
   const r1 = E.resolveTurn(s, E.defaultPlan(s));
   assert.deepEqual(r1.state.expedition.carried, {});
-  assert.equal(r1.report.expedition.lines.length, 0, 'nothing delivered this round');
+  assert.equal(r1.report.expedition.lines.length, 1, 'only the on-time delivery is reported');
   assert.equal(r1.state.expedition.banked.water, 40);
   assert.equal(r1.state.expedition.banked.materials, 40);
   assert.ok(r1.state.expedition.banked.lines.every(l => l.late && l.crewId === 'lena'));
+  // The on-time ice was delivered; check that late ice is banked separately
+  const lateWaterLine = r1.state.expedition.banked.lines.find(l => l.kind === 'ice' && l.late === true);
+  assert.ok(lateWaterLine, 'backpack ice is marked late');
+  assert.equal(lateWaterLine.amount, 40);
+  // Bank another on-time ice in the second turn to verify separate lines with different late flags
+  E.bankItem(r1.state.expedition.banked, 'lena', ICE);  // on-time for next turn
   const r2 = E.resolveTurn(r1.state, E.defaultPlan(r1.state));
-  assert.equal(r2.report.expedition.got.water, 40, 'counted one round late');
+  // Report should have both the late ice (from bank at start of r2) and any newly-banked on-time
+  const r2IceLines = r2.report.expedition.lines.filter(l => l.kind === 'ice');
+  assert.equal(r2IceLines.length, 2, 'two separate lines: one late from before, one on-time delivered now');
+  assert.ok(r2IceLines.some(l => l.late === true && l.amount === 40), 'late ice line exists');
+  assert.ok(r2IceLines.some(l => l.late === false && l.amount === 40), 'on-time ice line exists');
 });
 
 test('a collapse outside costs that astronaut 20 health and the crew 3 morale at the advance, once', () => {
@@ -726,6 +766,17 @@ test('a collapse outside costs that astronaut 20 health and the crew 3 morale at
   assert.equal(Math.round(a.state.morale - b.state.morale), 3);
   assert.deepEqual(b.report.expedition.incidents, [{ crewId: 'minh', kind: 'collapse' }]);
   assert.deepEqual(b.state.expedition.incidents, [], 'spent');
+
+  // Incident for inactive crew member costs nothing
+  const s2 = calm();
+  s2.crew[1].status = 'down';  // minh is inactive
+  s2.expedition.incidents = [{ crewId: 'minh', kind: 'collapse' }];
+  const plain2 = calm();
+  plain2.crew[1].status = 'down';  // same setup without incident
+  const a2 = E.resolveTurn(plain2, E.defaultPlan(plain2));
+  const b2 = E.resolveTurn(s2, E.defaultPlan(s2));
+  assert.equal(b2.state.crew[1].health, a2.state.crew[1].health, 'inactive crew health unchanged by incident');
+  assert.equal(b2.state.morale, a2.state.morale, 'morale unchanged by inactive crew incident');
 });
 
 test('in co-op an astronaut still collapsed at the advance counts as a collapse and leaves the load where they fell', () => {
@@ -745,11 +796,13 @@ test('in co-op an astronaut still collapsed at the advance counts as a collapse 
 
 test('everyone starts the next round at the base with a full suit; a driven rover comes home, a parked one stays', () => {
   const s = calm();
-  Object.assign(s.expedition, { suits: { lena: 12 }, benched: ['minh'], rover: { driver: 'lena' } });
+  Object.assign(s.expedition, { suits: { lena: 12 }, benched: ['minh'], rover: { driver: 'lena' }, roverDriven: 123, refills: { minh: 1 } });
   const next = E.resolveTurn(s, E.defaultPlan(s)).state.expedition;
   assert.deepEqual(next.suits, {});
   assert.deepEqual(next.benched, []);
   assert.equal(next.rover, null);
+  assert.equal(next.roverDriven, 0, 'rover battery recharges');
+  assert.deepEqual(next.refills, {}, 'refills reset');
   const p = calm();
   p.expedition.rover = { x: 3200, y: 640 };
   assert.deepEqual(E.resolveTurn(p, E.defaultPlan(p)).state.expedition.rover, { x: 3200, y: 640 });

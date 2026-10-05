@@ -854,7 +854,7 @@
       pts.farming * D.SCIENCE.farming +
       (ch.discovery === 'investigate' ? D.DISCOVERY.science : ch.discovery === 'log' ? D.DISCOVERY.logScience : 0);
     s.science += sci;
-    report.science = sci;
+    report.science = sci + (report.expedition ? report.expedition.got.science : 0);
 
     // Construction: finish projects in order, leftover work becomes regolith bricks
     let cp = pts.construction;
@@ -994,7 +994,8 @@
   }
 
   function runway(s, report) {
-    const perSol = k => report.delta[k] / D.TURN_SOLS;
+    const got = (report.expedition && report.expedition.got) || {};
+    const perSol = k => (report.delta[k] - (got[k] || 0)) / D.TURN_SOLS;
     const out = {};
     for (const k of ['o2', 'food']) {
       const d = perSol(k);
