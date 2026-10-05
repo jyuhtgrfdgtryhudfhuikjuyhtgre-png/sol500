@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Plays many seeded missions with scripted strategies and prints success rates,
-// end causes and scores. Usage: node tools/balance.js [runs]
+// end causes and scores, each without and with exploring (tools/explorer.js).
+// Usage: node tools/balance.js [runs]   (LEVELS=commander to run one difficulty)
 'use strict';
 const E = require('../src/engine.js');
 const D = require('../src/data.js');
+const { haulRound } = require('./explorer.js');
 
 const RUNS = Number(process.argv[2]) || 1000;
 
@@ -12,6 +14,7 @@ const LOADOUTS = {
   recommended: D.RECOMMENDED,
   solarOnly: { solar: 7, battery: 4, recycler: 1, oxygen: 1, greenhouse: 1, waterwall: 1, lab: 1, spares: 2, materials: 1, food: 6, o2: 3, water: 3 },
   fortress: { solar: 2, battery: 1, reactor: 2, recycler: 1, oxygen: 1, greenhouse: 1, waterwall: 1, spares: 3, food: 6, o2: 3, water: 2 },
+  roverKit: Object.assign({}, D.REFERENCE_KITS.commander, { rover: 1, waterwall: 0 }), // a rover instead of the water wall
 };
 
 const remainingTurns = s => D.TURNS - s.turn;
@@ -97,21 +100,32 @@ function sloppyPlan(s) {
 }
 
 let DIFF = 'commander';
+const EXPLORER = 'diego'; // with exploring on, the scientist is the astronaut the player walks as
 
-function play(loadoutName, planner, seed) {
-  let s = E.createMission({ seed, loadout: LOADOUTS[loadoutName], difficulty: DIFF });
-  while (s.status === 'active') s = E.resolveTurn(s, planner(s)).state;
+// `haul` collects the loads delivered in each round (sum and missions still running), for the plateau check.
+function play(loadoutName, planner, seed, explore, haul) {
+  let s = E.createMission({ seed, loadout: LOADOUTS[loadoutName], difficulty: DIFF, pilot: explore ? EXPLORER : undefined });
+  while (s.status === 'active') {
+    if (explore) {
+      const got = haulRound(s, s.pilot);
+      haul[s.turn] = haul[s.turn] || [0, 0];
+      haul[s.turn][0] += got.loads;
+      haul[s.turn][1] += 1;
+    }
+    s = E.resolveTurn(s, planner(s)).state;
+  }
   return s;
 }
 
-function run(label, loadoutName, planner) {
+function run(label, loadoutName, planner, explore) {
   const v = E.validateLoadout(LOADOUTS[loadoutName], DIFF);
   if (!v.ok) throw new Error(label + ': ' + v.errors.join(','));
   let wins = 0, score = 0, sci = 0, deaths = 0, grounded = 0;
   const causes = {}, grades = {}, badges = {};
   let globalWins = 0, globalRuns = 0;
+  const haul = [];
   for (let i = 0; i < RUNS; i++) {
-    const s = play(loadoutName, planner, 'BAL-' + i);
+    const s = play(loadoutName, planner, 'BAL-' + i, explore, haul);
     const sc = E.scoreMission(s);
     const hadGlobal = s.schedule.some(t => t.weather === 'global');
     if (hadGlobal) globalRuns++;
@@ -128,12 +142,13 @@ function run(label, loadoutName, planner) {
     sci += s.science;
   }
   const pct = x => (100 * x / RUNS).toFixed(1) + '%';
-  console.log(`\n${label}  [${DIFF} · ${loadoutName}, ${v.mass} t]`);
+  console.log(`\n${label}${explore ? ' + explorer' : ''}  [${DIFF} · ${loadoutName}, ${v.mass} t]`);
   console.log(`  success ${pct(wins)}   global-storm missions won ${globalWins}/${globalRuns}`);
   console.log(`  avg score ${(score / RUNS).toFixed(0)}   avg science ${(sci / RUNS).toFixed(0)}   deaths/run ${(deaths / RUNS).toFixed(2)}   grounded/run ${(grounded / RUNS).toFixed(2)}`);
   console.log('  grades', JSON.stringify(grades));
   console.log('  lost', JSON.stringify(causes));
   if (process.env.BADGES) console.log('  badges', JSON.stringify(badges));
+  if (explore) console.log('  loads per round', haul.map(h => (h[0] / h[1]).toFixed(1)).join(' '));
   return wins / RUNS;
 }
 
@@ -141,11 +156,16 @@ for (const level of (process.env.LEVELS || 'cadet,commander,veteran').split(',')
   DIFF = level;
   LOADOUTS.reference = D.REFERENCE_KITS[level];
   console.log('\n==================== ' + level.toUpperCase() + ' ====================');
-  run('Careless player', 'reference', naivePlan);
-  run('Sloppy player', 'reference', sloppyPlan);
-  run('Thoughtful player', 'reference', smartPlan);
-  if (level === 'commander') {
-    run('Thoughtful player, solar-only base', 'solarOnly', smartPlan);
-    run('Thoughtful player, reactor fortress', 'fortress', smartPlan);
+  for (const explore of [false, true]) {
+    run('Careless player', 'reference', naivePlan, explore);
+    run('Sloppy player', 'reference', sloppyPlan, explore);
+    run('Thoughtful player', 'reference', smartPlan, explore);
+    if (level === 'commander') {
+      run('Thoughtful player, solar-only base', 'solarOnly', smartPlan, explore);
+      run('Thoughtful player, reactor fortress', 'fortress', smartPlan, explore);
+      run('Careless player, rover kit', 'naive', naivePlan, explore);
+      run('Sloppy player, rover kit', 'roverKit', sloppyPlan, explore);
+      run('Thoughtful player, rover kit', 'roverKit', smartPlan, explore);
+    }
   }
 }
