@@ -538,6 +538,102 @@
     tag(x, hy - 17, name, color, a.you);
   }
 
+  // ---------- finds (spec §3.1) ----------
+  // A find on its tile, (cx, cy) = the tile's centre in world pixels; `time` makes the science flag wave.
+  const FIND_GLOW = { ice: '159,211,234', metal: '217,180,106', pod: '236,229,219', science: '111,168,255' };
+  function drawFind(ctx, f, cx, cy, time) {
+    ctx.save();
+    // A soft glow that breathes, so a find stands out from the rocks around it.
+    ctx.fillStyle = 'rgba(' + FIND_GLOW[f.kind] + ',' + (0.14 + 0.08 * Math.sin(time * 2.5 + f.x)).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 12, 28, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 14, 20, 6, 0, 0, Math.PI * 2); ctx.fill();
+    if (f.kind === 'ice') { // pale blue crystals on a frosty patch
+      ctx.fillStyle = 'rgba(225,243,250,0.35)';
+      ctx.beginPath(); ctx.ellipse(cx, cy + 10, 24, 9, 0, 0, Math.PI * 2); ctx.fill();
+      for (const [dx, h, w] of [[-10, 18, 8], [2, 26, 10], [12, 15, 7]]) {
+        ctx.fillStyle = '#9fd3ea';
+        ctx.beginPath(); ctx.moveTo(cx + dx - w / 2, cy + 12); ctx.lineTo(cx + dx, cy + 12 - h); ctx.lineTo(cx + dx + w / 2, cy + 12); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.beginPath(); ctx.moveTo(cx + dx - 1, cy + 10); ctx.lineTo(cx + dx, cy + 14 - h); ctx.lineTo(cx + dx + 1.5, cy + 10); ctx.closePath(); ctx.fill();
+      }
+    } else if (f.kind === 'metal') { // a dark rock with bright metal grains
+      ctx.fillStyle = '#3b3433';
+      ctx.beginPath(); ctx.ellipse(cx - 3, cy + 4, 18, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#4d4544';
+      ctx.beginPath(); ctx.ellipse(cx + 8, cy, 11, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d9b46a';
+      for (const [dx, dy] of [[-9, 0], [-2, 7], [6, -3], [11, 3], [-12, 8]]) ctx.fillRect(cx + dx, cy + dy, 3, 2);
+      ctx.fillStyle = '#c9d2da';
+      for (const [dx, dy] of [[-5, -4], [3, 2], [9, -6]]) ctx.fillRect(cx + dx, cy + dy, 2, 2);
+    } else if (f.kind === 'pod') { // a cargo pod on its side, with its torn parachute
+      ctx.strokeStyle = '#e9874a';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx + 10, cy + 2); ctx.quadraticCurveTo(cx + 26, cy - 14, cx + 20, cy + 12); ctx.stroke();
+      ctx.fillStyle = '#ece5db';
+      roundRect(ctx, cx - 18, cy - 6, 30, 18, 8); ctx.fill();
+      ctx.fillStyle = '#b8aea2';
+      roundRect(ctx, cx - 18, cy + 6, 30, 6, 3); ctx.fill();
+      ctx.fillStyle = '#e9874a';
+      ctx.fillRect(cx - 6, cy - 6, 5, 18);
+    } else { // a science site: an outcrop with a survey flag
+      ctx.fillStyle = f.sub === 'meteorite' ? '#2c2a2e' : '#7a5442';
+      ctx.beginPath(); ctx.ellipse(cx - 4, cy + 6, 15, 9, 0, 0, Math.PI * 2); ctx.fill();
+      if (f.sub === 'layered' || f.sub === 'delta') {
+        ctx.strokeStyle = f.sub === 'delta' ? 'rgba(130,190,220,0.7)' : 'rgba(230,190,140,0.75)';
+        ctx.lineWidth = 2;
+        for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(cx - 16, cy + 2 + k * 4); ctx.lineTo(cx + 8, cy + 3 + k * 4); ctx.stroke(); }
+      } else if (f.sub === 'vent') {
+        ctx.fillStyle = 'rgba(235,225,215,0.35)';
+        const w = Math.sin(time * 2) * 2;
+        ctx.beginPath(); ctx.ellipse(cx - 4 + w, cy - 6, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = '#d6cec3';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx + 12, cy + 12); ctx.lineTo(cx + 12, cy - 22); ctx.stroke();
+      ctx.fillStyle = '#6fa8ff';
+      const wave = Math.sin(time * 3) * 2;
+      ctx.beginPath(); ctx.moveTo(cx + 12, cy - 22); ctx.lineTo(cx + 26, cy - 18 + wave); ctx.lineTo(cx + 12, cy - 13); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // A load someone dropped when their suit ran out: a backpack with a red tag. (x, y) in world pixels.
+  function drawDrop(ctx, x, y) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(x, y + 8, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#9da3a9';
+    roundRect(ctx, x - 10, y - 12, 20, 20, 4); ctx.fill();
+    ctx.fillStyle = '#7d848b';
+    roundRect(ctx, x - 7, y - 4, 14, 8, 2); ctx.fill();
+    ctx.fillStyle = '#f46e5f';
+    ctx.fillRect(x + 6, y - 16, 5, 8);
+    ctx.restore();
+  }
+
+  // How far a hold of E has got: a ring that fills clockwise. (x, y) is its centre in world pixels.
+  function drawRing(ctx, x, y, frac) {
+    ctx.save();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(20,14,16,0.75)';
+    ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#8cbcec';
+    ctx.beginPath(); ctx.arc(x, y, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, frac))); ctx.stroke();
+    ctx.restore();
+  }
+
+  // A teammate's suit level: a small bar above their name tag, from green through amber to red.
+  function drawSuitBar(ctx, x, y, frac) {
+    const f = Math.max(0, Math.min(1, frac));
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,14,16,0.8)';
+    roundRect(ctx, x - 15, y, 30, 5, 2.5); ctx.fill();
+    ctx.fillStyle = f > 0.4 ? '#4fd0c4' : f > 0.15 ? '#e9a13b' : '#f46e5f';
+    roundRect(ctx, x - 15, y, 30 * f, 5, 2.5); ctx.fill();
+    ctx.restore();
+  }
+
   // Name tags are laid out after all sprites so they never pile on top of each other.
   function drawTags(ctx, tags) {
     const placed = [];
@@ -572,6 +668,6 @@
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks },
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar },
   };
 });
