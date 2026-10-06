@@ -450,13 +450,13 @@ p { margin: 0; }
 .ops-tabs button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding-inline: 16px; }
 .sf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px; margin-top: 12px; align-items: start; }
 .sf-stage { min-width: 0; position: relative; }
-.region-card { position: absolute; left: 12px; top: 56px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
+.region-card { position: absolute; left: 12px; top: 150px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
 .region-card-h { display: flex; justify-content: space-between; align-items: center; }
 .region-card h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); }
 .region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
 .region-card .src { font-size: var(--fs-xs); }
 .region-card a { color: var(--accent); }
-@media (max-width: 640px) { .region-card { top: 136px; } }
+
 .sf-root { position: relative; height: min(74vh, 780px); min-height: 440px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #3a1d14; touch-action: none; user-select: none; -webkit-user-select: none; }
 .sf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
 .sf-canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
@@ -493,6 +493,27 @@ p { margin: 0; }
 .sf-region::after { content: 'i'; display: inline-grid; place-items: center; width: 14px; height: 14px; margin-left: 6px; border: 1px solid currentColor; border-radius: 50%; font: italic 700 10px/1 var(--font-display); opacity: 0.7; vertical-align: 1px; }
 .sf-region:hover, .sf-region:focus-visible { border-color: var(--accent); }
 .sf-region:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Exploring: the suit, the rover's battery, the backpack and notes, under the region name. */
+.sf-eva { position: absolute; left: 14px; top: 58px; display: grid; gap: 6px; width: 210px; pointer-events: none; }
+.sf-eva > * { pointer-events: auto; }
+.sf-suit { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px; font-size: var(--fs-xs); color: var(--fg); }
+.sf-suit .k { color: var(--fg-2); font-weight: 600; }
+.sf-suit .bar { height: 7px; border-radius: 7px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.sf-suit .bar i { display: block; height: 100%; background: #4fd0c4; }
+.sf-suit.warn .bar i { background: var(--warn); }
+.sf-suit.crit .bar i { background: var(--crit); }
+.sf-suit.crit b { color: var(--crit); }
+.sf-suit.batt .bar i { background: var(--accent); }
+.sf-suit b { font-variant-numeric: tabular-nums; }
+.sf-pack { display: flex; gap: 4px; flex-wrap: wrap; }
+.sf-pack .slot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: 1px dashed var(--line-2); background: rgba(20, 14, 16, 0.6); color: var(--fg); }
+.sf-pack .slot.full { border-style: solid; background: rgba(20, 14, 16, 0.86); }
+.sf-can { justify-self: start; font: inherit; font-size: var(--fs-xs); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); background: rgba(20, 14, 16, 0.86); color: var(--fg); cursor: pointer; }
+.sf-can:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sf-evanote { margin: 0; font-size: var(--fs-xs); background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px; color: var(--fg); }
+.sf-evanote.ok { border-color: var(--ok); }
+.sf-evanote.warn { border-color: var(--warn); }
+.sf-evanote.crit { border-color: var(--crit); color: var(--crit); }
 .sf-mini { position: absolute; right: 12px; top: 12px; width: 160px; height: 160px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #120a0c; pointer-events: auto; cursor: zoom-in; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
 .sf-mini canvas { width: 100%; height: 100%; display: block; }
 .sf-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -523,9 +544,9 @@ p { margin: 0; }
   .sf-hint { white-space: normal; text-align: center; border-radius: 12px; }
 }
 @media (max-width: 640px) {
-  /* A full-width strip under the minimap, in the slot the region card takes on a phone (top: 136px, above): never a tall narrow column.
+  /* A full-width strip under the minimap and the suit, in the slot the region card takes (top: 150px): never a tall narrow column.
      While the card shows, the hint steps aside, so the two never overlap. */
-  .sf-hint { top: 136px; left: 12px; right: 12px; transform: none; max-width: none; }
+  .sf-hint { top: 150px; left: 12px; right: 12px; transform: none; max-width: none; }
   .sf-stage:has(.region-card) .sf-hint { display: none; }
 }
 .sf-side { display: grid; gap: 12px; min-width: 0; }

@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog;
+  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -732,7 +732,60 @@
       showRegionCard(id);
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
+    // Exploring (src/expedition.js). Solo: the rules run here on your mission, which is saved. Co-op: the server runs them
+    // against where it last saw you, and everyone gets the new room. Always resolves to { ok, ... } or { error }.
+    exp: (type, payload, pos) => {
+      const s = mission();
+      if (!s || !s.expedition || s.status !== 'active') return Promise.resolve({ error: 'badPhase' });
+      const p = payload || {};
+      if (lanOn()) return N.act(type, p).then(r => r || { error: 'net' }, () => ({ error: 'net' }));
+      const id = s.pilot;
+      const run = {
+        collect: () => X.collect(s, id, p.find, pos), deliver: () => X.deliver(s, id, pos), canister: () => X.useCanister(s, id),
+        pickup: () => X.pickUp(s, id, p.drop, pos), collapse: () => X.collapse(s, id, pos), board: () => X.board(s, id, pos),
+        park: () => X.park(s, id, pos),
+      }[type];
+      const r = run ? run() : { error: 'badAction' };
+      if (!r.error) { saveSoloSoon(); render(); }
+      return Promise.resolve(r);
+    },
+    // Solo: your suit level and the rover's battery are kept with the saved mission (co-op sends them with each position).
+    suit: (seconds, driven) => {
+      const s = mission();
+      if (lanOn() || !s || !s.expedition || !s.pilot) return;
+      X.setSuit(s, s.pilot, seconds);
+      if (driven != null) X.setRoverDriven(s, s.pilot, driven);
+      saveSoloSoon();
+    },
   };
+
+  // ---------- exploring: what was delivered and what is still out there ----------
+  const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science' };
+  // "+160 kg water — Ice deposit, Icy Plains (Minh)"
+  function haulText(l) {
+    return t(l.late ? 'rep.haulLate' : 'rep.haul', {
+      amount: t('haul.' + l.res, { n: nf(l.amount) }), what: t('find.' + l.kind), region: t('region.' + W.REGIONS[l.region]), name: crewName(l.crewId),
+    });
+  }
+  function expeditionPanel(s) {
+    const x = s.expedition;
+    if (!x || !x.banked) return null;
+    const lines = x.banked.lines || [];
+    const carrying = Object.keys(x.carried).filter(id => Array.isArray(x.carried[id]) && x.carried[id].length);
+    const body = [];
+    if (!lines.length && !carrying.length) body.push(h('p', { class: 'muted' }, t('eva.nothing')));
+    if (lines.length) {
+      body.push(h('span', { class: 'eyebrow' }, t('eva.banked')));
+      body.push(h('ul', { class: 'replist' }, lines.map(l => h('li', { class: 'ok' }, ico(RES_ICON[l.res], 14), h('span', null, haulText(l))))));
+      body.push(h('p', { class: 'hint' }, t('eva.counts')));
+    }
+    if (carrying.length) {
+      body.push(h('span', { class: 'eyebrow' }, t('eva.carrying')));
+      body.push(h('ul', { class: 'replist' }, carrying.map(id => h('li', null, ico('eva', 14),
+        h('span', null, crewName(id) + ': ' + x.carried[id].map(it => t('haul.' + it.res, { n: nf(it.amount) })).join(', '))))));
+    }
+    return panel(t('eva.title'), body);
+  }
 
   function surfaceStage(s, p, f) {
     if (!window.SolSurface) return null;
@@ -779,6 +832,7 @@
     })));
     return h('aside', { class: 'sf-side' },
       seatPanel(s),
+      expeditionPanel(s),
       eventsPanel(s, p),
       jobs,
       forecastPanel(s, p, f),
@@ -1609,7 +1663,7 @@
     const m = store.modal;
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
     }
     if (m === 'notes') {
       return modal(t('notes.title'), [
@@ -1673,6 +1727,10 @@
     for (const id of r.downs) li('crit', 'crit', t('rep.down', { name: crewName(id) }));
     for (const id of r.deaths) li('crit', 'crit', t('rep.dead', { name: crewName(id) }));
     if (r.pilot) li('users', r.pilot.to ? 'warn' : 'crit', pilotText(r.pilot));
+    if (r.expedition) {
+      for (const l of r.expedition.lines) li(RES_ICON[l.res], 'ok', haulText(l));
+      for (const inc of r.expedition.incidents) li('crit', 'warn', t('rep.collapse', { name: crewName(inc.crewId), h: D.EXPEDITION.collapse.health, m: D.EXPEDITION.collapse.morale }));
+    }
     if (r.requested) li('rocket', 'muted', t('rep.requested', { kind: t('earth.' + r.requested) }));
     if (r.hypoxia > 0) li('crit', 'crit', t('w.o2_out'));
     if (r.dehydration > 0) li('crit', 'crit', t('w.water_out'));

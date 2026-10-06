@@ -10,11 +10,13 @@
  *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
  *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
  * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
- *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId)
+ *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId),
+ *        exp(type, payload, pos) → Promise of { ok } or { error } (exploring, see src/surface-eva.js), suit(seconds, driven)
+ * Exploring on the map (finds, the suit, the backpack, the rover's battery) is src/surface-eva.js.
  */
 (function (root) {
   'use strict';
-  const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap;
+  const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap, EV = root.SolEva;
   const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks } = P.sprites;
   const T = 64;
   const BASE = W.BASE_RECT;
@@ -158,6 +160,10 @@
     };
     S.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }) });
+    S.eva = EV.create({
+      t: (k, p) => t(k, p), hooks: () => S.hooks, crewName: id => S.data.crewName(id), player: () => S.player, home: goHome,
+      drawRover: (ctx, x, y) => { const img = moduleImage('rover', 1); if (ready(img)) ctx.drawImage(img, x - 34, y - 52, 68, 68); },
+    });
     buildOverlay();
     bindInput();
     if (window.ResizeObserver) new ResizeObserver(resize).observe(el);
@@ -220,8 +226,11 @@
     S.regionChip.addEventListener('click', () => { if (S.region != null && S.hooks.reopenRegion) S.hooks.reopenRegion(W.REGIONS[S.region]); });
     S.debugBox = el('pre', 'sf-debug');
     S.debugBox.hidden = !S.debug;
-    o.append(S.hint, S.stamina, S.regionChip, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
-    S.btnAct.addEventListener('click', () => interact());
+    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
+    // The action button is held for finds, like E: it acts when pressed and lets go of a hold when released.
+    S.btnAct.addEventListener('pointerdown', e => { e.preventDefault(); S.actId = e.pointerId; interact(); });
+    S.btnAct.addEventListener('click', e => { if (e.detail === 0) interact(); }); // Enter or Space on the focused button
+    const actOff = e => { if (e.pointerId !== S.actId) return; S.actId = null; S.eva.stop(); };
     // The stick and the sprint button follow their finger on the window, filtered by its pointer id: a re-render moves this
     // node into a new stage, which releases the pad's pointer capture, and the finger can then slide off or lift anywhere.
     // The pad has no move/up/cancel handlers of its own, so nothing is handled twice.
@@ -236,8 +245,8 @@
     });
     const joyEnd = e => { if (S.joy.id !== e.pointerId) return; S.joy = { x: 0, y: 0, id: null }; S.knob.style.transform = ''; };
     window.addEventListener('pointermove', e => { if (S.joy.id === e.pointerId) joyMove(e); });
-    window.addEventListener('pointerup', e => { joyEnd(e); runOff(e); });
-    window.addEventListener('pointercancel', e => { joyEnd(e); runOff(e); });
+    window.addEventListener('pointerup', e => { joyEnd(e); runOff(e); actOff(e); });
+    window.addEventListener('pointercancel', e => { joyEnd(e); runOff(e); actOff(e); });
   }
 
   function joyMove(e) {
@@ -268,6 +277,7 @@
       if (MOVE[e.code]) { S.keys.add(e.code); if (S.player) S.player.path = null; e.preventDefault(); }
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.add('Shift');
       if (e.code === 'KeyE' && !e.repeat) { interact(); e.preventDefault(); }
+      if (e.code === 'KeyQ' && !e.repeat) { S.eva.canister(S.player); e.preventDefault(); }
       if (e.code === 'Escape' && S.menuOpen) { closeMenu(); e.preventDefault(); }
       if (e.code === 'KeyC' && !e.repeat && S.hooks.openConsole) S.hooks.openConsole();
       if (S.menuOpen && /^Digit[1-9]$/.test(e.code)) {
@@ -279,8 +289,9 @@
     window.addEventListener('keyup', e => {
       S.keys.delete(e.code);
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.delete('Shift');
+      if (e.code === 'KeyE') S.eva.stop();
     });
-    window.addEventListener('blur', () => S.keys.clear());
+    window.addEventListener('blur', () => { S.keys.clear(); S.eva.stop(); });
     S.canvas.addEventListener('pointerdown', e => {
       if (!S.player || !S.world || S.map.isOpen()) return;
       S.canvas.focus({ preventScroll: true });
@@ -324,6 +335,17 @@
     S.camSnap = true;
   }
 
+  // A new round, or a solo collapse: your astronaut is back by the HQ, out of the rover (whoever drove it brought it home).
+  function goHome() {
+    const p = S.player;
+    if (!p) return;
+    const [x, y] = spawnPoint();
+    Object.assign(p, { x, y, dir: 'down', path: null, inRover: false, autoFocus: null, faceTo: null });
+    S.pendingAuto = null;
+    S.camSnap = true;
+    if (S.menuOpen) closeMenu();
+  }
+
   // ---------- data from ui.js ----------
   function update(data) {
     S.data = data;
@@ -334,6 +356,9 @@
     ensurePlayer();
     if (data.controlId && S.player.crewId !== data.controlId) moveToCrewmate(data.controlId);
     S.player.crewId = data.controlId;
+    const look = S.eva.sync(data);
+    if (look.round) goHome();
+    else if (look.fresh && S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
     S.btnAct.setAttribute('aria-label', t('sf.interact'));
@@ -352,7 +377,10 @@
     for (const p of list || []) {
       if (!p.crewId || (S.data && p.crewId === S.data.controlId)) continue;
       const prev = S.remote[p.crewId];
-      next[p.crewId] = { x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, phase: prev ? prev.phase : 0, at: now };
+      next[p.crewId] = {
+        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover,
+        phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0,
+      };
     }
     S.remote = next;
   }
@@ -372,10 +400,11 @@
     S.time += dt;
     world();
     ensurePlayer();
-    stepPlayer(dt);
+    const moved = stepPlayer(dt);
     stepNpcs(dt);
     stepRemote(dt);
     stepFocus();
+    S.eva.step(dt, S.player, S.world, moved, S.focus);
     stream(t0);
     explore(ts);
     draw();
@@ -429,8 +458,11 @@
   }
 
   function mapState() {
-    if (!S.player) return { px: 0, py: 0, crew: [] };
-    return { px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })) };
+    if (!S.player) return { px: 0, py: 0, crew: [], marks: [] };
+    return {
+      px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })),
+      marks: S.eva.marks(S.world, S.player.x, S.player.y),
+    };
   }
 
   function drawDebugText() {
@@ -446,8 +478,9 @@
     return m.crew.find(c => c.id === S.data.controlId) || null;
   }
 
+  // Moves your astronaut; returns how far (world px) they moved this frame (the rover's battery counts it).
   function stepPlayer(dt) {
-    const p = S.player;
+    const p = S.player, ox = p.x, oy = p.y;
     const me = controlledCrew();
     const canMove = me && me.status === 'active';
     let vx = 0, vy = 0;
@@ -486,8 +519,10 @@
       const sp = SPEED * (sprinting ? SPRINT_X : 1) * (p.inRover ? ROVER_X : 1) * ground * S.qa.speed * Math.min(1, len);
       const stuck = hitsWall(p.x, p.y);
       const mx = p.x + nx * sp * dt, my = p.y + ny * sp * dt;
-      if (S.qa.ghost || stuck || !hitsWall(mx, p.y)) p.x = mx;
-      if (S.qa.ghost || stuck || !hitsWall(p.x, my)) p.y = my;
+      // A step is allowed if nothing blocks it and the exploring rules agree (an empty suit, a flat rover battery).
+      const ok = (x, y) => S.qa.ghost || ((stuck || !hitsWall(x, y)) && S.eva.canMove(p, x, y));
+      if (ok(mx, p.y)) p.x = mx;
+      if (ok(p.x, my)) p.y = my;
       if (Math.abs(nx) > Math.abs(ny)) p.dir = nx > 0 ? 'right' : 'left'; else p.dir = ny > 0 ? 'down' : 'up';
       p.phase += dt * sp / 26;
       S.hintUntil = Math.min(S.hintUntil, S.time + 3);
@@ -496,6 +531,7 @@
     p.sprinting = sprinting;
     S.staminaFill.style.width = p.stamina.toFixed(0) + '%';
     S.stamina.hidden = p.stamina >= 99.5 && !sprinting;
+    return Math.hypot(p.x - ox, p.y - oy);
   }
 
   function jobTarget(c, job, rnd) {
@@ -585,11 +621,13 @@
   function maybeSend(ts) {
     if (!S.hooks.sendPos || ts - S.lastSent < 110) return;
     const p = S.player;
-    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover;
+    const ev = S.eva.report();
+    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + Math.ceil(ev.suit) + ',' + Math.floor(ev.driven);
     if (k === S.lastSentKey && ts - S.lastSent < 2000) return;
     S.lastSent = ts;
     S.lastSentKey = k;
-    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover });
+    // The suit level travels with the position (teammates see it); the driver also says how far the rover has gone.
+    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, suit: ev.suit, driven: p.inRover ? ev.driven : undefined });
   }
 
   // ---------- what the player is looking at ----------
@@ -599,7 +637,7 @@
     const byId = id => m.crew.find(c => c.id === id);
     const color = role => A.ROLE[role] || '#ccc';
     const me = controlledCrew();
-    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down', rover: S.player.inRover });
+    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover });
     for (const [id, n] of Object.entries(S.npcs)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
@@ -608,7 +646,7 @@
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down', rover: r.rover });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover });
     }
     return out;
   }
@@ -621,7 +659,7 @@
     const tile = m.layout.find(x => x.x === gx && x.y === gy);
     if (tile) {
       if (tile.type === 'hab') return { kind: 'hq', key: 'hq', gx, gy, wx, wy };
-      if (tile.type === 'rover') return { kind: 'rover', key: 'rover', gx, gy, wx, wy, type: 'rover' };
+      if (tile.type === 'rover') return S.eva.roverAtBay(S.player) ? { kind: 'rover', key: 'rover', gx, gy, wx, wy, type: 'rover' } : { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: 'rover' };
       return { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: tile.type };
     }
     const pr = m.projects.find(x => x.x === gx && x.y === gy);
@@ -648,12 +686,15 @@
     const lx = p.x + dx * 38, ly = p.y - 8 + dy * 34;
     const crew = avatars().find(a => !a.you && !a.remote && Math.hypot(a.x - lx, a.y - ly) < 30);
     if (crew) f = { kind: 'crew', key: 'c:' + crew.id, id: crew.id };
+    const ef = S.eva.focusAt(lx, ly, p, S.world); // a find, a dropped load, a crewmate down outside, the parked rover
+    if (!f) f = ef;
     if (!f) f = focusAt(Math.floor(lx / T), Math.floor(ly / T));
     if (!f || f.kind === 'empty') {
       const under = focusAt(Math.floor(p.x / T), Math.floor((p.y - 4) / T));
       if (under && (!f || under.kind !== 'empty' || !f)) f = under || f;
     }
-    if (p.inRover) f = { kind: 'rover', key: 'rover-exit', driving: true };
+    // In the rover, E gets you out, unless a find is right there: you step out to work on it and get back in.
+    if (p.inRover) f = ef && S.eva.holdable(ef) ? ef : { kind: 'rover', key: 'rover-exit', driving: true };
     const changed = (f && f.key) !== (S.focus && S.focus.key);
     S.focus = f;
     if (changed && S.menuOpen) closeMenu();
@@ -672,7 +713,7 @@
       case 'lander': return t('sf.lander');
       case 'crew': return S.data.crewName(f.id);
       case 'empty': return t('sf.buildHere') + (f.ice ? ' · ' + t('map.ice') : '');
-      default: return '';
+      default: return S.eva.label(f);
     }
   }
 
@@ -698,24 +739,36 @@
     if (!me || me.status !== 'active') return;
     if (S.menuOpen) { closeMenu(); return; }
     if (!S.focus) return;
+    if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
     if (S.focus.kind === 'rover') { toggleRover(); return; }
     openMenu();
   }
 
+  // Getting in and out of the rover goes through the exploring rules: one driver at a time, it stays where you leave it
+  // (or goes back to its bay at the outpost), and its battery drives roverRange tiles a round.
   function toggleRover() {
-    const p = S.player;
+    const p = S.player, m = S.data.mission;
     if (p.inRover) {
       p.inRover = false;
-      const m = S.data.mission;
-      const bay = m.layout.find(x => x.type === 'rover');
       refreshWorld(m);
-      if (hitsWall(p.x, p.y) && bay) { const sp = spotNear(bay.x, bay.y, Math.random); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
-    } else {
-      const m = S.data.mission;
-      if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
-      p.inRover = true;
-      refreshWorld(m);
+      if (hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
+      S.eva.act('park', p);
+      return;
     }
+    if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
+    p.inRover = true; // at once, so it feels immediate; in co-op the server may say someone else has it
+    refreshWorld(m);
+    S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } });
+  }
+  // The nearest open spot to stand on, within 3 tiles of (x, y) (world px), for getting out of the rover by a rock.
+  function freeSpot(x, y) {
+    const tx = Math.floor(x / T), ty = Math.floor(y / T);
+    for (let r = 1; r <= 3; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const c = center(tx + dx, ty + dy);
+      if (!hitsWall(c[0], c[1])) return c;
+    }
+    return null;
   }
 
   function openMenu() {
@@ -847,7 +900,7 @@
       } else if (ty === 'reactor') {
         note('+' + fc.power.reactorKw.toFixed(1) + ' kW');
       }
-      if (ty === 'rover' && mod.count - mod.broken > 0) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
+      if (ty === 'rover' && mod.count - mod.broken > 0 && S.eva.roverAtBay(S.player)) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
       const scrapping = (plan.scrap || []).includes(ty);
       body.appendChild(numbered(mbtn(scrapping ? t('sys.scrapQueued') : t('sys.scrap'), fc.points.maintenance ? '' : t('sys.scrapNeed'),
         () => { H.toggleScrap(ty); renderMenu(); }, { on: scrapping, disabled: !fc.points.maintenance && !scrapping, icon: A.icon('scrap', 18) })));
@@ -888,6 +941,7 @@
     const k = v.dpr * v.zoom;
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
     S.painter.drawGround(ctx, x0, y0, x1, y1);
+    S.eva.drawZone(ctx);
 
     // buried ice at the base: the only cue for where the ice drill can go
     ctx.save();
@@ -943,7 +997,7 @@
     for (const ty of D.MODULE_TYPES) brokenLeft[ty] = m.modules[ty].broken;
     const runningLeft = Object.assign({}, fc.power.running);
     for (const tile of m.layout) {
-      if (tile.type === 'rover' && (p.inRover || Object.values(S.remote).some(r => r.rover))) continue;
+      if (tile.type === 'rover' && !S.eva.roverAtBay(p)) continue; // driven, or parked out on the map
       const [wx, wy] = gridToWorld(tile.x, tile.y);
       let status = null;
       if (brokenLeft[tile.type] > 0) { brokenLeft[tile.type]--; status = 'broken'; }
@@ -991,11 +1045,13 @@
         ctx.fillStyle = A.ROLE[c.role]; ctx.fillRect(fx, fy - 22, 10, 7);
       } });
     });
+    for (const s of S.eva.sprites(x0, y0, x1, y1, S.world, S.time)) sprites.push(s);
     sprites.sort((a, b) => a.y - b.y);
-    for (const s of sprites) s.draw();
+    for (const s of sprites) s.draw(ctx); // the exploring layer's sprites take the context; the others close over it
     // the fog over what you can't see, then the name tags on top of it
     P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, (p.inRover ? VIEW_ROVER : VIEW_FOOT) * T);
     drawTags(ctx, S.tags);
+    S.eva.drawOver(ctx, S.remote);
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
 
     // weather, in screen space
@@ -1037,6 +1093,7 @@
       blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true),
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
+      eva: S.eva.state(), focusKey: S.focus && S.focus.key,
     };
   }
 
@@ -1049,6 +1106,7 @@
     speed(x) { S.qa.speed = Math.max(0.1, Number(x) || 1); },
     chunkHash(ix, iy) { return S.painter.chunkHash(ix, iy); },
     teleport(tx, ty) { S.player.x = tx * T + T / 2; S.player.y = ty * T + T / 2; S.player.path = null; S.camSnap = true; },
+    suit(s) { S.eva.qaSuit(s); },
   };
 
   root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe }, DEBUG ? { qa } : {});
