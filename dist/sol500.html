@@ -465,13 +465,13 @@ p { margin: 0; }
 .ops-tabs button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding-inline: 16px; }
 .sf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px; margin-top: 12px; align-items: start; }
 .sf-stage { min-width: 0; position: relative; }
-.region-card { position: absolute; left: 12px; top: 56px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
+.region-card { position: absolute; left: 12px; top: 150px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
 .region-card-h { display: flex; justify-content: space-between; align-items: center; }
 .region-card h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); }
 .region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
 .region-card .src { font-size: var(--fs-xs); }
 .region-card a { color: var(--accent); }
-@media (max-width: 640px) { .region-card { top: 136px; } }
+
 .sf-root { position: relative; height: min(74vh, 780px); min-height: 440px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #3a1d14; touch-action: none; user-select: none; -webkit-user-select: none; }
 .sf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
 .sf-canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
@@ -508,6 +508,27 @@ p { margin: 0; }
 .sf-region::after { content: 'i'; display: inline-grid; place-items: center; width: 14px; height: 14px; margin-left: 6px; border: 1px solid currentColor; border-radius: 50%; font: italic 700 10px/1 var(--font-display); opacity: 0.7; vertical-align: 1px; }
 .sf-region:hover, .sf-region:focus-visible { border-color: var(--accent); }
 .sf-region:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Exploring: the suit, the rover's battery, the backpack and notes, under the region name. */
+.sf-eva { position: absolute; left: 14px; top: 58px; display: grid; gap: 6px; width: 210px; pointer-events: none; }
+.sf-eva > * { pointer-events: auto; }
+.sf-suit { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px; font-size: var(--fs-xs); color: var(--fg); }
+.sf-suit .k { color: var(--fg-2); font-weight: 600; }
+.sf-suit .bar { height: 7px; border-radius: 7px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.sf-suit .bar i { display: block; height: 100%; background: #4fd0c4; }
+.sf-suit.warn .bar i { background: var(--warn); }
+.sf-suit.crit .bar i { background: var(--crit); }
+.sf-suit.crit b { color: var(--crit); }
+.sf-suit.batt .bar i { background: var(--accent); }
+.sf-suit b { font-variant-numeric: tabular-nums; }
+.sf-pack { display: flex; gap: 4px; flex-wrap: wrap; }
+.sf-pack .slot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: 1px dashed var(--line-2); background: rgba(20, 14, 16, 0.6); color: var(--fg); }
+.sf-pack .slot.full { border-style: solid; background: rgba(20, 14, 16, 0.86); }
+.sf-can { justify-self: start; font: inherit; font-size: var(--fs-xs); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); background: rgba(20, 14, 16, 0.86); color: var(--fg); cursor: pointer; }
+.sf-can:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sf-evanote { margin: 0; font-size: var(--fs-xs); background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px; color: var(--fg); }
+.sf-evanote.ok { border-color: var(--ok); }
+.sf-evanote.warn { border-color: var(--warn); }
+.sf-evanote.crit { border-color: var(--crit); color: var(--crit); }
 .sf-mini { position: absolute; right: 12px; top: 12px; width: 160px; height: 160px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #120a0c; pointer-events: auto; cursor: zoom-in; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
 .sf-mini canvas { width: 100%; height: 100%; display: block; }
 .sf-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -538,9 +559,9 @@ p { margin: 0; }
   .sf-hint { white-space: normal; text-align: center; border-radius: 12px; }
 }
 @media (max-width: 640px) {
-  /* A full-width strip under the minimap, in the slot the region card takes on a phone (top: 136px, above): never a tall narrow column.
+  /* A full-width strip under the minimap and the suit, in the slot the region card takes (top: 150px): never a tall narrow column.
      While the card shows, the hint steps aside, so the two never overlap. */
-  .sf-hint { top: 136px; left: 12px; right: 12px; transform: none; max-width: none; }
+  .sf-hint { top: 150px; left: 12px; right: 12px; transform: none; max-width: none; }
   .sf-stage:has(.region-card) .sf-hint { display: none; }
 }
 .sf-side { display: grid; gap: 12px; min-width: 0; }
@@ -795,6 +816,36 @@ p { margin: 0; }
       grades: [['S', 1400], ['A', 1200], ['B', 1000], ['C', 800]],
     },
 
+    // Exploring (spec §3). Seconds are real time on the surface; distances are world tiles (the HQ is tile 0, 0).
+    EXPEDITION: {
+      suit: 150,                // a full suit: seconds outside the base zone, per crew member per round
+      drain: { sprint: 2, rover: 0.5, icy: 1.1 }, // drain factors: sprinting, driving the rover, the cold Icy Plains
+      baseZone: 2,              // tiles around the HQ either way: the suit pauses here and finds are delivered here
+      reach: 1.5,               // tiles of slack on every action checked against a position
+      pack: 3, packRover: 8,    // loads you can carry on foot and in the rover
+      hold: { load: 3, survey: 5, pickup: 3, revive: 4 }, // seconds of holding E
+      canister: { suit: 45, o2: 30 }, // an O₂ canister: +45 s of suit now, or +30 kg of base O₂ if carried home
+      reviveSuit: 30,           // a revived crew member stands up with this much suit
+      collapse: { health: 20, morale: 3 }, // an empty suit outside: lost at the next advance
+      roverHome: 6,             // a rover left within this many tiles of the HQ goes back to its bay
+      roverRange: 400,          // tiles the rover's battery drives per round (it recharges overnight)
+      maxDrops: 40,             // dropped loads kept in the mission (the oldest go first)
+    },
+    // What one load of each find gives (spec §3.1). Arrays run inner, middle, outer, far (worldgen RINGS).
+    FINDS: {
+      ice: { loads: [3, 4, 5, 6], res: 'water', kg: 40 },
+      metal: { loads: [3, 4, 4, 5], res: 'materials', kg: 40 },
+      pod: { loads: [3, 3, 3, 3], food: 60 },   // each load: a spare kit, 60 kg of food or an O₂ canister
+      science: { loads: [1, 1, 1, 1], science: [20, 35, 60, 80], craters: 1.5 },
+    },
+    // Role skills on the map (spec §3.3): factors on how long you hold E, and the scientist's extra science.
+    SKILLS: {
+      scientist: { science: 0.5, scienceBonus: 1.5 },
+      engineer: { metal: 0.5, pod: 0.5 },
+      biologist: { ice: 0.5, sight: 16 },
+      medic: { revive: 0.5 },
+    },
+
     ACHIEVEMENTS: ['first_sol', 'sol500', 'full_crew', 'revived', 'storm_survivor', 'closed_loop',
       'green_thumb', 'lead_apron', 'builder', 'fortress', 'scrapper', 'self_reliant', 'explorer',
       'grade_s', 'lightweight', 'flare_dodger', 'oxygen_hero', 'team_player'],
@@ -833,6 +884,8 @@ p { margin: 0; }
  *     crew: [{ id, role, name, health, dose, status: 'active'|'down'|'dead', downTurns, revives, grounded, harm }],
  *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log
  *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition) }
+ *   Exploring: what the crew delivers is banked in expedition.banked and added when the round advances (applyExpedition);
+ *   the rules for collecting and carrying finds live in src/expedition.js.
  *
  * Plan (the player's decisions for one turn):
  *   { jobs: { crewId: job }, modulesOn: { type: bool }, rations: 'full'|'reduced', habMode: 'normal'|'austerity',
@@ -1040,13 +1093,57 @@ p { margin: 0; }
   }
 
   // ---------- mission ----------
-  // The exploring state (spec §4). M3 uses `revealed` (the shared fog) and `regions`; M4 fills in the rest.
+  // The exploring state (spec §4). M3 uses `revealed` (the shared fog) and `regions`. M4a adds the finds:
+  //   sites { findId: loadsLeft } (touched finds only) · carried { crewId: [item] } · drops [{ id, x, y, items }] (world px)
+  //   banked { water, materials, spares, food, o2, science, morale, lines } (added at the next advance)
+  //   incidents [{ crewId, kind }] · stats { crewId: { finds: { kind: loads } } }
+  //   suits { crewId: seconds left } (missing = full) · collapsed { crewId: { x, y } } (co-op, waiting for a revive)
+  //   benched [crewId] (solo: collapsed, back at the base for the rest of the round) · rover: null at its bay,
+  //   { x, y } parked out on the map, or { driver } while someone drives it · roverDriven: tiles driven this round.
+  // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
+  const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
+  function freshBank() {
+    const b = { lines: [] };
+    for (const k of BANK_RES) b[k] = 0;
+    return b;
+  }
   function newExpedition() {
     return {
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
-      carried: {}, drops: [], banked: { water: 0, materials: 0, spares: 0, food: 0, o2: 0, science: 0, morale: 0, lines: [] },
-      goals: [], incidents: [], stats: {},
+      carried: {}, drops: [], banked: freshBank(), goals: [], incidents: [], stats: {},
+      suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
     };
+  }
+
+  // Missing or malformed fields (an old save, a hand-edited one) are replaced with fresh ones, so the rules never
+  // meet the wrong type. Returns the repaired expedition (a new one if it wasn't an object at all).
+  function repairExpedition(x) {
+    const fresh = newExpedition();
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return fresh;
+    const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
+    for (const k of Object.keys(fresh)) {
+      const want = fresh[k], have = x[k];
+      let ok;
+      if (Array.isArray(want)) ok = Array.isArray(have);
+      else if (want === null) ok = have === null || isMap(have);
+      else if (typeof want === 'object') ok = isMap(have);
+      else ok = typeof have === typeof want && Number.isFinite(have);
+      if (!ok) x[k] = want;
+    }
+    for (const k of BANK_RES) if (!Number.isFinite(x.banked[k])) x.banked[k] = 0;
+    if (!Array.isArray(x.banked.lines)) x.banked.lines = [];
+    return x;
+  }
+
+  // Adds one item to a bank. Report lines are summed per crew member, find kind, resource and region; `late` marks
+  // items banked from a backpack at the start of the next round (spec §3.1).
+  function bankItem(bank, crewId, item, late) {
+    if (!item || !BANK_RES.includes(item.res) || item.res === 'morale') return;
+    const amount = Math.max(0, Number(item.amount) || 0);
+    bank[item.res] += amount;
+    const line = bank.lines.find(l => l.crewId === crewId && l.kind === item.kind && l.res === item.res && l.region === item.region && l.late === !!late);
+    if (line) { line.amount += amount; line.loads += 1; }
+    else bank.lines.push({ crewId, kind: item.kind, res: item.res, region: item.region, amount, loads: 1, late: !!late });
   }
 
   function buildState(loadout, seed, eventsOn, level, size) {
@@ -1125,9 +1222,9 @@ p { margin: 0; }
   // walking as if they are still alive, otherwise the first active (then the first living) crew member.
   function upgradeMission(m, opts) {
     if (!m || typeof m !== 'object') return m;
-    const fresh = newExpedition();
-    if (!m.expedition || typeof m.expedition !== 'object') m.expedition = fresh;
-    else for (const k of Object.keys(fresh)) if (m.expedition[k] == null) m.expedition[k] = fresh[k];
+    m.expedition = repairExpedition(m.expedition);
+    // A pilot who isn't in the crew (a hand-edited save) is chosen again, the same way as for an old save.
+    if (m.pilot != null && !(m.crew || []).some(c => c.id === m.pilot)) m.pilot = undefined;
     if (m.pilot === undefined) {
       const controlId = opts && opts.controlId;
       const alive = c => c.status !== 'dead';
@@ -1330,6 +1427,8 @@ p { margin: 0; }
       production: {}, consumption: {}, delta: {}, crew: [], power: null, science: 0,
       started: [], completed: [], revived: [], downs: [], deaths: [], requested: null,
     };
+    // Exploring: what the crew delivered this round, and what went wrong outside, count before anything else.
+    report.expedition = applyExpedition(s);
     const living = s.crew.filter(c => c.status !== 'dead');
     const n = living.length;
     const workers = s.crew.filter(isActive);
@@ -1630,7 +1729,7 @@ p { margin: 0; }
       pts.farming * D.SCIENCE.farming +
       (ch.discovery === 'investigate' ? D.DISCOVERY.science : ch.discovery === 'log' ? D.DISCOVERY.logScience : 0);
     s.science += sci;
-    report.science = sci;
+    report.science = sci + (report.expedition ? report.expedition.got.science : 0);
 
     // Construction: finish projects in order, leftover work becomes regolith bricks
     let cp = pts.construction;
@@ -1722,8 +1821,56 @@ p { margin: 0; }
     return { state: s, report };
   }
 
+  // The bank goes into the base's stocks; each collapse outside (recorded, or a co-op crew member still waiting for a
+  // revive) costs that astronaut health and the crew morale. Returns what the report shows.
+  function applyExpedition(s) {
+    const x = s.expedition;
+    if (!x || !x.banked) return null;
+    const got = {};
+    for (const k of BANK_RES) got[k] = Math.max(0, Number(x.banked[k]) || 0);
+    for (const k of ['water', 'materials', 'spares', 'food', 'o2']) s.resources[k] += got[k];
+    s.science += got.science;
+    s.morale = clamp(s.morale + got.morale, 0, 100);
+    const incidents = (x.incidents || []).map(i => ({ crewId: i.crewId, kind: i.kind }));
+    for (const id of Object.keys(x.collapsed || {})) incidents.push({ crewId: id, kind: 'collapse' });
+    for (const inc of incidents) {
+      const c = s.crew.find(k => k.id === inc.crewId);
+      if (!c || c.status !== 'active') continue;
+      c.health = clamp(c.health - D.EXPEDITION.collapse.health, 0, 100);
+      s.morale = clamp(s.morale - D.EXPEDITION.collapse.morale, 0, 100);
+    }
+    return { got, lines: (x.banked.lines || []).map(l => Object.assign({}, l)), incidents };
+  }
+
+  // After a round: the bank and the incidents are spent; what is still in a backpack is banked for the next round (a
+  // one-round delay), except that a co-op astronaut still collapsed outside leaves their load where they fell. Everyone
+  // starts the next round at the base with a full suit, and the rover comes home with whoever was driving it.
+  function rollExpedition(s, endedTurn) {
+    const x = s.expedition;
+    if (!x) return;
+    const next = freshBank();
+    for (const crewId of Object.keys(x.carried || {})) {
+      const items = x.carried[crewId];
+      if (!Array.isArray(items) || !items.length) continue;
+      const spot = (x.collapsed || {})[crewId];
+      if (spot) x.drops.push({ id: endedTurn + ':' + crewId, x: spot.x, y: spot.y, items });
+      else for (const it of items) bankItem(next, crewId, it, true);
+    }
+    while (x.drops.length > D.EXPEDITION.maxDrops) x.drops.shift();
+    x.banked = next;
+    x.carried = {};
+    x.incidents = [];
+    x.collapsed = {};
+    x.benched = [];
+    x.suits = {};
+    x.refills = {};
+    x.roverDriven = 0;
+    if (x.rover && x.rover.driver) x.rover = null;
+  }
+
   function runway(s, report) {
-    const perSol = k => report.delta[k] / D.TURN_SOLS;
+    const got = (report.expedition && report.expedition.got) || {};
+    const perSol = k => (report.delta[k] - (got[k] || 0)) / D.TURN_SOLS;
     const out = {};
     for (const k of ['o2', 'food']) {
       const d = perSol(k);
@@ -1790,6 +1937,7 @@ p { margin: 0; }
 
   function resolveTurn(state, plan) {
     const { state: s, report } = simulate(state, plan, true);
+    rollExpedition(s, s.turn);
     s.turn += 1;
     s.sol += D.TURN_SOLS;
 
@@ -1963,7 +2111,7 @@ p { margin: 0; }
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
-    newExpedition, upgradeMission,
+    newExpedition, upgradeMission, repairExpedition, bankItem,
   };
 });
 
@@ -2556,6 +2704,74 @@ p { margin: 0; }
     'help.6': 'At 0 HP a crew member goes down. The medic on Rest & care, or anyone with a med bay, can revive them within 5 rounds. A second collapse is permanent.',
     'help.7': 'Each astronaut has a 300 mSv surface budget. Past it they are grounded and the mission loses a lot of score.',
     'help.8': 'Earth can drop food, water or materials from orbit a few times per mission, and Mission Control answers one question per round.',
+    'help.10': 'Bring things home: ice, metal-rich rock, crashed cargo pods and science sites lie out on the map. Stand by one and hold E (or the action button) to load it into your backpack (3 loads, 8 in the rover), then walk back inside the dashed square around the HQ to deliver. Your suit holds 150 s of oxygen outside each round and pauses at the base; if it runs out you collapse. Deliveries count when the round advances.',
+    'find.ice': 'Ice deposit',
+    'find.metal': 'Metal-rich rock',
+    'find.pod': 'Crashed cargo pod',
+    'find.science': 'Science site',
+    'sci.delta': 'old river delta',
+    'sci.vent': 'methane vent',
+    'sci.meteorite': 'meteorite',
+    'sci.layered': 'layered rock',
+    'haul.water': '+{n} kg water',
+    'haul.materials': '+{n} kg materials',
+    'haul.food': '+{n} kg food',
+    'haul.o2': '+{n} kg O₂ (a canister)',
+    'haul.spares': '+{n} spare kit',
+    'haul.science': '+{n} science',
+    'rep.haul': '{amount}: {what}, {region} ({name})',
+    'rep.haulLate': '{amount}: {what}, {region} ({name}), banked from a backpack',
+    'rep.collapse': '{name} collapsed outside with an empty suit: −{h} health, −{m} morale.',
+    'eva.title': 'Expedition',
+    'eva.banked': 'Delivered this round',
+    'eva.carrying': 'In backpacks',
+    'eva.counts': 'It counts when the round advances.',
+    'eva.nothing': 'Nothing yet. Walk out of the base: ice, metal-rich rock, cargo pods and science sites lie on the map. Hold E by one to load it, then bring it back inside the dashed square around the HQ.',
+    'eva.suit': 'Suit O₂',
+    'eva.paused': '{s} s · paused',
+    'eva.battery': 'Rover battery',
+    'eva.tiles': 'tiles',
+    'eva.pack': 'Backpack: {n} of {m} loads',
+    'eva.useCanister': 'Breathe an O₂ canister (+{s} s) · Q',
+    'eva.breathed': '+{s} s of suit oxygen.',
+    'eva.collect': 'Hold to collect: {what} · {s} s',
+    'eva.survey': 'Hold to survey: {what} · {s} s',
+    'eva.pickup': 'Hold to pick up the dropped load · {s} s',
+    'eva.revive': 'Hold to revive {name} · {s} s',
+    'eva.collected': 'Loaded into your backpack.',
+    'eva.pickedUp': 'Load picked up.',
+    'eva.delivered1': 'Delivered 1 load. It counts when the round advances.',
+    'eva.delivered': 'Delivered {n} loads. They count when the round advances.',
+    'eva.full': 'Backpack full: bring it back to the base.',
+    'eva.low': 'Suit oxygen low: head back to the base!',
+    'eva.flat': 'The rover battery is flat until tomorrow: press E to get out and walk.',
+    'eva.collapsedCoop': 'Your suit is empty and you collapsed. Hold on: a crewmate can revive you.',
+    'eva.collapsedSolo': 'Your suit ran out and you collapsed. The crew brought you back to the base; your load waits where you fell.',
+    'eva.benched': 'Your suit is empty until the next round.',
+    'eva.revived': 'A crewmate revived you: {s} s of suit oxygen.',
+    'eva.revivedThem': 'You revived {name}.',
+    'eva.err.tooFar': 'Too far away: step closer.',
+    'eva.err.full': 'Your backpack is full.',
+    'eva.err.empty': 'Nothing left here.',
+    'eva.err.taken': 'Someone else is driving the rover.',
+    'eva.err.flat': "The rover's battery is flat until tomorrow.",
+    'eva.err.noRover': 'The rover is out of action.',
+    'eva.err.noCanister': 'No O₂ canister in your backpack.',
+    'eva.err.badPos': 'Waiting for your position to reach the server.',
+    'eva.err.net': 'No answer from the server.',
+    'eva.err.noFind': 'That find is gone.',
+    'eva.err.noDrop': 'Someone already picked that up.',
+    'eva.err.notCollapsed': 'They are already back on their feet.',
+    'eva.err.collapsed': 'You have collapsed.',
+    'eva.err.benched': 'Your suit is empty until the next round.',
+    'eva.err.notActive': 'You are not fit to work outside.',
+    'eva.err.badPhase': 'Not now.',
+    'eva.err.noCrew': 'Take a crew member first.',
+    'eva.err.solo': 'Nobody can revive you on a solo mission.',
+    'eva.err.notAtBase': 'Deliver inside the dashed square around the HQ.',
+    'eva.err.atBase': 'Your suit pauses at the base.',
+    'eva.err.notDriving': 'You are not driving the rover.',
+    'eva.err.badAction': 'Not now.',
     'help.9': 'Explore: the world goes on in every direction. Walk or drive out of the base, and what you see stays on your map. Press M or tap the minimap to open the map. Each region of Mars looks different and comes with a real fact.',
 
     'notes.title': 'Science notes',
@@ -2611,8 +2827,8 @@ p { margin: 0; }
     'sf.surface': "Surface",
     'sf.consoleTab': "Mission console",
     'sf.aria': "Outpost surface. Move with WASD or the arrow keys, press E to interact, C opens the mission console.",
-    'sf.hintKeys': "WASD or arrows to move · Shift to sprint · E to interact · M for the map · C for the console · click the ground to walk there",
-    'sf.hintTouch': "Drag the stick to move · hold » to sprint · tap E to interact · tap the minimap for the map · tap the ground to walk there",
+    'sf.hintKeys': "WASD or arrows to move · Shift to sprint · E to interact (hold it by a find) · M for the map · C for the console · click the ground to walk there",
+    'sf.hintTouch': "Drag the stick to move · hold » to sprint · tap E to interact (hold it by a find) · tap the minimap for the map · tap the ground to walk there",
     'sf.minimap': 'Minimap. Select it to open the full map (M).',
     'sf.mapTitle': 'Explored map',
     'sf.mapHint': 'Drag or use the arrow keys to move · scroll or + − to zoom · M or Esc to close',
@@ -3368,6 +3584,74 @@ p { margin: 0; }
     'help.6': 'Hết HP, phi hành gia sẽ ngã gục. Bác sĩ làm Nghỉ & chăm sóc, hoặc bất kỳ ai khi có trạm y tế, có thể cứu trong vòng 5 vòng. Ngã gục lần thứ hai là mãi mãi.',
     'help.7': 'Mỗi phi hành gia có giới hạn 300 mSv trên bề mặt. Vượt qua sẽ bị cấm ra ngoài và nhiệm vụ mất nhiều điểm.',
     'help.8': 'Trái Đất có thể thả thực phẩm, nước hoặc vật liệu từ quỹ đạo vài lần mỗi nhiệm vụ, và Trung tâm điều khiển trả lời một câu hỏi mỗi vòng.',
+    'help.10': 'Mang về căn cứ: băng, đá giàu kim loại, khoang hàng bị rơi và địa điểm khoa học nằm rải rác trên bản đồ. Đứng cạnh và giữ phím E (hoặc nút hành động) để chất vào ba lô (3 phần, 8 phần khi đi xe tự hành), rồi đi vào trong ô vuông nét đứt quanh trụ sở để giao hàng. Bộ đồ du hành có 150 giây oxy bên ngoài mỗi vòng và tạm dừng khi ở căn cứ; nếu hết oxy bạn sẽ ngã gục. Hàng giao sẽ được tính khi sang vòng mới.',
+    'find.ice': 'Mỏ băng',
+    'find.metal': 'Đá giàu kim loại',
+    'find.pod': 'Khoang hàng bị rơi',
+    'find.science': 'Địa điểm khoa học',
+    'sci.delta': 'châu thổ sông cổ',
+    'sci.vent': 'lỗ thoát khí mê-tan',
+    'sci.meteorite': 'thiên thạch',
+    'sci.layered': 'đá phân lớp',
+    'haul.water': '+{n} kg nước',
+    'haul.materials': '+{n} kg vật liệu',
+    'haul.food': '+{n} kg thức ăn',
+    'haul.o2': '+{n} kg O₂ (một bình)',
+    'haul.spares': '+{n} bộ phụ tùng',
+    'haul.science': '+{n} điểm khoa học',
+    'rep.haul': '{amount}: {what}, {region} ({name})',
+    'rep.haulLate': '{amount}: {what}, {region} ({name}), gửi từ ba lô',
+    'rep.collapse': '{name} ngã gục bên ngoài vì hết oxy: −{h} sức khỏe, −{m} tinh thần.',
+    'eva.title': 'Thám hiểm',
+    'eva.banked': 'Đã giao trong vòng này',
+    'eva.carrying': 'Trong ba lô',
+    'eva.counts': 'Sẽ được tính khi sang vòng mới.',
+    'eva.nothing': 'Chưa có gì. Hãy đi ra khỏi căn cứ: băng, đá giàu kim loại, khoang hàng và địa điểm khoa học nằm trên bản đồ. Giữ phím E bên cạnh để chất hàng, rồi mang về trong ô vuông nét đứt quanh trụ sở.',
+    'eva.suit': 'Oxy bộ đồ',
+    'eva.paused': '{s} giây · tạm dừng',
+    'eva.battery': 'Pin xe tự hành',
+    'eva.tiles': 'ô',
+    'eva.pack': 'Ba lô: {n} trên {m} phần',
+    'eva.useCanister': 'Thở một bình O₂ (+{s} giây) · Q',
+    'eva.breathed': '+{s} giây oxy cho bộ đồ.',
+    'eva.collect': 'Giữ để thu thập: {what} · {s} giây',
+    'eva.survey': 'Giữ để khảo sát: {what} · {s} giây',
+    'eva.pickup': 'Giữ để nhặt hàng bị rơi · {s} giây',
+    'eva.revive': 'Giữ để cứu {name} · {s} giây',
+    'eva.collected': 'Đã chất vào ba lô.',
+    'eva.pickedUp': 'Đã nhặt hàng.',
+    'eva.delivered1': 'Đã giao 1 phần hàng. Sẽ được tính khi sang vòng mới.',
+    'eva.delivered': 'Đã giao {n} phần hàng. Sẽ được tính khi sang vòng mới.',
+    'eva.full': 'Ba lô đã đầy: hãy mang về căn cứ.',
+    'eva.low': 'Oxy bộ đồ sắp hết: quay về căn cứ ngay!',
+    'eva.flat': 'Pin xe tự hành đã cạn đến ngày mai: nhấn E để xuống xe và đi bộ.',
+    'eva.collapsedCoop': 'Bộ đồ hết oxy và bạn đã ngã gục. Cố lên: đồng đội có thể cứu bạn.',
+    'eva.collapsedSolo': 'Bộ đồ hết oxy và bạn đã ngã gục. Phi hành đoàn đưa bạn về căn cứ; hàng của bạn vẫn nằm ở chỗ bạn ngã.',
+    'eva.benched': 'Bộ đồ hết oxy cho đến vòng sau.',
+    'eva.revived': 'Một đồng đội đã cứu bạn: {s} giây oxy cho bộ đồ.',
+    'eva.revivedThem': 'Bạn đã cứu {name}.',
+    'eva.err.tooFar': 'Quá xa: hãy lại gần hơn.',
+    'eva.err.full': 'Ba lô của bạn đã đầy.',
+    'eva.err.empty': 'Ở đây không còn gì.',
+    'eva.err.taken': 'Người khác đang lái xe tự hành.',
+    'eva.err.flat': 'Pin xe tự hành đã cạn đến ngày mai.',
+    'eva.err.noRover': 'Xe tự hành đang không hoạt động.',
+    'eva.err.noCanister': 'Không có bình O₂ nào trong ba lô.',
+    'eva.err.badPos': 'Đang chờ vị trí của bạn gửi tới máy chủ.',
+    'eva.err.net': 'Máy chủ không phản hồi.',
+    'eva.err.noFind': 'Vật đó không còn nữa.',
+    'eva.err.noDrop': 'Đã có người nhặt rồi.',
+    'eva.err.notCollapsed': 'Họ đã đứng dậy rồi.',
+    'eva.err.collapsed': 'Bạn đã ngã gục.',
+    'eva.err.benched': 'Bộ đồ hết oxy cho đến vòng sau.',
+    'eva.err.notActive': 'Bạn không đủ sức khỏe để làm việc bên ngoài.',
+    'eva.err.badPhase': 'Chưa được lúc này.',
+    'eva.err.noCrew': 'Hãy nhận một thành viên trước.',
+    'eva.err.solo': 'Không ai có thể cứu bạn trong nhiệm vụ một người.',
+    'eva.err.notAtBase': 'Hãy giao hàng trong ô vuông nét đứt quanh trụ sở.',
+    'eva.err.atBase': 'Bộ đồ tạm dừng khi ở căn cứ.',
+    'eva.err.notDriving': 'Bạn đang không lái xe tự hành.',
+    'eva.err.badAction': 'Chưa được lúc này.',
     'help.9': 'Khám phá: thế giới trải dài về mọi hướng. Hãy đi bộ hoặc lái xe ra khỏi căn cứ, những gì bạn nhìn thấy sẽ ở lại trên bản đồ. Nhấn M hoặc chạm bản đồ nhỏ để mở bản đồ. Mỗi vùng của sao Hỏa trông khác nhau và đi kèm một sự thật khoa học.',
 
     'notes.title': 'Ghi chú khoa học',
@@ -3423,8 +3707,8 @@ p { margin: 0; }
     'sf.surface': "Bề mặt",
     'sf.consoleTab': "Bảng điều khiển",
     'sf.aria': "Bề mặt tiền đồn. Di chuyển bằng WASD hoặc phím mũi tên, nhấn E để tương tác, C để mở bảng điều khiển.",
-    'sf.hintKeys': "WASD hoặc phím mũi tên để đi · Shift để chạy · E để tương tác · M mở bản đồ · C mở bảng điều khiển · bấm xuống đất để đi tới đó",
-    'sf.hintTouch': "Kéo cần điều khiển để đi · giữ » để chạy · chạm E để tương tác · chạm bản đồ nhỏ để mở bản đồ · chạm xuống đất để đi tới đó",
+    'sf.hintKeys': "WASD hoặc phím mũi tên để đi · Shift để chạy · E để tương tác (giữ phím khi đứng cạnh vật tìm được) · M mở bản đồ · C mở bảng điều khiển · bấm xuống đất để đi tới đó",
+    'sf.hintTouch': "Kéo cần điều khiển để đi · giữ » để chạy · chạm E để tương tác (giữ khi đứng cạnh vật tìm được) · chạm bản đồ nhỏ để mở bản đồ · chạm xuống đất để đi tới đó",
     'sf.minimap': 'Bản đồ nhỏ. Chọn để mở bản đồ lớn (M).',
     'sf.mapTitle': 'Bản đồ đã khám phá',
     'sf.mapHint': 'Kéo hoặc dùng phím mũi tên để di chuyển · cuộn chuột hoặc + − để phóng to, thu nhỏ · M hoặc Esc để đóng',
@@ -4385,7 +4669,9 @@ p { margin: 0; }
  * (−4, −2), so the HQ is at (0, 0). Nothing that blocks is ever placed within FLAT_RADIUS tiles of the HQ.
  *
  * API: seedOf(missionSeed) → uint32 · regionAt(seed, x, y) → index into REGIONS
- *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512) }   (32×32, row-major)
+ *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds }   (32×32, row-major)
+ *        finds: [{ n, x, y, kind, ring, region, sub? }] in world tiles; a find's id is "<cx>,<cy>:<n>"
+ *      ringOf(x, y) → 0 inner · 1 middle · 2 outer · 3 far
  *      tileOf(chunk, lx, ly) · regionOf(chunk, lx, ly)
  *      featuresNear(seed, x0, y0, x1, y1) → { canyons, craters, mesas } touching that tile box (inclusive)
  *      hash(seed, a, b, c) → uint32 · unit(h) → [0, 1) · noise(seed, salt, x, y, size) → [0, 1]
@@ -4689,6 +4975,61 @@ p { margin: 0; }
     return NONE;
   }
 
+  // ---------- finds (spec §2.4): darts thrown inside the chunk, 3 tiles from its edges ----------
+  // A chunk places its own finds without looking at its neighbours. Every find stands on open ground, and the reachability
+  // test proves all open ground near the base is connected, so every find can be reached on foot.
+  const RINGS = [20, 40, 80];                   // inner ≤ 20 < middle ≤ 40 < outer ≤ 80 < far, in tiles from the HQ
+  const FIND_KINDS = ['ice', 'metal', 'pod', 'science'];
+  const FIND_DARTS = 24, FIND_EDGE = 3, FIND_GAP = 5;
+  const FIND_DENSITY = [1.6, 0.8, 1.6, 1.6, 1.8, 1.6]; // finds a chunk aims for, by region (the Dune Sea has few)
+  const RING_DENSITY = [0.3, 0.6, 1, 1];               // fewer finds close to the base
+  const KIND_WEIGHTS = [                             // ice, metal, pod, science, by region
+    [0, 1.5, 1.5, 0.5], [0, 1.2, 2.5, 0.35], [0, 1.5, 0, 0.75], [0, 1.5, 0, 0.75], [6, 0.6, 0, 0.35], [0, 2.25, 0, 0.35],
+  ];
+  const ICY_GROUND = new Uint8Array(32);             // ice deposits lie in crater floors and canyons in any region
+  for (const k of ['CRATER_FLOOR', 'CANYON_FLOOR', 'ICE']) ICY_GROUND[TILE[k]] = 1;
+  const SCIENCE_SUBS = [['delta', 'vent'], ['meteorite'], ['meteorite', 'layered'], ['layered', 'vent'], ['layered'], ['layered', 'meteorite']];
+
+  function ringOf(x, y) {
+    const d2 = x * x + y * y;
+    return d2 <= RINGS[0] * RINGS[0] ? 0 : d2 <= RINGS[1] * RINGS[1] ? 1 : d2 <= RINGS[2] * RINGS[2] ? 2 : 3;
+  }
+
+  // Crater floors and canyon floors hold ice: the chunk that owns a crater's centre (or a canyon's middle) puts an ice
+  // deposit there first. Then darts land at random spots.
+  function placeFinds(seed, cx, cy, tiles, regions, feats) {
+    const out = [], span = CHUNK - 2 * FIND_EDGE;
+    const x0 = cx * CHUNK, y0 = cy * CHUNK;
+    const own = (x, y) => x - x0 >= FIND_EDGE && y - y0 >= FIND_EDGE && x - x0 < CHUNK - FIND_EDGE && y - y0 < CHUNK - FIND_EDGE;
+    const spots = feats.craters.map(c => [c.x, c.y])
+      .concat(feats.canyons.map(k => [Math.floor((k.pts[1][0] + k.pts[2][0]) / 2), Math.floor((k.pts[1][1] + k.pts[2][1]) / 2)]));
+    for (const [x, y] of spots) {
+      if (!own(x, y) || inFlat(x, y)) continue;
+      const n = (y - y0) * CHUNK + (x - x0);
+      if (!ICY_GROUND[tiles[n]]) continue;
+      out.push({ n: out.length, x, y, kind: 'ice', ring: ringOf(x, y), region: (regions[n >> 1] >> ((n & 1) * 4)) & 15 });
+    }
+    for (let i = 0; i < FIND_DARTS; i++) {
+      const h = hash(seed, cx, cy, 500 + i);
+      const lx = FIND_EDGE + (h % span), ly = FIND_EDGE + ((h >>> 8) % span), n = ly * CHUNK + lx;
+      const x = cx * CHUNK + lx, y = cy * CHUNK + ly;
+      if (inFlat(x, y)) continue;
+      const code = tiles[n];
+      if (BLOCKING[code] || code === TILE.BASE) continue;
+      const r = (regions[n >> 1] >> ((n & 1) * 4)) & 15, ring = ringOf(x, y);
+      if (unit(hash(seed, cx, cy, 540 + i)) >= FIND_DENSITY[r] * RING_DENSITY[ring] / FIND_DARTS) continue;
+      if (out.some(f => Math.abs(f.x - x) < FIND_GAP && Math.abs(f.y - y) < FIND_GAP)) continue;
+      const w = KIND_WEIGHTS[r].slice();
+      if (ICY_GROUND[code]) w[0] += 6;
+      let pick = unit(hash(seed, cx, cy, 580 + i)) * (w[0] + w[1] + w[2] + w[3]), k = 0;
+      while (k < 3 && pick >= w[k]) { pick -= w[k]; k++; }
+      const f = { n: out.length, x, y, kind: FIND_KINDS[k], ring, region: r };
+      if (k === 3) f.sub = SCIENCE_SUBS[r][(h >>> 16) % SCIENCE_SUBS[r].length];
+      out.push(f);
+    }
+    return out;
+  }
+
   // ---------- chunks ----------
   function chunk(seed, cx, cy) {
     const x0 = cx * CHUNK, y0 = cy * CHUNK, w = CHUNK + 2;
@@ -4716,7 +5057,7 @@ p { margin: 0; }
       else t = ground(seed, r, x, y);
       tiles[i] = t;
     }
-    return { cx, cy, tiles, regions };
+    return { cx, cy, tiles, regions, finds: placeFinds(seed, cx, cy, tiles, regions, feats) };
   }
 
   const tileOf = (c, lx, ly) => c.tiles[ly * CHUNK + lx];
@@ -4726,8 +5067,8 @@ p { margin: 0; }
   }
 
   return {
-    CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16,
-    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear,
+    CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16, RINGS, FIND_KINDS,
+    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear, ringOf,
   };
 });
 
@@ -4837,6 +5178,274 @@ p { margin: 0; }
   }
 
   return { SIZE, BYTES, KEY, empty, has, set, count, encode, decode, orInto, mergeMap, isNewLaunch };
+});
+
+</script>
+<script>
+/*
+ * SOL 500 — exploring (spec §3, §4): the rules for finds, the backpack, the suit, collapses and the rover.
+ * Pure (no DOM): the server runs it for co-op and ui.js runs it for solo play, so both play by the same rules.
+ *
+ * Every action first checks the mission, the crew member and the world (built here from the mission code), and
+ * returns { error } without changing anything; otherwise it changes mission.expedition in place and returns
+ * { ok: true, ... }. Positions are world pixels { x, y } (64 px a tile, the HQ tile's corner at 0, 0): the numbers
+ * the surface draws with and the network sends. The mission state is described at newExpedition in src/engine.js.
+ *
+ * API: findById(m, id) → the find plus { id, cx, cy, left } or null · findsIn(m, cx, cy) · loadsLeft(m, find)
+ *      holdSeconds(kind, role) · capacity(m, crewId) · inBaseZone(pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s)
+ *      collect(m, crewId, findId, pos) · deliver(m, crewId, pos) · useCanister(m, crewId) · pickUp(m, crewId, dropId, pos)
+ *      collapse(m, crewId, pos) · revive(m, crewId, targetId, pos) · board(m, crewId, pos) · park(m, crewId, pos)
+ *      roverLeft(m) → tiles the rover can still drive this round · setRoverDriven(m, crewId, tiles) (the driver's game)
+ *      cacheSize() → data chunks in the shared world cache (at most 256)
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'), require('./worldgen.js'), require('./engine.js'));
+  else root.SolExpedition = factory(root.SolData, root.SolWorldgen, root.SolEngine);
+})(typeof self !== 'undefined' ? self : this, function (D, W, E) {
+  'use strict';
+  const T = 64;
+  const X = D.EXPEDITION;
+  const CRATERS = W.REGIONS.indexOf('craters');
+
+  // ---------- the world: one cache of data chunks shared by every mission (and, on the server, every room) ----------
+  const CACHE = 256;
+  const cache = new Map(); // "<world seed>|<cx>,<cy>" → chunk, oldest first
+  function chunkAt(m, cx, cy) {
+    const seed = W.seedOf(m.seed), k = seed + '|' + cx + ',' + cy;
+    let c = cache.get(k);
+    if (c) { cache.delete(k); cache.set(k, c); return c; }
+    c = W.chunk(seed, cx, cy);
+    cache.set(k, c);
+    if (cache.size > CACHE) cache.delete(cache.keys().next().value);
+    return c;
+  }
+  function findsIn(m, cx, cy) { return chunkAt(m, cx, cy).finds; }
+
+  // A find's id is "<cx>,<cy>:<n>", written exactly the way the world writes it, so one find has one id.
+  const ID = /^(-?\d{1,7}),(-?\d{1,7}):(\d{1,2})$/;
+  function findById(m, id) {
+    const g = ID.exec(String(id));
+    if (!g) return null;
+    const cx = Number(g[1]), cy = Number(g[2]), n = Number(g[3]);
+    if (cx + ',' + cy + ':' + n !== id) return null;
+    const f = findsIn(m, cx, cy)[n];
+    if (!f) return null;
+    return Object.assign({ id, cx, cy, left: loadsLeft(m, f, id) }, f);
+  }
+  function loadsLeft(m, f, id) {
+    const v = m.expedition.sites[id == null ? f.id : id];
+    return Number.isFinite(v) ? v : D.FINDS[f.kind].loads[f.ring];
+  }
+
+  // ---------- small helpers ----------
+  const okPos = p => !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
+  const dist2 = (a, x, y) => (a.x - x) * (a.x - x) + (a.y - y) * (a.y - y);
+  const nearPx = (pos, x, y, tiles) => dist2(pos, x, y) <= (tiles * T) * (tiles * T);
+  const nearTile = (pos, tx, ty) => nearPx(pos, (tx + 0.5) * T, (ty + 0.5) * T, X.reach);
+  // The base zone: the tiles within baseZone of the HQ (Chebyshev), plus `slack` tiles for a position sent a moment ago.
+  function inBaseZone(pos, slack) {
+    return okPos(pos) && Math.max(Math.abs(pos.x / T - 0.5), Math.abs(pos.y / T - 0.5)) <= X.baseZone + 0.5 + (slack || 0);
+  }
+  const crewOf = (m, id) => m.crew.find(c => c.id === id) || null;
+  const pack = (x, id) => (Array.isArray(x.carried[id]) ? x.carried[id] : []);
+  const driving = (x, id) => !!x.rover && x.rover.driver === id;
+  function capacity(m, crewId) { return driving(m.expedition, crewId) ? X.packRover : X.pack; }
+  function suitOf(m, crewId) {
+    const v = m.expedition.suits[crewId];
+    return Number.isFinite(v) ? v : X.suit;
+  }
+  // Seconds of holding E for a find (or 'pickup', 'revive'), with the role's skill (spec §3.3).
+  function holdSeconds(kind, role) {
+    const base = kind === 'science' ? X.hold.survey : kind === 'pickup' ? X.hold.pickup : kind === 'revive' ? X.hold.revive : X.hold.load;
+    const skill = D.SKILLS[role] || {};
+    return base * (skill[kind] || 1);
+  }
+
+  // The crew member may act on the map: the mission is on, they are on their feet, and their suit isn't empty.
+  function able(m, crewId) {
+    if (!m || m.status !== 'active' || !m.expedition) return { error: 'badPhase' };
+    const c = crewOf(m, crewId);
+    if (!c) return { error: 'noCrew' };
+    if (c.status !== 'active') return { error: 'notActive' };
+    const x = m.expedition;
+    if (x.collapsed[crewId]) return { error: 'collapsed' };
+    if (x.benched.includes(crewId)) return { error: 'benched' };
+    return { crew: c };
+  }
+
+  // What one load of a find gives. A cargo pod's loads are fixed by the mission code, not by who opens it.
+  function itemFor(m, f, load, role) {
+    const F = D.FINDS[f.kind];
+    const item = { kind: f.kind, id: f.id, region: f.region };
+    if (f.kind === 'ice' || f.kind === 'metal') return Object.assign(item, { res: F.res, amount: F.kg });
+    if (f.kind === 'science') {
+      const k = (f.region === CRATERS ? F.craters : 1) * (role === 'scientist' ? D.SKILLS.scientist.scienceBonus : 1);
+      return Object.assign(item, { res: 'science', amount: Math.round(F.science[f.ring] * k), sub: f.sub });
+    }
+    const pick = W.hash(W.seedOf(m.seed), f.x, f.y, 700 + load) % 5; // spare kits are the rarest
+    if (pick === 0) return Object.assign(item, { res: 'spares', amount: 1 });
+    if (pick <= 3) return Object.assign(item, { res: 'food', amount: F.food });
+    return Object.assign(item, { res: 'o2', amount: X.canister.o2, canister: true });
+  }
+  function statsOf(x, crewId) {
+    if (!x.stats[crewId] || typeof x.stats[crewId] !== 'object') x.stats[crewId] = { finds: {} };
+    if (!x.stats[crewId].finds) x.stats[crewId].finds = {};
+    return x.stats[crewId];
+  }
+
+  // ---------- actions ----------
+  // Takes one load from a find next to you into your backpack.
+  function collect(m, crewId, findId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    const f = findById(m, findId);
+    if (!f) return { error: 'noFind' };
+    if (!nearTile(pos, f.x, f.y)) return { error: 'tooFar' };
+    if (f.left <= 0) return { error: 'empty' };
+    const x = m.expedition, mine = pack(x, crewId);
+    if (mine.length >= capacity(m, crewId)) return { error: 'full' };
+    const item = itemFor(m, f, D.FINDS[f.kind].loads[f.ring] - f.left, a.crew.role);
+    x.carried[crewId] = mine.concat([item]);
+    x.sites[findId] = f.left - 1;
+    const st = statsOf(x, crewId);
+    st.finds[f.kind] = (st.finds[f.kind] || 0) + 1;
+    return { ok: true, item, left: f.left - 1 };
+  }
+
+  // Everything in your backpack goes into the round's bank; it counts when the round advances.
+  function deliver(m, crewId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!inBaseZone(pos, X.reach)) return { error: 'notAtBase' };
+    const x = m.expedition, mine = pack(x, crewId);
+    if (!mine.length) return { error: 'empty' };
+    for (const it of mine) E.bankItem(x.banked, crewId, it, false);
+    x.carried[crewId] = [];
+    return { ok: true, items: mine };
+  }
+
+  // Breathes an O₂ canister from your backpack now: +45 s of suit (never more than a full suit).
+  function useCanister(m, crewId) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    const x = m.expedition, mine = pack(x, crewId), i = mine.findIndex(it => it && it.canister);
+    if (i < 0) return { error: 'noCanister' };
+    x.carried[crewId] = mine.slice(0, i).concat(mine.slice(i + 1));
+    x.suits[crewId] = Math.min(X.suit, suitOf(m, crewId) + X.canister.suit);
+    return { ok: true, suit: x.suits[crewId] };
+  }
+
+  // Picks up a dropped load (a collapsed crew member's), as much as your backpack takes.
+  function pickUp(m, crewId, dropId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    const x = m.expedition, d = x.drops.find(k => k.id === dropId);
+    if (!d) return { error: 'noDrop' };
+    if (!nearPx(pos, d.x, d.y, X.reach)) return { error: 'tooFar' };
+    const mine = pack(x, crewId), room = capacity(m, crewId) - mine.length;
+    if (room <= 0) return { error: 'full' };
+    const take = d.items.slice(0, room);
+    x.carried[crewId] = mine.concat(take);
+    d.items = d.items.slice(room);
+    if (!d.items.length) x.drops = x.drops.filter(k => k !== d);
+    return { ok: true, items: take, left: d.items.length };
+  }
+
+  // Your suit ran out outside the base zone. In co-op you wait where you fell for a crewmate to revive you; if nobody does
+  // before the round advances, it counts as a collapse then. In solo nobody can come, so the collapse counts now, your load
+  // stays where you fell and you are back at the base until the next round.
+  function collapse(m, crewId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    if (inBaseZone(pos, 0)) return { error: 'atBase' };
+    const x = m.expedition, spot = { x: Math.round(pos.x), y: Math.round(pos.y) };
+    x.suits[crewId] = 0;
+    if (driving(x, crewId)) x.rover = { x: spot.x, y: spot.y };
+    if (m.coop) {
+      x.collapsed[crewId] = spot;
+      return { ok: true, waiting: true };
+    }
+    x.incidents.push({ crewId, kind: 'collapse' });
+    const mine = pack(x, crewId);
+    if (mine.length) {
+      x.drops.push({ id: m.turn + ':' + crewId, x: spot.x, y: spot.y, items: mine });
+      while (x.drops.length > X.maxDrops) x.drops.shift();
+    }
+    x.carried[crewId] = [];
+    x.benched.push(crewId);
+    return { ok: true, benched: true };
+  }
+
+  // Co-op: stand by a collapsed crewmate and hold E. They get up with 30 s of suit and nothing is recorded.
+  function revive(m, crewId, targetId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!m.coop) return { error: 'solo' };
+    if (!okPos(pos)) return { error: 'badPos' };
+    const x = m.expedition, spot = Object.prototype.hasOwnProperty.call(x.collapsed, targetId) ? x.collapsed[targetId] : null;
+    if (!spot) return { error: 'notCollapsed' };
+    if (!nearPx(pos, spot.x, spot.y, X.reach)) return { error: 'tooFar' };
+    delete x.collapsed[targetId];
+    x.suits[targetId] = X.reviveSuit;
+    return { ok: true };
+  }
+
+  // The rover's bay: the centre of its tile on the build grid (world pixels), or null if the base has no rover.
+  function bay(m) {
+    const t = m.layout.find(k => k.type === 'rover');
+    return t ? { x: (t.x + W.BASE_RECT.x + 0.5) * T, y: (t.y + W.BASE_RECT.y + 0.5) * T } : null;
+  }
+  // Gets into the rover, at its bay or where it was parked. One driver at a time.
+  function board(m, crewId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    const x = m.expedition;
+    if (E.activeCount(m, 'rover') <= 0) return { error: 'noRover' };
+    if (x.rover && x.rover.driver) return x.rover.driver === crewId ? { ok: true } : { error: 'taken' };
+    if (roverLeft(m) <= 0) return { error: 'flat' };
+    const at = x.rover || bay(m);
+    if (!at) return { error: 'noRover' };
+    if (!nearPx(pos, at.x, at.y, X.reach + 0.5)) return { error: 'tooFar' };
+    x.rover = { driver: crewId };
+    return { ok: true };
+  }
+  // Gets out: the rover stays where you are, or goes back to its bay if you are at the outpost.
+  function park(m, crewId, pos) {
+    if (!m || !m.expedition) return { error: 'badPhase' };
+    const x = m.expedition;
+    if (!driving(x, crewId)) return { error: 'notDriving' };
+    if (!okPos(pos)) return { error: 'badPos' };
+    const home = nearPx(pos, 0.5 * T, 0.5 * T, X.roverHome);
+    x.rover = home ? null : { x: Math.round(pos.x), y: Math.round(pos.y) };
+    return { ok: true, home };
+  }
+
+  // The rover's battery: it drives roverRange tiles a round and recharges overnight (spec ruling, M4a).
+  function roverLeft(m) { return Math.max(0, X.roverRange - (Number(m.expedition.roverDriven) || 0)); }
+  // How far the rover has been driven this round, as the driver's game reports it. It only ever goes up.
+  function setRoverDriven(m, crewId, tiles) {
+    const x = m && m.expedition;
+    if (!x || !driving(x, crewId) || !Number.isFinite(Number(tiles))) return;
+    x.roverDriven = Math.max(Number(x.roverDriven) || 0, Math.min(X.roverRange, Number(tiles)));
+  }
+
+  // The suit level a crew member's own game reports (it is drained there, frame by frame). Kept between 0 and full;
+  // ignored while they are collapsed (their suit is empty until a crewmate revives them).
+  function setSuit(m, crewId, seconds) {
+    const x = m && m.expedition;
+    if (!x || !crewOf(m, crewId) || x.collapsed[crewId] || !Number.isFinite(Number(seconds))) return;
+    x.suits[crewId] = Math.max(0, Math.min(X.suit, Number(seconds)));
+  }
+
+  return {
+    findById, findsIn, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft, setRoverDriven,
+    collect, deliver, useCanister, pickUp, collapse, revive, board, park,
+    cacheSize: () => cache.size,
+  };
 });
 
 </script>
@@ -5579,6 +6188,102 @@ p { margin: 0; }
     tag(x, hy - 17, name, color, a.you);
   }
 
+  // ---------- finds (spec §3.1) ----------
+  // A find on its tile, (cx, cy) = the tile's centre in world pixels; `time` makes the science flag wave.
+  const FIND_GLOW = { ice: '159,211,234', metal: '217,180,106', pod: '236,229,219', science: '111,168,255' };
+  function drawFind(ctx, f, cx, cy, time) {
+    ctx.save();
+    // A soft glow that breathes, so a find stands out from the rocks around it.
+    ctx.fillStyle = 'rgba(' + FIND_GLOW[f.kind] + ',' + (0.14 + 0.08 * Math.sin(time * 2.5 + f.x)).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 12, 28, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 14, 20, 6, 0, 0, Math.PI * 2); ctx.fill();
+    if (f.kind === 'ice') { // pale blue crystals on a frosty patch
+      ctx.fillStyle = 'rgba(225,243,250,0.35)';
+      ctx.beginPath(); ctx.ellipse(cx, cy + 10, 24, 9, 0, 0, Math.PI * 2); ctx.fill();
+      for (const [dx, h, w] of [[-10, 18, 8], [2, 26, 10], [12, 15, 7]]) {
+        ctx.fillStyle = '#9fd3ea';
+        ctx.beginPath(); ctx.moveTo(cx + dx - w / 2, cy + 12); ctx.lineTo(cx + dx, cy + 12 - h); ctx.lineTo(cx + dx + w / 2, cy + 12); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.beginPath(); ctx.moveTo(cx + dx - 1, cy + 10); ctx.lineTo(cx + dx, cy + 14 - h); ctx.lineTo(cx + dx + 1.5, cy + 10); ctx.closePath(); ctx.fill();
+      }
+    } else if (f.kind === 'metal') { // a dark rock with bright metal grains
+      ctx.fillStyle = '#3b3433';
+      ctx.beginPath(); ctx.ellipse(cx - 3, cy + 4, 18, 13, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#4d4544';
+      ctx.beginPath(); ctx.ellipse(cx + 8, cy, 11, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d9b46a';
+      for (const [dx, dy] of [[-9, 0], [-2, 7], [6, -3], [11, 3], [-12, 8]]) ctx.fillRect(cx + dx, cy + dy, 3, 2);
+      ctx.fillStyle = '#c9d2da';
+      for (const [dx, dy] of [[-5, -4], [3, 2], [9, -6]]) ctx.fillRect(cx + dx, cy + dy, 2, 2);
+    } else if (f.kind === 'pod') { // a cargo pod on its side, with its torn parachute
+      ctx.strokeStyle = '#e9874a';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx + 10, cy + 2); ctx.quadraticCurveTo(cx + 26, cy - 14, cx + 20, cy + 12); ctx.stroke();
+      ctx.fillStyle = '#ece5db';
+      roundRect(ctx, cx - 18, cy - 6, 30, 18, 8); ctx.fill();
+      ctx.fillStyle = '#b8aea2';
+      roundRect(ctx, cx - 18, cy + 6, 30, 6, 3); ctx.fill();
+      ctx.fillStyle = '#e9874a';
+      ctx.fillRect(cx - 6, cy - 6, 5, 18);
+    } else { // a science site: an outcrop with a survey flag
+      ctx.fillStyle = f.sub === 'meteorite' ? '#2c2a2e' : '#7a5442';
+      ctx.beginPath(); ctx.ellipse(cx - 4, cy + 6, 15, 9, 0, 0, Math.PI * 2); ctx.fill();
+      if (f.sub === 'layered' || f.sub === 'delta') {
+        ctx.strokeStyle = f.sub === 'delta' ? 'rgba(130,190,220,0.7)' : 'rgba(230,190,140,0.75)';
+        ctx.lineWidth = 2;
+        for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(cx - 16, cy + 2 + k * 4); ctx.lineTo(cx + 8, cy + 3 + k * 4); ctx.stroke(); }
+      } else if (f.sub === 'vent') {
+        ctx.fillStyle = 'rgba(235,225,215,0.35)';
+        const w = Math.sin(time * 2) * 2;
+        ctx.beginPath(); ctx.ellipse(cx - 4 + w, cy - 6, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = '#d6cec3';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx + 12, cy + 12); ctx.lineTo(cx + 12, cy - 22); ctx.stroke();
+      ctx.fillStyle = '#6fa8ff';
+      const wave = Math.sin(time * 3) * 2;
+      ctx.beginPath(); ctx.moveTo(cx + 12, cy - 22); ctx.lineTo(cx + 26, cy - 18 + wave); ctx.lineTo(cx + 12, cy - 13); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // A load someone dropped when their suit ran out: a backpack with a red tag. (x, y) in world pixels.
+  function drawDrop(ctx, x, y) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(x, y + 8, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#9da3a9';
+    roundRect(ctx, x - 10, y - 12, 20, 20, 4); ctx.fill();
+    ctx.fillStyle = '#7d848b';
+    roundRect(ctx, x - 7, y - 4, 14, 8, 2); ctx.fill();
+    ctx.fillStyle = '#f46e5f';
+    ctx.fillRect(x + 6, y - 16, 5, 8);
+    ctx.restore();
+  }
+
+  // How far a hold of E has got: a ring that fills clockwise. (x, y) is its centre in world pixels.
+  function drawRing(ctx, x, y, frac) {
+    ctx.save();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(20,14,16,0.75)';
+    ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#8cbcec';
+    ctx.beginPath(); ctx.arc(x, y, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, frac))); ctx.stroke();
+    ctx.restore();
+  }
+
+  // A teammate's suit level: a small bar above their name tag, from green through amber to red.
+  function drawSuitBar(ctx, x, y, frac) {
+    const f = Math.max(0, Math.min(1, frac));
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,14,16,0.8)';
+    roundRect(ctx, x - 15, y, 30, 5, 2.5); ctx.fill();
+    ctx.fillStyle = f > 0.4 ? '#4fd0c4' : f > 0.15 ? '#e9a13b' : '#f46e5f';
+    roundRect(ctx, x - 15, y, 30 * f, 5, 2.5); ctx.fill();
+    ctx.restore();
+  }
+
   // Name tags are laid out after all sprites so they never pile on top of each other.
   function drawTags(ctx, tags) {
     const placed = [];
@@ -5613,7 +6318,7 @@ p { margin: 0; }
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks },
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar },
   };
 });
 
@@ -5627,7 +6332,8 @@ p { margin: 0; }
  * API: SolMap.create({ t, onOpen, onClose }) → map
  *        map.attach(world, painter)          a new mission's world
  *        map.minimap · map.el                elements for the surface overlay
- *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }] } (world pixels)
+ *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square }] }
+ *                                            (world pixels; marks are finds, dropped loads and the parked rover)
  *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
  *        map.frame(state, deadline)          every animation frame (does nothing while closed)
  *        map.relabel()                       after a language change
@@ -5652,8 +6358,14 @@ p { margin: 0; }
       return n;
     };
 
-    // The HQ, then every crew member as a dot in their role colour (you with a white ring).
+    // Finds and the like, then the HQ, then every crew member as a dot in their role colour (you with a white ring).
     function markers(g, st, at) {
+      for (const k of st.marks || []) {
+        const [x, y] = at(k.x, k.y);
+        g.fillStyle = k.color;
+        if (k.square) g.fillRect(x - 2.5, y - 2.5, 5, 5);
+        else { g.beginPath(); g.arc(x, y, 2, 0, Math.PI * 2); g.fill(); }
+      }
       const [bx, by] = at(T / 2, T / 2); // the HQ is tile (0, 0)
       g.fillStyle = '#f4e9df';
       g.strokeStyle = '#120a0c';
@@ -5830,6 +6542,370 @@ p { margin: 0; }
 </script>
 <script>
 /*
+ * SOL 500 — exploring on the surface (spec §3): finds, dropped loads and the parked rover on the ground; holding E to
+ * collect, survey, pick up or revive; the suit, the rover's battery and delivering at the base; and the HUD for all of
+ * it. The rules live in src/expedition.js. This layer decides when to ask for them, through the ui.js hook `exp` (solo
+ * play runs them on the spot, co-op sends them to the server), and draws what the mission says. Browser-only (SolEva).
+ *
+ * API: SolEva.create(env) → eva
+ *        env: { t(key, params), hooks(), crewName(id), home(), drawRover(ctx, x, y), player() }
+ *      eva.el                                       the HUD node for the surface overlay
+ *      eva.sync(data) → { round, fresh }            round: a new round began; fresh: first look at this mission/seat
+ *      eva.canMove(player, nx, ny) → may your astronaut step to (nx, ny)? (world px)
+ *      eva.step(dt, player, world, moved, focus)    every frame: suit, battery, delivering, holds, the HUD
+ *      eva.focusAt(x, y, player, world) → a focus on a find, a dropped load, a collapsed crewmate or the parked rover
+ *      eva.holdable(focus) · eva.label(focus) · eva.start(focus) · eva.stop()       E / the action button
+ *      eva.act(type, player) → Promise of the rules' answer (board, park) · eva.canister(player) (the button, or Q)
+ *      eva.drawZone(ctx) · eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx, remote)
+ *      eva.marks(world, px, py) → minimap markers · eva.report() → { suit, driven } for the position message
+ *      eva.roverAtBay(player) · eva.driving() · eva.collapsed(crewId) · eva.state() (play-testing)
+ */
+(function (root) {
+  'use strict';
+  const D = root.SolData, W = root.SolWorldgen, X = root.SolExpedition, P = root.SolPaint, SW = root.SolWorld, A = root.SolArt;
+  const { drawFind, drawDrop, drawRing, drawSuitBar, roundRect } = P.sprites;
+  const XD = D.EXPEDITION;
+  const T = 64, ICY = W.REGIONS.indexOf('icy');
+  const REACH = 0.9 * T;                        // how close the spot you look at must be to a find
+  const COLORS = { ice: '#9fd3ea', metal: '#d9b46a', pod: '#ece5db', science: '#6fa8ff' };
+  const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science' };
+  const QUIET = ['deliver', 'collapse', 'park'];    // no message when these are refused (they are retried or harmless)
+
+  function create(env) {
+    const t = (k, p) => env.t(k, p);
+    let data = null, me = null, turn = null, wasDown = false;
+    let suit = XD.suit, driven = 0, hold = null, keyHeld = false;
+    let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [];
+    let note = null;                               // { text, cls, until }
+
+    const mission = () => (data && data.mission) || null;
+    const exp = () => mission().expedition;
+    const crew = () => (mission() && me ? mission().crew.find(c => c.id === me) || null : null);
+    const pack = () => (me && Array.isArray(exp().carried[me]) ? exp().carried[me] : []);
+    const collapsed = id => !!(mission() && mission().expedition && mission().expedition.collapsed[id]);
+    const benched = () => !!(me && exp().benched.includes(me));
+    const live = () => { const m = mission(), c = crew(); return !!m && !!m.expedition && m.status === 'active' && !!c && c.status === 'active'; };
+    const at = p => ({ x: Math.round(p.x), y: Math.round(p.y) });
+    const near2 = (ax, ay, bx, by) => (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
+    const secs = s => (Math.round(s * 10) / 10).toString();
+    function say(text, cls, s) { note = { text, cls: cls || '', until: now + (s || 3) }; }
+
+    // ---------- the HUD ----------
+    const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const el = node('div', 'sf-eva');
+    const meter = () => { const row = node('div', 'sf-suit'), k = node('span', 'k'), bar = node('span', 'bar'), fill = node('i'), v = node('b'); bar.appendChild(fill); row.append(k, bar, v); return { row, k, fill, v }; };
+    const suitM = meter(), battM = meter();
+    battM.row.classList.add('batt');
+    const packEl = node('div', 'sf-pack');
+    const canBtn = node('button', 'sf-can');
+    canBtn.type = 'button';
+    canBtn.addEventListener('click', () => canister(env.player && env.player()));
+    const noteEl = node('p', 'sf-evanote');
+    noteEl.setAttribute('role', 'status');
+    el.append(suitM.row, battM.row, packEl, canBtn, noteEl);
+    const shown = {};
+    const text = (n, k, v) => { if (shown[k] !== v) { shown[k] = v; n.textContent = v; } };
+    const prop = (k, v, set) => { if (shown[k] !== v) { shown[k] = v; set(v); } };
+
+    function statusNote(p) {
+      if (!me || !mission()) return null;
+      if (collapsed(me)) return { text: t('eva.collapsedCoop'), cls: 'crit' };
+      if (benched()) return { text: t('eva.benched'), cls: 'warn' };
+      if (p && p.inRover && driven >= XD.roverRange) return { text: t('eva.flat'), cls: 'warn' };
+      if (live() && pack().length >= X.capacity(mission(), me) && !(p && X.inBaseZone(p))) return { text: t('eva.full'), cls: '' };
+      if (live() && suit <= XD.suit * 0.2 && !(p && X.inBaseZone(p))) return { text: t('eva.low'), cls: 'crit' };
+      return null;
+    }
+
+    function renderHud(p) {
+      const hide = !me || !mission() || !mission().expedition || mission().status !== 'active';
+      prop('hide', hide, v => { el.hidden = v; });
+      if (hide) return;
+      const atBase = !!p && X.inBaseZone(p);
+      text(suitM.k, 'sk', t('eva.suit'));
+      text(suitM.v, 'sv', atBase && !benched() ? t('eva.paused', { s: Math.ceil(suit) }) : Math.ceil(suit) + ' s');
+      prop('sw', (100 * suit / XD.suit).toFixed(1) + '%', v => { suitM.fill.style.width = v; });
+      const f = suit / XD.suit;
+      prop('sc', 'sf-suit' + (f <= 0.2 ? ' crit' : f <= 0.4 ? ' warn' : ''), v => { suitM.row.className = v; });
+      const inRover = !!(p && p.inRover);
+      prop('bh', !inRover, v => { battM.row.hidden = v; });
+      if (inRover) {
+        const left = Math.max(0, XD.roverRange - driven);
+        text(battM.k, 'bk', t('eva.battery'));
+        text(battM.v, 'bv', Math.floor(left) + ' ' + t('eva.tiles'));
+        prop('bw', (100 * left / XD.roverRange).toFixed(1) + '%', v => { battM.fill.style.width = v; });
+      }
+      const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
+      prop('pk', items.map(i => i.res + (i.canister ? '*' : '')).join(',') + '|' + cap + '|' + (shown.lang || ''), () => {
+        packEl.textContent = '';
+        packEl.setAttribute('aria-label', t('eva.pack', { n: items.length, m: cap }));
+        for (let i = 0; i < cap; i++) {
+          const it = items[i], slot = node('span', 'slot' + (it ? ' full' : ''));
+          if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = t('haul.' + it.res, { n: it.amount }); }
+          packEl.appendChild(slot);
+        }
+      });
+      prop('ch', !(live() && items.some(i => i.canister)), v => { canBtn.hidden = v; });
+      text(canBtn, 'ct', t('eva.useCanister', { s: XD.canister.suit }));
+      const n = note && note.until > now ? note : statusNote(p);
+      text(noteEl, 'nt', n ? n.text : '');
+      prop('nc', 'sf-evanote' + (n && n.cls ? ' ' + n.cls : ''), v => { noteEl.className = v; });
+      prop('nh', !n, v => { noteEl.hidden = v; });
+    }
+
+    // ---------- asking the rules (through ui.js) ----------
+    function act(type, p, payload) {
+      const h = env.hooks();
+      if (!h || !h.exp) return Promise.resolve({ error: 'net' });
+      return Promise.resolve(h.exp(type, payload || {}, p ? at(p) : null)).then(r => {
+        const res = r || { error: 'net' };
+        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + res.error), 'warn');
+        return res;
+      }, () => { if (!QUIET.includes(type)) say(t('eva.err.net'), 'warn'); return { error: 'net' }; });
+    }
+
+    // Breathes an O₂ canister from your backpack (the button, or Q): +45 s of suit now.
+    function canister(p) {
+      if (!live() || !pack().some(i => i.canister)) return;
+      act('canister', p).then(r => {
+        if (!r.ok) return;
+        suit = Number.isFinite(r.suit) ? r.suit : Math.min(XD.suit, suit + XD.canister.suit);
+        say(t('eva.breathed', { s: XD.canister.suit }), 'ok');
+      });
+    }
+
+    // ---------- each new look at the mission ----------
+    function sync(d) {
+      data = d;
+      const m = d.mission;
+      if (!m || !m.expedition) return { round: false, fresh: false };
+      const id = d.controlId || null;
+      let round = false, fresh = false;
+      if (m.turn !== turn || id !== me) {
+        round = turn != null && m.turn !== turn && id === me;
+        fresh = !round;
+        turn = m.turn;
+        me = id;
+        suit = me ? X.suitOf(m, me) : XD.suit;
+        driven = Number(m.expedition.roverDriven) || 0;
+        hold = null;
+        collapseAt = -1e9;
+        wasDown = !!(me && m.expedition.collapsed[me]);
+      }
+      const down = !!(me && m.expedition.collapsed[me]);
+      if (wasDown && !down && me) { suit = X.suitOf(m, me); say(t('eva.revived', { s: XD.reviveSuit }), 'ok', 4); }
+      wasDown = down;
+      if (down || benched()) suit = 0;
+      driven = Math.max(driven, Number(m.expedition.roverDriven) || 0); // it only ever goes up within a round
+      shown.lang = d.lang;
+      return { round, fresh };
+    }
+
+    // ---------- every frame ----------
+    function canMove(p, nx, ny) {
+      if (!me || !mission() || !mission().expedition) return true;
+      if (collapsed(me)) return false;
+      const atBase = X.inBaseZone(p);
+      if (benched() && atBase && !X.inBaseZone({ x: nx, y: ny })) return false; // solo: back out next round
+      if (!atBase && suit <= 0) return false;
+      if (p.inRover && driven >= XD.roverRange) return false;
+      return true;
+    }
+
+    function step(dt, p, world, moved, focus) {
+      now += dt;
+      if (live()) {
+        const atBase = X.inBaseZone(p);
+        if (p.inRover && moved > 0) driven = Math.min(XD.roverRange, driven + moved / T);
+        if (!atBase && !collapsed(me) && !benched()) {
+          let k = p.inRover && !hold ? XD.drain.rover : 1;   // you step out of the rover to work
+          if (p.sprinting) k *= XD.drain.sprint;
+          if (world.region(Math.floor(p.x / T), Math.floor(p.y / T)) === ICY) k *= XD.drain.icy;
+          suit = Math.max(0, suit - dt * k);
+          if (suit <= 0 && now - collapseAt > 3) {
+            collapseAt = now;
+            hold = null;
+            act('collapse', p).then(r => {
+              if (r.benched) { env.home(); say(t('eva.collapsedSolo'), 'crit', 8); }
+            });
+          }
+        }
+        if (atBase && pack().length && now - deliverAt > 1.5) {
+          deliverAt = now;
+          const n = pack().length;
+          act('deliver', p).then(r => { if (r.ok) say(t(n === 1 ? 'eva.delivered1' : 'eva.delivered', { n }), 'ok', 4); });
+        }
+        if (hold) {
+          if (p.moving || !focus || focus.key !== hold.f.key) hold = null;
+          else if ((hold.t += dt) >= hold.dur) finish(p);
+        }
+        if (now - reportAt > 2) {
+          reportAt = now;
+          const h = env.hooks();
+          if (h && h.suit) h.suit(suit, p.inRover ? driven : null);
+        }
+      }
+      renderHud(p);
+    }
+
+    function finish(p) {
+      const f = hold.f;
+      hold = null;
+      const ask = f.kind === 'find' ? act('collect', p, { find: f.id })
+        : f.kind === 'drop' ? act('pickup', p, { drop: f.id })
+          : act('revive', p, { target: f.id });
+      ask.then(r => {
+        if (!r.ok) return;
+        if (f.kind === 'find') say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
+        else if (f.kind === 'drop') say(t('eva.pickedUp'), 'ok', 2);
+        else say(t('eva.revivedThem', { name: env.crewName(f.id) }), 'ok', 3);
+        if (f.kind === 'find' && keyHeld && live()) hold = { f, t: 0, dur: hold0(f) }; // keep going while E is held
+      });
+    }
+
+    // ---------- what you can work on ----------
+    function hold0(f) {
+      const role = crew() && crew().role;
+      return X.holdSeconds(f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : 'revive', role);
+    }
+    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive');
+
+    function focusAt(lx, ly, p, world) {
+      if (!live() || collapsed(me) || benched()) return null;
+      const m = mission(), x = exp();
+      let best = null, bestD = REACH * REACH;
+      const consider = (px, py, f) => {
+        const d = Math.min(near2(px, py, lx, ly), near2(px, py, p.x, p.y - 8));
+        if (d < bestD) { bestD = d; best = f; }
+      };
+      const ccx = SW.chunkOf(Math.floor(p.x / T)), ccy = SW.chunkOf(Math.floor(p.y / T));
+      for (let cy = ccy - 1; cy <= ccy + 1; cy++) for (let cx = ccx - 1; cx <= ccx + 1; cx++) {
+        const c = world.peek(cx, cy);
+        if (!c) continue;
+        for (const f of c.finds) {
+          const id = cx + ',' + cy + ':' + f.n;
+          if (X.loadsLeft(m, f, id) <= 0) continue;
+          consider((f.x + 0.5) * T, (f.y + 0.5) * T, { kind: 'find', key: 'f:' + id, id, find: f, wx: f.x, wy: f.y, x: (f.x + 0.5) * T, y: (f.y + 0.5) * T });
+        }
+      }
+      for (const d of x.drops) consider(d.x, d.y, { kind: 'drop', key: 'd:' + d.id, id: d.id, x: d.x, y: d.y });
+      if (m.coop) for (const id of Object.keys(x.collapsed)) {
+        if (id === me) continue;
+        const s = x.collapsed[id];
+        consider(s.x, s.y, { kind: 'revive', key: 'v:' + id, id, x: s.x, y: s.y - 10 });
+      }
+      if (x.rover && !x.rover.driver && !p.inRover) consider(x.rover.x, x.rover.y, { kind: 'rover', key: 'rover-parked', parked: true, x: x.rover.x, y: x.rover.y });
+      return best;
+    }
+
+    function label(f) {
+      const role = crew() && crew().role;
+      if (f.kind === 'find') {
+        const what = t('find.' + f.find.kind) + (f.find.sub ? ' · ' + t('sci.' + f.find.sub) : '');
+        return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role)) });
+      }
+      if (f.kind === 'drop') return t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
+      if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
+      if (f.kind === 'rover') return t('sf.boardRover');
+      return '';
+    }
+
+    function start(f) {
+      if (!holdable(f) || !live()) return false;
+      keyHeld = true;
+      if (!hold || hold.f.key !== f.key) hold = { f, t: 0, dur: hold0(f) };
+      return true;
+    }
+    function stop() { keyHeld = false; hold = null; }
+
+    // ---------- drawing ----------
+    // The base zone: where the suit pauses and loads are delivered (5 × 5 tiles around the HQ).
+    function drawZone(ctx) {
+      if (!mission() || !mission().expedition) return;
+      const r = (XD.baseZone + 0.5) * T;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(140,188,236,0.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 8]);
+      roundRect(ctx, T / 2 - r, T / 2 - r, 2 * r, 2 * r, 18);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function sprites(x0, y0, x1, y1, world, time) {
+      const out = [];
+      if (!mission() || !mission().expedition) return out;
+      const m = mission(), x = exp();
+      const tx0 = Math.floor(x0 / T) - 1, ty0 = Math.floor(y0 / T) - 1, tx1 = Math.floor(x1 / T) + 1, ty1 = Math.floor(y1 / T) + 1;
+      for (let cy = SW.chunkOf(ty0); cy <= SW.chunkOf(ty1); cy++) for (let cx = SW.chunkOf(tx0); cx <= SW.chunkOf(tx1); cx++) {
+        const c = world.peek(cx, cy);
+        if (!c) continue;
+        for (const f of c.finds) {
+          if (f.x < tx0 || f.x > tx1 || f.y < ty0 || f.y > ty1) continue;
+          if (X.loadsLeft(m, f, cx + ',' + cy + ':' + f.n) <= 0) continue;
+          const fx = (f.x + 0.5) * T, fy = (f.y + 0.5) * T;
+          out.push({ y: fy + 12, draw: ctx => drawFind(ctx, f, fx, fy, time) });
+        }
+      }
+      const inView = (px, py) => px > x0 - T && px < x1 + T && py > y0 - T && py < y1 + 2 * T;
+      for (const d of x.drops) if (inView(d.x, d.y)) out.push({ y: d.y + 8, draw: ctx => drawDrop(ctx, d.x, d.y) });
+      if (x.rover && !x.rover.driver && inView(x.rover.x, x.rover.y)) {
+        const r = x.rover;
+        out.push({ y: r.y + 10, draw: ctx => env.drawRover(ctx, r.x, r.y) });
+      }
+      return out;
+    }
+
+    // Over the fog: the hold ring, and teammates' suit bars (co-op positions carry them).
+    function drawOver(ctx, remote) {
+      if (hold) drawRing(ctx, hold.f.x, hold.f.y - 40, hold.t / hold.dur);
+      for (const r of Object.values(remote || {})) {
+        if (r.suit == null || r.suit >= XD.suit || X.inBaseZone(r)) continue;
+        drawSuitBar(ctx, r.x, r.y - (r.rover ? 78 : 66), r.suit / XD.suit);
+      }
+    }
+
+    // Minimap and map markers: finds you have seen (the biologist senses ice and methane vents further), dropped loads,
+    // the parked rover. Rebuilt at most every 150 ms.
+    function marks(world, px, py) {
+      if (!mission() || !mission().expedition || !world) return [];
+      if (now - marksAt < 0.15) return marksCache;
+      marksAt = now;
+      const m = mission(), x = exp(), out = [];
+      const sniff = ((D.SKILLS[crew() && crew().role] || {}).sight) || 0;
+      const tx = Math.floor(px / T), ty = Math.floor(py / T);
+      for (let cy = SW.chunkOf(ty - 80); cy <= SW.chunkOf(ty + 79); cy++) for (let cx = SW.chunkOf(tx - 80); cx <= SW.chunkOf(tx + 79); cx++) {
+        const c = world.peek(cx, cy);
+        if (!c) continue;
+        for (const f of c.finds) {
+          if (X.loadsLeft(m, f, cx + ',' + cy + ':' + f.n) <= 0) continue;
+          const smelt = sniff && (f.kind === 'ice' || f.sub === 'vent') && near2(f.x, f.y, tx, ty) <= sniff * sniff;
+          if (smelt || world.seen(f.x, f.y)) out.push({ x: (f.x + 0.5) * T, y: (f.y + 0.5) * T, color: COLORS[f.kind] });
+        }
+      }
+      for (const d of x.drops) out.push({ x: d.x, y: d.y, color: '#f46e5f' });
+      if (x.rover && !x.rover.driver) out.push({ x: x.rover.x, y: x.rover.y, color: '#e9e2d8', square: true });
+      marksCache = out;
+      return out;
+    }
+
+    return {
+      el, sync, canMove, step, focusAt, holdable, label, start, stop, act, canister, drawZone, sprites, drawOver, marks,
+      report: () => ({ suit: Math.round(suit * 10) / 10, driven: Math.round(driven * 10) / 10 }),
+      roverAtBay: p => !!mission() && !!mission().expedition && !exp().rover && !(p && p.inRover),
+      driving: () => !!(me && mission() && mission().expedition && exp().rover && exp().rover.driver === me),
+      collapsed,
+      state: () => ({ suit, driven, hold: hold && hold.f.key, collapsed: collapsed(me), benched: !!me && !!mission() && benched(), pack: me && mission() ? pack().length : 0 }),
+      qaSuit: s => { suit = Math.max(0, Math.min(XD.suit, Number(s) || 0)); }, // play-testing: jump the suit level
+    };
+  }
+
+  root.SolEva = { create };
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+/*
  * SOL 500 — the walkable surface: your astronaut walks around the outpost and out into the endless world, builds on
  * tiles, inspects and switches machines, drives the rover, and meets the rest of the crew, who walk to their jobs.
  * Canvas 2D + a small DOM overlay. It never changes the mission itself: every action goes through ui.js hooks,
@@ -5841,11 +6917,13 @@ p { margin: 0; }
  *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
  *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
  * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
- *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId)
+ *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId),
+ *        exp(type, payload, pos) → Promise of { ok } or { error } (exploring, see src/surface-eva.js), suit(seconds, driven)
+ * Exploring on the map (finds, the suit, the backpack, the rover's battery) is src/surface-eva.js.
  */
 (function (root) {
   'use strict';
-  const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap;
+  const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap, EV = root.SolEva;
   const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks } = P.sprites;
   const T = 64;
   const BASE = W.BASE_RECT;
@@ -5989,6 +7067,10 @@ p { margin: 0; }
     };
     S.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }) });
+    S.eva = EV.create({
+      t: (k, p) => t(k, p), hooks: () => S.hooks, crewName: id => S.data.crewName(id), player: () => S.player, home: goHome,
+      drawRover: (ctx, x, y) => { const img = moduleImage('rover', 1); if (ready(img)) ctx.drawImage(img, x - 34, y - 52, 68, 68); },
+    });
     buildOverlay();
     bindInput();
     if (window.ResizeObserver) new ResizeObserver(resize).observe(el);
@@ -6051,8 +7133,11 @@ p { margin: 0; }
     S.regionChip.addEventListener('click', () => { if (S.region != null && S.hooks.reopenRegion) S.hooks.reopenRegion(W.REGIONS[S.region]); });
     S.debugBox = el('pre', 'sf-debug');
     S.debugBox.hidden = !S.debug;
-    o.append(S.hint, S.stamina, S.regionChip, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
-    S.btnAct.addEventListener('click', () => interact());
+    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
+    // The action button is held for finds, like E: it acts when pressed and lets go of a hold when released.
+    S.btnAct.addEventListener('pointerdown', e => { e.preventDefault(); S.actId = e.pointerId; interact(); });
+    S.btnAct.addEventListener('click', e => { if (e.detail === 0) interact(); }); // Enter or Space on the focused button
+    const actOff = e => { if (e.pointerId !== S.actId) return; S.actId = null; S.eva.stop(); };
     // The stick and the sprint button follow their finger on the window, filtered by its pointer id: a re-render moves this
     // node into a new stage, which releases the pad's pointer capture, and the finger can then slide off or lift anywhere.
     // The pad has no move/up/cancel handlers of its own, so nothing is handled twice.
@@ -6067,8 +7152,8 @@ p { margin: 0; }
     });
     const joyEnd = e => { if (S.joy.id !== e.pointerId) return; S.joy = { x: 0, y: 0, id: null }; S.knob.style.transform = ''; };
     window.addEventListener('pointermove', e => { if (S.joy.id === e.pointerId) joyMove(e); });
-    window.addEventListener('pointerup', e => { joyEnd(e); runOff(e); });
-    window.addEventListener('pointercancel', e => { joyEnd(e); runOff(e); });
+    window.addEventListener('pointerup', e => { joyEnd(e); runOff(e); actOff(e); });
+    window.addEventListener('pointercancel', e => { joyEnd(e); runOff(e); actOff(e); });
   }
 
   function joyMove(e) {
@@ -6099,6 +7184,7 @@ p { margin: 0; }
       if (MOVE[e.code]) { S.keys.add(e.code); if (S.player) S.player.path = null; e.preventDefault(); }
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.add('Shift');
       if (e.code === 'KeyE' && !e.repeat) { interact(); e.preventDefault(); }
+      if (e.code === 'KeyQ' && !e.repeat) { S.eva.canister(S.player); e.preventDefault(); }
       if (e.code === 'Escape' && S.menuOpen) { closeMenu(); e.preventDefault(); }
       if (e.code === 'KeyC' && !e.repeat && S.hooks.openConsole) S.hooks.openConsole();
       if (S.menuOpen && /^Digit[1-9]$/.test(e.code)) {
@@ -6110,8 +7196,9 @@ p { margin: 0; }
     window.addEventListener('keyup', e => {
       S.keys.delete(e.code);
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.delete('Shift');
+      if (e.code === 'KeyE') S.eva.stop();
     });
-    window.addEventListener('blur', () => S.keys.clear());
+    window.addEventListener('blur', () => { S.keys.clear(); S.eva.stop(); });
     S.canvas.addEventListener('pointerdown', e => {
       if (!S.player || !S.world || S.map.isOpen()) return;
       S.canvas.focus({ preventScroll: true });
@@ -6155,6 +7242,17 @@ p { margin: 0; }
     S.camSnap = true;
   }
 
+  // A new round, or a solo collapse: your astronaut is back by the HQ, out of the rover (whoever drove it brought it home).
+  function goHome() {
+    const p = S.player;
+    if (!p) return;
+    const [x, y] = spawnPoint();
+    Object.assign(p, { x, y, dir: 'down', path: null, inRover: false, autoFocus: null, faceTo: null });
+    S.pendingAuto = null;
+    S.camSnap = true;
+    if (S.menuOpen) closeMenu();
+  }
+
   // ---------- data from ui.js ----------
   function update(data) {
     S.data = data;
@@ -6165,6 +7263,9 @@ p { margin: 0; }
     ensurePlayer();
     if (data.controlId && S.player.crewId !== data.controlId) moveToCrewmate(data.controlId);
     S.player.crewId = data.controlId;
+    const look = S.eva.sync(data);
+    if (look.round) goHome();
+    else if (look.fresh && S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
     S.btnAct.setAttribute('aria-label', t('sf.interact'));
@@ -6183,7 +7284,10 @@ p { margin: 0; }
     for (const p of list || []) {
       if (!p.crewId || (S.data && p.crewId === S.data.controlId)) continue;
       const prev = S.remote[p.crewId];
-      next[p.crewId] = { x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, phase: prev ? prev.phase : 0, at: now };
+      next[p.crewId] = {
+        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover,
+        phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0,
+      };
     }
     S.remote = next;
   }
@@ -6203,10 +7307,11 @@ p { margin: 0; }
     S.time += dt;
     world();
     ensurePlayer();
-    stepPlayer(dt);
+    const moved = stepPlayer(dt);
     stepNpcs(dt);
     stepRemote(dt);
     stepFocus();
+    S.eva.step(dt, S.player, S.world, moved, S.focus);
     stream(t0);
     explore(ts);
     draw();
@@ -6260,8 +7365,11 @@ p { margin: 0; }
   }
 
   function mapState() {
-    if (!S.player) return { px: 0, py: 0, crew: [] };
-    return { px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })) };
+    if (!S.player) return { px: 0, py: 0, crew: [], marks: [] };
+    return {
+      px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })),
+      marks: S.eva.marks(S.world, S.player.x, S.player.y),
+    };
   }
 
   function drawDebugText() {
@@ -6277,8 +7385,9 @@ p { margin: 0; }
     return m.crew.find(c => c.id === S.data.controlId) || null;
   }
 
+  // Moves your astronaut; returns how far (world px) they moved this frame (the rover's battery counts it).
   function stepPlayer(dt) {
-    const p = S.player;
+    const p = S.player, ox = p.x, oy = p.y;
     const me = controlledCrew();
     const canMove = me && me.status === 'active';
     let vx = 0, vy = 0;
@@ -6317,8 +7426,10 @@ p { margin: 0; }
       const sp = SPEED * (sprinting ? SPRINT_X : 1) * (p.inRover ? ROVER_X : 1) * ground * S.qa.speed * Math.min(1, len);
       const stuck = hitsWall(p.x, p.y);
       const mx = p.x + nx * sp * dt, my = p.y + ny * sp * dt;
-      if (S.qa.ghost || stuck || !hitsWall(mx, p.y)) p.x = mx;
-      if (S.qa.ghost || stuck || !hitsWall(p.x, my)) p.y = my;
+      // A step is allowed if nothing blocks it and the exploring rules agree (an empty suit, a flat rover battery).
+      const ok = (x, y) => S.qa.ghost || ((stuck || !hitsWall(x, y)) && S.eva.canMove(p, x, y));
+      if (ok(mx, p.y)) p.x = mx;
+      if (ok(p.x, my)) p.y = my;
       if (Math.abs(nx) > Math.abs(ny)) p.dir = nx > 0 ? 'right' : 'left'; else p.dir = ny > 0 ? 'down' : 'up';
       p.phase += dt * sp / 26;
       S.hintUntil = Math.min(S.hintUntil, S.time + 3);
@@ -6327,6 +7438,7 @@ p { margin: 0; }
     p.sprinting = sprinting;
     S.staminaFill.style.width = p.stamina.toFixed(0) + '%';
     S.stamina.hidden = p.stamina >= 99.5 && !sprinting;
+    return Math.hypot(p.x - ox, p.y - oy);
   }
 
   function jobTarget(c, job, rnd) {
@@ -6416,11 +7528,13 @@ p { margin: 0; }
   function maybeSend(ts) {
     if (!S.hooks.sendPos || ts - S.lastSent < 110) return;
     const p = S.player;
-    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover;
+    const ev = S.eva.report();
+    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + Math.ceil(ev.suit) + ',' + Math.floor(ev.driven);
     if (k === S.lastSentKey && ts - S.lastSent < 2000) return;
     S.lastSent = ts;
     S.lastSentKey = k;
-    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover });
+    // The suit level travels with the position (teammates see it); the driver also says how far the rover has gone.
+    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, suit: ev.suit, driven: p.inRover ? ev.driven : undefined });
   }
 
   // ---------- what the player is looking at ----------
@@ -6430,7 +7544,7 @@ p { margin: 0; }
     const byId = id => m.crew.find(c => c.id === id);
     const color = role => A.ROLE[role] || '#ccc';
     const me = controlledCrew();
-    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down', rover: S.player.inRover });
+    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover });
     for (const [id, n] of Object.entries(S.npcs)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
@@ -6439,7 +7553,7 @@ p { margin: 0; }
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down', rover: r.rover });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover });
     }
     return out;
   }
@@ -6452,7 +7566,7 @@ p { margin: 0; }
     const tile = m.layout.find(x => x.x === gx && x.y === gy);
     if (tile) {
       if (tile.type === 'hab') return { kind: 'hq', key: 'hq', gx, gy, wx, wy };
-      if (tile.type === 'rover') return { kind: 'rover', key: 'rover', gx, gy, wx, wy, type: 'rover' };
+      if (tile.type === 'rover') return S.eva.roverAtBay(S.player) ? { kind: 'rover', key: 'rover', gx, gy, wx, wy, type: 'rover' } : { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: 'rover' };
       return { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: tile.type };
     }
     const pr = m.projects.find(x => x.x === gx && x.y === gy);
@@ -6479,12 +7593,15 @@ p { margin: 0; }
     const lx = p.x + dx * 38, ly = p.y - 8 + dy * 34;
     const crew = avatars().find(a => !a.you && !a.remote && Math.hypot(a.x - lx, a.y - ly) < 30);
     if (crew) f = { kind: 'crew', key: 'c:' + crew.id, id: crew.id };
+    const ef = S.eva.focusAt(lx, ly, p, S.world); // a find, a dropped load, a crewmate down outside, the parked rover
+    if (!f) f = ef;
     if (!f) f = focusAt(Math.floor(lx / T), Math.floor(ly / T));
     if (!f || f.kind === 'empty') {
       const under = focusAt(Math.floor(p.x / T), Math.floor((p.y - 4) / T));
       if (under && (!f || under.kind !== 'empty' || !f)) f = under || f;
     }
-    if (p.inRover) f = { kind: 'rover', key: 'rover-exit', driving: true };
+    // In the rover, E gets you out, unless a find is right there: you step out to work on it and get back in.
+    if (p.inRover) f = ef && S.eva.holdable(ef) ? ef : { kind: 'rover', key: 'rover-exit', driving: true };
     const changed = (f && f.key) !== (S.focus && S.focus.key);
     S.focus = f;
     if (changed && S.menuOpen) closeMenu();
@@ -6503,7 +7620,7 @@ p { margin: 0; }
       case 'lander': return t('sf.lander');
       case 'crew': return S.data.crewName(f.id);
       case 'empty': return t('sf.buildHere') + (f.ice ? ' · ' + t('map.ice') : '');
-      default: return '';
+      default: return S.eva.label(f);
     }
   }
 
@@ -6529,24 +7646,36 @@ p { margin: 0; }
     if (!me || me.status !== 'active') return;
     if (S.menuOpen) { closeMenu(); return; }
     if (!S.focus) return;
+    if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
     if (S.focus.kind === 'rover') { toggleRover(); return; }
     openMenu();
   }
 
+  // Getting in and out of the rover goes through the exploring rules: one driver at a time, it stays where you leave it
+  // (or goes back to its bay at the outpost), and its battery drives roverRange tiles a round.
   function toggleRover() {
-    const p = S.player;
+    const p = S.player, m = S.data.mission;
     if (p.inRover) {
       p.inRover = false;
-      const m = S.data.mission;
-      const bay = m.layout.find(x => x.type === 'rover');
       refreshWorld(m);
-      if (hitsWall(p.x, p.y) && bay) { const sp = spotNear(bay.x, bay.y, Math.random); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
-    } else {
-      const m = S.data.mission;
-      if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
-      p.inRover = true;
-      refreshWorld(m);
+      if (hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
+      S.eva.act('park', p);
+      return;
     }
+    if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
+    p.inRover = true; // at once, so it feels immediate; in co-op the server may say someone else has it
+    refreshWorld(m);
+    S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } });
+  }
+  // The nearest open spot to stand on, within 3 tiles of (x, y) (world px), for getting out of the rover by a rock.
+  function freeSpot(x, y) {
+    const tx = Math.floor(x / T), ty = Math.floor(y / T);
+    for (let r = 1; r <= 3; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const c = center(tx + dx, ty + dy);
+      if (!hitsWall(c[0], c[1])) return c;
+    }
+    return null;
   }
 
   function openMenu() {
@@ -6678,7 +7807,7 @@ p { margin: 0; }
       } else if (ty === 'reactor') {
         note('+' + fc.power.reactorKw.toFixed(1) + ' kW');
       }
-      if (ty === 'rover' && mod.count - mod.broken > 0) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
+      if (ty === 'rover' && mod.count - mod.broken > 0 && S.eva.roverAtBay(S.player)) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
       const scrapping = (plan.scrap || []).includes(ty);
       body.appendChild(numbered(mbtn(scrapping ? t('sys.scrapQueued') : t('sys.scrap'), fc.points.maintenance ? '' : t('sys.scrapNeed'),
         () => { H.toggleScrap(ty); renderMenu(); }, { on: scrapping, disabled: !fc.points.maintenance && !scrapping, icon: A.icon('scrap', 18) })));
@@ -6719,6 +7848,7 @@ p { margin: 0; }
     const k = v.dpr * v.zoom;
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
     S.painter.drawGround(ctx, x0, y0, x1, y1);
+    S.eva.drawZone(ctx);
 
     // buried ice at the base: the only cue for where the ice drill can go
     ctx.save();
@@ -6774,7 +7904,7 @@ p { margin: 0; }
     for (const ty of D.MODULE_TYPES) brokenLeft[ty] = m.modules[ty].broken;
     const runningLeft = Object.assign({}, fc.power.running);
     for (const tile of m.layout) {
-      if (tile.type === 'rover' && (p.inRover || Object.values(S.remote).some(r => r.rover))) continue;
+      if (tile.type === 'rover' && !S.eva.roverAtBay(p)) continue; // driven, or parked out on the map
       const [wx, wy] = gridToWorld(tile.x, tile.y);
       let status = null;
       if (brokenLeft[tile.type] > 0) { brokenLeft[tile.type]--; status = 'broken'; }
@@ -6822,11 +7952,13 @@ p { margin: 0; }
         ctx.fillStyle = A.ROLE[c.role]; ctx.fillRect(fx, fy - 22, 10, 7);
       } });
     });
+    for (const s of S.eva.sprites(x0, y0, x1, y1, S.world, S.time)) sprites.push(s);
     sprites.sort((a, b) => a.y - b.y);
-    for (const s of sprites) s.draw();
+    for (const s of sprites) s.draw(ctx); // the exploring layer's sprites take the context; the others close over it
     // the fog over what you can't see, then the name tags on top of it
     P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, (p.inRover ? VIEW_ROVER : VIEW_FOOT) * T);
     drawTags(ctx, S.tags);
+    S.eva.drawOver(ctx, S.remote);
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
 
     // weather, in screen space
@@ -6868,6 +8000,7 @@ p { margin: 0; }
       blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true),
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
+      eva: S.eva.state(), focusKey: S.focus && S.focus.key,
     };
   }
 
@@ -6880,6 +8013,7 @@ p { margin: 0; }
     speed(x) { S.qa.speed = Math.max(0.1, Number(x) || 1); },
     chunkHash(ix, iy) { return S.painter.chunkHash(ix, iy); },
     teleport(tx, ty) { S.player.x = tx * T + T / 2; S.player.y = ty * T + T / 2; S.player.path = null; S.camSnap = true; },
+    suit(s) { S.eva.qaSuit(s); },
   };
 
   root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe }, DEBUG ? { qa } : {});
@@ -6894,7 +8028,7 @@ p { margin: 0; }
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog;
+  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -7621,7 +8755,60 @@ p { margin: 0; }
       showRegionCard(id);
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
+    // Exploring (src/expedition.js). Solo: the rules run here on your mission, which is saved. Co-op: the server runs them
+    // against where it last saw you, and everyone gets the new room. Always resolves to { ok, ... } or { error }.
+    exp: (type, payload, pos) => {
+      const s = mission();
+      if (!s || !s.expedition || s.status !== 'active') return Promise.resolve({ error: 'badPhase' });
+      const p = payload || {};
+      if (lanOn()) return N.act(type, p).then(r => (r && (!r.error || I.has(store.lang, 'eva.err.' + r.error)) ? r : { error: 'net' }), () => ({ error: 'net' }));
+      const id = s.pilot;
+      const run = {
+        collect: () => X.collect(s, id, p.find, pos), deliver: () => X.deliver(s, id, pos), canister: () => X.useCanister(s, id),
+        pickup: () => X.pickUp(s, id, p.drop, pos), collapse: () => X.collapse(s, id, pos), board: () => X.board(s, id, pos),
+        park: () => X.park(s, id, pos),
+      }[type];
+      const r = run ? run() : { error: 'badAction' };
+      if (!r.error) { saveSoloSoon(); render(); }
+      return Promise.resolve(r);
+    },
+    // Solo: your suit level and the rover's battery are kept with the saved mission (co-op sends them with each position).
+    suit: (seconds, driven) => {
+      const s = mission();
+      if (lanOn() || !s || !s.expedition || !s.pilot) return;
+      X.setSuit(s, s.pilot, seconds);
+      if (driven != null) X.setRoverDriven(s, s.pilot, driven);
+      saveSoloSoon();
+    },
   };
+
+  // ---------- exploring: what was delivered and what is still out there ----------
+  const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science' };
+  // "+160 kg water — Ice deposit, Icy Plains (Minh)"
+  function haulText(l) {
+    return t(l.late ? 'rep.haulLate' : 'rep.haul', {
+      amount: t('haul.' + l.res, { n: nf(l.amount) }), what: t('find.' + l.kind), region: t('region.' + W.REGIONS[l.region]), name: crewName(l.crewId),
+    });
+  }
+  function expeditionPanel(s) {
+    const x = s.expedition;
+    if (!x || !x.banked) return null;
+    const lines = x.banked.lines || [];
+    const carrying = Object.keys(x.carried).filter(id => Array.isArray(x.carried[id]) && x.carried[id].length);
+    const body = [];
+    if (!lines.length && !carrying.length) body.push(h('p', { class: 'muted' }, t('eva.nothing')));
+    if (lines.length) {
+      body.push(h('span', { class: 'eyebrow' }, t('eva.banked')));
+      body.push(h('ul', { class: 'replist' }, lines.map(l => h('li', { class: 'ok' }, ico(RES_ICON[l.res], 14), h('span', null, haulText(l))))));
+      body.push(h('p', { class: 'hint' }, t('eva.counts')));
+    }
+    if (carrying.length) {
+      body.push(h('span', { class: 'eyebrow' }, t('eva.carrying')));
+      body.push(h('ul', { class: 'replist' }, carrying.map(id => h('li', null, ico('eva', 14),
+        h('span', null, crewName(id) + ': ' + x.carried[id].map(it => t('haul.' + it.res, { n: nf(it.amount) })).join(', '))))));
+    }
+    return panel(t('eva.title'), body);
+  }
 
   function surfaceStage(s, p, f) {
     if (!window.SolSurface) return null;
@@ -7668,6 +8855,7 @@ p { margin: 0; }
     })));
     return h('aside', { class: 'sf-side' },
       seatPanel(s),
+      expeditionPanel(s),
       eventsPanel(s, p),
       jobs,
       forecastPanel(s, p, f),
@@ -8498,7 +9686,7 @@ p { margin: 0; }
     const m = store.modal;
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
     }
     if (m === 'notes') {
       return modal(t('notes.title'), [
@@ -8562,6 +9750,10 @@ p { margin: 0; }
     for (const id of r.downs) li('crit', 'crit', t('rep.down', { name: crewName(id) }));
     for (const id of r.deaths) li('crit', 'crit', t('rep.dead', { name: crewName(id) }));
     if (r.pilot) li('users', r.pilot.to ? 'warn' : 'crit', pilotText(r.pilot));
+    if (r.expedition) {
+      for (const l of r.expedition.lines) li(RES_ICON[l.res], 'ok', haulText(l));
+      for (const inc of r.expedition.incidents) li('crit', 'warn', t('rep.collapse', { name: crewName(inc.crewId), h: D.EXPEDITION.collapse.health, m: D.EXPEDITION.collapse.morale }));
+    }
     if (r.requested) li('rocket', 'muted', t('rep.requested', { kind: t('earth.' + r.requested) }));
     if (r.hypoxia > 0) li('crit', 'crit', t('w.o2_out'));
     if (r.dehydration > 0) li('crit', 'crit', t('w.water_out'));

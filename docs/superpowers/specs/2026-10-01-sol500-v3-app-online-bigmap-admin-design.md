@@ -1,6 +1,6 @@
 # SOL 500 v3 — Desktop App · Online Share Link · Endless World · Admin Panel
 
-**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 shipped (v3.2.0); M4 split into M4a–M4d (2026-10-05), M4a planned; M5 to do
+**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 and M4a shipped (v3.3.0); M4b–M4d and M5 to do
 **Builds on:** `2026-09-30-sol500-mars-outpost-design.md` (v1/v2: engine, roles, LAN co-op, walkable outpost)
 **Branches:** one `feat/…` branch per milestone, off `master`
 
@@ -593,10 +593,10 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] One astronaut per player (choose at start, takeover on death)
 
 ### M4 — Exploring
-- [ ] Collect, carry and deliver finds (M4a)
-- [ ] Finds counted at advance and in the report (M4a)
-- [ ] Suit oxygen, collapse and revive (M4a)
-- [ ] Rover parking and its battery (M4a)
+- [x] Collect, carry and deliver finds (M4a)
+- [x] Finds counted at advance and in the report (M4a)
+- [x] Suit oxygen, collapse and revive (M4a)
+- [x] Rover parking and its battery (M4a)
 - [ ] Solar flare countdown and shelters (M4b)
 - [ ] Dust devils and storm visibility (M4b)
 - [ ] Landmarks with discovery cards (M4c)
