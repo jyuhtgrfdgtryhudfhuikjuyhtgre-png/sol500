@@ -738,7 +738,7 @@
       const s = mission();
       if (!s || !s.expedition || s.status !== 'active') return Promise.resolve({ error: 'badPhase' });
       const p = payload || {};
-      if (lanOn()) return N.act(type, p).then(r => r || { error: 'net' }, () => ({ error: 'net' }));
+      if (lanOn()) return N.act(type, p).then(r => (r && (!r.error || I.has(store.lang, 'eva.err.' + r.error)) ? r : { error: 'net' }), () => ({ error: 'net' }));
       const id = s.pilot;
       const run = {
         collect: () => X.collect(s, id, p.find, pos), deliver: () => X.deliver(s, id, pos), canister: () => X.useCanister(s, id),
