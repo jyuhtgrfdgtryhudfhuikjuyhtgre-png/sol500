@@ -13,6 +13,7 @@
  *      eva.step(dt, player, world, moved, focus)    every frame: suit, battery, delivering, holds, the HUD
  *      eva.focusAt(x, y, player, world) → a focus on a find, a dropped load, a collapsed crewmate or the parked rover
  *      eva.holdable(focus) · eva.label(focus) · eva.start(focus) · eva.stop()       E / the action button
+ *      eva.hasRoom() → does your backpack take another load?
  *      eva.act(type, player) → Promise of the rules' answer (board, park) · eva.canister(player) (the button, or Q)
  *      eva.drawZone(ctx) · eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx, remote)
  *      eva.marks(world, px, py) → minimap markers · eva.report() → { suit, driven } for the position message
@@ -43,6 +44,7 @@
     const collapsed = id => !!(mission() && mission().expedition && mission().expedition.collapsed[id]);
     const benched = () => !!(me && exp().benched.includes(me));
     const live = () => { const m = mission(), c = crew(); return !!m && !!m.expedition && m.status === 'active' && !!c && c.status === 'active'; };
+    const hasRoom = () => live() && pack().length < X.capacity(mission(), me);
     const at = p => ({ x: Math.round(p.x), y: Math.round(p.y) });
     const near2 = (ax, ay, bx, by) => (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
     const secs = s => (Math.round(s * 10) / 10).toString();
@@ -359,7 +361,7 @@
     }
 
     return {
-      el, sync, reset, canMove, step, focusAt, holdable, label, start, stop, act, canister, drawZone, sprites, drawOver, marks,
+      el, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, drawZone, sprites, drawOver, marks,
       report: () => ({ suit: Math.round(suit * 10) / 10, driven: Math.round(driven * 10) / 10 }),
       roverAtBay: p => !!mission() && !!mission().expedition && !exp().rover && !(p && p.inRover),
       driving: () => !!(me && mission() && mission().expedition && exp().rover && exp().rover.driver === me),

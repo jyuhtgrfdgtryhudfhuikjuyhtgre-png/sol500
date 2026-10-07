@@ -694,8 +694,9 @@
       const under = focusAt(Math.floor(p.x / T), Math.floor((p.y - 4) / T));
       if (under && (!f || under.kind !== 'empty' || !f)) f = under || f;
     }
-    // In the rover, E gets you out, unless a find is right there: you step out to work on it and get back in.
-    if (p.inRover) f = ef && S.eva.holdable(ef) ? ef : { kind: 'rover', key: 'rover-exit', driving: true };
+    // In the rover, E gets you out, unless there is work right there: a crewmate to revive, or a find or a dropped load your
+    // backpack has room for (you step out to work on it and get back in). A full backpack never keeps you in a flat rover.
+    if (p.inRover) f = ef && S.eva.holdable(ef) && (ef.kind === 'revive' || S.eva.hasRoom()) ? ef : { kind: 'rover', key: 'rover-exit', driving: true };
     const changed = (f && f.key) !== (S.focus && S.focus.key);
     S.focus = f;
     if (changed && S.menuOpen) closeMenu();

@@ -23,6 +23,15 @@ const flush = () => new Promise(r => setImmediate(r));
 const ROVER_KIT = Object.assign({}, E.referenceKit('commander', 4), { rover: 1, waterwall: 0 });
 const mission = o => E.createMission(Object.assign({ loadout: ROVER_KIT, events: false, pilot: 'minh' }, o));
 const LOAD = { kind: 'metal', res: 'materials', amount: 40, id: '0,0:9', region: 0 };
+const loads = n => Array.from({ length: n }, () => Object.assign({}, LOAD));
+// The metal find nearest the HQ: its id and tile.
+function metalFind(m) {
+  let best = null;
+  for (let cy = -2; cy <= 1; cy++) for (let cx = -2; cx <= 1; cx++) for (const f of X.findsIn(m, cx, cy)) {
+    if (f.kind === 'metal' && (!best || f.x * f.x + f.y * f.y < best.x * best.x + best.y * best.y)) best = { id: cx + ',' + cy + ':' + f.n, x: f.x, y: f.y };
+  }
+  return best;
+}
 
 const ctx = new Proxy({}, {
   get(t, k) {
@@ -124,4 +133,38 @@ test('a new mission (SolSurface.reset) starts with a full suit and battery, even
   assert.deepEqual(plain(b.expedition.incidents), [], 'mission B: no collapse');
   assert.ok(Math.abs(pg.probe().eva.suit - (D.EXPEDITION.suit - 4)) < 0.2, 'mission B: the suit drains from full: ' + pg.probe().eva.suit);
   assert.ok(b.expedition.suits.minh > 140, "mission B's saved suit is its own: " + b.expedition.suits.minh);
+});
+
+test('in the rover E gets you out, unless a crewmate to revive or a find your backpack has room for is right there', async () => {
+  const m = mission({ seed: 'STUCK-1' });
+  assert.equal(X.board(m, 'minh', X.bay(m)).ok, true);
+  m.expedition.roverDriven = D.EXPEDITION.roverRange; // the battery is flat: the rover can't move
+  m.expedition.carried.minh = loads(D.EXPEDITION.packRover - 1);
+  const f = metalFind(m);
+  const pg = page(m, 'minh');
+  assert.equal(pg.probe().player.inRover, true, 'in the seat');
+  pg.qa.teleport(f.x, f.y - 1); // facing the find, just below you
+  pg.step(0.5);
+  assert.equal(pg.probe().focusKey, 'f:' + f.id, 'room for one more load: E works on the find');
+  m.expedition.carried.minh.push(Object.assign({}, LOAD));
+  pg.step(0.1);
+  assert.equal(pg.probe().focusKey, 'rover-exit', 'the backpack is full: E gets you out');
+  assert.deepEqual(pg.calls, [], 'nothing asked yet');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.equal(pg.probe().player.inRover, false, 'out on foot');
+  assert.deepEqual(pg.calls, ['park'], 'the rover is parked');
+  assert.ok(!(m.expedition.rover && m.expedition.rover.driver), 'nobody drives it');
+
+  // Co-op: a crewmate down right in front of the rover comes first, even with a full backpack.
+  const c = mission({ seed: 'STUCK-2', coop: true });
+  assert.equal(X.board(c, 'minh', X.bay(c)).ok, true);
+  c.expedition.roverDriven = D.EXPEDITION.roverRange;
+  c.expedition.carried.minh = loads(D.EXPEDITION.packRover);
+  assert.equal(X.collapse(c, 'diego', { x: 30 * T + 32, y: 5 * T + 32 }).ok, true);
+  const pg2 = page(c, 'minh');
+  pg2.qa.teleport(30, 4); // diego lies one tile below
+  pg2.step(0.5);
+  assert.equal(pg2.probe().focusKey, 'v:diego', 'E revives diego');
 });
