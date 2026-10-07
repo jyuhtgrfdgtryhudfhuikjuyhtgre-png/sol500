@@ -85,6 +85,7 @@
     if (!S) return;
     S.world = null;
     S.worldSeed = null;
+    S.remote = {}; // the last room's players: this room's (if any) come with its next positions
     S.eva.reset(); // and the exploring layer: the old mission's suit, battery and collapse stay with it
   }
 
@@ -768,6 +769,7 @@
       return;
     }
     if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
+    if (S.eva.collapsed(S.data.controlId)) return; // down (co-op): you can't get in, not even until the server says no
     p.inRover = true; // at once, so it feels immediate; in co-op the server may say someone else has it
     refreshWorld(m);
     S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } });

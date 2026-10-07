@@ -98,7 +98,7 @@ function page(m, me) {
   const root = S.mount(hooks), canvas = root.children[0];
   show(m);
   return {
-    sent, calls, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(),
+    sent, calls, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list),
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
     key(code, down) { for (const fn of on[down === false ? 'keyup' : 'keydown'] || []) fn({ code, repeat: false, target: {}, preventDefault() {} }); },
     // A tap on the ground at tile (tx, ty): click-to-walk.
@@ -133,6 +133,20 @@ test('a new mission (SolSurface.reset) starts with a full suit and battery, even
   assert.deepEqual(plain(b.expedition.incidents), [], 'mission B: no collapse');
   assert.ok(Math.abs(pg.probe().eva.suit - (D.EXPEDITION.suit - 4)) < 0.2, 'mission B: the suit drains from full: ' + pg.probe().eva.suit);
   assert.ok(b.expedition.suits.minh > 140, "mission B's saved suit is its own: " + b.expedition.suits.minh);
+});
+
+test("leaving a co-op room (SolSurface.reset) forgets its players: in the next mission their crewmates walk as the crew again", () => {
+  const room = mission({ seed: 'ROOM-A', coop: true });
+  const pg = page(room, 'minh');
+  pg.remote([{ crewId: 'diego', x: 30 * T + 32, y: 4 * T + 32, dir: 'down', moving: false, rover: false, suit: 40 }]);
+  pg.step(0.2);
+  assert.deepEqual(Object.keys(pg.probe().remote), ['diego'], 'in the room, diego is another player');
+  // Leave the room, then play solo: ui.js resets the surface (forgetFog), then shows the solo mission.
+  pg.reset();
+  pg.show(mission({ seed: 'SOLO-B' }));
+  pg.step(0.2);
+  assert.deepEqual(Object.keys(pg.probe().remote), [], "no player from the room is left standing on the solo mission's map");
+  assert.ok(pg.probe().npcs.includes('diego'), 'diego walks as one of the crew again');
 });
 
 test('in the rover E gets you out, unless a crewmate to revive or a find your backpack has room for is right there', async () => {
@@ -194,6 +208,24 @@ test('a co-op driver who collapses is out of the rover: it stays parked where th
   await flush();
   assert.equal(m.expedition.rover.driver, 'minh', 'and boarding it works');
   assert.equal(pg.probe().player.inRover, true);
+});
+
+test('a collapsed co-op player facing the rover in its bay does not get in when they press E', async () => {
+  const m = mission({ seed: 'COOP-B', coop: true });
+  const bay = X.bay(m), spot = { x: bay.x, y: bay.y - 34 }; // just north of the bay, outside the base zone
+  assert.equal(X.inBaseZone(spot), false);
+  assert.equal(X.collapse(m, 'minh', spot).ok, true);
+  const pg = page(m, 'minh'); // lying where they fell, facing down: the bay is the tile they look at
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'rover', 'the rover in its bay is in front of them');
+  const sentBefore = pg.sent.length;
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  pg.step(0.3);
+  await flush();
+  assert.deepEqual(pg.calls, [], 'no boarding is asked for');
+  assert.equal(pg.probe().player.inRover, false, 'not in the rover, not even for a moment');
+  assert.ok(pg.sent.slice(sentBefore).every(s => !s.rover), 'teammates are never told they are in the rover');
 });
 
 test('a co-op crew member who reloads while collapsed lies where they fell, and teammates are sent that spot', () => {
