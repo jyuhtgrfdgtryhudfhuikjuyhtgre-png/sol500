@@ -8,6 +8,7 @@
  *        env: { t(key, params), hooks(), crewName(id), home(), drawRover(ctx, x, y), player() }
  *      eva.el                                       the HUD node for the surface overlay
  *      eva.sync(data) → { round, fresh }            round: a new round began; fresh: first look at this mission/seat
+ *      eva.reset()                                  a new mission or room: forget the last one's suit, battery, collapse and hold
  *      eva.canMove(player, nx, ny) → may your astronaut step to (nx, ny)? (world px)
  *      eva.step(dt, player, world, moved, focus)    every frame: suit, battery, delivering, holds, the HUD
  *      eva.focusAt(x, y, player, world) → a focus on a find, a dropped load, a collapsed crewmate or the parked rover
@@ -156,6 +157,17 @@
       driven = Math.max(driven, Number(m.expedition.roverDriven) || 0); // it only ever goes up within a round
       shown.lang = d.lang;
       return { round, fresh };
+    }
+
+    // A new mission or room (SolSurface.reset): nothing of the last one's exploring carries over, so the next sync is a
+    // fresh look even with the same astronaut in the same round.
+    function reset() {
+      data = me = turn = hold = note = null;
+      wasDown = keyHeld = false;
+      suit = XD.suit;
+      driven = 0;
+      deliverAt = collapseAt = reportAt = marksAt = -1e9;
+      marksCache = [];
     }
 
     // ---------- every frame ----------
@@ -347,7 +359,7 @@
     }
 
     return {
-      el, sync, canMove, step, focusAt, holdable, label, start, stop, act, canister, drawZone, sprites, drawOver, marks,
+      el, sync, reset, canMove, step, focusAt, holdable, label, start, stop, act, canister, drawZone, sprites, drawOver, marks,
       report: () => ({ suit: Math.round(suit * 10) / 10, driven: Math.round(driven * 10) / 10 }),
       roverAtBay: p => !!mission() && !!mission().expedition && !exp().rover && !(p && p.inRover),
       driving: () => !!(me && mission() && mission().expedition && exp().rover && exp().rover.driver === me),

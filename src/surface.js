@@ -85,6 +85,7 @@
     if (!S) return;
     S.world = null;
     S.worldSeed = null;
+    S.eva.reset(); // and the exploring layer: the old mission's suit, battery and collapse stay with it
   }
 
   // The base's own blockers (the HQ, the reactor, the lander, rocks on the build grid) and the grid lookups.
