@@ -517,7 +517,7 @@
       p.path = null;
     }
     const len = Math.hypot(vx, vy);
-    const moving = len > 0.05;
+    let moving = len > 0.05;
     const sprinting = moving && (S.keys.has('Shift') || S.sprintHeld) && p.stamina > 4 && !p.inRover;
     p.stamina = clamp(p.stamina + (sprinting ? -32 : 18) * dt, 0, 100);
     if (moving) {
@@ -528,8 +528,12 @@
       const mx = p.x + nx * sp * dt, my = p.y + ny * sp * dt;
       // A step is allowed if nothing blocks it and the exploring rules agree (an empty suit, a flat rover battery).
       const ok = (x, y) => S.qa.ghost || ((stuck || !hitsWall(x, y)) && S.eva.canMove(p, x, y));
-      if (ok(mx, p.y)) p.x = mx;
-      if (ok(p.x, my)) p.y = my;
+      const okX = ok(mx, p.y);
+      if (okX) p.x = mx;
+      const okY = ok(p.x, my);
+      if (okY) p.y = my;
+      // Both refused (you are down, out of suit or battery, or in a corner): you stand still, and a click-to-walk ends here.
+      if (!okX && !okY) { moving = false; p.path = null; }
       if (Math.abs(nx) > Math.abs(ny)) p.dir = nx > 0 ? 'right' : 'left'; else p.dir = ny > 0 ? 'down' : 'up';
       p.phase += dt * sp / 26;
       S.hintUntil = Math.min(S.hintUntil, S.time + 3);

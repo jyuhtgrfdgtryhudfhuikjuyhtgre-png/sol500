@@ -212,3 +212,29 @@ test('a co-op crew member who reloads while collapsed lies where they fell, and 
   const [sx] = pr.toScreen(spot.x, spot.y);
   assert.ok(Math.abs(sx - 480) < 1, 'the camera is on them: ' + sx);
 });
+
+test('a click-to-walk path ends when every step is refused: a collapsed co-op player lies still and does not walk on after a revive', async () => {
+  const m = mission({ seed: 'COOP-W', coop: true });
+  const pg = page(m, 'minh');
+  pg.qa.teleport(30, 4);
+  pg.step(0.2);
+  pg.tap(36, 4); // walk six tiles east
+  pg.step(0.2);
+  assert.ok(pg.probe().player.path, 'walking east');
+  pg.qa.suit(0);
+  pg.step(0.3);
+  await flush();
+  assert.ok(m.expedition.collapsed.minh, 'minh collapsed on the way');
+  pg.step(0.5);
+  assert.equal(pg.probe().player.path, null, 'the walk is over');
+  assert.equal(pg.sent[pg.sent.length - 1].moving, false, 'teammates are sent moving: false');
+  pg.qa.hold('KeyD', true); // trying to walk while down
+  pg.step(0.3);
+  pg.qa.hold('KeyD', false);
+  assert.equal(pg.sent[pg.sent.length - 1].moving, false, 'a held key while down still sends moving: false');
+  const at = [pg.probe().player.x, pg.probe().player.y];
+  assert.equal(X.revive(m, 'diego', 'minh', m.expedition.collapsed.minh).ok, true);
+  pg.show(m);
+  pg.step(1);
+  assert.deepEqual([pg.probe().player.x, pg.probe().player.y], at, 'no walking on after the revive');
+});
