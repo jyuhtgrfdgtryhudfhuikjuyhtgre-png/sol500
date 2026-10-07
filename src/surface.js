@@ -358,8 +358,14 @@
     if (data.controlId && S.player.crewId !== data.controlId) moveToCrewmate(data.controlId);
     S.player.crewId = data.controlId;
     const look = S.eva.sync(data);
+    const down = S.eva.collapsed(data.controlId) ? data.mission.expedition.collapsed[data.controlId] : null; // co-op: waiting for a revive
     if (look.round) goHome();
-    else if (look.fresh && S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
+    else if (look.fresh && down) { // a reload (or a new seat) while down: you lie where you fell, where teammates can revive you
+      Object.assign(S.player, { x: down.x, y: down.y, path: null, autoFocus: null, faceTo: null });
+      S.pendingAuto = null;
+      S.camSnap = true;
+    } else if (look.fresh && S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
+    if (down) S.player.inRover = false; // a collapse parks the rover where you fell (X.collapse): you are never left in it
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
     S.btnAct.setAttribute('aria-label', t('sf.interact'));

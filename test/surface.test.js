@@ -168,3 +168,47 @@ test('in the rover E gets you out, unless a crewmate to revive or a find your ba
   pg2.step(0.5);
   assert.equal(pg2.probe().focusKey, 'v:diego', 'E revives diego');
 });
+
+test('a co-op driver who collapses is out of the rover: it stays parked where they fell, and they get up on foot', async () => {
+  const m = mission({ seed: 'COOP-R', coop: true });
+  assert.equal(X.board(m, 'minh', X.bay(m)).ok, true);
+  const pg = page(m, 'minh');
+  assert.equal(pg.probe().player.inRover, true, 'driving');
+  pg.qa.teleport(30, 4);
+  pg.qa.suit(0);
+  pg.step(0.3);
+  await flush();
+  const spot = plain(m.expedition.collapsed.minh);
+  assert.ok(spot, 'minh collapsed');
+  assert.deepEqual(plain(m.expedition.rover), spot, 'the server parked the rover where minh fell');
+  pg.step(0.3);
+  assert.equal(pg.probe().player.inRover, false, 'minh is out of the rover');
+  assert.equal(pg.sent[pg.sent.length - 1].rover, false, 'teammates are told minh is on foot, so they draw only the parked rover');
+  assert.equal(X.revive(m, 'diego', 'minh', spot).ok, true);
+  pg.show(m);
+  pg.step(0.3);
+  assert.equal(pg.probe().player.inRover, false, 'revived on foot');
+  assert.equal(pg.probe().focusKey, 'rover-parked', 'the parked rover is right there');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.equal(m.expedition.rover.driver, 'minh', 'and boarding it works');
+  assert.equal(pg.probe().player.inRover, true);
+});
+
+test('a co-op crew member who reloads while collapsed lies where they fell, and teammates are sent that spot', () => {
+  const m = mission({ seed: 'COOP-L', coop: true });
+  m.expedition.carried.minh = loads(1);
+  const spot = { x: 30 * T + 32, y: 4 * T + 32 };
+  assert.equal(X.collapse(m, 'minh', spot).ok, true);
+  const pg = page(m, 'minh'); // a reload: a new page on the room's copy of the mission
+  pg.step(0.3);
+  const pr = pg.probe();
+  assert.deepEqual([pr.player.x, pr.player.y], [spot.x, spot.y], 'at the collapse spot, not by the HQ');
+  assert.equal(pr.player.inRover, false);
+  assert.equal(pr.player.path, null);
+  const last = pg.sent[pg.sent.length - 1];
+  assert.deepEqual([last.x, last.y], [spot.x, spot.y], 'where the revive prompt is');
+  const [sx] = pr.toScreen(spot.x, spot.y);
+  assert.ok(Math.abs(sx - 480) < 1, 'the camera is on them: ' + sx);
+});

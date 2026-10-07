@@ -201,7 +201,7 @@
             });
           }
         }
-        if (atBase && pack().length && now - deliverAt > 1.5) {
+        if (atBase && pack().length && !collapsed(me) && now - deliverAt > 1.5) { // the rules refuse anything while you are down
           deliverAt = now;
           const n = pack().length;
           act('deliver', p).then(r => { if (r.ok) say(t(n === 1 ? 'eva.delivered1' : 'eva.delivered', { n }), 'ok', 4); });

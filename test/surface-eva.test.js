@@ -183,3 +183,14 @@ test('nobody moves on an empty suit or a flat rover battery', () => {
   s.eva.sync(s.data);
   assert.equal(s.eva.canMove(Object.assign({}, p, { inRover: true }), p.x + 5, p.y), false);
 });
+
+test('a collapsed co-op crew member asks for nothing while down, even standing in the base zone with a load', async () => {
+  const coop = E.createMission({ seed: 'EVA-3', loadout: E.referenceKit('commander', 4), events: false, coop: true, pilot: 'minh' });
+  const s = setup({ mission: coop });
+  s.m.expedition.carried.minh = [{ kind: 'metal', res: 'materials', amount: 40, id: '0,0:1', region: 0 }];
+  X.collapse(s.m, 'minh', { x: 30 * T + 32, y: 4 * T + 32 });
+  s.eva.sync(s.data);
+  tick(s, outside(0, 1), 5);
+  await flush();
+  assert.deepEqual(s.calls.map(c => c.type), [], 'no deliver is retried while down');
+});
