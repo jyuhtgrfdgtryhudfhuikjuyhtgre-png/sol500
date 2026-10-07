@@ -658,7 +658,7 @@
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, bar: S.eva.suitBar(r) });
     }
     return out;
   }
@@ -1062,10 +1062,10 @@
     for (const s of S.eva.sprites(x0, y0, x1, y1, S.world, S.time)) sprites.push(s);
     sprites.sort((a, b) => a.y - b.y);
     for (const s of sprites) s.draw(ctx); // the exploring layer's sprites take the context; the others close over it
-    // the fog over what you can't see, then the name tags on top of it
+    // the fog over what you can't see, then the name tags (with teammates' suit bars) on top of it
     P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, (p.inRover ? VIEW_ROVER : VIEW_FOOT) * T);
     drawTags(ctx, S.tags);
-    S.eva.drawOver(ctx, S.remote);
+    S.eva.drawOver(ctx);
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
 
     // weather, in screen space

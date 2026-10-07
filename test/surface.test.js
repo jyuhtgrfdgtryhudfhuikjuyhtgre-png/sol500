@@ -33,15 +33,26 @@ function metalFind(m) {
   return best;
 }
 
+// While `rec.on`, every filled path is recorded as its box and fill style (path coordinates as given: world pixels for
+// what the surface draws without a translate, such as name tags and suit bars).
+const rec = { on: false, fills: [], box: null };
+const grow = (x, y) => { const b = rec.box; rec.box = b ? { left: Math.min(b.left, x), right: Math.max(b.right, x), top: Math.min(b.top, y), bottom: Math.max(b.bottom, y) } : { left: x, right: x, top: y, bottom: y }; };
 const ctx = new Proxy({}, {
   get(t, k) {
     if (k in t) return t[k];
     if (k === 'measureText') return () => ({ width: 40 });
     if (k === 'createRadialGradient' || k === 'createLinearGradient') return () => ({ addColorStop() {} });
+    if (k === 'beginPath') return () => { rec.box = null; };
+    if (k === 'moveTo' || k === 'lineTo') return (x, y) => grow(x, y);
+    if (k === 'arcTo') return (x1, y1, x2, y2) => { grow(x1, y1); grow(x2, y2); };
+    if (k === 'arc') return (x, y, r) => { grow(x - r, y - r); grow(x + r, y + r); };
+    if (k === 'fill') return () => { if (rec.on && rec.box) rec.fills.push(Object.assign({ style: t.fillStyle }, rec.box)); };
     return () => {};
   },
   set(t, k, v) { t[k] = v; return true; },
 });
+const TAG_BOX = ['rgba(140,188,236,0.92)', 'rgba(20,14,16,0.78)'], SUIT_BAR = 'rgba(20,14,16,0.8)'; // src/surface-paint.js drawTag, drawSuitBar
+const overlap = (a, b) => Math.min(a.right, b.right) > Math.max(a.left, b.left) && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top);
 const painter = new Proxy({}, { get: (t, k) => (k === 'stats' ? () => ({ paintMedian: 0 }) : () => {}) });
 function element(tag) {
   const n = { tagName: String(tag).toUpperCase(), children: [], style: {}, dataset: {}, listeners: {}, hidden: false, className: '', textContent: '', innerHTML: '', isConnected: true, clientWidth: 160, clientHeight: 160 };
@@ -100,6 +111,8 @@ function page(m, me) {
   return {
     sent, calls, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list),
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
+    // One more frame, with every filled path it draws recorded.
+    frame() { rec.fills = []; rec.on = true; try { clock += 50; raf(clock); } finally { rec.on = false; } return rec.fills; },
     key(code, down) { for (const fn of on[down === false ? 'keyup' : 'keydown'] || []) fn({ code, repeat: false, target: {}, preventDefault() {} }); },
     // A tap on the ground at tile (tx, ty): click-to-walk.
     tap(tx, ty) {
@@ -269,4 +282,27 @@ test('a click-to-walk path ends when every step is refused: a collapsed co-op pl
   pg.show(m);
   pg.step(1);
   assert.deepEqual([pg.probe().player.x, pg.probe().player.y], at, 'no walking on after the revive');
+});
+
+test("teammates' suit bars sit clear of every name tag, also where the tags of crew standing close push each other up", () => {
+  const m = mission({ seed: 'TAGS-1', coop: true });
+  const pg = page(m, 'minh');
+  pg.qa.teleport(30, 4);
+  const x = 30 * T + 32, y = 4 * T + 32;
+  // Two teammates outside the base just east of you, side by side: three name tags that would sit on one line, so Diego's
+  // is pushed up off yours and Amara's off his, bars and all.
+  pg.remote([
+    { crewId: 'diego', x: x + 48, y, dir: 'down', moving: false, rover: false, suit: 75 },
+    { crewId: 'amara', x: x + 88, y, dir: 'down', moving: false, rover: false, suit: 40 },
+  ]);
+  pg.step(0.2);
+  const fills = pg.frame();
+  const tags = fills.filter(f => TAG_BOX.includes(f.style)), bars = fills.filter(f => f.style === SUIT_BAR);
+  assert.equal(tags.length, 3, 'three name tags: yours and two teammates');
+  assert.equal(bars.length, 2, "two suit bars, the teammates'");
+  for (const b of bars) for (const tg of tags) assert.ok(!overlap(b, tg), 'the bar ' + JSON.stringify(b) + ' covers the name tag ' + JSON.stringify(tg));
+  for (const b of bars) {
+    const below = tags.filter(tg => Math.abs((tg.left + tg.right) / 2 - (b.left + b.right) / 2) < 1 && tg.top >= b.bottom);
+    assert.ok(below.length && Math.min(...below.map(tg => tg.top)) - b.bottom <= 3, 'the bar sits right on top of its own tag: ' + JSON.stringify(b));
+  }
 });

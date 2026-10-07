@@ -443,12 +443,12 @@
     ctx.restore();
   }
 
-  // a: { x, y, dir, phase, moving, you, down, rover, working, color }. Name tags are queued in `tags`
-  // and laid out by drawTags once every sprite is drawn.
+  // a: { x, y, dir, phase, moving, you, down, rover, working, color, bar }. Name tags are queued in `tags`
+  // and laid out by drawTags once every sprite is drawn; `bar` (0–1, a teammate's suit level) rides on top of the tag.
   function drawAvatar(ctx, a, name, time, tags, roverImg) {
     const color = a.color || '#ccc';
     const x = a.x, y = a.y;
-    const tag = (tx, ty, text, c, you) => { if (text) tags.push({ x: tx, y: ty, text, color: c, you }); };
+    const tag = (tx, ty, text, c, you) => { if (text) tags.push({ x: tx, y: ty, text, color: c, you, bar: a.bar == null ? null : a.bar }); };
     ctx.save();
     if (a.you) {
       const pulse = 0.55 + 0.45 * Math.sin(time * 4);
@@ -634,20 +634,22 @@
     ctx.restore();
   }
 
-  // Name tags are laid out after all sprites so they never pile on top of each other.
+  // Name tags are laid out after all sprites so they never pile on top of each other. A teammate's suit bar sits on top
+  // of their tag (5 px and 2 px clear), so it counts as part of the tag and moves up with it when the tag is pushed up.
   function drawTags(ctx, tags) {
     const placed = [];
     ctx.font = '600 10px "Be Vietnam Pro", system-ui, sans-serif';
     const list = tags.slice().sort((a, b) => (b.you - a.you) || (b.y - a.y));
     for (const tg of list) {
-      const w = ctx.measureText(tg.text).width + 16;
+      const w = ctx.measureText(tg.text).width + 16, up = tg.bar == null ? 0 : 7;
       let y = tg.y;
-      for (let i = 0; i < 6; i++) {
-        const hit = placed.some(r => Math.abs(r.x - tg.x) < (r.w + w) / 2 + 2 && Math.abs(r.y - y) < 16);
+      for (let i = 0; i < 6; i++) { // a tag spans y - 14 - up to y + 1; two keep 1 px apart
+        const hit = placed.some(r => Math.abs(r.x - tg.x) < (r.w + w) / 2 + 2 && y - 14 - up < r.y + 2 && r.y - 14 - r.up < y + 2);
         if (!hit) break;
         y -= 16;
       }
-      placed.push({ x: tg.x, y, w });
+      placed.push({ x: tg.x, y, w, up });
+      if (tg.bar != null) drawSuitBar(ctx, tg.x, y - 21, tg.bar);
       drawTag(ctx, tg.x, y, tg.text, tg.color, tg.you, w);
     }
     tags.length = 0;

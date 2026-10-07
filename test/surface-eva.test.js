@@ -195,7 +195,8 @@ test('a collapsed co-op crew member asks for nothing while down, even standing i
   assert.deepEqual(s.calls.map(c => c.type), [], 'no deliver is retried while down');
 });
 
-// A 2D context that records the vertical extent of each filled path (the drawings checked with it use no transform).
+// A 2D context that records the vertical extent and fill style of each filled path (the drawings checked with it use no
+// transform).
 function recorder() {
   const fills = [];
   let box = null;
@@ -207,7 +208,7 @@ function recorder() {
       if (k === 'moveTo' || k === 'lineTo') return (x, y) => add(x, y);
       if (k === 'arcTo') return (x1, y1, x2, y2) => { add(x1, y1); add(x2, y2); };
       if (k === 'arc') return (x, y, r) => { add(x, y - r); add(x, y + r); };
-      if (k === 'fill') return () => { if (box) fills.push(box); };
+      if (k === 'fill') return () => { if (box) fills.push(Object.assign({ style: t.fillStyle }, box)); };
       if (k === 'measureText') return () => ({ width: 30 });
       if (k === 'createLinearGradient' || k === 'createRadialGradient') return () => ({ addColorStop() {} });
       return () => {};
@@ -222,14 +223,17 @@ test("a teammate's suit bar is drawn fully above their name tag: standing, walki
   const x = 30 * T + 32, y = 4 * T + 32; // outside the base zone, where the bar shows
   const poses = { standing: {}, walking: { moving: true, phase: Math.PI / 2 }, 'lying down': { down: true }, 'in the rover': { rover: true } };
   for (const [pose, extra] of Object.entries(poses)) {
-    const tags = [], tag = recorder(), bar = recorder();
-    P.sprites.drawAvatar(recorder().ctx, Object.assign({ x, y, dir: 'down', phase: 0, moving: false, color: '#4fd0c4' }, extra), 'Lena', 0.3, tags, null);
-    P.sprites.drawTags(tag.ctx, tags);
-    s.eva.drawOver(bar.ctx, { lena: { x, y, suit: 75, rover: !!extra.rover } });
-    assert.ok(bar.fills.length > 0, pose + ': a bar is drawn');
-    const barBottom = Math.max(...bar.fills.map(f => f.bottom)), tagTop = tag.fills[0].top;
-    assert.ok(barBottom < tagTop, pose + ': the bar ends ' + (y - barBottom) + ' px above the feet, the tag starts ' + (y - tagTop) + ' px above them');
+    const tags = [], drawn = recorder(), bar = s.eva.suitBar({ x, y, suit: 75 }); // what surface.js passes for a teammate
+    P.sprites.drawAvatar(recorder().ctx, Object.assign({ x, y, dir: 'down', phase: 0, moving: false, color: '#4fd0c4', bar }, extra), 'Lena', 0.3, tags, null);
+    P.sprites.drawTags(drawn.ctx, tags);
+    const bars = drawn.fills.filter(f => f.style === 'rgba(20,14,16,0.8)'), tag = drawn.fills.find(f => f.style === 'rgba(20,14,16,0.78)');
+    assert.equal(bars.length, 1, pose + ': a bar is drawn');
+    assert.ok(bars[0].bottom < tag.top, pose + ': the bar ends ' + (y - bars[0].bottom) + ' px above the feet, the tag starts ' + (y - tag.top) + ' px above them');
   }
+  assert.equal(s.eva.suitBar({ x, y, suit: 75 }), 0.5, 'half a suit, half a bar');
+  assert.equal(s.eva.suitBar({ x: 32, y: 32, suit: 75 }), null, 'no bar in the base zone');
+  assert.equal(s.eva.suitBar({ x, y, suit: D.EXPEDITION.suit }), null, 'no bar with a full suit');
+  assert.equal(s.eva.suitBar({ x, y }), null, 'no bar without a suit level');
 });
 
 test('the suit value takes its seconds unit from the language table, the same unit paused at the base and draining outside', () => {

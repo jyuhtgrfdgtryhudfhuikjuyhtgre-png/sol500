@@ -15,14 +15,15 @@
  *      eva.holdable(focus) · eva.label(focus) · eva.start(focus) · eva.stop()       E / the action button
  *      eva.hasRoom() → does your backpack take another load?
  *      eva.act(type, player) → Promise of the rules' answer (board, park) · eva.canister(player) (the button, or Q)
- *      eva.drawZone(ctx) · eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx, remote)
+ *      eva.drawZone(ctx) · eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx)
+ *      eva.suitBar(teammate) → 0–1, or null: the suit bar on a teammate's name tag (drawn by SolPaint's drawTags)
  *      eva.marks(world, px, py) → minimap markers · eva.report() → { suit, driven } for the position message
  *      eva.roverAtBay(player) · eva.driving() · eva.collapsed(crewId) · eva.state() (play-testing)
  */
 (function (root) {
   'use strict';
   const D = root.SolData, W = root.SolWorldgen, X = root.SolExpedition, P = root.SolPaint, SW = root.SolWorld, A = root.SolArt;
-  const { drawFind, drawDrop, drawRing, drawSuitBar, roundRect } = P.sprites;
+  const { drawFind, drawDrop, drawRing, roundRect } = P.sprites;
   const XD = D.EXPEDITION;
   const T = 64, ICY = W.REGIONS.indexOf('icy');
   const REACH = 0.9 * T;                        // how close the spot you look at must be to a find
@@ -328,15 +329,12 @@
       return out;
     }
 
-    // Over the fog: the hold ring, and teammates' suit bars (co-op positions carry them). A bar sits above the name tag,
-    // whose top is 70 px above the feet on foot (72 at a walking step's highest) and 64 in the rover.
-    function drawOver(ctx, remote) {
+    // Over the fog: the hold ring.
+    function drawOver(ctx) {
       if (hold) drawRing(ctx, hold.f.x, hold.f.y - 40, hold.t / hold.dur);
-      for (const r of Object.values(remote || {})) {
-        if (r.suit == null || r.suit >= XD.suit || X.inBaseZone(r)) continue;
-        drawSuitBar(ctx, r.x, r.y - 79, r.suit / XD.suit);
-      }
     }
+    // A teammate's suit level (co-op positions carry it), 0–1, for the bar on their name tag; none at the base or when full.
+    const suitBar = r => (r.suit == null || r.suit >= XD.suit || X.inBaseZone(r) ? null : r.suit / XD.suit);
 
     // Minimap and map markers: finds you have seen (the biologist senses ice and methane vents further), dropped loads,
     // the parked rover. Rebuilt at most every 150 ms.
@@ -363,7 +361,7 @@
     }
 
     return {
-      el, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, drawZone, sprites, drawOver, marks,
+      el, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, drawZone, sprites, drawOver, suitBar, marks,
       report: () => ({ suit: Math.round(suit * 10) / 10, driven: Math.round(driven * 10) / 10 }),
       roverAtBay: p => !!mission() && !!mission().expedition && !exp().rover && !(p && p.inRover),
       driving: () => !!(me && mission() && mission().expedition && exp().rover && exp().rover.driver === me),
