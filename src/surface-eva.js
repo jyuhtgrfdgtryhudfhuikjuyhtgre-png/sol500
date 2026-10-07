@@ -327,12 +327,13 @@
       return out;
     }
 
-    // Over the fog: the hold ring, and teammates' suit bars (co-op positions carry them).
+    // Over the fog: the hold ring, and teammates' suit bars (co-op positions carry them). A bar sits above the name tag,
+    // whose top is 70 px above the feet on foot (72 at a walking step's highest) and 64 in the rover.
     function drawOver(ctx, remote) {
       if (hold) drawRing(ctx, hold.f.x, hold.f.y - 40, hold.t / hold.dur);
       for (const r of Object.values(remote || {})) {
         if (r.suit == null || r.suit >= XD.suit || X.inBaseZone(r)) continue;
-        drawSuitBar(ctx, r.x, r.y - (r.rover ? 78 : 66), r.suit / XD.suit);
+        drawSuitBar(ctx, r.x, r.y - 79, r.suit / XD.suit);
       }
     }
 
