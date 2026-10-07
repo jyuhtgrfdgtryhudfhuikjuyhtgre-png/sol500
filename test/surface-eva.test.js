@@ -43,7 +43,7 @@ function setup(opts) {
     },
     suit: () => {},
   };
-  const eva = sandbox.SolEva.create({ t: k => k, hooks: () => hooks, crewName: id => id, player: () => null, home: () => home.push(1), drawRover: () => {} });
+  const eva = sandbox.SolEva.create({ t: o.t || (k => k), hooks: () => hooks, crewName: id => id, player: () => null, home: () => home.push(1), drawRover: () => {} });
   const data = { mission: m, controlId: 'minh', lang: 'en' };
   eva.sync(data);
   const world = SW.create(m.seed);
@@ -229,5 +229,19 @@ test("a teammate's suit bar is drawn fully above their name tag: standing, walki
     assert.ok(bar.fills.length > 0, pose + ': a bar is drawn');
     const barBottom = Math.max(...bar.fills.map(f => f.bottom)), tagTop = tag.fills[0].top;
     assert.ok(barBottom < tagTop, pose + ': the bar ends ' + (y - barBottom) + ' px above the feet, the tag starts ' + (y - tagTop) + ' px above them');
+  }
+});
+
+test('the suit value takes its seconds unit from the language table, the same unit paused at the base and draining outside', () => {
+  const I = require('../src/i18n.js');
+  const want = { en: ['Suit O₂', 'paused'], vi: ['O₂ bộ đồ', 'tạm dừng'] };
+  for (const lang of ['en', 'vi']) {
+    const s = setup({ t: (k, p) => I.t(lang, k, p) });
+    const [label, , value] = s.eva.el.children[0].children;
+    tick(s, outside(0, 1), 1);
+    assert.equal(label.textContent, want[lang][0], lang + ': the label');
+    assert.equal(value.textContent, D.EXPEDITION.suit + ' s · ' + want[lang][1], lang + ': paused in the base zone');
+    tick(s, outside(20, 1), 4.05);
+    assert.equal(value.textContent, Math.ceil(s.eva.state().suit) + ' s', lang + ': draining outside');
   }
 });

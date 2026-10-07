@@ -529,6 +529,7 @@ p { margin: 0; }
 .sf-debug { position: absolute; left: 12px; bottom: 12px; margin: 0; background: rgba(0, 0, 0, 0.72); color: #b8f7a8; font: 11px/1.4 var(--font-data); padding: 6px 8px; border-radius: 6px; white-space: pre; }
 @media (max-width: 640px), (pointer: coarse) {
   .sf-mini { width: 112px; height: 112px; }
+  .sf-eva { width: min(210px, calc(100% - 146px)); } /* 146 = 14 px left + 112 px minimap + 12 px right + 8 px clear */
   .sf-hint { max-width: calc(100% - 270px); }
 }
 .sf-joy, .sf-btn { display: none; }

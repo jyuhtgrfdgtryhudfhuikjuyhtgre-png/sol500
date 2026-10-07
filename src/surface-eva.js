@@ -83,7 +83,8 @@
       if (hide) return;
       const atBase = !!p && X.inBaseZone(p);
       text(suitM.k, 'sk', t('eva.suit'));
-      text(suitM.v, 'sv', atBase && !benched() ? t('eva.paused', { s: Math.ceil(suit) }) : Math.ceil(suit) + ' s');
+      const seconds = t('eva.secs', { s: Math.ceil(suit) }); // one unit, paused or not
+      text(suitM.v, 'sv', atBase && !benched() ? t('eva.paused', { v: seconds }) : seconds);
       prop('sw', (100 * suit / XD.suit).toFixed(1) + '%', v => { suitM.fill.style.width = v; });
       const f = suit / XD.suit;
       prop('sc', 'sf-suit' + (f <= 0.2 ? ' crit' : f <= 0.4 ? ' warn' : ''), v => { suitM.row.className = v; });
