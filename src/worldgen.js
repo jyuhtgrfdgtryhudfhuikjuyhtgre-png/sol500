@@ -10,8 +10,9 @@
  * (−4, −2), so the HQ is at (0, 0). Nothing that blocks is ever placed within FLAT_RADIUS tiles of the HQ.
  *
  * API: seedOf(missionSeed) → uint32 · regionAt(seed, x, y) → index into REGIONS
- *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds }   (32×32, row-major)
+ *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds, caves }   (32×32, row-major)
  *        finds: [{ n, x, y, kind, ring, region, sub? }] in world tiles; a find's id is "<cx>,<cy>:<n>"
+ *        caves: [{ n, x, y, region }] in world tiles: a cave's mouth, an open tile; its wall is the tile north of it
  *      ringOf(x, y) → 0 inner · 1 middle · 2 outer · 3 far
  *      tileOf(chunk, lx, ly) · regionOf(chunk, lx, ly)
  *      featuresNear(seed, x0, y0, x1, y1) → { canyons, craters, mesas } touching that tile box (inclusive)
@@ -371,6 +372,27 @@
     return out;
   }
 
+  // ---------- caves (spec §3.1, §3.4): shelter from a solar flare ----------
+  // A cave opens in the south face of a mesa or a canyon wall, the face the surface draws, so its mouth can be seen. You
+  // shelter by standing in the mouth: the open tile just south of the wall. A chunk places its caves from its own tiles and
+  // after its finds, so the tiles, the regions and the finds (and every find id a saved mission holds) stay as they were.
+  const CAVE_CHANCE = [0.3, 0.3, 0.3, 0.3, 0.3, 1]; // per south-facing wall tile, by the mouth's region
+  const CAVE_GAP = [6, 6, 6, 6, 6, 2];             // tiles between two caves of a chunk, either way: the Volcanic Flanks have three times as many
+  function placeCaves(seed, cx, cy, tiles, regions) {
+    const out = [];
+    for (let ly = 0; ly < CHUNK - 1; ly++) for (let lx = 0; lx < CHUNK; lx++) {
+      const n = ly * CHUNK + lx, wall = tiles[n];
+      if (wall !== TILE.CLIFF && wall !== TILE.CANYON_WALL) continue;
+      const m = n + CHUNK, below = tiles[m];
+      if (BLOCKING[below] || below === TILE.BASE) continue;
+      const x = cx * CHUNK + lx, y = cy * CHUNK + ly + 1, r = (regions[m >> 1] >> ((m & 1) * 4)) & 15;
+      if (unit(hash(seed, x, y, 650)) >= CAVE_CHANCE[r]) continue;
+      if (out.some(c => Math.abs(c.x - x) < CAVE_GAP[r] && Math.abs(c.y - y) < CAVE_GAP[r])) continue;
+      out.push({ n: out.length, x, y, region: r });
+    }
+    return out;
+  }
+
   // ---------- chunks ----------
   function chunk(seed, cx, cy) {
     const x0 = cx * CHUNK, y0 = cy * CHUNK, w = CHUNK + 2;
@@ -398,7 +420,7 @@
       else t = ground(seed, r, x, y);
       tiles[i] = t;
     }
-    return { cx, cy, tiles, regions, finds: placeFinds(seed, cx, cy, tiles, regions, feats) };
+    return { cx, cy, tiles, regions, finds: placeFinds(seed, cx, cy, tiles, regions, feats), caves: placeCaves(seed, cx, cy, tiles, regions) };
   }
 
   const tileOf = (c, lx, ly) => c.tiles[ly * CHUNK + lx];
