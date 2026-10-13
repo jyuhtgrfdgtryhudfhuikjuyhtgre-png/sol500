@@ -613,3 +613,19 @@ test('co-op: a round that ends before its flare hits calls the flare off, and a 
   t.mock.timers.tick(120000);
   assert.deepEqual(room.mission.expedition.incidents, [], 'nobody is hit by a flare from a round that is over');
 });
+
+test("co-op: a new round forgets where everyone stood, so a seat last seen outside is not hit by the next round's flare", t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, host, guest } = inMission();
+  room.mission.schedule[room.mission.turn].spe = false;
+  R.position(room, guest, at(30, 0));
+  say(R, room, host, 'advance');
+  room.mission.schedule[room.mission.turn].spe = true;
+  R.position(room, host, at(31, 0));
+  assert.ok(room.mission.expedition.flare, 'the host steps out in the new round and starts its flare');
+  R.position(room, host, at(0, 1));
+  t.mock.timers.tick(95000);
+  assert.equal(room.mission.expedition.flare.over, true);
+  assert.deepEqual(room.mission.expedition.flare.hit, [], 'the guest was out last round, not this one');
+  assert.deepEqual(room.mission.expedition.incidents, [], 'so nobody is counted as hit');
+});
