@@ -500,3 +500,116 @@ test('exploring actions need a mission and a seat', () => {
   say(R2, r2, h2, 'claim', { crewId: null });
   assert.equal(say(R2, r2, h2, 'deliver').body.error, 'noCrew');
 });
+
+// ---------- co-op exploring and dangers (M4b) ----------
+
+const E = require('../src/engine.js');
+const D = require('../src/data.js');
+const CANISTER = { kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 };
+const frames = (c, mark) => c.got.slice(mark).filter(m => m.type === 'room');
+
+test('co-op: a canister is breathed with the live suit level the game sends, and only outside the base', () => {
+  const { R, room, guest, hc } = inMission();
+  room.mission.expedition.carried.minh = [Object.assign({}, CANISTER), Object.assign({}, CANISTER)];
+  R.position(room, guest, Object.assign(at(0, 1), { suit: 80 }));
+  const mark = hc.got.length;
+  assert.equal(say(R, room, guest, 'canister', { suit: 79 }).body.error, 'atBase');
+  assert.equal(frames(hc, mark).length, 0, 'a refused action tells nobody');
+  assert.equal(room.mission.expedition.carried.minh.length, 2, 'and changes nothing');
+  R.position(room, guest, Object.assign(at(20, 0), { suit: 80 }));
+  const ok = say(R, room, guest, 'canister', { suit: 78.5 });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.suit, 78.5 + 45, 'the live level, not the one sent with the last position');
+  assert.equal(frames(hc, mark).length, 1, 'everyone sees the backpack change');
+  assert.equal(say(R, room, guest, 'canister', { suit: 123.5 }).body.error, 'suitFull', 'above 105 s the canister would not all fit');
+});
+
+test('co-op: a dropped load is picked up through the server, as much as the backpack takes', () => {
+  const { R, room, guest } = inMission();
+  const x = room.mission.expedition;
+  x.drops.push({ id: '3:lena', x: 40 * 64, y: 32, items: [1, 2, 3, 4].map(n => ({ kind: 'metal', res: 'materials', amount: 40, id: '1,1:' + n, region: 0 })) });
+  R.position(room, guest, at(30, 0));
+  assert.equal(say(R, room, guest, 'pickup', { drop: '3:lena' }).body.error, 'tooFar');
+  R.position(room, guest, at(40, 0));
+  const r = say(R, room, guest, 'pickup', { drop: '3:lena' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.items.length, 3, 'three fit on foot');
+  assert.equal(x.drops[0].items.length, 1, 'one stays on the ground');
+  assert.equal(say(R, room, guest, 'pickup', { drop: '3:lena' }).body.error, 'full', 'a full backpack takes no more');
+  assert.equal(say(R, room, guest, 'pickup', { drop: 'no-such' }).body.error, 'noDrop');
+});
+
+test("co-op: a driver whose game says they got out has parked the rover there, even if their park never arrived", () => {
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  say(R, room, host, 'claim', { crewId: 'lena' });
+  say(R, room, host, 'phase', { phase: 'manifest' });
+  say(R, room, host, 'loadout', { loadout: Object.assign({}, room.loadout, { rover: 1, waterwall: 0 }) });
+  say(R, room, host, 'launch');
+  const c = fakeClient();
+  R.attach(room, host, c);
+  R.position(room, host, X.bay(room.mission));
+  assert.equal(say(R, room, host, 'board').status, 200);
+  R.position(room, host, Object.assign(at(30, 0), { rover: true, driven: 30 }));
+  assert.deepEqual(room.mission.expedition.rover, { driver: 'lena' }, 'still driving');
+  const mark = c.got.length;
+  R.position(room, host, Object.assign(at(31, 0), { rover: false, driven: 31.5 }));
+  assert.deepEqual(room.mission.expedition.rover, at(31, 0), 'parked where the game says it got out');
+  assert.equal(room.mission.expedition.roverDriven, 31.5, 'with the last bit of driving');
+  assert.equal(frames(c, mark).length, 1, 'teammates see the rover parked');
+  assert.equal(say(R, room, host, 'park').body.error, 'notDriving', 'a late park changes nothing');
+  assert.equal(say(R, room, host, 'fly').body.error, 'badAction', 'an unknown action is refused, and parks nothing');
+});
+
+test("every room frame carries the round's clock: seconds since the round began, from 0 again each round", t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, host } = inMission();
+  assert.equal(R.publicRoom(room).clock, 0);
+  t.mock.timers.tick(12500);
+  assert.equal(R.publicRoom(room).clock, 12.5);
+  say(R, room, host, 'advance');
+  assert.equal(R.publicRoom(room).clock, 0, 'a new round, a new clock');
+  say(R, room, host, 'restart');
+  assert.equal(R.publicRoom(room).clock, null, 'no clock outside a mission');
+});
+
+test('co-op: the first step outside in a flare round starts the warning; 90 s later the flare hits whoever the server saw in the open', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, host, guest, hc } = inMission();
+  const m = room.mission;
+  m.schedule[m.turn].spe = true;
+  R.position(room, host, at(0, 1));
+  assert.equal(m.expedition.flare, null, 'nobody outside yet');
+  t.mock.timers.tick(4000);
+  const mark = hc.got.length;
+  R.position(room, guest, at(30, 0));
+  assert.deepEqual(m.expedition.flare, { warn: 34, end: 94, over: false, hit: [] }, 'on the round clock: the warning at 34 s, the hit at 94 s');
+  assert.ok(frames(hc, mark).some(f => f.data.mission.expedition.flare), 'everyone hears the flare is coming');
+  R.position(room, guest, at(31, 0));
+  assert.equal(m.expedition.flare.warn, 34, 'it starts once');
+  t.mock.timers.tick(89000);
+  assert.equal(m.expedition.flare.over, false, 'not before the countdown ends');
+  t.mock.timers.tick(1000);
+  assert.equal(m.expedition.flare.over, true);
+  assert.deepEqual(m.expedition.flare.hit, ['minh']);
+  assert.deepEqual(m.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }], 'lena, at the base, has cover');
+  const done = frames(hc, mark).at(-1).data.mission.expedition;
+  assert.deepEqual(done.flare.hit, ['minh'], 'everyone hears who was caught');
+  const r = E.resolveTurn(m, room.plan);
+  assert.ok(r.state.crew.find(c => c.id === 'minh').dose > m.crew.find(c => c.id === 'minh').dose + D.DANGERS.flare.dose - 1e-9);
+});
+
+test('co-op: a round that ends before its flare hits calls the flare off, and a round without one never starts it', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, host, guest } = inMission();
+  room.mission.schedule[room.mission.turn].spe = false;
+  R.position(room, guest, at(30, 0));
+  assert.equal(room.mission.expedition.flare, null, 'no flare in this round');
+  room.mission.schedule[room.mission.turn].spe = true;
+  R.position(room, guest, at(31, 0));
+  assert.ok(room.mission.expedition.flare);
+  say(R, room, host, 'advance');
+  assert.equal(room.mission.expedition.flare, null, 'the next round starts without it');
+  t.mock.timers.tick(120000);
+  assert.deepEqual(room.mission.expedition.incidents, [], 'nobody is hit by a flare from a round that is over');
+});
