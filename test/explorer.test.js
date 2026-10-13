@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const E = require('../src/engine.js');
 const D = require('../src/data.js');
-const { haulRound } = require('../tools/explorer.js');
+const { haulRound, DEVIL_HITS } = require('../tools/explorer.js');
 
 const KIT = D.REFERENCE_KITS.commander;
 const ROVER_KIT = Object.assign({}, KIT, { rover: 1, waterwall: 0 });
@@ -61,6 +61,9 @@ test('in a solar-flare round the explorer, who never runs for cover, is hit when
 });
 
 test('dust devils cost a walking explorer suit time, so a dust-devil round never hauls more; the rover is immune', () => {
+  // What a dust-devil round adds to the toll: suit seconds lost a second exposed (DEVIL_HITS in tools/explorer.js).
+  const extra = (DEVIL_HITS.round - DEVIL_HITS.quiet) * D.DANGERS.devils.suit;
+  let pinned = 0;
   for (const seed of ['DEVIL-BOT-1', 'DEVIL-BOT-2', 'DEVIL-BOT-3']) {
     const go = (kit, devil) => {
       const s = E.createMission({ seed, loadout: kit, events: false, pilot: 'diego' });
@@ -69,9 +72,17 @@ test('dust devils cost a walking explorer suit time, so a dust-devil round never
     };
     const calm = go(KIT, false), windy = go(KIT, true);
     assert.ok(windy.loads <= calm.loads, seed + ': ' + windy.loads + ' loads with devils, ' + calm.loads + ' without');
+    assert.ok(windy.loads < calm.loads || windy.seconds > calm.seconds, seed + ': on foot the devils cost suit: ' + windy.seconds + ' s vs ' + calm.seconds + ' s');
     const roverCalm = go(ROVER_KIT, false), roverWindy = go(ROVER_KIT, true);
     assert.ok(roverWindy.loads >= roverCalm.loads - 1, seed + ': the rover is immune, only work on foot pays: ' + roverWindy.loads + ' vs ' + roverCalm.loads);
+    if (roverWindy.loads === roverCalm.loads) {
+      // The same route: only the work on foot pays, so the extra is less than a toll on the whole round would be.
+      const more = roverWindy.seconds - roverCalm.seconds;
+      assert.ok(more > 0 && more < extra * roverCalm.seconds, seed + ': the rover pays only for work on foot: +' + more + ' s');
+      pinned++;
+    }
   }
+  assert.ok(pinned >= 2, 'the rover check ran on ' + pinned + ' of 3 seeds');
 });
 
 test("in the rover the battery caps the haul, and it never grows", () => {

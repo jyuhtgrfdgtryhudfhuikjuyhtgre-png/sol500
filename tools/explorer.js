@@ -100,4 +100,4 @@ function haulRound(m, crewId) {
   return { loads, seconds: D.EXPEDITION.suit - suit, flare };
 }
 
-module.exports = { haulRound, findsNear };
+module.exports = { haulRound, findsNear, DEVIL_HITS };
