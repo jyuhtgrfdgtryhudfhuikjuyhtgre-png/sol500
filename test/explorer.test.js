@@ -35,6 +35,45 @@ test('on foot the haul per round is capped by one suit charge and falls off as t
   }
 });
 
+test('in a solar-flare round the explorer, who never runs for cover, is hit when the flare ends while it is out', () => {
+  let hits = 0, safe = 0;
+  for (let i = 0; i < 12; i++) {
+    const s = E.createMission({ seed: 'FLARE-BOT-' + i, loadout: KIT, events: false, pilot: 'diego' });
+    s.schedule[s.turn].spe = true;
+    const got = haulRound(s, 'diego');
+    const caught = s.expedition.incidents.filter(k => k.kind === 'flare').map(k => k.crewId);
+    assert.ok(s.expedition.flare && s.expedition.flare.over, 'the flare came and went');
+    if (got.flare === 'hit') {
+      hits++;
+      assert.deepEqual(caught, ['diego']);
+      const before = s.crew.find(c => c.id === 'diego').dose;
+      const next = E.resolveTurn(s, E.defaultPlan(s)).state;
+      assert.ok(next.crew.find(c => c.id === 'diego').dose >= before + D.DANGERS.flare.dose, '+15 mSv at the advance');
+    } else {
+      safe++;
+      assert.equal(got.flare, 'safe');
+      assert.deepEqual(caught, []);
+    }
+  }
+  assert.ok(hits >= 6, 'out for most of its suit, it is usually caught: ' + hits + ' hit, ' + safe + ' safe');
+  const quiet = E.createMission({ seed: 'FLARE-BOT-Q', loadout: KIT, events: false, pilot: 'diego' });
+  assert.equal(haulRound(quiet, 'diego').flare, null, 'no flare in a quiet round');
+});
+
+test('dust devils cost a walking explorer suit time, so a dust-devil round never hauls more; the rover is immune', () => {
+  for (const seed of ['DEVIL-BOT-1', 'DEVIL-BOT-2', 'DEVIL-BOT-3']) {
+    const go = (kit, devil) => {
+      const s = E.createMission({ seed, loadout: kit, events: false, pilot: 'diego' });
+      s.schedule[s.turn].devil = devil;
+      return haulRound(s, 'diego');
+    };
+    const calm = go(KIT, false), windy = go(KIT, true);
+    assert.ok(windy.loads <= calm.loads, seed + ': ' + windy.loads + ' loads with devils, ' + calm.loads + ' without');
+    const roverCalm = go(ROVER_KIT, false), roverWindy = go(ROVER_KIT, true);
+    assert.ok(roverWindy.loads >= roverCalm.loads - 1, seed + ': the rover is immune, only work on foot pays: ' + roverWindy.loads + ' vs ' + roverCalm.loads);
+  }
+});
+
 test("in the rover the battery caps the haul, and it never grows", () => {
   for (const seed of ['FARM-5', 'FARM-6']) {
     const loads = rounds(seed, ROVER_KIT);
