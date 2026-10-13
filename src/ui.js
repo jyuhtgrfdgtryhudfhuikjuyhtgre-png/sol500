@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition;
+  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -741,20 +741,27 @@
       if (lanOn()) return N.act(type, p).then(r => (r && (!r.error || I.has(store.lang, 'eva.err.' + r.error)) ? r : { error: 'net' }), () => ({ error: 'net' }));
       const id = s.pilot;
       const run = {
-        collect: () => X.collect(s, id, p.find, pos), deliver: () => X.deliver(s, id, pos), canister: () => X.useCanister(s, id),
-        pickup: () => X.pickUp(s, id, p.drop, pos), collapse: () => X.collapse(s, id, pos), board: () => X.board(s, id, pos),
-        park: () => X.park(s, id, pos),
+        collect: () => X.collect(s, id, p.find, pos), deliver: () => X.deliver(s, id, pos), canister: () => X.useCanister(s, id, pos, p.suit),
+        pickup: () => X.pickUp(s, id, p.drop, pos), collapse: () => X.collapse(s, id, pos, p.driven), board: () => X.board(s, id, pos),
+        park: () => X.park(s, id, pos, p.driven),
+        // The solo flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
+        // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
+        flareStart: () => Z.flareStart(s, p.t),
+        flareEnd: () => Z.flareEnd(s, { [id]: pos }, 0, p.t),
       }[type];
       const r = run ? run() : { error: 'badAction' };
       if (!r.error) { saveSoloSoon(); render(); }
       return Promise.resolve(r);
     },
-    // Solo: your suit level and the rover's battery are kept with the saved mission (co-op sends them with each position).
-    suit: (seconds, driven) => {
+    // Solo: your suit level, the rover's battery, the round's clock and where you stand are kept with the saved mission
+    // (co-op sends the suit and the battery with each position; the server keeps the clock and where you stand).
+    suit: r => {
       const s = mission();
-      if (lanOn() || !s || !s.expedition || !s.pilot) return;
-      X.setSuit(s, s.pilot, seconds);
-      if (driven != null) X.setRoverDriven(s, s.pilot, driven);
+      if (lanOn() || !s || !s.expedition || !s.pilot || !r) return;
+      X.setSuit(s, s.pilot, r.suit);
+      if (r.driven != null) X.setRoverDriven(s, s.pilot, r.driven);
+      Z.setClock(s, r.clock);
+      X.setWhere(s, s.pilot, r.at);
       saveSoloSoon();
     },
   };
@@ -767,12 +774,30 @@
       amount: t('haul.' + l.res, { n: nf(l.amount) }), what: t('find.' + l.kind), region: t('region.' + W.REGIONS[l.region]), name: crewName(l.crewId),
     });
   }
+  // What is waiting outside this round (spec §3.4): a solar flare, dust devils, a dust storm, an oxygen leak at the base.
+  function conditions(s) {
+    const r = s.schedule[s.turn] || {}, f = s.expedition.flare, out = [];
+    if (Z.flareDue(s)) {
+      if (!f) out.push(['crit', 'warn', t('eva.cond.flare', { d: D.DANGERS.flare.dose, w: D.DANGERS.flare.delay, c: D.DANGERS.flare.countdown })]);
+      else if (!f.over) out.push(['crit', 'warn', t('eva.cond.flareOn')]);
+      else if (f.hit.length) out.push(['warn', 'warn', t('eva.cond.flareHit', { names: f.hit.map(crewName).join(', '), d: D.DANGERS.flare.dose })]);
+      else out.push(['ok', 'ok', t('eva.cond.flareSafe')]);
+    }
+    if (r.devil) out.push(['warn', 'eva', t('eva.cond.devils', { n: D.DANGERS.devils.push, s: D.DANGERS.devils.suit })]);
+    if (r.weather === 'regional' || r.weather === 'global') out.push(['warn', 'warn', t('eva.cond.storm', { n: Z.viewTiles(s, false) })]);
+    if ((s.events || []).some(e => e.type === 'o2_rupture')) out.push(['', 'o2', t('eva.cond.rupture', { kg: D.EXPEDITION.canister.o2 })]);
+    return out;
+  }
   function expeditionPanel(s) {
     const x = s.expedition;
     if (!x || !x.banked) return null;
     const lines = x.banked.lines || [];
     const carrying = Object.keys(x.carried).filter(id => Array.isArray(x.carried[id]) && x.carried[id].length);
-    const body = [];
+    const body = [], cond = conditions(s);
+    if (cond.length) {
+      body.push(h('span', { class: 'eyebrow' }, t('eva.cond.title')));
+      body.push(h('ul', { class: 'replist' }, cond.map(([cls, icon, text]) => h('li', { class: cls }, ico(icon, 14), h('span', null, text)))));
+    }
     if (!lines.length && !carrying.length) body.push(h('p', { class: 'muted' }, t('eva.nothing')));
     if (lines.length) {
       body.push(h('span', { class: 'eyebrow' }, t('eva.banked')));
@@ -790,9 +815,14 @@
   function surfaceStage(s, p, f) {
     if (!window.SolSurface) return null;
     const node = window.SolSurface.mount(surfaceHooks);
+    const ctl = controlId();
     window.SolSurface.update({
-      mission: s, plan: p, forecast: f, controlId: controlId(), canControl, crewName, t, lang: store.lang,
+      mission: s, plan: p, forecast: f, controlId: ctl, canControl, crewName, t, lang: store.lang,
       fog: lanOn() ? store.fog : (s.expedition ? s.expedition.revealed : null),
+      // Co-op runs the server's round clock (it moves the dust devils and times the flare); solo keeps its own.
+      clock: lanOn() && Number.isFinite(store.room.clock) ? { t: store.room.clock, at: store.clockAt } : null,
+      // Where your astronaut last stood this round, so a reload doesn't walk you home for free.
+      lastPos: lanOn() ? (store.room.positions || []).find(q => q.crewId === ctl) || null : X.whereOf(s, ctl),
     });
     return h('div', { class: 'sf-stage' }, node, regionCard());
   }
@@ -1579,6 +1609,7 @@
   function onRoom(room) {
     const prevTurn = store.lastTurnSeen;
     store.room = room;
+    store.clockAt = performance.now() / 1000; // the round clock in this frame was read on the server just now
     // A new co-op mission (a launch, a launch after "Fly again", or one whose restart this tab missed while offline, even
     // under the same mission code) starts with a fresh world and no fog, and none of the old fog may still be sent.
     if (F.isNewLaunch(store.launchSeen, room)) forgetFog();
@@ -1663,7 +1694,7 @@
     const m = store.modal;
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
     }
     if (m === 'notes') {
       return modal(t('notes.title'), [
@@ -1729,7 +1760,10 @@
     if (r.pilot) li('users', r.pilot.to ? 'warn' : 'crit', pilotText(r.pilot));
     if (r.expedition) {
       for (const l of r.expedition.lines) li(RES_ICON[l.res], 'ok', haulText(l));
-      for (const inc of r.expedition.incidents) li('crit', 'warn', t('rep.collapse', { name: crewName(inc.crewId), h: D.EXPEDITION.collapse.health, m: D.EXPEDITION.collapse.morale }));
+      for (const inc of r.expedition.incidents) {
+        if (inc.kind === 'flare') li('warn', 'warn', t('rep.flare', { name: crewName(inc.crewId), d: D.DANGERS.flare.dose }));
+        else li('crit', 'warn', t('rep.collapse', { name: crewName(inc.crewId), h: D.EXPEDITION.collapse.health, m: D.EXPEDITION.collapse.morale }));
+      }
     }
     if (r.requested) li('rocket', 'muted', t('rep.requested', { kind: t('earth.' + r.requested) }));
     if (r.hypoxia > 0) li('crit', 'crit', t('w.o2_out'));
