@@ -514,6 +514,14 @@ p { margin: 0; }
 .sf-evanote.ok { border-color: var(--ok); }
 .sf-evanote.warn { border-color: var(--warn); }
 .sf-evanote.crit { border-color: var(--crit); color: var(--crit); }
+/* The solar flare's banner: what to do and the seconds left, top centre in the hint's place (the hint hides while it shows). */
+.sf-alert { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: 10px; width: max-content; max-width: calc(100% - 380px); background: rgba(20, 14, 16, 0.96); border: 2px solid var(--line-2); border-radius: 12px; padding: 6px 14px; font-size: var(--fs-sm); font-weight: 600; color: var(--fg); text-align: center; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+.sf-alert b { font: 700 var(--fs-md) var(--font-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sf-alert b:empty { display: none; }
+.sf-alert.crit { border-color: var(--crit); }
+.sf-alert.crit b { color: var(--crit); }
+.sf-alert.ok { border-color: var(--ok); }
+.sf-alert.ok b { color: var(--ok); }
 .sf-mini { position: absolute; right: 12px; top: 12px; width: 160px; height: 160px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #120a0c; pointer-events: auto; cursor: zoom-in; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
 .sf-mini canvas { width: 100%; height: 100%; display: block; }
 .sf-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -530,7 +538,7 @@ p { margin: 0; }
 @media (max-width: 640px), (pointer: coarse) {
   .sf-mini { width: 112px; height: 112px; }
   .sf-eva { width: min(210px, calc(100% - 146px)); } /* 146 = 14 px left + 112 px minimap + 12 px right + 8 px clear */
-  .sf-hint { max-width: calc(100% - 270px); }
+  .sf-hint, .sf-alert { max-width: calc(100% - 270px); }
 }
 .sf-joy, .sf-btn { display: none; }
 @media (pointer: coarse) {
@@ -547,8 +555,9 @@ p { margin: 0; }
 @media (max-width: 640px) {
   /* A full-width strip under the minimap and the suit, in the slot the region card takes (top: 150px): never a tall narrow column.
      While the card shows, the hint steps aside, so the two never overlap. */
-  .sf-hint { top: 150px; left: 12px; right: 12px; transform: none; max-width: none; }
+  .sf-hint, .sf-alert { top: 150px; left: 12px; right: 12px; transform: none; width: auto; max-width: none; }
   .sf-stage:has(.region-card) .sf-hint { display: none; }
+  .sf-alert { z-index: 3; } /* the flare's banner stays over the region card (z-index 2); the full map (3, later) still covers it */
 }
 .sf-side { display: grid; gap: 12px; min-width: 0; }
 .pilot { display: grid; gap: 14px; padding: 8px 0 24px; }

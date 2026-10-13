@@ -15,6 +15,7 @@ const X = require('../src/expedition.js');
 const SW = require('../src/surface-world.js');
 const P = require('../src/surface-paint.js');
 const I = require('../src/i18n.js');
+const Z = require('../src/dangers.js');
 
 const T = 64;
 const SOURCES = ['art.js', 'surface-map.js', 'surface-eva.js', 'surface.js'].map(f => [f, fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')]);
@@ -69,12 +70,14 @@ function element(tag) {
 
 // A page showing mission `m` as crew member `me`. Exploring actions run the real rules on the mission the page was last
 // shown, then show it again: ui.js renders the same mission after a solo action, and a co-op room broadcasts a new copy
-// (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for.
-function page(m, me) {
+// (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for. Like ui.js, the page
+// is shown where its astronaut last stood (the solo save; `opts.lastPos` stands for the co-op server's position).
+function page(m, me, opts) {
+  const o = opts || {};
   let raf = null, clock = 0, cur = m;
   const on = {}, sent = [], calls = [];
   const win = {
-    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolWorld: SW, SolPaint: Object.assign({}, P, { createPainter: () => painter }),
+    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolWorld: SW, SolPaint: Object.assign({}, P, { createPainter: () => painter }),
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
     location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: 1, Image: function () {},
     matchMedia: () => ({ matches: false }),
@@ -88,22 +91,27 @@ function page(m, me) {
   const show = next => {
     cur = next;
     const shown = cur.coop ? plain(cur) : cur, plan = E.defaultPlan(shown);
-    S.update({ mission: shown, plan, forecast: E.forecast(shown, plan), controlId: me, canControl: () => true, crewName: id => id, t: (k, p) => I.t('en', k, p), lang: 'en', fog: null });
+    S.update({
+      mission: shown, plan, forecast: E.forecast(shown, plan), controlId: me, canControl: () => true, crewName: id => id, t: (k, p) => I.t('en', k, p), lang: 'en', fog: null,
+      lastPos: cur.coop ? o.lastPos || null : X.whereOf(cur, me),
+    });
   };
   const hooks = {
     exp: (type, payload, pos) => {
       calls.push(type);
       const p = payload || {};
       const run = {
-        collect: () => X.collect(cur, me, p.find, pos), deliver: () => X.deliver(cur, me, pos), canister: () => X.useCanister(cur, me),
-        pickup: () => X.pickUp(cur, me, p.drop, pos), collapse: () => X.collapse(cur, me, pos), revive: () => X.revive(cur, me, p.target, pos),
-        board: () => X.board(cur, me, pos), park: () => X.park(cur, me, pos),
+        collect: () => X.collect(cur, me, p.find, pos), deliver: () => X.deliver(cur, me, pos), canister: () => X.useCanister(cur, me, pos, p.suit),
+        pickup: () => X.pickUp(cur, me, p.drop, pos), collapse: () => X.collapse(cur, me, pos, p.driven), revive: () => X.revive(cur, me, p.target, pos),
+        board: () => X.board(cur, me, pos), park: () => X.park(cur, me, pos, p.driven),
+        flareStart: () => Z.flareStart(cur, p.t), flareEnd: () => Z.flareEnd(cur, { [me]: pos }, 0, p.t),
       }[type];
       const r = run ? run() : { error: 'badAction' };
       if (!r.error) show(cur);
       return Promise.resolve(r);
     },
-    suit: (seconds, driven) => { if (!cur.coop) { X.setSuit(cur, me, seconds); if (driven != null) X.setRoverDriven(cur, me, driven); } },
+    // What a solo save keeps every 2 s (ui.js does the same).
+    suit: r => { if (!cur.coop) { X.setSuit(cur, me, r.suit); if (r.driven != null) X.setRoverDriven(cur, me, r.driven); Z.setClock(cur, r.clock); X.setWhere(cur, me, r.at); } },
     sendPos: pos => sent.push(plain(pos)),
   };
   const root = S.mount(hooks), canvas = root.children[0];
@@ -223,14 +231,15 @@ test('a co-op driver who collapses is out of the rover: it stays parked where th
   assert.equal(pg.probe().player.inRover, true);
 });
 
-test('a collapsed co-op player facing the rover in its bay does not get in when they press E', async () => {
+test('a collapsed co-op player facing the rover in its bay is not offered a drive, and E does not get them in', async () => {
   const m = mission({ seed: 'COOP-B', coop: true });
   const bay = X.bay(m), spot = { x: bay.x, y: bay.y - 34 }; // just north of the bay, outside the base zone
   assert.equal(X.inBaseZone(spot), false);
   assert.equal(X.collapse(m, 'minh', spot).ok, true);
   const pg = page(m, 'minh'); // lying where they fell, facing down: the bay is the tile they look at
   pg.step(0.2);
-  assert.equal(pg.probe().focusKey, 'rover', 'the rover in its bay is in front of them');
+  const tile = m.layout.find(k => k.type === 'rover');
+  assert.equal(pg.probe().focusKey, 's:' + tile.x + ',' + tile.y, 'the bay in front of them is just the bay: no "Drive the rover"');
   const sentBefore = pg.sent.length;
   pg.key('KeyE');
   pg.key('KeyE', false);
@@ -305,4 +314,116 @@ test("teammates' suit bars sit clear of every name tag, also where the tags of c
     const below = tags.filter(tg => Math.abs((tg.left + tg.right) / 2 - (b.left + b.right) / 2) < 1 && tg.top >= b.bottom);
     assert.ok(below.length && Math.min(...below.map(tg => tg.top)) - b.bottom <= 3, 'the bar sits right on top of its own tag: ' + JSON.stringify(b));
   }
+});
+
+// ---------- dangers (M4b) ----------
+
+test('the view follows the weather: 8 tiles clear (10 in the rover), 5 in a regional dust storm, 3 in a global one; the fog lifts that far', () => {
+  for (const [weather, foot, rover] of [['clear', 8, 10], ['regional', 5, 5], ['global', 3, 3]]) {
+    const m = mission({ seed: 'VIEW-' + weather });
+    m.schedule[m.turn].weather = weather;
+    const pg = page(m, 'minh');
+    pg.qa.teleport(60, 60);
+    pg.step(0.1);
+    assert.equal(pg.probe().view, foot, weather + ': on foot');
+    const seen = pg.probe().seen;
+    assert.equal(seen(60 + foot, 60), true, weather + ': ' + foot + ' tiles away is seen');
+    assert.equal(seen(60 + foot + 1, 60), false, weather + ': one more is not');
+    pg.qa.board(true);
+    pg.step(0.1);
+    assert.equal(pg.probe().view, rover, weather + ': in the rover');
+  }
+});
+
+test('a reload mid-round puts you back where you stood; after a solo collapse you stay at the base', () => {
+  const m = mission({ seed: 'BACK-1' });
+  const pg = page(m, 'minh');
+  pg.qa.teleport(9, 3);
+  pg.step(2.2); // the layer reports where you stand every 2 s, and the solo save keeps it
+  assert.deepEqual(X.whereOf(m, 'minh'), { x: 9 * T + 32, y: 3 * T + 32 });
+  const again = page(plain(m), 'minh');
+  assert.deepEqual([again.probe().player.x, again.probe().player.y], [9 * T + 32, 3 * T + 32], 'back where you stood, not by the HQ');
+  X.collapse(m, 'minh', { x: 30 * T + 32, y: 4 * T + 32 });
+  m.expedition.where.minh = { x: 30 * T + 32, y: 4 * T + 32 }; // saved before the layer sent you home
+  const benched = page(plain(m), 'minh');
+  const p = benched.probe().player;
+  assert.ok(X.inBaseZone(p), 'a collapsed solo astronaut sits out the round at the base: ' + p.x + ',' + p.y);
+  const coop = mission({ seed: 'BACK-2', coop: true });
+  const seat = page(coop, 'minh', { lastPos: { x: 1300, y: 200 } });
+  assert.deepEqual([seat.probe().player.x, seat.probe().player.y], [1300, 200], 'co-op: where the server last saw you');
+});
+
+test("a dust devil's throw slides you 2 tiles away from it, over a quarter of a second", () => {
+  const m = mission({ seed: 'THROW-1' });
+  m.schedule[m.turn].devil = true;
+  // A formed devil whose middle passes close to the middle of an open tile, so a teleport puts you right in its way.
+  let hit = null;
+  for (let t = 30; t < 600 && !hit; t += 0.25) {
+    for (const d of Z.devils(m, 30 * T, -60 * T, 120 * T, 60 * T, t)) {
+      const tx = Math.floor(d.x / T), ty = Math.floor(d.y / T), cx = tx * T + 32, cy = ty * T + 32;
+      if (d.a === 1 && Math.hypot(d.x - cx, d.y - cy) < 20 && !W.BLOCKING[X.chunkAt(m, Math.floor(tx / 32), Math.floor(ty / 32)).tiles[(ty - Math.floor(ty / 32) * 32) * 32 + tx - Math.floor(tx / 32) * 32]]) { hit = { d, t, tx, ty }; break; }
+    }
+  }
+  assert.ok(hit, 'a devil to stand in');
+  const pg = page(m, 'minh');
+  pg.qa.ghost(true); // nothing in the way of the slide
+  pg.qa.teleport(hit.tx, hit.ty);
+  pg.qa.clock(hit.t);
+  const from = [pg.probe().player.x, pg.probe().player.y];
+  pg.step(0.05);
+  assert.ok(pg.probe().push, 'thrown');
+  pg.step(0.5);
+  const to = [pg.probe().player.x, pg.probe().player.y];
+  const moved = Math.hypot(to[0] - from[0], to[1] - from[1]);
+  assert.ok(Math.abs(moved - 2 * T) < 6, 'about 2 tiles: ' + moved.toFixed(1) + ' px');
+  assert.ok(Math.hypot(to[0] - hit.d.x, to[1] - hit.d.y) > Math.hypot(from[0] - hit.d.x, from[1] - hit.d.y), 'away from the devil');
+  assert.equal(pg.probe().push, null, 'the slide is over');
+});
+
+test("a dust devil's throw stops at a wall: you are never left inside rock", () => {
+  const m = mission({ seed: 'THROW-WALL' });
+  m.schedule[m.turn].devil = true;
+  const rock = (x, y) => {
+    const tx = Math.floor(x / T), ty = Math.floor(y / T), cx = Math.floor(tx / 32), cy = Math.floor(ty / 32);
+    return W.BLOCKING[X.chunkAt(m, cx, cy).tiles[(ty - cy * 32) * 32 + tx - cx * 32]] === 1;
+  };
+  // A formed devil just off the middle of an open tile, with rock less than 2 tiles beyond it, so its throw runs into the rock.
+  let hit = null;
+  for (let t = 30; t < 900 && !hit; t += 0.25) {
+    for (const d of Z.devils(m, 30 * T, -60 * T, 120 * T, 60 * T, t)) {
+      const tx = Math.floor(d.x / T), ty = Math.floor(d.y / T), cx = tx * T + 32, cy = ty * T + 32, len = Math.hypot(cx - d.x, cy - d.y);
+      if (d.a !== 1 || len < 4 || len > 20 || rock(cx, cy)) continue;
+      const ux = (cx - d.x) / len, uy = (cy - d.y) / len;
+      if ([0.6, 1, 1.4, 1.8].some(k => rock(cx + ux * k * T, cy + uy * k * T))) { hit = { d, t, tx, ty }; break; }
+    }
+  }
+  assert.ok(hit, 'a devil by a wall');
+  const pg = page(m, 'minh');
+  pg.qa.teleport(hit.tx, hit.ty);
+  pg.qa.clock(hit.t);
+  const from = pg.probe().player;
+  pg.step(0.05);
+  assert.ok(pg.probe().push, 'thrown');
+  pg.step(0.5);
+  const p = pg.probe().player;
+  assert.equal(pg.probe().push, null, 'the slide is over');
+  const feet = [[p.x - 10, p.y - 6], [p.x + 10, p.y - 6], [p.x - 10, p.y + 4], [p.x + 10, p.y + 4]]; // surface.js hitsWall
+  assert.ok(feet.every(([x, y]) => !pg.probe().blocked(Math.floor(x / T), Math.floor(y / T))), 'not inside rock at ' + Math.round(p.x) + ',' + Math.round(p.y));
+  assert.ok(Math.hypot(p.x - from.x, p.y - from.y) < 2 * T - 8, 'the rock stopped the throw short of 2 tiles');
+});
+
+test("the flare's banner takes the hint's place at the top of the surface", async () => {
+  const m = mission({ seed: 'BANNER-1' });
+  m.schedule[m.turn].spe = true;
+  const pg = page(m, 'minh');
+  pg.qa.teleport(6, 4);
+  pg.step(0.1);
+  await flush();
+  assert.ok(m.expedition.flare, 'stepping outside started the flare');
+  assert.equal(pg.probe().hint, true, 'the hint shows for the first seconds');
+  assert.equal(pg.probe().alert, false);
+  pg.qa.clock(m.expedition.flare.warn + 1);
+  pg.step(0.1);
+  assert.equal(pg.probe().alert, true, 'the countdown is up');
+  assert.equal(pg.probe().hint, false, 'and the hint makes way');
 });

@@ -6,8 +6,8 @@
  * API: SolMap.create({ t, onOpen, onClose }) → map
  *        map.attach(world, painter)          a new mission's world
  *        map.minimap · map.el                elements for the surface overlay
- *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square }] }
- *                                            (world pixels; marks are finds, dropped loads and the parked rover)
+ *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, ring }] }
+ *                                            (world pixels; marks are finds, cave mouths, dropped loads and the parked rover)
  *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
  *        map.frame(state, deadline)          every animation frame (does nothing while closed)
  *        map.relabel()                       after a language change
@@ -38,7 +38,8 @@
         const [x, y] = at(k.x, k.y);
         g.fillStyle = k.color;
         if (k.square) g.fillRect(x - 2.5, y - 2.5, 5, 5);
-        else { g.beginPath(); g.arc(x, y, 2, 0, Math.PI * 2); g.fill(); }
+        else { g.beginPath(); g.arc(x, y, k.ring ? 2.5 : 2, 0, Math.PI * 2); g.fill(); }
+        if (k.ring) { g.strokeStyle = k.ring; g.lineWidth = 1; g.stroke(); } // a cave's mouth: dark, with a light rim
       }
       const [bx, by] = at(T / 2, T / 2); // the HQ is tile (0, 0)
       g.fillStyle = '#f4e9df';

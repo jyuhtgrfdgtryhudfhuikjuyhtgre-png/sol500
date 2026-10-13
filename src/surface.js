@@ -6,13 +6,16 @@
  * The world model is src/surface-world.js, the painting src/surface-paint.js, the minimap and map src/surface-map.js.
  *
  * API: SolSurface.mount(hooks) → element (persistent; re-attach it on every render)
- *      SolSurface.update({ mission, plan, forecast, controlId, canControl(id), crewName(id), t, lang, fog })
+ *      SolSurface.update({ mission, plan, forecast, controlId, canControl(id), crewName(id), t, lang, fog, clock, lastPos })
+ *        clock: co-op only, the server's round clock { t: seconds, at: performance.now() / 1000 when it arrived }
+ *        lastPos: { x, y } where your astronaut last stood this round (the solo save, or the co-op server), for a reload
  *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
  *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
  * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
  *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId),
- *        exp(type, payload, pos) → Promise of { ok } or { error } (exploring, see src/surface-eva.js), suit(seconds, driven)
- * Exploring on the map (finds, the suit, the backpack, the rover's battery) is src/surface-eva.js.
+ *        exp(type, payload, pos) → Promise of { ok } or { error } (exploring, see src/surface-eva.js),
+ *        suit({ suit, driven, clock, at }) (every 2 s: what a solo save keeps)
+ * Exploring on the map (finds, the suit, the backpack, the rover's battery, the dangers) is src/surface-eva.js.
  */
 (function (root) {
   'use strict';
@@ -22,7 +25,7 @@
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
   const SPEED = 150, SPRINT_X = 1.75, ROVER_X = 2.6, NPC_SPEED = 115;
-  const VIEW_FOOT = 8, VIEW_ROVER = 10; // tiles you can see around you (dust storms will shrink this in M4)
+  const PUSH_TIME = 0.25; // seconds a dust devil's throw takes (a slide that stops at walls)
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
   const DEBUG = /[?&]debug=chunks\b/.test((root.location && root.location.search) || '');
   const tkey = (x, y) => x + ',' + y;
@@ -165,6 +168,8 @@
     S.eva = EV.create({
       t: (k, p) => t(k, p), hooks: () => S.hooks, crewName: id => S.data.crewName(id), player: () => S.player, home: goHome,
       drawRover: (ctx, x, y) => { const img = moduleImage('rover', 1); if (ready(img)) ctx.drawImage(img, x - 34, y - 52, 68, 68); },
+      now: () => performance.now() / 1000,
+      push: (dx, dy) => { if (S.player) S.player.push = { x: dx, y: dy, left: PUSH_TIME }; },
     });
     buildOverlay();
     bindInput();
@@ -228,7 +233,7 @@
     S.regionChip.addEventListener('click', () => { if (S.region != null && S.hooks.reopenRegion) S.hooks.reopenRegion(W.REGIONS[S.region]); });
     S.debugBox = el('pre', 'sf-debug');
     S.debugBox.hidden = !S.debug;
-    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
+    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.eva.alert, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
     // The action button is held for finds, like E: it acts when pressed and lets go of a hold when released.
     S.btnAct.addEventListener('pointerdown', e => { e.preventDefault(); S.actId = e.pointerId; interact(); });
     S.btnAct.addEventListener('click', e => { if (e.detail === 0) interact(); }); // Enter or Space on the focused button
@@ -360,12 +365,20 @@
     S.player.crewId = data.controlId;
     const look = S.eva.sync(data);
     const down = S.eva.collapsed(data.controlId) ? data.mission.expedition.collapsed[data.controlId] : null; // co-op: waiting for a revive
-    if (look.round) goHome();
-    else if (look.fresh && down) { // a reload (or a new seat) while down: you lie where you fell, where teammates can revive you
-      Object.assign(S.player, { x: down.x, y: down.y, path: null, autoFocus: null, faceTo: null });
+    const back = data.lastPos && Number.isFinite(data.lastPos.x) && Number.isFinite(data.lastPos.y) ? data.lastPos : null;
+    const place = spot => {
+      Object.assign(S.player, { x: spot.x, y: spot.y, path: null, autoFocus: null, faceTo: null });
       S.pendingAuto = null;
       S.camSnap = true;
-    } else if (look.fresh && S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
+    };
+    if (look.round) goHome();
+    else if (look.fresh && down) place(down); // a reload (or a new seat) while down: you lie where you fell, where teammates can revive you
+    else if (look.fresh) {
+      // A reload (or a new seat) mid-round: back where you stood (the solo save, or where the server last saw you), not a free
+      // walk home. After a solo collapse you are already home, where you sit out the round.
+      if (back && !S.eva.state().benched) place(back);
+      if (S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
+    }
     if (down) S.player.inRover = false; // a collapse parks the rover where you fell (X.collapse): you are never left in it
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
@@ -443,11 +456,12 @@
     S.regionChip.setAttribute('aria-label', t('region.reread', { name }));
   }
 
-  // What you can see becomes explored, and a new region shows its name. New fog goes out once a second.
+  // What you can see becomes explored, and a new region shows its name. New fog goes out once a second. How far you see
+  // depends on the round's weather: dust storms shrink it (spec §3.4).
   function explore(ts) {
     const p = S.player, me = controlledCrew();
     if (!me || me.status === 'dead') return;
-    const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), r = p.inRover ? VIEW_ROVER : VIEW_FOOT;
+    const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), r = S.eva.view(p);
     if (tx !== S.seenAt[0] || ty !== S.seenAt[1] || r !== S.seenAt[2]) {
       S.seenAt = [tx, ty, r];
       S.world.reveal(tx, ty, r);
@@ -538,6 +552,16 @@
       if (Math.abs(nx) > Math.abs(ny)) p.dir = nx > 0 ? 'right' : 'left'; else p.dir = ny > 0 ? 'down' : 'up';
       p.phase += dt * sp / 26;
       S.hintUntil = Math.min(S.hintUntil, S.time + 3);
+    }
+    if (p.push) { // a dust devil throws you aside (spec §3.4): a short slide that stops at walls and ends a click-to-walk
+      const k = Math.min(1, dt / p.push.left), sx = p.push.x * k, sy = p.push.y * k;
+      if (S.qa.ghost || !hitsWall(p.x + sx, p.y)) p.x += sx;
+      if (S.qa.ghost || !hitsWall(p.x, p.y + sy)) p.y += sy;
+      p.push.x -= sx;
+      p.push.y -= sy;
+      p.push.left -= dt;
+      p.path = null;
+      if (p.push.left <= 0) p.push = null;
     }
     p.moving = moving;
     p.sprinting = sprinting;
@@ -634,12 +658,13 @@
     if (!S.hooks.sendPos || ts - S.lastSent < 110) return;
     const p = S.player;
     const ev = S.eva.report();
-    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + Math.ceil(ev.suit) + ',' + Math.floor(ev.driven);
+    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + (ev.suit == null ? '-' : Math.ceil(ev.suit)) + ',' + Math.floor(ev.driven);
     if (k === S.lastSentKey && ts - S.lastSent < 2000) return;
     S.lastSent = ts;
     S.lastSentKey = k;
-    // The suit level travels with the position (teammates see it); the driver also says how far the rover has gone.
-    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, suit: ev.suit, driven: p.inRover ? ev.driven : undefined });
+    // The suit level travels with the position (teammates see it), except while you are down; the driver also says how far
+    // the rover has gone, and `rover: false` from the driver parks it there even if the park action was lost.
+    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, suit: ev.suit == null ? undefined : ev.suit, driven: p.inRover ? ev.driven : undefined });
   }
 
   // ---------- what the player is looking at ----------
@@ -671,7 +696,9 @@
     const tile = m.layout.find(x => x.x === gx && x.y === gy);
     if (tile) {
       if (tile.type === 'hab') return { kind: 'hq', key: 'hq', gx, gy, wx, wy };
-      if (tile.type === 'rover') return S.eva.roverAtBay(S.player) ? { kind: 'rover', key: 'rover', gx, gy, wx, wy, type: 'rover' } : { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: 'rover' };
+      // The rover in its bay is something to drive, unless you are down (co-op, waiting for a revive): then it is just the bay.
+      const drivable = S.eva.roverAtBay(S.player) && !S.eva.collapsed(S.data.controlId);
+      if (tile.type === 'rover') return drivable ? { kind: 'rover', key: 'rover', gx, gy, wx, wy, type: 'rover' } : { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: 'rover' };
       return { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: tile.type };
     }
     const pr = m.projects.find(x => x.x === gx && x.y === gy);
@@ -743,7 +770,7 @@
         S.prompt.append(k, document.createTextNode(' ' + label));
       }
     }
-    S.hint.hidden = S.time > S.hintUntil;
+    S.hint.hidden = S.time > S.hintUntil || S.eva.alerting(); // the flare's banner takes the hint's place
   }
 
   // ---------- interaction menu ----------
@@ -765,7 +792,7 @@
       p.inRover = false;
       refreshWorld(m);
       if (hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
-      S.eva.act('park', p);
+      S.eva.act('park', p, { driven: S.eva.report().driven }); // with the last bit of driving, so the battery is saved right
       return;
     }
     if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
@@ -914,7 +941,7 @@
       } else if (ty === 'reactor') {
         note('+' + fc.power.reactorKw.toFixed(1) + ' kW');
       }
-      if (ty === 'rover' && mod.count - mod.broken > 0 && S.eva.roverAtBay(S.player)) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
+      if (ty === 'rover' && mod.count - mod.broken > 0 && S.eva.roverAtBay(S.player) && !S.eva.collapsed(S.data.controlId)) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
       const scrapping = (plan.scrap || []).includes(ty);
       body.appendChild(numbered(mbtn(scrapping ? t('sys.scrapQueued') : t('sys.scrap'), fc.points.maintenance ? '' : t('sys.scrapNeed'),
         () => { H.toggleScrap(ty); renderMenu(); }, { on: scrapping, disabled: !fc.points.maintenance && !scrapping, icon: A.icon('scrap', 18) })));
@@ -955,7 +982,7 @@
     const k = v.dpr * v.zoom;
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
     S.painter.drawGround(ctx, x0, y0, x1, y1);
-    S.eva.drawZone(ctx);
+    S.eva.drawZone(ctx, x0, y0, x1, y1, S.world);
 
     // buried ice at the base: the only cue for where the ice drill can go
     ctx.save();
@@ -1048,7 +1075,8 @@
       if (a.x < x0 - T * 2 || a.x > x1 + T * 2 || a.y < y0 - T || a.y > y1 + T * 3) continue; // off screen
       let name = S.data.crewName(a.id);
       if (a.you) name = t('sf.you') + ' · ' + name;
-      sprites.push({ y: a.y, draw: () => drawAvatar(ctx, a, name, S.time, S.tags, ready(roverImg) ? roverImg : null) });
+      // Someone lying down is drawn after what stands at the same spot, so a fallen driver is not hidden by the parked rover.
+      sprites.push({ y: a.y + (a.down ? 24 : 0), draw: () => drawAvatar(ctx, a, name, S.time, S.tags, ready(roverImg) ? roverImg : null) });
     }
     // lost crew are remembered with a small flag beside the HQ
     m.crew.filter(c => c.status === 'dead').forEach((c, i) => {
@@ -1063,7 +1091,7 @@
     sprites.sort((a, b) => a.y - b.y);
     for (const s of sprites) s.draw(ctx); // the exploring layer's sprites take the context; the others close over it
     // the fog over what you can't see, then the name tags (with teammates' suit bars) on top of it
-    P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, (p.inRover ? VIEW_ROVER : VIEW_FOOT) * T);
+    P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, S.eva.view(p) * T);
     drawTags(ctx, S.tags);
     S.eva.drawOver(ctx);
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
@@ -1091,6 +1119,20 @@
     vg.addColorStop(1, 'rgba(10,5,8,0.45)');
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, v.w, v.h);
+    // A solar flare's countdown, out in the open: a red edge that grows and beats faster as it runs out; then the flash.
+    const fx = S.eva.flareFx(p);
+    if (fx.warn > 0) {
+      const beat = 0.6 + 0.4 * Math.sin(S.time * (4 + 6 * fx.warn));
+      const rg = ctx.createRadialGradient(v.w / 2, v.h / 2, Math.min(v.w, v.h) * 0.3, v.w / 2, v.h / 2, Math.max(v.w, v.h) * 0.72);
+      rg.addColorStop(0, 'rgba(200,30,20,0)');
+      rg.addColorStop(1, 'rgba(200,30,20,' + (0.15 + 0.3 * fx.warn * beat).toFixed(3) + ')');
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, v.w, v.h);
+    }
+    if (fx.flash > 0) {
+      ctx.fillStyle = 'rgba(255,244,214,' + (0.8 * fx.flash).toFixed(3) + ')';
+      ctx.fillRect(0, 0, v.w, v.h);
+    }
   }
 
   // Read-only snapshot for automated play-testing.
@@ -1107,7 +1149,8 @@
       blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true),
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
-      eva: S.eva.state(), focusKey: S.focus && S.focus.key,
+      eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
+      hint: !S.hint.hidden, alert: S.eva.alerting(),
     };
   }
 
@@ -1121,6 +1164,7 @@
     chunkHash(ix, iy) { return S.painter.chunkHash(ix, iy); },
     teleport(tx, ty) { S.player.x = tx * T + T / 2; S.player.y = ty * T + T / 2; S.player.path = null; S.camSnap = true; },
     suit(s) { S.eva.qaSuit(s); },
+    clock(s) { S.eva.qaClock(s); }, // solo: jump the round's clock (a flare's warning, its end)
   };
 
   root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe }, DEBUG ? { qa } : {});

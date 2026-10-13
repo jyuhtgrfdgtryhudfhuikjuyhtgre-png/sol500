@@ -66,6 +66,11 @@
       const cx = chunkOf(tx), cy = chunkOf(ty);
       return W.regionOf(get(cx, cy), tx - cx * CH, ty - cy * CH);
     }
+    // The cave whose mouth is tile (tx, ty), or null (its wall is the tile north of it, in the same chunk).
+    function caveAt(tx, ty) {
+      for (const k of get(chunkOf(tx), chunkOf(ty)).caves) if (k.x === tx && k.y === ty) return k;
+      return null;
+    }
     // Base things the world doesn't know about (the HQ, the reactor, the lander, rocks on the build grid) block too.
     function setOverlay(tiles) { overlay = new Set(tiles.map(t => t[0] + ',' + t[1])); }
     const isBlocked = (tx, ty) => overlay.has(tx + ',' + ty) || W.BLOCKING[tile(tx, ty)] === 1;
@@ -181,7 +186,7 @@
     }
 
     return {
-      seed, get, peek, dataFor, tile, region, setOverlay, isBlocked, speed, findPath, retain, work,
+      seed, get, peek, dataFor, tile, region, caveAt, setOverlay, isBlocked, speed, findPath, retain, work,
       reveal, seen, takeFog, mergeFog,
       fogBits: (cx, cy) => bits(cx, cy, false),
       fogStamp: k => stamp.get(k) || 0,

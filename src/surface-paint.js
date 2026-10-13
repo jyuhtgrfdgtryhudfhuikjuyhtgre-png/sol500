@@ -2,9 +2,9 @@
  * SOL 500 — everything on the surface drawn with Canvas 2D:
  *   the ground, as 256-px image chunks (4×4 tiles) painted from the world data. Decor that crosses a chunk edge is
  *   replayed by every chunk it touches, clipped to itself, so there are no seams; painting is seeded from
- *   (seed, chunk), so a deleted chunk is repainted with exactly the same picture;
+ *   (seed, chunk), so a deleted chunk is repainted with exactly the same picture; cave mouths are part of the ground;
  *   the fog over the view; the minimap's one-pixel-per-tile "mini" images of explored chunks;
- *   and the sprites: astronauts, name tags, rocks, the lander and status badges.
+ *   and the sprites: astronauts, name tags, rocks, the lander, status badges, finds and dust devils.
  *
  * API: SolPaint.createPainter(world, { canvas, cap, now }) → painter · SolPaint.drawFog(...) · SolPaint.decorFor(...)
  *      SolPaint.tileRGB(code, region) · SolPaint.REGION_COLORS · SolPaint.sprites
@@ -96,6 +96,10 @@
       g.stroke();
       g.setLineDash([]);
     }
+    if (world.caveAt && world.caveAt(tx, ty)) { // the shade a cave throws out of its mouth (the arch is on the wall above)
+      g.fillStyle = 'rgba(12,5,4,0.4)';
+      g.beginPath(); g.ellipse(X + T / 2, Y + 3, 23, 10, 0, 0, Math.PI * 2); g.fill();
+    }
   }
 
   // Things that stand up (mesa cliffs, crater rims, canyon walls, boulders) go on top of the decor.
@@ -120,10 +124,23 @@
         if (above) { g.fillStyle = code === TL.RIM ? 'rgba(255,214,170,0.22)' : 'rgba(255,214,170,0.12)'; g.fillRect(X, Y, T, 4); }
         if (below) { g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(X, Y + T - 10, T, 10); }
       }
+      if (below && world.caveAt && world.caveAt(tx, ty + 1)) drawCaveMouth(g, X, Y); // a cave opens at the foot of this face
     } else if (code === TL.BOULDER) {
       const h = W.hash(world.seed, tx, ty, 902);
       drawRock(g, { wx: tx, wy: ty, s: 0.7 + (h % 31) / 100, ox: ((h >>> 8) % 9) - 4, oy: ((h >>> 12) % 7) - 3 });
     }
+  }
+
+  // A cave's mouth: a dark arch at the foot of the wall tile whose corner is (X, Y), with a lit rim and a few fallen stones.
+  function drawCaveMouth(g, X, Y) {
+    const cx = X + T / 2, base = Y + T;
+    g.fillStyle = '#140a08';
+    g.beginPath(); g.moveTo(cx - 19, base); g.bezierCurveTo(cx - 19, base - 31, cx + 19, base - 31, cx + 19, base); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,214,170,0.3)';
+    g.lineWidth = 2;
+    g.beginPath(); g.moveTo(cx - 22, base); g.bezierCurveTo(cx - 22, base - 35, cx + 22, base - 35, cx + 22, base); g.stroke();
+    g.fillStyle = '#6a4434';
+    for (const [dx, w] of [[-27, 6], [21, 5], [-16, 3], [13, 3]]) g.fillRect(cx + dx, base - 4, w, 3);
   }
 
   // ---------- decor ----------
@@ -623,6 +640,28 @@
     ctx.restore();
   }
 
+  // A dust devil (spec §3.4): a spinning funnel of dust over its shadow. (d.x, d.y) is where it touches the ground, in world
+  // pixels; d.spin varies each devil's phase; `alpha` fades it in and out (and past the edge of your view).
+  function drawDevil(ctx, d, time, alpha) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(d.x, d.y + 3, 24, 8, 0, 0, Math.PI * 2); ctx.fill();
+    const spin = time * 7 + d.spin;
+    for (let k = 0; k < 8; k++) {
+      const h = k / 7, y = d.y - 4 - h * 78, w = 7 + h * h * 26;
+      const sway = Math.sin(spin * 0.35 + k * 0.7) * (2 + h * 7);
+      ctx.fillStyle = 'rgba(201,142,98,' + (0.42 - h * 0.26).toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(d.x + sway, y, w, 3 + h * 5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(232,190,150,0.75)'; // grit thrown round its foot
+    for (let k = 0; k < 6; k++) {
+      const a = spin + k * 1.05, r = 14 + (k % 3) * 5;
+      ctx.fillRect(d.x + Math.cos(a) * r, d.y - 6 + Math.sin(a) * r * 0.35, 2, 2);
+    }
+    ctx.restore();
+  }
+
   // A teammate's suit level: a small bar above their name tag, from green through amber to red.
   function drawSuitBar(ctx, x, y, frac) {
     const f = Math.max(0, Math.min(1, frac));
@@ -670,6 +709,6 @@
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar },
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar, drawDevil },
   };
 });
