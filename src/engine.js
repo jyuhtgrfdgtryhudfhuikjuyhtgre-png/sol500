@@ -225,6 +225,8 @@
   //   suits { crewId: seconds left } (missing = full) · collapsed { crewId: { x, y } } (co-op, waiting for a revive)
   //   benched [crewId] (solo: collapsed, back at the base for the rest of the round) · rover: null at its bay,
   //   { x, y } parked out on the map, or { driver } while someone drives it · roverDriven: tiles driven this round.
+  // M4b adds the dangers: flare (null, or this round's solar flare { warn, end, over, hit } on the round's clock, see
+  //   src/dangers.js) · clock (solo: the round's clock, seconds) · where { crewId: { x, y } } (solo: where you last stood).
   // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
   const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
   function freshBank() {
@@ -237,6 +239,7 @@
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
       carried: {}, drops: [], banked: freshBank(), goals: [], incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
+      flare: null, clock: 0, where: {},
     };
   }
 
@@ -257,6 +260,11 @@
     }
     for (const k of BANK_RES) if (!Number.isFinite(x.banked[k])) x.banked[k] = 0;
     if (!Array.isArray(x.banked.lines)) x.banked.lines = [];
+    // A flare whose times are not numbers never ends: drop it (the next step outside starts a new one).
+    if (x.flare && !(Number.isFinite(x.flare.warn) && Number.isFinite(x.flare.end))) x.flare = null;
+    if (x.flare && !Array.isArray(x.flare.hit)) x.flare.hit = [];
+    // An incident that is not { crewId, kind } (a hand-edited save) would stop the advance: drop it.
+    x.incidents = x.incidents.filter(i => !!i && typeof i === 'object' && typeof i.crewId === 'string' && typeof i.kind === 'string');
     return x;
   }
 
@@ -947,7 +955,8 @@
   }
 
   // The bank goes into the base's stocks; each collapse outside (recorded, or a co-op crew member still waiting for a
-  // revive) costs that astronaut health and the crew morale. Returns what the report shows.
+  // revive) costs that astronaut health and the crew morale, and a solar flare that caught them outside costs a dose.
+  // Returns what the report shows.
   function applyExpedition(s) {
     const x = s.expedition;
     if (!x || !x.banked) return null;
@@ -961,6 +970,7 @@
     for (const inc of incidents) {
       const c = s.crew.find(k => k.id === inc.crewId);
       if (!c || c.status !== 'active') continue;
+      if (inc.kind === 'flare') { c.dose += D.DANGERS.flare.dose; continue; }
       c.health = clamp(c.health - D.EXPEDITION.collapse.health, 0, 100);
       s.morale = clamp(s.morale - D.EXPEDITION.collapse.morale, 0, 100);
     }
@@ -991,6 +1001,9 @@
     x.refills = {};
     x.roverDriven = 0;
     if (x.rover && x.rover.driver) x.rover = null;
+    x.flare = null; // a flare that had not hit yet is over with the round: everyone is home
+    x.clock = 0;
+    x.where = {};
   }
 
   function runway(s, report) {

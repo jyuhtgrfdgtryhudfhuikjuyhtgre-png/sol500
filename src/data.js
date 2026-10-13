@@ -243,6 +243,20 @@
       roverRange: 400,          // tiles the rover's battery drives per round (it recharges overnight)
       maxDrops: 40,             // dropped loads kept in the mission (the oldest go first)
     },
+    // Dangers outside (spec §3.4, M4b). Seconds run on the round's clock: your surface's real time in solo play (it stops
+    // while the console is open, like the suit), the server's clock in co-op. Distances are world tiles.
+    DANGERS: {
+      flare: { delay: 30, countdown: 60, dose: 15 }, // the warning comes 30 s after the first step outside; 60 s to take cover
+      shelter: 0.9,             // tiles from the middle of a cave's mouth, or of the storm shelter's tile, that count as cover
+      view: { clear: 8, rover: 10, regional: 5, global: 3 }, // tiles you can see around you; dust storms shrink it
+      devils: {
+        quiet: [0, 1], round: [3, 5], dunes: 2, // devils a chunk in most rounds and in a dust-devil round; the Dune Sea doubles both
+        life: 24, fade: 2, track: [6, 12], // a devil lasts 24 s (2 s to form, 2 to die down) and drifts 6–12 tiles in a line
+        radius: 0.55, push: 2, suit: 10, // a hit: within 0.55 tiles, it throws you 2 tiles and costs 10 s of suit
+        calm: 2,                  // seconds after a hit before the next one can land
+        clear: 16,                // tiles round the HQ where no devil goes
+      },
+    },
     // What one load of each find gives (spec §3.1). Arrays run inner, middle, outer, far (worldgen RINGS).
     FINDS: {
       ice: { loads: [3, 4, 5, 6], res: 'water', kg: 40 },

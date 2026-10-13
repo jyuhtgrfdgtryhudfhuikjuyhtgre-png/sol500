@@ -611,8 +611,11 @@ test("a new mission has an empty exploring state and, in solo play, the player's
   assert.deepEqual(s.expedition.revealed, {});
   assert.deepEqual(s.expedition.regions, []);
   assert.deepEqual(Object.keys(s.expedition).sort(),
-    ['banked', 'beacons', 'benched', 'carried', 'collapsed', 'drops', 'goals', 'incidents', 'kits', 'landmarks', 'refills', 'regions',
-      'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v']);
+    ['banked', 'beacons', 'benched', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'goals', 'incidents', 'kits', 'landmarks', 'refills',
+      'regions', 'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
+  assert.equal(s.expedition.flare, null, 'no solar flare yet');
+  assert.equal(s.expedition.clock, 0, "the round's clock starts at 0");
+  assert.deepEqual(s.expedition.where, {});
   assert.equal(calm().pilot, null, 'no pilot unless one is chosen (co-op seats choose their own)');
   assert.throws(() => E.createMission({ seed: 'PILOT-0', loadout: kit(), events: false, pilot: 'kai' }), /pilot/, 'kai is not in a crew of 4');
   assert.throws(() => E.createMission({ seed: 'PILOT-0', loadout: kit(), events: false, pilot: 'nobody' }), /pilot/);
@@ -853,4 +856,67 @@ test('a saved exploring state with missing or malformed fields is repaired field
   assert.deepEqual(x.collapsed, {}, 'fields a v3.2 save never had are added');
   assert.equal(up.pilot, 'lena', 'a pilot who is not in the crew is chosen again');
   assert.deepEqual(E.upgradeMission(calm(), {}).expedition, E.newExpedition(), 'a good one is untouched');
+});
+
+// ---------- dangers (M4b) ----------
+
+test('a solar flare that caught someone outside costs them 15 mSv at the advance, once, and the report says so', () => {
+  const plain = calm(), s = calm();
+  s.expedition.incidents = [{ crewId: 'minh', kind: 'flare' }];
+  const a = E.resolveTurn(plain, E.defaultPlan(plain)), b = E.resolveTurn(s, E.defaultPlan(s));
+  assert.ok(Math.abs(b.state.crew[1].dose - a.state.crew[1].dose - D.DANGERS.flare.dose) < 1e-9, 'minh: +15 mSv');
+  assert.equal(b.state.crew[1].health, a.state.crew[1].health, 'a flare costs no health');
+  assert.equal(b.state.morale, a.state.morale, 'and no morale');
+  assert.equal(b.state.crew[0].dose, a.state.crew[0].dose, 'only the one caught outside');
+  assert.deepEqual(b.report.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }]);
+  assert.deepEqual(b.state.expedition.incidents, [], 'spent');
+  const f = E.forecast(s, E.defaultPlan(s));
+  assert.ok(Math.abs(f.crew[1].dose - E.forecast(plain, E.defaultPlan(plain)).crew[1].dose - D.DANGERS.flare.dose) < 1e-9, 'the forecast shows it before the advance');
+});
+
+test("the round's end puts out this round's flare, resets its clock and forgets where everyone stood", () => {
+  const s = calm();
+  Object.assign(s.expedition, { flare: { warn: 40, end: 100, over: false, hit: [] }, clock: 75.5, where: { minh: { x: 2000, y: 640 } } });
+  const x = E.resolveTurn(s, E.defaultPlan(s)).state.expedition;
+  assert.equal(x.flare, null);
+  assert.equal(x.clock, 0);
+  assert.deepEqual(x.where, {});
+});
+
+test('a 3.3.0 save gets the dangers fields, and a flare with times that are not numbers is dropped', () => {
+  const old = calm();
+  delete old.expedition.flare; delete old.expedition.clock; delete old.expedition.where;
+  const x = E.upgradeMission(old, {}).expedition;
+  assert.equal(x.flare, null);
+  assert.equal(x.clock, 0);
+  assert.deepEqual(x.where, {});
+  const bad = calm();
+  Object.assign(bad.expedition, { flare: { warn: 'soon', end: 90 }, clock: 'x', where: 3 });
+  const y = E.upgradeMission(bad, {}).expedition;
+  assert.equal(y.flare, null, 'a flare that would never end is dropped');
+  assert.equal(y.clock, 0);
+  assert.deepEqual(y.where, {});
+  const ok = calm();
+  ok.expedition.flare = { warn: 30, end: 90, over: true };
+  assert.deepEqual(E.upgradeMission(ok, {}).expedition.flare, { warn: 30, end: 90, over: true, hit: [] }, 'a good flare is kept, with an empty hit list');
+});
+
+test('a saved incident that is not { crewId, kind } is dropped, so the advance still runs', () => {
+  const s = calm();
+  s.expedition.incidents = [null, 'flare', 7, { kind: 'flare' }, { crewId: 'minh' }, { crewId: 'minh', kind: 'flare' }];
+  const up = E.upgradeMission(s, {});
+  assert.deepEqual(up.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }]);
+  const r = E.resolveTurn(up, E.defaultPlan(up));
+  assert.deepEqual(r.report.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }]);
+});
+
+test('an O₂ canister carried home offsets an oxygen leak: the decision card is unchanged and the 30 kg count first', () => {
+  const plain = calm(), s = calm();
+  for (const m of [plain, s]) m.events = [{ type: 'o2_rupture', options: ['hide', 'salvage'], emergency: true }];
+  E.bankItem(s.expedition.banked, 'minh', { kind: 'pod', res: 'o2', amount: D.EXPEDITION.canister.o2, canister: true, id: '1,1:0', region: 0 }, false);
+  const plan = st => Object.assign(E.defaultPlan(st), { choices: { o2_rupture: 'hide' } });
+  const a = E.resolveTurn(plain, plan(plain)), b = E.resolveTurn(s, plan(s));
+  assert.equal(a.report.choices.o2_rupture, 'hide');
+  assert.ok(Math.abs(b.state.resources.o2 - a.state.resources.o2 - D.EXPEDITION.canister.o2) < 1e-9, '+30 kg of O₂ on top of the leak');
+  assert.equal(b.report.consumption.o2Event, a.report.consumption.o2Event, 'the leak itself is the same');
 });
