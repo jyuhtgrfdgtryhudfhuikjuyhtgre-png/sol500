@@ -131,16 +131,39 @@ test('delivering at the base banks your whole backpack; it only works in the bas
   assert.equal(X.inBaseZone(at(-3, 0), 1.5), true);
 });
 
-test('an O₂ canister gives 45 s of suit now, never more than a full suit', () => {
-  const m = solo();
-  m.expedition.carried.minh = [{ kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 }, { kind: 'pod', res: 'food', amount: 60, id: '1,1:0', region: 0 }];
+test('an O₂ canister gives 45 s of suit, only outside the base and only when the suit has room for all of it', () => {
+  const m = solo(), out = at(20, 4);
+  const CAN = { kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 };
+  m.expedition.carried.minh = [Object.assign({}, CAN), { kind: 'pod', res: 'food', amount: 60, id: '1,1:0', region: 0 }];
   m.expedition.suits.minh = 20;
-  assert.deepEqual(X.useCanister(m, 'minh'), { ok: true, suit: 65 });
+  assert.deepEqual(X.useCanister(m, 'minh', out), { ok: true, suit: 65 });
   assert.equal(m.expedition.carried.minh.length, 1);
-  assert.equal(X.useCanister(m, 'minh').error, 'noCanister');
-  m.expedition.carried.minh.push({ kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 });
-  m.expedition.suits.minh = 140;
-  assert.equal(X.useCanister(m, 'minh').suit, D.EXPEDITION.suit);
+  assert.equal(X.useCanister(m, 'minh', out).error, 'noCanister');
+  m.expedition.carried.minh.push(Object.assign({}, CAN));
+  const before = JSON.stringify(m.expedition.carried);
+  m.expedition.suits.minh = 106;
+  assert.equal(X.useCanister(m, 'minh', out).error, 'suitFull', 'more than 105 s left: 45 s would not all fit');
+  assert.equal(X.useCanister(m, 'minh', HOME, 20).error, 'atBase', 'the suit pauses at the base: no need');
+  assert.equal(X.useCanister(m, 'minh', null, 20).error, 'badPos');
+  assert.equal(JSON.stringify(m.expedition.carried), before, 'the canister stays in the backpack each time');
+  // The suit level the game has now counts, not the one it reported up to 2 s ago.
+  m.expedition.suits.minh = 106;
+  assert.deepEqual(X.useCanister(m, 'minh', out, 104.6), { ok: true, suit: 149.6 });
+  m.expedition.carried.minh.push(Object.assign({}, CAN));
+  m.expedition.suits.minh = 100;
+  assert.equal(X.useCanister(m, 'minh', out, 'lots').suit, 145, 'a live level that is not a number is ignored');
+});
+
+test('the base zone is tiles −2 to 2 either way: world pixels −128 up to 191, and 1.5 tiles more with slack', () => {
+  assert.equal(X.inBaseZone({ x: -128, y: 0 }), true);
+  assert.equal(X.inBaseZone({ x: 191.9, y: 191.9 }), true);
+  assert.equal(X.inBaseZone({ x: 192, y: 0 }), false, 'x = 192 is tile 3');
+  assert.equal(X.inBaseZone({ x: 0, y: 192 }), false);
+  assert.equal(X.inBaseZone({ x: -128.1, y: 0 }), false);
+  assert.equal(X.inBaseZone({ x: 287.9, y: 0 }, 1.5), true);
+  assert.equal(X.inBaseZone({ x: 288, y: 0 }, 1.5), false);
+  assert.equal(X.inBaseZone({ x: -224, y: 0 }, 1.5), true);
+  assert.equal(X.inBaseZone({ x: NaN, y: 0 }), false);
 });
 
 test('solo: an empty suit counts as a collapse at once, the load stays where you fell and you sit out the round', () => {
@@ -261,8 +284,10 @@ test('the suit level a game reports is kept between empty and full, and ignored 
   // Test junk input: set non-zero value first, then junk, verify it's ignored
   X.setSuit(m, 'lena', 50);
   assert.equal(X.suitOf(m, 'lena'), 50);
-  X.setSuit(m, 'lena', 'abc');
-  assert.equal(X.suitOf(m, 'lena'), 50, 'junk input is ignored and preserves previous value');
+  for (const junk of ['abc', '', false, [], null, undefined, '80', NaN, Infinity]) {
+    X.setSuit(m, 'lena', junk);
+    assert.equal(X.suitOf(m, 'lena'), 50, 'junk input ' + JSON.stringify(junk) + ' is ignored and keeps the level');
+  }
   X.setSuit(m, 'nobody', 5);
   assert.equal(m.expedition.suits.nobody, undefined);
   X.collapse(m, 'minh', at(30, 0));
@@ -315,4 +340,52 @@ test("the rover's battery drives 400 tiles a round; it only counts up, and a fla
   const next = E.resolveTurn(m, E.defaultPlan(m)).state;
   assert.equal(next.expedition.roverDriven, 0, 'recharged overnight');
   assert.deepEqual(X.board(next, 'lena', X.bay(next)), { ok: true });
+});
+
+test('nobody without a crew id drives, and the rover is not parked once the mission is over', () => {
+  const m = solo('EXP-ROVER', ROVER_KIT);
+  assert.deepEqual(X.board(m, 'minh', X.bay(m)), { ok: true });
+  X.setRoverDriven(m, undefined, 399);
+  assert.equal(m.expedition.roverDriven, 0, 'an undefined crew id is not the driver');
+  assert.equal(X.park(m, undefined, at(40, 0)).error, 'notDriving');
+  assert.equal(X.capacity(m, undefined), D.EXPEDITION.pack);
+  m.status = 'success';
+  assert.equal(X.park(m, 'minh', at(40, 0)).error, 'badPhase', 'a stray park after the mission ends moves nothing');
+  assert.deepEqual(m.expedition.rover, { driver: 'minh' });
+});
+
+test("getting out of the rover, or collapsing in it, records how far it went: the last seconds of driving count", () => {
+  const m = solo('EXP-ROVER', ROVER_KIT);
+  X.board(m, 'minh', X.bay(m));
+  X.setRoverDriven(m, 'minh', 15);
+  assert.deepEqual(X.park(m, 'minh', at(30, 0), 24.4), { ok: true, home: false });
+  assert.equal(m.expedition.roverDriven, 24.4, 'the distance comes with getting out');
+  X.board(m, 'minh', at(30, 0));
+  X.park(m, 'minh', at(30, 0), 'far');
+  assert.equal(m.expedition.roverDriven, 24.4, 'a distance that is not a number is ignored');
+  X.board(m, 'minh', at(30, 0));
+  assert.deepEqual(X.collapse(m, 'minh', at(31, 0), 30.2), { ok: true, benched: true });
+  assert.equal(m.expedition.roverDriven, 30.2, 'and with a collapse');
+  const c = coop('EXP-ROVER-C');
+  c.modules.rover.count = 1;
+  c.layout.push({ type: 'rover', x: 0, y: 0 });
+  X.board(c, 'lena', X.bay(c));
+  X.collapse(c, 'lena', at(40, 0), 12);
+  assert.equal(c.expedition.roverDriven, 12, 'in co-op too');
+});
+
+test('solo play remembers where you stand (whole pixels), for a reload; junk and made-up crew are ignored', () => {
+  const m = solo();
+  assert.equal(X.whereOf(m, 'minh'), null, 'nowhere yet');
+  X.setWhere(m, 'minh', { x: 2600.4, y: -95.6 });
+  assert.deepEqual(X.whereOf(m, 'minh'), { x: 2600, y: -96 });
+  for (const junk of [null, {}, { x: NaN, y: 1 }, { x: '5', y: 1 }]) X.setWhere(m, 'minh', junk);
+  assert.deepEqual(X.whereOf(m, 'minh'), { x: 2600, y: -96 }, 'junk is ignored');
+  X.setWhere(m, 'nobody', { x: 1, y: 1 });
+  assert.equal(m.expedition.where.nobody, undefined);
+  assert.equal(X.whereOf(m, '__proto__'), null);
+  m.expedition.where.lena = { x: 'a', y: 2 };
+  assert.equal(X.whereOf(m, 'lena'), null, 'a broken spot reads as nowhere');
+  const next = E.resolveTurn(m, E.defaultPlan(m)).state;
+  assert.equal(X.whereOf(next, 'minh'), null, 'a new round starts at the base');
 });

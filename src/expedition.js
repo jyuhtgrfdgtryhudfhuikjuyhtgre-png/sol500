@@ -7,12 +7,16 @@
  * { ok: true, ... }. Positions are world pixels { x, y } (64 px a tile, the HQ tile's corner at 0, 0): the numbers
  * the surface draws with and the network sends. The mission state is described at newExpedition in src/engine.js.
  *
- * API: findById(m, id) → the find plus { id, cx, cy, left } or null · findsIn(m, cx, cy) · loadsLeft(m, find)
- *      holdSeconds(kind, role) · capacity(m, crewId) · inBaseZone(pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s)
- *      collect(m, crewId, findId, pos) · deliver(m, crewId, pos) · useCanister(m, crewId) · pickUp(m, crewId, dropId, pos)
- *      collapse(m, crewId, pos) · revive(m, crewId, targetId, pos) · board(m, crewId, pos) · park(m, crewId, pos)
+ * API: findById(m, id) → the find plus { id, cx, cy, left } or null · findsIn(m, cx, cy) · cavesIn(m, cx, cy)
+ *      chunkAt(m, cx, cy) → the data chunk · loadsLeft(m, find, id) · itemFor(m, find, load, role) · holdSeconds(kind, role)
+ *      capacity(m, crewId) · inBaseZone(pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m) → the rover's bay
+ *      setWhere(m, crewId, pos) · whereOf(m, crewId) (solo: where you stand, so a reload puts you back there)
+ *      collect(m, crewId, findId, pos) · deliver(m, crewId, pos) · useCanister(m, crewId, pos, liveSuit)
+ *      pickUp(m, crewId, dropId, pos) · collapse(m, crewId, pos, driven) · revive(m, crewId, targetId, pos)
+ *      board(m, crewId, pos) · park(m, crewId, pos, driven)
  *      roverLeft(m) → tiles the rover can still drive this round · setRoverDriven(m, crewId, tiles) (the driver's game)
  *      cacheSize() → data chunks in the shared world cache (at most 256)
+ * Solar flares, shelters, dust devils and how far you can see are src/dangers.js.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'), require('./worldgen.js'), require('./engine.js'));
@@ -36,6 +40,7 @@
     return c;
   }
   function findsIn(m, cx, cy) { return chunkAt(m, cx, cy).finds; }
+  function cavesIn(m, cx, cy) { return chunkAt(m, cx, cy).caves; }
 
   // A find's id is "<cx>,<cy>:<n>", written exactly the way the world writes it, so one find has one id.
   const ID = /^(-?\d{1,7}),(-?\d{1,7}):(\d{1,2})$/;
@@ -58,13 +63,16 @@
   const dist2 = (a, x, y) => (a.x - x) * (a.x - x) + (a.y - y) * (a.y - y);
   const nearPx = (pos, x, y, tiles) => dist2(pos, x, y) <= (tiles * T) * (tiles * T);
   const nearTile = (pos, tx, ty) => nearPx(pos, (tx + 0.5) * T, (ty + 0.5) * T, X.reach);
-  // The base zone: the tiles within baseZone of the HQ (Chebyshev), plus `slack` tiles for a position sent a moment ago.
+  // The base zone: the tiles within baseZone of the HQ either way (Chebyshev), so world pixels −128 up to (not including)
+  // 192 on each axis, plus `slack` tiles for a position sent a moment ago.
   function inBaseZone(pos, slack) {
-    return okPos(pos) && Math.max(Math.abs(pos.x / T - 0.5), Math.abs(pos.y / T - 0.5)) <= X.baseZone + 0.5 + (slack || 0);
+    if (!okPos(pos)) return false;
+    const s = slack || 0, lo = -X.baseZone - s, hi = X.baseZone + 1 + s, tx = pos.x / T, ty = pos.y / T;
+    return tx >= lo && tx < hi && ty >= lo && ty < hi;
   }
   const crewOf = (m, id) => m.crew.find(c => c.id === id) || null;
   const pack = (x, id) => (Array.isArray(x.carried[id]) ? x.carried[id] : []);
-  const driving = (x, id) => !!x.rover && x.rover.driver === id;
+  const driving = (x, id) => !!id && !!x.rover && x.rover.driver === id;
   function capacity(m, crewId) { return driving(m.expedition, crewId) ? X.packRover : X.pack; }
   function suitOf(m, crewId) {
     const v = m.expedition.suits[crewId];
@@ -77,7 +85,8 @@
     return base * (skill[kind] || 1);
   }
 
-  // The crew member may act on the map: the mission is on, they are on their feet, and their suit isn't empty.
+  // The crew member may act on the map: the mission is on, they are alive and active, and they are on their feet (not
+  // collapsed waiting for a revive, nor sitting out the round after a solo collapse).
   function able(m, crewId) {
     if (!m || m.status !== 'active' || !m.expedition) return { error: 'badPhase' };
     const c = crewOf(m, crewId);
@@ -141,12 +150,18 @@
     return { ok: true, items: mine };
   }
 
-  // Breathes an O₂ canister from your backpack now: +45 s of suit (never more than a full suit).
-  function useCanister(m, crewId) {
+  // Breathes an O₂ canister from your backpack now: +45 s of suit. Only outside the base zone, and only when your suit has
+  // room for all of it, so a canister is never wasted (carried home it is worth 30 kg of the base's O₂). `live` is the suit
+  // level your own game has now: the one it last reported can be up to 2 s old.
+  function useCanister(m, crewId, pos, live) {
     const a = able(m, crewId);
     if (a.error) return a;
     const x = m.expedition, mine = pack(x, crewId), i = mine.findIndex(it => it && it.canister);
     if (i < 0) return { error: 'noCanister' };
+    if (!okPos(pos)) return { error: 'badPos' };
+    if (inBaseZone(pos, 0)) return { error: 'atBase' };
+    setSuit(m, crewId, live);
+    if (suitOf(m, crewId) > X.suit - X.canister.suit) return { error: 'suitFull' };
     x.carried[crewId] = mine.slice(0, i).concat(mine.slice(i + 1));
     x.suits[crewId] = Math.min(X.suit, suitOf(m, crewId) + X.canister.suit);
     return { ok: true, suit: x.suits[crewId] };
@@ -171,15 +186,19 @@
 
   // Your suit ran out outside the base zone. In co-op you wait where you fell for a crewmate to revive you; if nobody does
   // before the round advances, it counts as a collapse then. In solo nobody can come, so the collapse counts now, your load
-  // stays where you fell and you are back at the base until the next round.
-  function collapse(m, crewId, pos) {
+  // stays where you fell and you are back at the base until the next round. A driver's game also says how far the rover
+  // went (`driven`), so the last seconds of driving count too.
+  function collapse(m, crewId, pos, driven) {
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
     if (inBaseZone(pos, 0)) return { error: 'atBase' };
     const x = m.expedition, spot = { x: Math.round(pos.x), y: Math.round(pos.y) };
     x.suits[crewId] = 0;
-    if (driving(x, crewId)) x.rover = { x: spot.x, y: spot.y };
+    if (driving(x, crewId)) {
+      setRoverDriven(m, crewId, driven);
+      x.rover = { x: spot.x, y: spot.y };
+    }
     if (m.coop) {
       x.collapsed[crewId] = spot;
       return { ok: true, waiting: true };
@@ -229,12 +248,14 @@
     x.rover = { driver: crewId };
     return { ok: true };
   }
-  // Gets out: the rover stays where you are, or goes back to its bay if you are at the outpost.
-  function park(m, crewId, pos) {
-    if (!m || !m.expedition) return { error: 'badPhase' };
+  // Gets out: the rover stays where you are, or goes back to its bay if you are at the outpost. The driver's game says how
+  // far it went (`driven`), so the last seconds of driving count too.
+  function park(m, crewId, pos, driven) {
+    if (!m || m.status !== 'active' || !m.expedition) return { error: 'badPhase' };
     const x = m.expedition;
     if (!driving(x, crewId)) return { error: 'notDriving' };
     if (!okPos(pos)) return { error: 'badPos' };
+    setRoverDriven(m, crewId, driven);
     const home = nearPx(pos, 0.5 * T, 0.5 * T, X.roverHome);
     x.rover = home ? null : { x: Math.round(pos.x), y: Math.round(pos.y) };
     return { ok: true, home };
@@ -245,21 +266,33 @@
   // How far the rover has been driven this round, as the driver's game reports it. It only ever goes up.
   function setRoverDriven(m, crewId, tiles) {
     const x = m && m.expedition;
-    if (!x || !driving(x, crewId) || !Number.isFinite(Number(tiles))) return;
-    x.roverDriven = Math.max(Number(x.roverDriven) || 0, Math.min(X.roverRange, Number(tiles)));
+    if (!x || !driving(x, crewId) || typeof tiles !== 'number' || !Number.isFinite(tiles)) return;
+    x.roverDriven = Math.max(Number(x.roverDriven) || 0, Math.min(X.roverRange, tiles));
   }
 
   // The suit level a crew member's own game reports (it is drained there, frame by frame). Kept between 0 and full;
-  // ignored while they are collapsed (their suit is empty until a crewmate revives them).
+  // ignored while they are collapsed (their suit is empty until a crewmate revives them), and anything but a number is junk.
   function setSuit(m, crewId, seconds) {
     const x = m && m.expedition;
-    if (!x || !crewOf(m, crewId) || x.collapsed[crewId] || !Number.isFinite(Number(seconds))) return;
-    x.suits[crewId] = Math.max(0, Math.min(X.suit, Number(seconds)));
+    if (!x || !crewOf(m, crewId) || x.collapsed[crewId] || typeof seconds !== 'number' || !Number.isFinite(seconds)) return;
+    x.suits[crewId] = Math.max(0, Math.min(X.suit, seconds));
+  }
+
+  // Solo play: where your astronaut stands, saved every 2 s with the suit, so a reload puts you back there instead of giving
+  // you a free walk home. Forgotten at the end of the round, when everyone is back at the base.
+  function setWhere(m, crewId, pos) {
+    const x = m && m.expedition;
+    if (!x || !crewOf(m, crewId) || !okPos(pos)) return;
+    x.where[crewId] = { x: Math.round(pos.x), y: Math.round(pos.y) };
+  }
+  function whereOf(m, crewId) {
+    const x = m && m.expedition, w = x && x.where && Object.prototype.hasOwnProperty.call(x.where, crewId) ? x.where[crewId] : null;
+    return okPos(w) ? { x: w.x, y: w.y } : null;
   }
 
   return {
-    findById, findsIn, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft, setRoverDriven,
-    collect, deliver, useCanister, pickUp, collapse, revive, board, park,
+    findById, findsIn, cavesIn, chunkAt, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
+    setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park,
     cacheSize: () => cache.size,
   };
 });
