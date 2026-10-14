@@ -1,6 +1,6 @@
 # SOL 500 v3 — Desktop App · Online Share Link · Endless World · Admin Panel
 
-**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 and M4a shipped (v3.3.0); M4b–M4d and M5 to do
+**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3, M4a and M4b shipped (v3.4.0); M4c, M4d and M5 to do
 **Builds on:** `2026-09-30-sol500-mars-outpost-design.md` (v1/v2: engine, roles, LAN co-op, walkable outpost)
 **Branches:** one `feat/…` branch per milestone, off `master`
 
@@ -597,8 +597,9 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] Finds counted at advance and in the report (M4a)
 - [x] Suit oxygen, collapse and revive (M4a)
 - [x] Rover parking and its battery (M4a)
-- [ ] Solar flare countdown and shelters (M4b)
-- [ ] Dust devils and storm visibility (M4b)
+- [x] Solar flare countdown and shelters (M4b)
+- [x] Dust devils and storm visibility (M4b)
+- [x] Display settings: graphics Best or Fast, an FPS limit and an FPS readout (M4b)
 - [ ] Landmarks with discovery cards (M4c)
 - [ ] Random structures and natural formations (M4c)
 - [ ] Relay beacons and the route home (M4d)
@@ -627,6 +628,11 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
    - Working on a find from the rover drains the suit at the walking rate, because you step out to work.
    - Without this, the explorer runs had the rover hauling about five times what a walker does: about 35 loads a round and about 5,500 science a mission.
    - Real Mars rovers are limited by their power in the same way.
+10. *M4b:* **Dust devils are scattered per data chunk, not "near each explorer".** The user approved this on 2026-10-13 ("ok go").
+   - §3.4 says a round whose schedule has `devil` spawns 3–5 devils near each explorer, other rounds 0–1, and the Dune Sea doubles both. Now every 32-tile data chunk holds that many at any time: 3–5 in a dust-devil round, 0–1 in other rounds, and twice as many in the Dune Sea. None comes within 16 tiles of the HQ.
+   - A devil lasts 24 s (2 s to form, 2 to die down) and drifts 6–12 tiles along the round's wind, give or take 45°. It hits when its middle passes within 0.55 tiles of your feet once it has formed. The throw is a 0.25 s slide of 2 tiles that stops at walls, and 2 s of calm follow a hit. A hit still costs 10 s of suit, and the rover is immune, as §3.4 says.
+   - Why: every screen draws the same devils from the mission code, the round and the round's clock, without knowing where anyone is, so nothing is synced. Devils near each explorer would need every screen to agree on where everyone stands.
+   - Measured: about 1.7 devils within 12 tiles of you in a dust-devil round (0.23 in other rounds). A walker who never dodges is hit 1.61 times in a 150 s EVA in a dust-devil round, and 0.18 times in other rounds.
 
 ## 14. Risks
 
