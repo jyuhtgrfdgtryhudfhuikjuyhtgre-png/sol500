@@ -54,13 +54,20 @@ const ctx = new Proxy({}, {
 });
 const TAG_BOX = ['rgba(140,188,236,0.92)', 'rgba(20,14,16,0.78)'], SUIT_BAR = 'rgba(20,14,16,0.8)'; // src/surface-paint.js drawTag, drawSuitBar
 const overlap = (a, b) => Math.min(a.right, b.right) > Math.max(a.left, b.left) && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top);
-const painter = new Proxy({}, { get: (t, k) => (k === 'stats' ? () => ({ paintMedian: 0 }) : () => {}) });
+// The painter is a stub too. It notes when the ground is drawn (once for every frame that is drawn) and keeps the scale it was given.
+function stubPainter(now) {
+  const seen = { at: [], scale: 1 };
+  const painter = new Proxy({}, {
+    get: (t, k) => (k === 'stats' ? () => ({ paintMedian: 0 }) : k === 'drawGround' ? () => { seen.at.push(now()); } : k === 'setScale' ? s => { seen.scale = s; } : () => {}),
+  });
+  return { painter, seen };
+}
 function element(tag) {
-  const n = { tagName: String(tag).toUpperCase(), children: [], style: {}, dataset: {}, listeners: {}, hidden: false, className: '', textContent: '', innerHTML: '', isConnected: true, clientWidth: 160, clientHeight: 160 };
+  const n = { tagName: String(tag).toUpperCase(), children: [], style: {}, dataset: {}, listeners: {}, attrs: {}, hidden: false, className: '', textContent: '', innerHTML: '', isConnected: true, clientWidth: 160, clientHeight: 160 };
   n.append = (...cs) => { n.children.push(...cs); };
   n.appendChild = c => { n.children.push(c); return c; };
   n.addEventListener = (type, fn) => { (n.listeners[type] = n.listeners[type] || []).push(fn); };
-  n.setAttribute = () => {};
+  n.setAttribute = (k, v) => { n.attrs[k] = String(v); };
   n.classList = { add() {}, remove() {} };
   n.focus = () => {};
   n.getContext = () => ctx;
@@ -72,14 +79,17 @@ function element(tag) {
 // shown, then show it again: ui.js renders the same mission after a solo action, and a co-op room broadcasts a new copy
 // (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for. Like ui.js, the page
 // is shown where its astronaut last stood (the solo save; `opts.lastPos` stands for the co-op server's position).
+// `opts.dpr` is the screen's pixel ratio (1); `opts.gfx` the Display settings the page passes to update (setGfx changes them).
 function page(m, me, opts) {
   const o = opts || {};
-  let raf = null, clock = 0, cur = m;
+  let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7;
   const on = {}, sent = [], calls = [];
+  const { painter, seen } = stubPainter(() => clock);
   const win = {
-    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolWorld: SW, SolPaint: Object.assign({}, P, { createPainter: () => painter }),
+    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolWorld: SW,
+    SolPaint: Object.assign({}, P, { createPainter: (world, popts) => { seen.scale = (popts && popts.scale) || 1; return painter; } }),
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
-    location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: 1, Image: function () {},
+    location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: function () {},
     matchMedia: () => ({ matches: false }),
     addEventListener: (type, fn) => { (on[type] = on[type] || []).push(fn); },
     requestAnimationFrame: fn => { raf = fn; },
@@ -93,7 +103,7 @@ function page(m, me, opts) {
     const shown = cur.coop ? plain(cur) : cur, plan = E.defaultPlan(shown);
     S.update({
       mission: shown, plan, forecast: E.forecast(shown, plan), controlId: me, canControl: () => true, crewName: id => id, t: (k, p) => I.t('en', k, p), lang: 'en', fog: null,
-      lastPos: cur.coop ? o.lastPos || null : X.whereOf(cur, me),
+      lastPos: cur.coop ? o.lastPos || null : X.whereOf(cur, me), gfx,
     });
   };
   const hooks = {
@@ -118,7 +128,19 @@ function page(m, me, opts) {
   show(m);
   return {
     sent, calls, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list),
+    canvas, overlay: root.children[1], seen, setGfx(g) { gfx = g; show(cur); },
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
+    // `secs` of frames at `hz` with synthetic timestamps, as requestAnimationFrame gives them (the clock is the frame's exact time;
+    // the timestamp wobbles by up to ±`jitter` ms); returns how many of them drew the ground.
+    frames(hz, secs, jitter) {
+      const drawn = seen.at.length, from = clock;
+      for (let i = 1; i <= Math.round(hz * secs); i++) {
+        clock = from + i * 1000 / hz;
+        wobble = (Math.imul(wobble, 1664525) + 1013904223) >>> 0; // the same wobble every run
+        raf(clock + (jitter || 0) * (wobble / 2147483648 - 1));
+      }
+      return seen.at.length - drawn;
+    },
     // One more frame, with every filled path it draws recorded.
     frame() { rec.fills = []; rec.on = true; try { clock += 50; raf(clock); } finally { rec.on = false; } return rec.fills; },
     key(code, down) { for (const fn of on[down === false ? 'keyup' : 'keydown'] || []) fn({ code, repeat: false, target: {}, preventDefault() {} }); },
@@ -489,4 +511,112 @@ test("the flare's banner takes the hint's place at the top of the surface", asyn
   pg.step(0.1);
   assert.equal(pg.probe().alert, true, 'the countdown is up');
   assert.equal(pg.probe().hint, false, 'and the hint makes way');
+});
+
+// ---------- display settings (the graphics level, the FPS limit and the FPS readout) ----------
+
+test("Best draws the canvas at the screen's pixel ratio (up to 4), Fast at 1; changing the level resizes it at once and sets the ground's scale", () => {
+  const m = mission({ seed: 'GFX-1' });
+  const size = pg => [pg.canvas.width, pg.canvas.height]; // the stage is 960 × 640
+  const best = page(m, 'minh', { dpr: 3 });
+  best.step(0.1);
+  assert.deepEqual(size(best), [960 * 3, 640 * 3], 'Best: the stage size × 3');
+  assert.equal(best.seen.scale, 2, 'and the ground is painted at 2×');
+  best.setGfx({ quality: 'fast' }); // no frame in between
+  assert.deepEqual(size(best), [960, 640], 'Best → Fast: × 1 at once');
+  assert.equal(best.seen.scale, 1, 'and 1× ground at once');
+  best.setGfx({ quality: 'best' });
+  assert.deepEqual(size(best), [960 * 3, 640 * 3], 'Fast → Best: × 3 again at once');
+  assert.equal(best.seen.scale, 2);
+  const fast = page(m, 'minh', { dpr: 3, gfx: { quality: 'fast' } });
+  fast.step(0.1);
+  assert.deepEqual(size(fast), [960, 640], 'Fast: × 1');
+  assert.equal(fast.seen.scale, 1, 'with 1× ground');
+  const wide = page(m, 'minh', { dpr: 5 });
+  wide.step(0.1);
+  assert.deepEqual(size(wide), [960 * 4, 640 * 4], 'Best stops at × 4');
+  const odd = page(m, 'minh', { dpr: 3, gfx: { quality: 'ultra' } });
+  odd.step(0.1);
+  assert.deepEqual(size(odd), [960 * 3, 640 * 3], 'a level the settings do not have is Best');
+  assert.equal(odd.seen.scale, 2);
+});
+
+test('the dust in the air follows the weather and the graphics level: Best 39 / 165 / 330, Fast 13 / 55 / 110', () => {
+  for (const [weather, best, fast] of [['clear', 39, 13], ['regional', 165, 55], ['global', 330, 110]]) {
+    const m = mission({ seed: 'DUST-' + weather });
+    m.schedule[m.turn].weather = weather;
+    const pg = page(m, 'minh');
+    pg.step(0.1);
+    assert.equal(pg.probe().dust, best, weather + ', Best');
+    pg.setGfx({ quality: 'fast' });
+    pg.step(0.1);
+    assert.equal(pg.probe().dust, fast, weather + ', Fast');
+  }
+});
+
+test('the FPS limit is an average: 30 on a 60 Hz screen draws 30 frames a second, 60 on 60 Hz every frame despite jitter, 60 on 144 Hz just 60, Max every one', () => {
+  const m = mission({ seed: 'CAP-1' });
+  // A second of frames with synthetic timestamps, after half a second to settle: how many drew, and the gaps between the draws.
+  const second = (cap, hz, jitter) => {
+    const pg = page(m, 'minh', { gfx: { fpsCap: cap } });
+    pg.frames(hz, 0.5, jitter);
+    const from = pg.seen.at.length, n = pg.frames(hz, 1, jitter), at = pg.seen.at.slice(from);
+    return { n, gaps: at.slice(1).map((t, i) => t - at[i]) };
+  };
+  const near = (got, want, slack, what) => assert.ok(Math.abs(got - want) <= slack, what + ': ' + got + ' frames, not ' + want + ' ± ' + slack);
+  near(second(30, 60).n, 30, 1, 'a limit of 30 on 60 Hz');
+  assert.equal(second(60, 60, 0.2).n, 60, 'a limit of 60 on 60 Hz draws every frame, with ±0.2 ms of jitter');
+  near(second(60, 144).n, 60, 2, 'a limit of 60 on 144 Hz');
+  assert.equal(second(0, 144).n, 144, 'Max on 144 Hz draws every callback');
+  assert.equal(second(45, 144).n, 144, 'a limit the settings do not have is Max');
+  // A long pause (a hidden tab draws nothing) leaves the schedule far behind: the limit holds after it, with no burst of frames.
+  const paused = page(m, 'minh', { gfx: { fpsCap: 30 } });
+  paused.frames(60, 0.5);
+  paused.frames(0.1, 10); // one callback, ten seconds later
+  near(paused.frames(60, 1), 30, 1, 'a limit of 30 on 60 Hz, a second after a ten-second pause');
+  // Every other frame of a 60 Hz screen stays every other frame when the timestamps jitter: a frame that comes a fraction of a
+  // millisecond early is not skipped and drawn a frame late, so the draws stay 33.3 ms apart.
+  const { gaps } = second(30, 60, 0.2);
+  assert.ok(Math.max(...gaps) - Math.min(...gaps) < 0.01, 'evenly spaced draws, not ' + [...new Set(gaps.map(g => g.toFixed(1)))].join(' / ') + ' ms');
+});
+
+test('the FPS limit does not slow the game: a skipped callback leaves its time to the next frame; the fps reading is the rate actually drawn', () => {
+  const m = mission({ seed: 'CAP-2' });
+  const run = cap => {
+    const pg = page(m, 'minh', { gfx: { fpsCap: cap } });
+    pg.qa.ghost(true);
+    pg.qa.teleport(30, 4);
+    pg.frames(60, 0.5);
+    const x0 = pg.probe().player.x;
+    pg.qa.hold('KeyD', true);
+    pg.frames(60, 3);
+    return { dx: pg.probe().player.x - x0, fps: pg.probe().fps };
+  };
+  const slow = run(30), free = run(0);
+  assert.ok(free.dx > 300, 'three seconds of walking cover real ground: ' + free.dx);
+  assert.ok(Math.abs(slow.dx - free.dx) < 10, 'the same ground at 30 fps: ' + slow.dx + ' against ' + free.dx);
+  assert.equal(free.fps, 60);
+  assert.equal(slow.fps, 30, 'the reading is the rate of the frames drawn, not of the callbacks');
+});
+
+test('the FPS readout is hidden unless Show FPS is on; then it reads "<n> FPS", refreshed at most four times a second', () => {
+  const m = mission({ seed: 'READ-1' });
+  const chipOf = pg => pg.overlay.children.find(c => c.className === 'sf-fps');
+  const off = page(m, 'minh');
+  off.frames(60, 1);
+  assert.ok(chipOf(off), 'the readout is in the surface overlay');
+  assert.equal(chipOf(off).hidden, true, 'hidden with Show FPS off');
+  assert.equal(chipOf(off).attrs['aria-hidden'], 'true', 'a visual readout only');
+  const on = page(m, 'minh', { gfx: { showFps: true } });
+  const chip = chipOf(on);
+  let text = '', writes = 0;
+  Object.defineProperty(chip, 'textContent', { get: () => text, set: v => { text = v; writes++; } });
+  on.frames(60, 1);
+  assert.equal(chip.hidden, false, 'shown with Show FPS on');
+  assert.equal(text, '60 FPS');
+  assert.ok(writes >= 1 && writes <= 4, 'rewritten ' + writes + ' times in a second');
+  on.setGfx({ showFps: false });
+  assert.equal(chip.hidden, true, 'hidden again when it is turned off');
+  on.setGfx({ showFps: 1 });
+  assert.equal(chip.hidden, false, 'any true value shows it');
 });

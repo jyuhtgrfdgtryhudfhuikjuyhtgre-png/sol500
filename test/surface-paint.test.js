@@ -144,3 +144,64 @@ test('an ice tile of the ground is painted with those cracks at its corner', () 
   const at = rec.calls.findIndex((c, i) => c[0] === 'beginPath' && JSON.stringify(rec.calls.slice(i, i + 12)) === want);
   assert.ok(at >= 0, 'the cracks were drawn at the ice tile');
 });
+
+// ---------- the graphics level: chunk images painted at a scale (the Display settings) ----------
+
+// A painter whose canvases are kept, each with a recording 2D context: the tests see their size and what was drawn on them.
+function scaled(seed, opts) {
+  const made = [];
+  const canvas = (w, h) => { const rec = recorder(); const c = { width: w, height: h, calls: rec.calls, getContext: () => rec.ctx }; made.push(c); return c; };
+  return { made, p: P.createPainter(SW.create(seed), Object.assign({ canvas, now: () => 0 }, opts)) };
+}
+// The drawImage that drawGround makes for the painted image chunk (ix, iy).
+function drawnImage(p, ix, iy) {
+  const out = recorder();
+  p.drawGround(out.ctx, ix * 256, iy * 256, ix * 256 + 255, iy * 256 + 255);
+  return out.calls.find(c => c[0] === 'drawImage');
+}
+
+test('a chunk image is k·PX square at scale k (1 when none is given): painted through a transform that scales, drawn from a k·PX source rect', () => {
+  for (const [opts, k] of [[undefined, 1], [{ scale: 2 }, 2]]) {
+    const { p, made } = scaled('PAINT-S' + k, opts);
+    p.retainView(256, 512, 511, 767);          // image chunk (1, 2) and its margin; the middle one is painted first
+    p.work(Infinity);
+    assert.equal(made.length, 9);
+    assert.ok(made.every(c => c.width === 256 * k && c.height === 256 * k), 'scale ' + k + ': every chunk image is ' + 256 * k + ' px square');
+    // paintChunk sets its own transform (world pixels, the chunk's corner at the origin), so the scale has to be part of it.
+    assert.deepEqual(made[0].calls.find(c => c[0] === 'setTransform'), ['setTransform', k, 0, 0, k, -256 * k, -512 * k]);
+    const draw = drawnImage(p, 1, 2);
+    assert.equal(draw[1], made[0]);
+    assert.deepEqual(draw.slice(2), [0, 0, 256 * k, 256 * k, 256, 512, 257, 257], 'a ' + 256 * k + ' source rect, into the same world pixels (PX + 1)');
+  }
+});
+
+test('setScale drops every chunk image and queues the view again at the new scale; flat colours cover the ground until a chunk is repainted', () => {
+  const { p, made } = scaled('PAINT-S3', { scale: 2 });
+  p.retainView(256, 512, 511, 767);
+  p.work(Infinity);
+  assert.equal(p.stats().images, 9);
+  p.setScale(1);
+  assert.equal(p.stats().images, 0, 'every image is dropped');
+  assert.equal(p.stats().queue, 9, 'and the view is queued again');
+  const holes = recorder();
+  p.drawGround(holes.ctx, 256, 512, 511, 767);
+  assert.deepEqual([holes.calls.filter(c => c[0] === 'drawImage').length, holes.calls.filter(c => c[0] === 'fillRect').length], [0, 16], 'no hole: the chunk is its 16 flat tiles');
+  const before = made.length;
+  p.work(Infinity);
+  assert.equal(made.length - before, 9);
+  assert.ok(made.slice(before).every(c => c.width === 256 && c.height === 256), 'the next paint makes PX canvases');
+  assert.deepEqual(drawnImage(p, 1, 2).slice(4, 6), [256, 256], 'and they are drawn from a PX source rect');
+  p.setScale(1);
+  assert.equal(p.stats().images, 9, 'the scale it already has changes nothing');
+});
+
+test('a painted chunk is hashed whole at any scale (the browser QA helper)', () => {
+  let asked = null;
+  const ctx = fakeCtx();
+  ctx.getImageData = (...a) => { asked = a; return { data: new Uint8ClampedArray(4) }; };
+  const p = P.createPainter(SW.create('PAINT-S4'), { scale: 2, canvas: (w, h) => ({ width: w, height: h, getContext: () => ctx }), now: () => 0 });
+  p.retainView(0, 0, 255, 255);
+  p.work(Infinity);
+  p.chunkHash(0, 0);
+  assert.deepEqual(asked, [0, 0, 512, 512]);
+});

@@ -6,9 +6,11 @@
  * The world model is src/surface-world.js, the painting src/surface-paint.js, the minimap and map src/surface-map.js.
  *
  * API: SolSurface.mount(hooks) → element (persistent; re-attach it on every render)
- *      SolSurface.update({ mission, plan, forecast, controlId, canControl(id), crewName(id), t, lang, fog, clock, lastPos })
+ *      SolSurface.update({ mission, plan, forecast, controlId, canControl(id), crewName(id), t, lang, fog, clock, lastPos, gfx })
  *        clock: co-op only, the server's round clock { t: seconds, at: performance.now() / 1000 when it arrived }
  *        lastPos: { x, y } where your astronaut last stood this round (the solo save, or the co-op server), for a reload
+ *        gfx: the Display settings { quality: 'best' | 'fast', fpsCap: 0 (Max) | 30 | 60, showFps }; a missing or unknown value is
+ *          the default (Best, Max, no readout), and a new quality takes effect at once
  *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
  *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
  * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
@@ -71,7 +73,7 @@
     if (!m) return null;
     if (S.world && S.worldSeed === m.seed) return S.world;
     S.world = SW.create(m.seed);
-    S.painter = P.createPainter(S.world);
+    S.painter = P.createPainter(S.world, { scale: groundScale() });
     S.map.attach(S.world, S.painter);
     S.worldSeed = m.seed;
     S.world.reveal(0, 0, W.FLAT_RADIUS); // the crew knows their own base
@@ -160,6 +162,7 @@
       player: null, npcs: {}, remote: {}, images: {}, particles: [], tags: [],
       world: null, painter: null, map: null, base: null, worldSeed: null, data: null, focus: null, menuOpen: null,
       view: { w: 0, h: 0, zoom: 1, dpr: 1, camX: 0, camY: 0 }, time: 0, last: 0, fps: 60, camSnap: true,
+      gfx: { quality: 'best', fpsCap: 0, showFps: false }, nextDraw: 0, fpsAt: -Infinity,
       lastSent: 0, lastSentKey: '', hintUntil: 14, touch: false,
       region: null, seenAt: [NaN, NaN, 0], fogSent: 0, debug: DEBUG, debugAt: 0, lang: null, qa: { ghost: false, speed: 1 },
     };
@@ -186,9 +189,12 @@
     return el;
   }
 
+  // The Display settings' graphics level: Best draws at the screen's own pixel ratio (up to 4) and paints the ground chunks at 2×
+  // (and has more dust, see draw); Fast draws one canvas pixel to a CSS pixel and paints the ground at 1×.
+  const groundScale = () => (S.gfx.quality === 'best' ? 2 : 1);
   function resize() {
     const r = S.el.getBoundingClientRect();
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = S.gfx.quality === 'fast' ? 1 : Math.min(4, window.devicePixelRatio || 1);
     S.view.w = r.width;
     S.view.h = r.height;
     S.view.dpr = dpr;
@@ -233,7 +239,11 @@
     S.regionChip.addEventListener('click', () => { if (S.region != null && S.hooks.reopenRegion) S.hooks.reopenRegion(W.REGIONS[S.region]); });
     S.debugBox = el('pre', 'sf-debug');
     S.debugBox.hidden = !S.debug;
-    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.eva.alert, S.map.minimap, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
+    // The Display settings' FPS readout, under the minimap: a visual extra, so it is hidden from assistive technology.
+    S.fpsEl = el('div', 'sf-fps');
+    S.fpsEl.hidden = true;
+    S.fpsEl.setAttribute('aria-hidden', 'true');
+    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.eva.alert, S.map.minimap, S.fpsEl, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
     // The action button is held for finds, like E: it acts when pressed and lets go of a hold when released.
     S.btnAct.addEventListener('pointerdown', e => { e.preventDefault(); S.actId = e.pointerId; interact(); });
     S.btnAct.addEventListener('click', e => { if (e.detail === 0) interact(); }); // Enter or Space on the focused button
@@ -354,8 +364,21 @@
   }
 
   // ---------- data from ui.js ----------
+  // The Display settings. A missing or unknown value is the default (Best, Max, no readout). A new quality is applied at once: the
+  // canvas is resized and the ground is painted again at the new scale, with no reload.
+  function applyGfx(g) {
+    const gfx = g || {}, quality = gfx.quality === 'fast' ? 'fast' : 'best', changed = quality !== S.gfx.quality;
+    S.gfx = { quality, fpsCap: gfx.fpsCap === 30 || gfx.fpsCap === 60 ? gfx.fpsCap : 0, showFps: !!gfx.showFps };
+    S.fpsEl.hidden = !S.gfx.showFps;
+    if (!changed) return;
+    resize();
+    if (S.painter) S.painter.setScale(groundScale());
+    S.nextDraw = 0; // the next callback draws, even under a limit: the resize cleared the canvas
+  }
+
   function update(data) {
     S.data = data;
+    applyGfx(data.gfx);
     if (!data.mission) return;
     world();
     refreshWorld(data.mission);
@@ -413,6 +436,14 @@
   function loop(ts) {
     requestAnimationFrame(loop);
     if (!S.el.isConnected || document.hidden || !S.data || !S.data.mission) { S.last = ts; return; }
+    // The FPS limit (Display settings): at most that many frames a second on average. The callbacks in between are skipped and leave
+    // S.last alone, so the next frame's dt covers their time. A frame is due when the one before it was due plus one period, not when
+    // that one was drawn (60 on a 144 Hz screen would average 48), and it may come 1 ms early (a 60 on a 60 Hz screen draws every
+    // frame although the timestamps jitter).
+    if (S.gfx.fpsCap) {
+      if (ts + 1 < S.nextDraw) return;
+      S.nextDraw = Math.max(S.nextDraw + 1000 / S.gfx.fpsCap, ts);
+    }
     const t0 = performance.now();
     const raw = ts - (S.last || ts);
     if (raw > 0) S.fps += (1000 / raw - S.fps) * 0.05;
@@ -433,6 +464,7 @@
     S.map.drawMini(st, ts);
     S.map.frame(st, performance.now() + 6);
     if (S.debug && ts - S.debugAt > 250) { S.debugAt = ts; drawDebugText(); }
+    if (S.gfx.showFps && ts - S.fpsAt >= 250) { S.fpsAt = ts; S.fpsEl.textContent = t('display.fps', { n: Math.round(S.fps) }); } // four times a second at most
     maybeSend(ts);
   }
 
@@ -1103,7 +1135,8 @@
     const weather = m.schedule[m.turn] ? m.schedule[m.turn].weather : 'clear';
     const tint = weather === 'global' ? 'rgba(110,52,22,0.46)' : weather === 'regional' ? 'rgba(180,110,60,0.22)' : null;
     if (tint) { ctx.fillStyle = tint; ctx.fillRect(0, 0, v.w, v.h); }
-    const want = weather === 'global' ? 220 : weather === 'regional' ? 110 : 26;
+    // Best has 1.5 times the dust there was before, Fast half of it: 39 / 165 / 330 and 13 / 55 / 110 grains.
+    const want = Math.round((S.gfx.quality === 'best' ? 1.5 : 0.5) * (weather === 'global' ? 220 : weather === 'regional' ? 110 : 26));
     while (S.particles.length < want) S.particles.push({ x: Math.random() * v.w, y: Math.random() * v.h, s: 0.6 + Math.random() * 1.8, a: 0.15 + Math.random() * 0.4 });
     if (S.particles.length > want) S.particles.length = want;
     const wind = weather === 'global' ? 160 : weather === 'regional' ? 90 : 18;
@@ -1152,7 +1185,7 @@
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
-      hint: !S.hint.hidden, alert: S.eva.alerting(),
+      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length,
     };
   }
 

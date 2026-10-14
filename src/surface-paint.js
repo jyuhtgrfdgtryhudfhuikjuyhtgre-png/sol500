@@ -6,8 +6,10 @@
  *   the fog over the view; the minimap's one-pixel-per-tile "mini" images of explored chunks;
  *   and the sprites: astronauts, name tags, rocks, the lander, status badges, finds and dust devils.
  *
- * API: SolPaint.createPainter(world, { canvas, cap, now }) → painter · SolPaint.drawFog(...) · SolPaint.decorFor(...)
+ * API: SolPaint.createPainter(world, { canvas, cap, now, scale }) → painter · SolPaint.drawFog(...) · SolPaint.decorFor(...)
  *      SolPaint.tileRGB(code, region) · SolPaint.REGION_COLORS · SolPaint.sprites
+ *      scale (default 1): the ground is painted at this many canvas pixels per world pixel, so each chunk image is scale·256 px
+ *      square (the Display settings' Best level paints at 2); painter.setScale(s) changes it while playing.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./worldgen.js'), require('./fog.js'));
@@ -204,10 +206,10 @@
     }
   }
 
-  function paintChunk(world, ix, iy, canvas) {
+  function paintChunk(world, ix, iy, canvas, scale) {
     const g = canvas.getContext('2d');
     const tx0 = ix * IMG, ty0 = iy * IMG;
-    g.setTransform(1, 0, 0, 1, -ix * PX, -iy * PX); // draw in world pixels
+    g.setTransform(scale, 0, 0, scale, -ix * PX * scale, -iy * PX * scale); // draw in world pixels, `scale` canvas pixels each
     for (let ty = ty0; ty < ty0 + IMG; ty++) for (let tx = tx0; tx < tx0 + IMG; tx++) paintTile(g, world, tx, ty);
     g.save();
     g.beginPath();
@@ -228,7 +230,7 @@
     const minis = new Map();  // "cx,cy" → { c, stamp, used }
     const miniWant = new Set();
     const times = [];
-    let queue = [], view = null, need = 0, tick = 0, renders = 0;
+    let queue = [], view = null, need = 0, tick = 0, renders = 0, scale = o.scale || 1;
 
     const inView = e => !!view && e.ix >= view[0] && e.ix <= view[2] && e.iy >= view[1] && e.iy <= view[3];
     // The cap never pushes out a chunk the current view needs: a very wide window just keeps more.
@@ -241,18 +243,29 @@
         images.delete(oldestKey);
       }
     }
+    // The chunks of the view (and its margin) that have no image yet, the ones nearest the middle first.
+    function wanted() {
+      const [a, b, c, d] = view, mx = (a + c) / 2, my = (b + d) / 2, want = [];
+      for (let iy = b; iy <= d; iy++) for (let ix = a; ix <= c; ix++) {
+        if (!images.has(ix + ',' + iy)) want.push([ix, iy, (ix - mx) * (ix - mx) + (iy - my) * (iy - my)]);
+      }
+      return want.sort((p, q) => p[2] - q[2]);
+    }
     function retainView(x0, y0, x1, y1) {
       const a = Math.floor(x0 / PX) - 1, b = Math.floor(y0 / PX) - 1, c = Math.floor(x1 / PX) + 1, d = Math.floor(y1 / PX) + 1;
       view = [a, b, c, d];
       need = (c - a + 1) * (d - b + 1);
       for (const [k, e] of images) if (e.ix < a - 1 || e.ix > c + 1 || e.iy < b - 1 || e.iy > d + 1) images.delete(k);
-      const mx = (a + c) / 2, my = (b + d) / 2, want = [];
-      for (let iy = b; iy <= d; iy++) for (let ix = a; ix <= c; ix++) {
-        if (!images.has(ix + ',' + iy)) want.push([ix, iy, (ix - mx) * (ix - mx) + (iy - my) * (iy - my)]);
-      }
-      want.sort((p, q) => p[2] - q[2]);
-      queue = want;
+      queue = wanted();
       evictImages();
+    }
+    // The graphics level changed, so every image is the wrong size: drop them all and queue the view again at the new scale.
+    // Until a chunk is repainted, flat() covers it.
+    function setScale(s) {
+      if (s === scale) return;
+      scale = s;
+      images.clear();
+      queue = view ? wanted() : [];
     }
     // Paints queued chunks until the deadline (but at least `atLeast` of them); returns how many it painted.
     function work(deadline, atLeast) {
@@ -262,8 +275,8 @@
         const k = ix + ',' + iy;
         if (images.has(k)) continue;
         const t0 = now();
-        const c = makeCanvas(PX, PX);
-        paintChunk(world, ix, iy, c);
+        const c = makeCanvas(PX * scale, PX * scale);
+        paintChunk(world, ix, iy, c, scale);
         times.push(now() - t0);
         if (times.length > 200) times.shift();
         images.set(k, { c, ix, iy, used: ++tick });
@@ -279,7 +292,7 @@
         if (e) {
           e.used = ++tick;
           // one extra pixel of overlap hides the hairline seam between neighbours at fractional zooms
-          ctx.drawImage(e.c, 0, 0, PX, PX, ix * PX, iy * PX, PX + 1, PX + 1);
+          ctx.drawImage(e.c, 0, 0, PX * scale, PX * scale, ix * PX, iy * PX, PX + 1, PX + 1);
         } else flat(ctx, ix, iy);
       }
     }
@@ -344,7 +357,7 @@
     function chunkHash(ix, iy) {
       const e = images.get(ix + ',' + iy);
       if (!e) return null;
-      const px = e.c.getContext('2d').getImageData(0, 0, PX, PX).data;
+      const px = e.c.getContext('2d').getImageData(0, 0, e.c.width, e.c.height).data; // the whole image, whatever its scale
       let h = 2166136261;
       for (let i = 0; i < px.length; i++) h = Math.imul(h ^ px[i], 16777619);
       return (h >>> 0).toString(16).padStart(8, '0');
@@ -357,7 +370,7 @@
       };
     }
     return {
-      retainView, work, drawGround, workMinis, chunkHash, stats,
+      retainView, setScale, work, drawGround, workMinis, chunkHash, stats,
       mini: (cx, cy) => mini(cx, cy, false),
       has: (ix, iy) => images.has(ix + ',' + iy),
       pending: () => queue.map(q => [q[0], q[1]]),

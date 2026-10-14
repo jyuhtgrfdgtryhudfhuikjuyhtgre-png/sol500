@@ -21,7 +21,7 @@
   const store = {
     lang: LS.get('lang', /^vi/i.test(navigator.language || '') ? 'vi' : 'en'),
     screen: 'title',
-    settings: Object.assign({ difficulty: D.DEFAULT_DIFFICULTY, crewSize: D.DEFAULT_CREW, training: false }, LS.get('settings', {})),
+    settings: Object.assign({ difficulty: D.DEFAULT_DIFFICULTY, crewSize: D.DEFAULT_CREW, training: false, gfx: 'best', fpsCap: 0, showFps: false }, LS.get('settings', {})),
     seed: E.newMissionCode(),
     names: LS.get('names', {}),
     loadout: null,
@@ -50,6 +50,8 @@
     fog: {},
     launchSeen: null, // co-op: the launch number of the mission this tab last showed (see SolFog.isNewLaunch)
   };
+  // The Display settings (graphics level, FPS limit 0 = Max, readout) stay on this device. A stored value outside its set reads as the default.
+  Object.assign(store.settings, { gfx: store.settings.gfx === 'fast' ? 'fast' : 'best', fpsCap: [30, 60].includes(store.settings.fpsCap) ? store.settings.fpsCap : 0, showFps: store.settings.showFps === true });
   const saved = LS.get('save', null);
   if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
     // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
@@ -348,6 +350,7 @@
         h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { store.modal = 'notes'; render(); } }, ico('book'), t('nav.notes')),
         h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { store.modal = 'help'; render(); } }, ico('help'), t('nav.help')),
         h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { store.modal = 'badges'; render(); } }, ico('trophy'), t('nav.achievements')),
+        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { store.modal = 'display'; render(); } }, ico('gear'), t('nav.display')),
         langSeg()));
   }
 
@@ -823,6 +826,8 @@
       clock: lanOn() && Number.isFinite(store.room.clock) ? { t: store.room.clock, at: store.clockAt } : null,
       // Where your astronaut last stood this round, so a reload doesn't walk you home for free.
       lastPos: lanOn() ? (store.room.positions || []).find(q => q.crewId === ctl) || null : X.whereOf(s, ctl),
+      // The Display settings of this device: the graphics level, the FPS limit and the readout.
+      gfx: { quality: store.settings.gfx, fpsCap: store.settings.fpsCap, showFps: store.settings.showFps },
     });
     return h('div', { class: 'sf-stage' }, node, regionCard());
   }
@@ -930,6 +935,7 @@
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.help'), onclick: () => { store.modal = 'help'; render(); } }, ico('help')),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.notes'), onclick: () => { store.modal = 'notes'; render(); } }, ico('book')),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.achievements'), onclick: () => { store.modal = 'badges'; render(); } }, ico('trophy')),
+          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.display'), onclick: () => { store.modal = 'display'; render(); } }, ico('gear')),
           langSeg())),
       h('div', { class: 'meters' },
         h('div', { class: 'meter ' + (pw.habShort ? 'crit' : margin < 0 ? 'warn' : '') },
@@ -1741,7 +1747,22 @@
     }
     if (m === 'online' && window.solApp && lanOn() && isHost()) return modal(t('online.title'), onlineBody());
     if (m === 'report' && store.report) return reportModal(store.report);
+    if (m === 'display') return displayModal();
     return null;
+  }
+
+  // Display: a choice is saved at once and the surface follows on the re-render. Per device: a co-op server never sees it.
+  function displayModal() {
+    const st = store.settings;
+    const pick = (key, v) => { st[key] = v; saveSettings(); render(); };
+    const row = (label, choice, hint) => h('div', { class: 'setup-row' }, h('span', { class: 'eyebrow' }, label), choice, hint ? h('p', { class: 'hint' }, hint) : null);
+    return modal(t('display.title'), [
+      row(t('display.gfx'), seg('gfx', [{ value: 'best', label: t('display.gfx.best') }, { value: 'fast', label: t('display.gfx.fast') }], st.gfx, v => pick('gfx', v)),
+        t('display.gfx.' + st.gfx + '.hint')),
+      row(t('display.fpsCap'), seg('fpsCap', [{ value: 30, label: '30' }, { value: 60, label: '60' }, { value: 0, label: t('display.fpsCap.max') }], st.fpsCap, v => pick('fpsCap', v)),
+        t('display.fpsCap.hint')),
+      row(t('display.showFps'), seg('showFps', [{ value: false, label: t('common.off') }, { value: true, label: t('common.on') }], st.showFps, v => pick('showFps', v))),
+    ]);
   }
 
   function reportModal(r) {
