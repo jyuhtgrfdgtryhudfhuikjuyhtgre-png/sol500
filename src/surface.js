@@ -553,6 +553,8 @@
       p.phase += dt * sp / 26;
       S.hintUntil = Math.min(S.hintUntil, S.time + 3);
     }
+    // A throw obeys the exploring rules like a step: once the suit is out it ends where the collapse was asked for, not 2 tiles on.
+    if (p.push && !S.eva.canMove(p, p.x + p.push.x, p.y + p.push.y)) p.push = null;
     if (p.push) { // a dust devil throws you aside (spec §3.4): a short slide that stops at walls and ends a click-to-walk
       const k = Math.min(1, dt / p.push.left), sx = p.push.x * k, sy = p.push.y * k;
       if (S.qa.ghost || !hitsWall(p.x + sx, p.y)) p.x += sx;

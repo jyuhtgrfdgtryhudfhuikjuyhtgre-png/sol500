@@ -412,24 +412,30 @@ test("a dust devil's throw stops at a wall: you are never left inside rock", () 
   assert.ok(Math.hypot(p.x - from.x, p.y - from.y) < 2 * T - 8, 'the rock stopped the throw short of 2 tiles');
 });
 
+// A formed devil just north of the middle of an open tile, with open ground 2 tiles south of it: its throw heads south, a full
+// 2 tiles (from the HQ's doorstep that is out of the base zone). { t, tx, ty }: the round clock, and the tile to stand on.
+function devilThrowingSouth(m) {
+  const open = (tx, ty) => !W.BLOCKING[X.chunkAt(m, Math.floor(tx / 32), Math.floor(ty / 32)).tiles[(ty - Math.floor(ty / 32) * 32) * 32 + tx - Math.floor(tx / 32) * 32]];
+  for (let t = 30; t < 900; t += 0.25) {
+    for (const d of Z.devils(m, 30 * T, -60 * T, 120 * T, 60 * T, t)) {
+      const tx = Math.floor(d.x / T), ty = Math.floor(d.y / T), north = ty * T + 32 - d.y;
+      if (d.a === 1 && north > 8 && north < 20 && Math.abs(tx * T + 32 - d.x) < 4 && open(tx, ty) && open(tx, ty + 1) && open(tx, ty + 2)) return { t, tx, ty };
+    }
+  }
+  return null;
+}
+
 test("a dust devil's hit that empties the suit collapses you where it caught you and throws nobody: the benched astronaut sits at the base", async () => {
   const devilRound = () => { const m = mission({ seed: 'THROW-COLLAPSE' }); m.schedule[m.turn].devil = true; return m; };
   const m = devilRound();
-  const open = (tx, ty) => !W.BLOCKING[X.chunkAt(m, Math.floor(tx / 32), Math.floor(ty / 32)).tiles[(ty - Math.floor(ty / 32) * 32) * 32 + tx - Math.floor(tx / 32) * 32]];
-  // A formed devil just north of the middle of an open tile, so a throw would head south: from the HQ's doorstep, out of the base zone.
-  let hit = null;
-  for (let t = 30; t < 900 && !hit; t += 0.25) {
-    for (const d of Z.devils(m, 30 * T, -60 * T, 120 * T, 60 * T, t)) {
-      const tx = Math.floor(d.x / T), ty = Math.floor(d.y / T), north = ty * T + 32 - d.y;
-      if (d.a === 1 && north > 8 && north < 20 && Math.abs(tx * T + 32 - d.x) < 4 && open(tx, ty)) { hit = { t, tx, ty }; break; }
-    }
-  }
+  const hit = devilThrowingSouth(m);
   assert.ok(hit, 'a devil to stand under');
   const pg = page(m, 'minh');
   pg.qa.suit(5); // the hit's 10 s empty it
   pg.qa.teleport(hit.tx, hit.ty);
   pg.qa.clock(hit.t);
   pg.step(0.05); // the hit and the collapse are asked for in the same frame
+  assert.equal(pg.probe().push, null, 'a hit that empties the suit throws nobody');
   await flush(); // and the collapse is answered at the end of it: back at the base
   assert.deepEqual(plain(m.expedition.benched), ['minh'], 'minh collapsed');
   assert.equal(pg.probe().push, null, 'no throw is left to carry the benched astronaut off');
@@ -445,6 +451,28 @@ test("a dust devil's hit that empties the suit collapses you where it caught you
   assert.ok(pg2.probe().push, 'thrown');
   pg2.show(E.resolveTurn(m2, E.defaultPlan(m2)).state);
   assert.equal(pg2.probe().push, null, 'a new round starts you at the HQ with no throw left');
+});
+
+test("co-op: a dust devil's hit that leaves a sliver of suit throws, but the throw ends when the suit runs out: the body lies where the collapse is anchored", () => {
+  const m = mission({ seed: 'THROW-COLLAPSE', coop: true });
+  m.schedule[m.turn].devil = true;
+  const hit = devilThrowingSouth(m);
+  assert.ok(hit, 'a devil to stand under');
+  const pg = page(m, 'minh');
+  pg.qa.suit(10.06); // the hit's 10 s leave a sliver: the suit runs out a frame or two into the 0.25 s slide
+  pg.qa.teleport(hit.tx, hit.ty);
+  pg.qa.clock(hit.t);
+  const from = pg.probe().player;
+  pg.step(0.05);
+  assert.ok(pg.probe().push, 'thrown: the hit leaves suit');
+  for (let i = 0; i < 10 && !pg.calls.includes('collapse'); i++) pg.step(0.05);
+  assert.deepEqual(pg.calls, ['collapse'], 'the suit ran out during the slide, and the collapse was asked for');
+  pg.step(0.05); // the next frame
+  assert.equal(pg.probe().push, null, 'the slide ended with the suit');
+  pg.step(0.5);
+  const spot = plain(m.expedition.collapsed.minh), p = pg.probe().player;
+  assert.deepEqual([Math.round(p.x), Math.round(p.y)], [spot.x, spot.y], 'the body lies where the server anchored the collapse, where a crewmate can revive it');
+  assert.ok(Math.hypot(p.x - from.x, p.y - from.y) < T, 'well short of a full throw');
 });
 
 test("the flare's banner takes the hint's place at the top of the surface", async () => {
