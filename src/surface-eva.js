@@ -269,7 +269,8 @@
           if (p.sprinting) k *= XD.drain.sprint;
           if (world.region(Math.floor(p.x / T), Math.floor(p.y / T)) === ICY) k *= XD.drain.icy;
           suit = Math.max(0, suit - dt * k);
-          // A dust devil that catches you on foot throws you aside and takes suit time (spec §3.4); the rover is immune.
+          // A dust devil that catches you on foot throws you aside and takes suit time (spec §3.4); the rover is immune. A hit
+          // that empties the suit throws nobody: you collapse where it caught you, which is where the server anchors it.
           const d = !p.inRover && now - hitAt > ZD.devils.calm ? Z.devilHit(m, p, clock()) : null;
           if (d) {
             hitAt = now;
@@ -278,7 +279,7 @@
             let dx = p.x - d.x, dy = p.y - d.y;
             const len = Math.sqrt(dx * dx + dy * dy);
             if (len < 1) { dx = d.dx; dy = d.dy; } else { dx /= len; dy /= len; }
-            if (env.push) env.push(dx * ZD.devils.push * T, dy * ZD.devils.push * T);
+            if (env.push && suit > 0) env.push(dx * ZD.devils.push * T, dy * ZD.devils.push * T);
             say(t('eva.devil', { s: ZD.devils.suit }), 'warn', 4);
           }
           if (suit <= 0 && now - collapseAt > 3) {

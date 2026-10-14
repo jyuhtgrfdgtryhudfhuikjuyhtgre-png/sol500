@@ -336,7 +336,7 @@
   function moveToCrewmate(id) {
     const p = S.player, from = S.npcs[id] || S.remote[id];
     const [x, y] = from ? [from.x, from.y] : spawnPoint();
-    Object.assign(p, { x, y, dir: (from && from.dir) || 'down', path: null, inRover: false, autoFocus: null, faceTo: null });
+    Object.assign(p, { x, y, dir: (from && from.dir) || 'down', path: null, push: null, inRover: false, autoFocus: null, faceTo: null });
     delete S.npcs[id];
     S.pendingAuto = null;
     S.camSnap = true;
@@ -347,7 +347,7 @@
     const p = S.player;
     if (!p) return;
     const [x, y] = spawnPoint();
-    Object.assign(p, { x, y, dir: 'down', path: null, inRover: false, autoFocus: null, faceTo: null });
+    Object.assign(p, { x, y, dir: 'down', path: null, push: null, inRover: false, autoFocus: null, faceTo: null });
     S.pendingAuto = null;
     S.camSnap = true;
     if (S.menuOpen) closeMenu();
@@ -367,7 +367,7 @@
     const down = S.eva.collapsed(data.controlId) ? data.mission.expedition.collapsed[data.controlId] : null; // co-op: waiting for a revive
     const back = data.lastPos && Number.isFinite(data.lastPos.x) && Number.isFinite(data.lastPos.y) ? data.lastPos : null;
     const place = spot => {
-      Object.assign(S.player, { x: spot.x, y: spot.y, path: null, autoFocus: null, faceTo: null });
+      Object.assign(S.player, { x: spot.x, y: spot.y, path: null, push: null, autoFocus: null, faceTo: null });
       S.pendingAuto = null;
       S.camSnap = true;
     };

@@ -412,6 +412,41 @@ test("a dust devil's throw stops at a wall: you are never left inside rock", () 
   assert.ok(Math.hypot(p.x - from.x, p.y - from.y) < 2 * T - 8, 'the rock stopped the throw short of 2 tiles');
 });
 
+test("a dust devil's hit that empties the suit collapses you where it caught you and throws nobody: the benched astronaut sits at the base", async () => {
+  const devilRound = () => { const m = mission({ seed: 'THROW-COLLAPSE' }); m.schedule[m.turn].devil = true; return m; };
+  const m = devilRound();
+  const open = (tx, ty) => !W.BLOCKING[X.chunkAt(m, Math.floor(tx / 32), Math.floor(ty / 32)).tiles[(ty - Math.floor(ty / 32) * 32) * 32 + tx - Math.floor(tx / 32) * 32]];
+  // A formed devil just north of the middle of an open tile, so a throw would head south: from the HQ's doorstep, out of the base zone.
+  let hit = null;
+  for (let t = 30; t < 900 && !hit; t += 0.25) {
+    for (const d of Z.devils(m, 30 * T, -60 * T, 120 * T, 60 * T, t)) {
+      const tx = Math.floor(d.x / T), ty = Math.floor(d.y / T), north = ty * T + 32 - d.y;
+      if (d.a === 1 && north > 8 && north < 20 && Math.abs(tx * T + 32 - d.x) < 4 && open(tx, ty)) { hit = { t, tx, ty }; break; }
+    }
+  }
+  assert.ok(hit, 'a devil to stand under');
+  const pg = page(m, 'minh');
+  pg.qa.suit(5); // the hit's 10 s empty it
+  pg.qa.teleport(hit.tx, hit.ty);
+  pg.qa.clock(hit.t);
+  pg.step(0.05); // the hit and the collapse are asked for in the same frame
+  await flush(); // and the collapse is answered at the end of it: back at the base
+  assert.deepEqual(plain(m.expedition.benched), ['minh'], 'minh collapsed');
+  assert.equal(pg.probe().push, null, 'no throw is left to carry the benched astronaut off');
+  pg.step(0.5);
+  const p = pg.probe().player;
+  assert.ok(X.inBaseZone(p), 'minh sits out the round at the base: ' + Math.round(p.x) + ',' + Math.round(p.y));
+
+  // A hit that leaves suit still throws; and a throw still sliding when a new round puts you back at the HQ is over.
+  const m2 = devilRound(), pg2 = page(m2, 'minh');
+  pg2.qa.teleport(hit.tx, hit.ty);
+  pg2.qa.clock(hit.t);
+  pg2.step(0.05);
+  assert.ok(pg2.probe().push, 'thrown');
+  pg2.show(E.resolveTurn(m2, E.defaultPlan(m2)).state);
+  assert.equal(pg2.probe().push, null, 'a new round starts you at the HQ with no throw left');
+});
+
 test("the flare's banner takes the hint's place at the top of the surface", async () => {
   const m = mission({ seed: 'BANNER-1' });
   m.schedule[m.turn].spe = true;
