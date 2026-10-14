@@ -459,7 +459,7 @@
     S.eva.step(dt, S.player, S.world, moved, S.focus);
     stream(t0);
     explore(ts);
-    draw();
+    draw(dt);
     const st = mapState();
     S.map.drawMini(st, ts);
     S.map.frame(st, performance.now() + 6);
@@ -999,7 +999,7 @@
     ctx.restore();
   }
 
-  function draw() {
+  function draw(dt = 1 / 60) { // dt: the seconds since the last frame (it moves the camera and the dust at the same speed at any frame rate)
     const ctx = S.ctx, v = S.view, m = S.data.mission, plan = S.data.plan, fc = S.data.forecast;
     if (!v.w) resize();
     const p = S.player;
@@ -1007,8 +1007,9 @@
     // The camera follows you anywhere: the world has no edges.
     const targetX = p.x - viewW / 2, targetY = p.y - 20 - viewH / 2;
     if (S.camSnap) { v.camX = targetX; v.camY = targetY; S.camSnap = false; }
-    v.camX += (targetX - v.camX) * 0.15;
-    v.camY += (targetY - v.camY) * 0.15;
+    const ease = 1 - Math.pow(0.85, dt * 60); // the camera closes 0.15 of the gap a frame at 60 Hz: the same share of it per second at any rate
+    v.camX += (targetX - v.camX) * ease;
+    v.camY += (targetY - v.camY) * ease;
     const x0 = v.camX, y0 = v.camY, x1 = x0 + viewW, y1 = y0 + viewH;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#3a1d14';
@@ -1142,8 +1143,8 @@
     const wind = weather === 'global' ? 160 : weather === 'regional' ? 90 : 18;
     ctx.fillStyle = '#e7b88a';
     for (const q of S.particles) {
-      q.x += (wind + q.s * 20) * 0.016;
-      q.y += Math.sin(S.time + q.s * 3) * 0.3;
+      q.x += (wind + q.s * 20) * dt;
+      q.y += Math.sin(S.time + q.s * 3) * 18 * dt;
       if (q.x > v.w + 4) { q.x = -4; q.y = Math.random() * v.h; }
       ctx.globalAlpha = q.a;
       ctx.fillRect(q.x, q.y, q.s * 1.6, q.s);
@@ -1185,7 +1186,7 @@
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
-      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length,
+      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x),
     };
   }
 

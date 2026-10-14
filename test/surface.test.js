@@ -599,6 +599,37 @@ test('the FPS limit does not slow the game: a skipped callback leaves its time t
   assert.equal(slow.fps, 30, 'the reading is the rate of the frames drawn, not of the callbacks');
 });
 
+test("the camera's ease and the dust's drift keep real time: a 30 FPS limit and a 144 Hz screen look the same as 60 Hz", () => {
+  const m = mission({ seed: 'REAL-1' });
+  m.schedule[m.turn].weather = 'clear';
+  // How far the camera trails a walker after a second of walking east: the astronaut's distance from the middle of the screen, in px.
+  const trail = (hz, cap) => {
+    const pg = page(m, 'minh', { gfx: { fpsCap: cap } });
+    pg.qa.ghost(true);
+    pg.qa.teleport(30, 4);
+    pg.frames(hz, 0.5);
+    pg.qa.hold('KeyD', true);
+    pg.frames(hz, 1);
+    const { player, toScreen } = pg.probe();
+    return toScreen(player.x, player.y)[0] - 960 / 2; // the stage is 960 px wide
+  };
+  const at60 = trail(60, 0), limited = trail(60, 30), at144 = trail(144, 0);
+  assert.ok(at60 > 12 && at60 < 30, 'the camera trails a walker by about 20 px at 60 Hz: ' + at60);
+  assert.ok(Math.abs(limited - at60) < 3, 'a 30 FPS limit trails ' + limited + ' px against ' + at60 + ' at 60 Hz');
+  assert.ok(Math.abs(at144 - at60) < 3, '144 Hz trails ' + at144 + ' px against ' + at60 + ' at 60 Hz');
+  // The same grains of dust drift as far in a second at a 30 FPS limit as at 60 Hz (the wind of a clear sky is 18 px/s, and a grain adds 20 per unit of its size).
+  const pg = page(m, 'minh');
+  const drift = secs => { const from = pg.probe().dustX; pg.frames(60, secs); return pg.probe().dustX.map((x, i) => x - from[i]); };
+  pg.frames(60, 0.5);
+  const d60 = drift(1);
+  pg.setGfx({ fpsCap: 30 });
+  pg.frames(60, 0.5);
+  const d30 = drift(1);
+  const both = d60.map((d, i) => [d, d30[i]]).filter(([a, b]) => a > 0 && b > 0); // a grain that went round the screen's edge says nothing
+  assert.ok(both.length > 20, 'most of the 39 grains stay on screen for both seconds: ' + both.length);
+  for (const [a, b] of both) assert.ok(Math.abs(b / a - 1) < 0.05, 'a grain drifts ' + b.toFixed(1) + ' px in a second at 30 FPS, ' + a.toFixed(1) + ' at 60 Hz');
+});
+
 test('the FPS readout is hidden unless Show FPS is on; then it reads "<n> FPS", refreshed at most four times a second', () => {
   const m = mission({ seed: 'READ-1' });
   const chipOf = pg => pg.overlay.children.find(c => c.className === 'sf-fps');
