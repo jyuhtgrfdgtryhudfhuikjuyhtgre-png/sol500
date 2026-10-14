@@ -91,6 +91,9 @@
     const text = (n, k, v) => { if (shown[k] !== v) { shown[k] = v; n.textContent = v; } };
     const prop = (k, v, set) => { if (shown[k] !== v) { shown[k] = v; set(v); } };
 
+    // Are you under cover from the flare? In co-op the server judges with the slack every checked action gets (it knows
+    // where you were a moment ago), so the banner and the red edge ask the same; solo has none.
+    const covered = p => !!(p && Z.shelterAt(mission(), p, mission().coop ? XD.reach : 0));
     // The flare as your astronaut sees it: null, or { cls, msg, left (seconds, or null) } for the banner.
     function flareView(p) {
       const m = mission(), f = m && m.expedition && m.expedition.flare;
@@ -99,8 +102,8 @@
       if (!f.over) {
         if (rt < f.warn) return null;
         if (rt >= f.end) return { cls: 'crit', msg: t('eva.flare.now'), left: null };
-        const covered = !!(p && Z.shelterAt(m, p, 0));
-        return { cls: covered ? 'ok' : 'crit', msg: t(covered ? 'eva.flare.covered' : 'eva.flare.run'), left: Math.ceil(f.end - rt) };
+        const safe = covered(p);
+        return { cls: safe ? 'ok' : 'crit', msg: t(safe ? 'eva.flare.covered' : 'eva.flare.run'), left: Math.ceil(f.end - rt) };
       }
       if (rt >= f.end + VERDICT) return null;
       const hit = f.hit.includes(me);
@@ -460,7 +463,7 @@
       const m = mission(), f = m && m.expedition && m.expedition.flare;
       if (!f || !me) return { warn: 0, flash: 0 };
       const rt = clock(), counting = !f.over && rt >= f.warn && rt < f.end;
-      const warn = counting && !(p && Z.shelterAt(m, p, 0)) ? Math.max(0, Math.min(1, (rt - f.warn) / ZD.flare.countdown)) : 0;
+      const warn = counting && !covered(p) ? Math.max(0, Math.min(1, (rt - f.warn) / ZD.flare.countdown)) : 0;
       const flash = rt >= f.end && rt < f.end + 1.5 ? 1 - (rt - f.end) / 1.5 : 0;
       return { warn, flash };
     }

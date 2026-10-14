@@ -356,6 +356,38 @@ test("co-op: the layer never times a flare itself; it runs the server's clock an
   assert.equal(s.eva.clock(), 96, "the round clock is the server's");
 });
 
+test("co-op: the banner and the red edge judge cover with the slack the server gives every checked action; solo has none", () => {
+  const spot = NEAR(3, 1); // the first tile outside the base zone (tiles −2 to 2), but inside the server's 1.5 tiles of slack
+  const far = NEAR(6, 1);  // past the slack as well
+  const flare = { warn: 35, end: 95, over: false, hit: [] };
+  const coop = flareMission('EVA-FLARE-5', { coop: true });
+  coop.expedition.flare = Object.assign({}, flare);
+  assert.equal(X.inBaseZone(spot), false, 'outside the base zone itself');
+  assert.ok(Z.shelterAt(coop, spot, D.EXPEDITION.reach), 'but the server covers it (lib/rooms.js, the flare)');
+  assert.equal(Z.shelterAt(coop, far, D.EXPEDITION.reach), null, 'and does not cover the far spot');
+  const c = setup({ mission: coop, t: say, clock: { t: 40, at: 0 } });
+  tick(c, spot, 0.1);
+  assert.equal(banner(c).msg, 'eva.flare.covered', "the banner agrees with the server's verdict");
+  assert.match(banner(c).cls, /ok/);
+  assert.equal(c.eva.flareFx(spot).warn, 0, 'no red edge');
+  tick(c, far, 0.1);
+  assert.equal(banner(c).msg, 'eva.flare.run', 'beyond the slack: run for cover');
+  assert.ok(c.eva.flareFx(far).warn > 0, 'and the red edge is on');
+
+  // Solo judges with no slack (nothing is sent to a server), so the same spot is in the open there.
+  const solo = flareMission('EVA-FLARE-5');
+  solo.expedition.flare = Object.assign({}, flare);
+  solo.expedition.clock = 40;
+  const s = setup({ mission: solo, t: say });
+  tick(s, spot, 0.1);
+  assert.equal(banner(s).msg, 'eva.flare.run');
+  assert.match(banner(s).cls, /crit/);
+  const warn = s.eva.flareFx(spot).warn;
+  assert.ok(warn > 0, 'the red edge is on');
+  tick(s, spot, 10);
+  assert.ok(s.eva.flareFx(spot).warn > warn, 'and grows');
+});
+
 // A dust devil, fully formed, far from the base, and the round clock when it is there.
 function formedDevil(m) {
   for (let t = 30; t < 400; t += 0.5) {
