@@ -561,6 +561,20 @@ test("co-op: a driver whose game says they got out has parked the rover there, e
   assert.equal(say(R, room, host, 'fly').body.error, 'badAction', 'an unknown action is refused, and parks nothing');
 });
 
+test("co-op: a rover:false position that lands just after the board is not a park: only a driver who was in the rover and got out has parked it", () => {
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  say(R, room, host, 'claim', { crewId: 'lena' });
+  say(R, room, host, 'phase', { phase: 'manifest' });
+  say(R, room, host, 'loadout', { loadout: Object.assign({}, room.loadout, { rover: 1, waterwall: 0 }) });
+  say(R, room, host, 'launch');
+  const bay = X.bay(room.mission);
+  R.position(room, host, bay);
+  assert.equal(say(R, room, host, 'board').status, 200);
+  R.position(room, host, Object.assign({}, bay, { rover: false })); // sent on foot a moment before boarding, landing after the board
+  assert.deepEqual(room.mission.expedition.rover, { driver: 'lena' }, 'still the driver: the rover is not back in its bay');
+});
+
 test("every room frame carries the round's clock: seconds since the round began, from 0 again each round", t => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
   const { R, room, host } = inMission();
