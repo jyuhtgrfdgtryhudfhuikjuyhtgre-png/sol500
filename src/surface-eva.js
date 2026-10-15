@@ -103,7 +103,8 @@
         if (rt < f.warn) return null;
         if (rt >= f.end) return { cls: 'crit', msg: t('eva.flare.now'), left: null };
         const safe = covered(p);
-        return { cls: safe ? 'ok' : 'crit', msg: t(safe ? 'eva.flare.covered' : 'eva.flare.run'), left: Math.ceil(f.end - rt) };
+        // − 1e-6: float noise (263.182 − 203.182 is 60.00000000000003) must not round a whole second up to 61.
+        return { cls: safe ? 'ok' : 'crit', msg: t(safe ? 'eva.flare.covered' : 'eva.flare.run'), left: Math.ceil(f.end - rt - 1e-6) };
       }
       if (rt >= f.end + VERDICT) return null;
       const hit = f.hit.includes(me);

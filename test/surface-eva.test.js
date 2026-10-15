@@ -356,6 +356,14 @@ test("co-op: the layer never times a flare itself; it runs the server's clock an
   assert.equal(s.eva.clock(), 96, "the round clock is the server's");
 });
 
+test('a clock that lands exactly on the warning shows the full 60 s, never 61 from rounding noise', () => {
+  const m = flareMission('EVA-FLARE-6', { coop: true });
+  m.expedition.flare = { warn: 203.182, end: 263.182, over: false, hit: [] }; // QA's room: 263.182 − 203.182 is 60.00000000000003
+  const s = setup({ mission: m, t: say, clock: { t: 203.182, at: 0 } });
+  tick(s, NEAR(6, 4), 0.1);
+  assert.equal(banner(s).secs, 'eva.secs {"s":60}');
+});
+
 test("co-op: the banner and the red edge judge cover with the slack the server gives every checked action; solo has none", () => {
   const spot = NEAR(3, 1); // the first tile outside the base zone (tiles −2 to 2), but inside the server's 1.5 tiles of slack
   const far = NEAR(6, 1);  // past the slack as well
