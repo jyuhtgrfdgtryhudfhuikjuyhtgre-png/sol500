@@ -235,15 +235,18 @@ test('one seat can hold three sockets but not a fourth', async t => {
 });
 
 test('a socket that stops answering pings is dropped; one that answers stays', async t => {
-  const { rooms, port } = await bare(t, { heartbeatMs: 50 });
+  // A beat longer than the event loop ever stalls in a busy `npm test`: after a stall, timers run before the socket is
+  // read, so a pong still unread when the next beat fires drops a healthy socket (50 ms beats did, now and then).
+  const heartbeatMs = 250;
+  const { rooms, port } = await bare(t, { heartbeatMs });
   const { room, player } = rooms.create('Host');
   const url = 'ws://127.0.0.1:' + port + seatPath(room, player);
   const silent = new WsClient(url, { autoPong: false });
   const healthy = new WsClient(url);
   await Promise.all([wsOpen(silent), wsOpen(healthy)]);
   assert.equal(await wsClosed(silent), 1006, 'terminated, not closed politely');
-  await new Promise(r => setTimeout(r, 200));
-  assert.equal(healthy.readyState, WsClient.OPEN);
+  await new Promise(r => setTimeout(r, 2 * heartbeatMs + 50));
+  assert.equal(healthy.readyState, WsClient.OPEN, 'still open two beats later');
   healthy.close();
 });
 
