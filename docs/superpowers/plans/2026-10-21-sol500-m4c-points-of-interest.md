@@ -60,7 +60,7 @@ Follow-ups this plan takes:
 
 ## Rulings made while planning (binding unless the user overrules them)
 
-1. **The weather station's forecast** (needs the user's OK, spec §13.11). The console has no look-ahead today; spec §4 says `mission.forecastBonus` and `E.forecast`. Instead: repairing a station sets `x.forecastUntil` to the round of the repair + 3, and while `X.forecastAhead(m)` returns a weather the top bar shows "Next round: {weather}" beside this round's weather chip (dashed, in that weather's colours). Nothing counts down at the advance, and it lives in the expedition state the save repair already covers.
+1. **The weather station's forecast** (approved by the user on 2026-10-21, "yes that what i want"; spec §13.11). The console has no look-ahead today; spec §4 says `mission.forecastBonus` and `E.forecast`. Instead: repairing a station sets `x.forecastUntil` to the round of the repair + 3, and while `X.forecastAhead(m)` returns a weather the top bar shows "Next round: {weather}" beside this round's weather chip (dashed, in that weather's colours). Nothing counts down at the advance, and it lives in the expedition state the save repair already covers.
 2. **Structure loads go straight into the backpack;** what doesn't fit is left as a drop at the door, picked up with the existing `pickUp`. A cache holds 1–2 supplies (an O₂ canister, a spare kit or food, by the cargo pod's pick), a wreck 2–3 × 40 kg materials and a spare kit, an array 2 × 40 kg materials; all fixed by the structure's cell hash. `x.structures[id]` becomes `'used'` or `'repaired'`.
 3. **Discovery.** The server allows a discovery from up to **15.5 tiles** from the landmark's centre (the rover's 10 on a crest, +4, +1.5 slack): weather and walking only shrink a view, so this never refuses a real sighting. The game asks when the centre comes inside the fog's own view, once while the answer is out, again 3 s after a refusal. The reward is `80 + hash % 71` by the landmark (the same in every mission of a world), ×1.5 for the Scientist, banked at once for the discoverer. Every refusal of `discover` and `refill` is silent: the player pressed nothing.
 4. **Hab pods.** Cover is the footprint widened by the slack, its amber ring at the door. A refill is per pod, per crew member, per round (`x.refills[crewId]` holds pod ids; the round roll-over clears it). The game sends it while the tile under you is in the pod's 5×5 box, at most every 2 s. While you're inside, the pod is drawn as its room, its roof hidden.
@@ -6815,7 +6815,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - §12: tick "Landmarks with discovery cards (M4c)" and "Random structures and natural formations (M4c)";
   - the Status line reads "M1–M3, M4a, M4b and M4c shipped (v3.5.0); M4d and M5 to do";
   - §4: `mission.forecastBonus` → `x.forecastUntil` (a round, `-1` none), read by `X.forecastAhead`; §5's API list as built (`interact`, `discover`, `refill`, `forecastAhead`, `mastMarks`); §3.6: a discovery may be claimed from 15.5 tiles;
-  - §13 gains item 11: Ruling 1 (the weather station's forecast), for the user's OK.
+  - §13 gains item 11: Ruling 1 (the weather station's forecast), approved by the user on 2026-10-21 ("yes that what i want").
 - Create: `docs/superpowers/plans/2026-10-21-sol500-m4c-followups.md`
 - Modify: `package.json` (`"version": "3.5.0"`)
 - Rebuild: `dist/` (`node tools/build.js`, committed), `dist-app/` (git-ignored)
