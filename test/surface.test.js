@@ -75,8 +75,8 @@ function element(tag) {
   return n;
 }
 
-// A page showing mission `m` as crew member `me`. Exploring actions run the real rules on the mission the page was last
-// shown, then show it again: ui.js renders the same mission after a solo action, and a co-op room broadcasts a new copy
+// A page showing mission `m` as crew member `me`. Exploring actions run the rules' one table (Z.act) on the mission the page
+// was last shown, then show it again: ui.js renders the same mission after a solo action, and a co-op room broadcasts a new copy
 // (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for. Like ui.js, the page
 // is shown where its astronaut last stood (the solo save; `opts.lastPos` stands for the co-op server's position).
 // `opts.dpr` is the screen's pixel ratio (1); `opts.gfx` the Display settings the page passes to update (setGfx changes them).
@@ -109,14 +109,7 @@ function page(m, me, opts) {
   const hooks = {
     exp: (type, payload, pos) => {
       calls.push(type);
-      const p = payload || {};
-      const run = {
-        collect: () => X.collect(cur, me, p.find, pos), deliver: () => X.deliver(cur, me, pos), canister: () => X.useCanister(cur, me, pos, p.suit),
-        pickup: () => X.pickUp(cur, me, p.drop, pos), collapse: () => X.collapse(cur, me, pos, p.driven), revive: () => X.revive(cur, me, p.target, pos),
-        board: () => X.board(cur, me, pos), park: () => X.park(cur, me, pos, p.driven),
-        flareStart: () => Z.flareStart(cur, p.t), flareEnd: () => Z.flareEnd(cur, { [me]: pos }, 0, p.t),
-      }[type];
-      const r = run ? run() : { error: 'badAction' };
+      const r = Z.act(cur, me, type, payload, pos);
       if (!r.error) show(cur);
       return Promise.resolve(r);
     },
@@ -580,6 +573,19 @@ test('the FPS limit is an average: 30 on a 60 Hz screen draws 30 frames a second
   assert.ok(Math.max(...gaps) - Math.min(...gaps) < 0.01, 'evenly spaced draws, not ' + [...new Set(gaps.map(g => g.toFixed(1)))].join(' / ') + ' ms');
 });
 
+test('a new quality is drawn at once, even under an FPS limit: the resize cleared the canvas, so the next callback draws although no frame is due', () => {
+  const m = mission({ seed: 'CAP-3' });
+  const pg = page(m, 'minh', { gfx: { fpsCap: 30 } });
+  // One callback of a 144 Hz screen, 7 ms after the last: 1 if it drew. At a limit of 30 a frame is due 33 ms after the one before.
+  const one = () => pg.frames(144, 1 / 144);
+  pg.frames(144, 0.5);
+  let n = 0;
+  while (!one()) assert.ok(++n < 5, 'a frame is drawn at least every five callbacks');
+  assert.equal(one(), 0, 'the callback 7 ms after a drawn frame is skipped');
+  pg.setGfx({ quality: 'fast', fpsCap: 30 });
+  assert.equal(one(), 1, 'the callback 14 ms after it draws: the new quality resized the canvas, which cleared it');
+});
+
 test('the FPS limit does not slow the game: a skipped callback leaves its time to the next frame; the fps reading is the rate actually drawn', () => {
   const m = mission({ seed: 'CAP-2' });
   const run = cap => {
@@ -599,7 +605,7 @@ test('the FPS limit does not slow the game: a skipped callback leaves its time t
   assert.equal(slow.fps, 30, 'the reading is the rate of the frames drawn, not of the callbacks');
 });
 
-test("the camera's ease and the dust's drift keep real time: a 30 FPS limit and a 144 Hz screen look the same as 60 Hz", () => {
+test("the camera's ease and the dust's drift and sway keep real time: a 30 FPS limit and a 144 Hz screen look the same as 60 Hz", () => {
   const m = mission({ seed: 'REAL-1' });
   m.schedule[m.turn].weather = 'clear';
   // How far the camera trails a walker after a second of walking east: the astronaut's distance from the middle of the screen, in px.
@@ -617,17 +623,23 @@ test("the camera's ease and the dust's drift keep real time: a 30 FPS limit and 
   assert.ok(at60 > 12 && at60 < 30, 'the camera trails a walker by about 20 px at 60 Hz: ' + at60);
   assert.ok(Math.abs(limited - at60) < 3, 'a 30 FPS limit trails ' + limited + ' px against ' + at60 + ' at 60 Hz');
   assert.ok(Math.abs(at144 - at60) < 3, '144 Hz trails ' + at144 + ' px against ' + at60 + ' at 60 Hz');
-  // The same grains of dust drift as far in a second at a 30 FPS limit as at 60 Hz (the wind of a clear sky is 18 px/s, and a grain adds 20 per unit of its size).
-  const pg = page(m, 'minh');
-  const drift = secs => { const from = pg.probe().dustX; pg.frames(60, secs); return pg.probe().dustX.map((x, i) => x - from[i]); };
+  // The same grains of dust drift as far in a second at a 30 FPS limit as at 60 Hz (the wind of a clear sky is 18 px/s, and a grain adds 20 per unit of its size),
+  // and sway as far up or down. The sway is a sine of the clock, so the second at 60 Hz starts 2π s after the one at 30 FPS, at the
+  // same point of every grain's sway; the second at 30 FPS starts on a drawn frame, so it ends on one.
+  const pg = page(m, 'minh', { gfx: { fpsCap: 30 } });
+  const drift = secs => { const a = pg.probe(); pg.frames(60, secs); const b = pg.probe(); return b.dustX.map((x, i) => [x - a.dustX[i], b.dustY[i] - a.dustY[i]]); };
   pg.frames(60, 0.5);
-  const d60 = drift(1);
-  pg.setGfx({ fpsCap: 30 });
-  pg.frames(60, 0.5);
+  assert.ok(pg.frames(60, 1 / 60) || pg.frames(60, 1 / 60), 'one of any two callbacks draws');
   const d30 = drift(1);
-  const both = d60.map((d, i) => [d, d30[i]]).filter(([a, b]) => a > 0 && b > 0); // a grain that went round the screen's edge says nothing
+  pg.setGfx({ fpsCap: 0 });
+  pg.frames(60, 2 * Math.PI - 1);
+  const d60 = drift(1);
+  const both = d60.map((d, i) => [d, d30[i]]).filter(([a, b]) => a[0] > 0 && b[0] > 0); // a grain that went round the screen's edge says nothing
   assert.ok(both.length > 20, 'most of the 39 grains stay on screen for both seconds: ' + both.length);
-  for (const [a, b] of both) assert.ok(Math.abs(b / a - 1) < 0.05, 'a grain drifts ' + b.toFixed(1) + ' px in a second at 30 FPS, ' + a.toFixed(1) + ' at 60 Hz');
+  for (const [a, b] of both) assert.ok(Math.abs(b[0] / a[0] - 1) < 0.05, 'a grain drifts ' + b[0].toFixed(1) + ' px in a second at 30 FPS, ' + a[0].toFixed(1) + ' at 60 Hz');
+  const swaying = both.filter(([a]) => Math.abs(a[1]) > 4); // at the turn of its sway a grain hardly moves up or down in a second
+  assert.ok(swaying.length > 15, 'most grains sway more than 4 px in a second: ' + swaying.length);
+  for (const [a, b] of swaying) assert.ok(Math.abs(b[1] / a[1] - 1) < 0.05, 'a grain sways ' + b[1].toFixed(1) + ' px in a second at 30 FPS, ' + a[1].toFixed(1) + ' at 60 Hz');
 });
 
 test('the FPS readout is hidden unless Show FPS is on; then it reads "<n> FPS", refreshed at most four times a second', () => {

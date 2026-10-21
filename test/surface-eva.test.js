@@ -28,8 +28,9 @@ function element() {
 const ART = fs.readFileSync(path.join(__dirname, '..', 'src', 'art.js'), 'utf8');
 const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'src', 'surface-eva.js'), 'utf8');
 
-// A surface layer for a mission; hooks run the real rules on it (as ui.js does in solo play) and record every call, every
-// 2-second report and every dust-devil push. `clock.now` is the wall clock the layer reads (co-op's round clock runs on it).
+// A surface layer for a mission; hooks run the rules' one table on it (Z.act, as ui.js does in solo play and the server in
+// co-op) and record every call, every 2-second report and every dust-devil push. `clock.now` is the wall clock the layer
+// reads (co-op's round clock runs on it).
 function setup(opts) {
   const o = opts || {};
   const sandbox = { SolData: D, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolPaint: P, SolWorld: SW, document: { createElement: element } };
@@ -41,13 +42,7 @@ function setup(opts) {
   const hooks = {
     exp: (type, payload, pos) => {
       calls.push({ type, payload, pos });
-      const p = payload || {};
-      const run = {
-        collect: () => X.collect(m, me, p.find, pos), deliver: () => X.deliver(m, me, pos), collapse: () => X.collapse(m, me, pos, p.driven),
-        canister: () => X.useCanister(m, me, pos, p.suit), pickup: () => X.pickUp(m, me, p.drop, pos), revive: () => X.revive(m, me, p.target, pos),
-        flareStart: () => Z.flareStart(m, p.t), flareEnd: () => Z.flareEnd(m, { [me]: pos }, 0, p.t),
-      }[type];
-      return Promise.resolve(run ? run() : { ok: true });
+      return Promise.resolve(Z.act(m, me, type, payload, pos));
     },
     suit: r => reports.push(JSON.parse(JSON.stringify(r))),
   };
@@ -394,6 +389,51 @@ test("co-op: the banner and the red edge judge cover with the slack the server g
   assert.ok(warn > 0, 'the red edge is on');
   tick(s, spot, 10);
   assert.ok(s.eva.flareFx(spot).warn > warn, 'and grows');
+});
+
+// A 2D context that keeps the middle of every ellipse drawn: the amber rings round the cover.
+function ringRecorder() {
+  const at = [];
+  const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : k === 'ellipse' ? (x, y) => at.push([x, y]) : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
+  return { ctx, at };
+}
+
+test("while a flare's warning runs, the amber rings mark every cover the lister has in view, from the chunks the surface holds", () => {
+  const m = flareMission('EVA-RINGS');
+  m.layout = m.layout.filter(k => !(k.x === 8 && k.y === 2));
+  m.layout.push({ type: 'shelter', x: 8, y: 2 }); // world tile (4, 0)
+  m.modules.shelter.count = 1;
+  m.expedition.flare = { warn: 0, end: 600, over: false, hit: [] }; // the countdown runs from the start
+  const s = setup({ mission: m, t: say });
+  const view = [-64, -128, 1280, 1600]; // tiles −1 to 20 across and −2 to 25 down (world px): the storm shelter and a cave
+  const rings = world => { const r = ringRecorder(); s.eva.drawZone(r.ctx, ...view, world); return r.at; };
+  assert.deepEqual(rings(SW.create(m.seed)), [[4.5 * T, 0.5 * T + 6]], 'a surface that holds none of the chunks rings only the storm shelter');
+  for (const [cx, cy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) s.world.get(cx, cy);
+  const spots = Z.coversIn(m, view[0] / T - 1, view[1] / T - 1, view[2] / T + 1, view[3] / T + 1, s.world.peek);
+  assert.ok(spots.some(c => c.kind === 'cave'), 'a cave in view');
+  assert.deepEqual(rings(s.world), spots.map(c => [c.x * T, c.y * T + 6]), "every one of the lister's spots, and nothing else");
+  m.expedition.flare = null;
+  assert.deepEqual(rings(s.world), [], 'no rings without a warning');
+});
+
+test("the banner, the red edge and the in-cave note read the chunks the surface holds: a frame never builds one, so a cave not built yet is no cover on screen", () => {
+  const m = flareMission('EVA-RINGS');
+  m.expedition.flare = { warn: 0, end: 600, over: false, hit: [] };
+  const s = setup({ mission: m, t: say });
+  let k = null; // the cave nearest the HQ
+  for (let cy = -2; cy < 2; cy++) for (let cx = -2; cx < 2; cx++) for (const c of X.cavesIn(m, cx, cy)) if (!k || Math.hypot(c.x, c.y) < Math.hypot(k.x, k.y)) k = c;
+  const mouth = outside(k.x, k.y);
+  tick(s, NEAR(0, 1), 8.1); // the round brief's note goes after 8 s
+  const blind = { peek: () => null, region: (tx, ty) => s.world.region(tx, ty) }; // a surface with no chunk built yet
+  s.eva.step(0.1, mouth, blind, 0, null);
+  assert.equal(banner(s).msg, 'eva.flare.run', 'in the open, as far as this screen knows');
+  assert.ok(s.eva.flareFx(mouth).warn > 0, 'with the red edge');
+  assert.equal(noteOf(s), '', 'and no in-cave note');
+  s.world.get(SW.chunkOf(k.x), SW.chunkOf(k.y)); // the surface holds the chunk you stand in
+  s.eva.step(0.1, mouth, s.world, 0, null);
+  assert.equal(banner(s).msg, 'eva.flare.covered');
+  assert.equal(s.eva.flareFx(mouth).warn, 0, 'no red edge');
+  assert.equal(noteOf(s), 'eva.inCave');
 });
 
 // A dust devil, fully formed, far from the base, and the round clock when it is there.

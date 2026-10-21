@@ -1186,7 +1186,7 @@
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
-      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x),
+      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
     };
   }
 

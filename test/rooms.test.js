@@ -613,6 +613,30 @@ test('co-op: the first step outside in a flare round starts the warning; 90 s la
   assert.ok(r.state.crew.find(c => c.id === 'minh').dose > m.crew.find(c => c.id === 'minh').dose + D.DANGERS.flare.dose - 1e-9);
 });
 
+test("co-op: the flare's verdict gives every position the slack every checked action gets: a step outside the base zone counts as in it", t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, host, guest } = inMission();
+  const m = room.mission;
+  m.schedule[m.turn].spe = true;
+  R.position(room, guest, at(5, 0)); // past the base zone (tiles −2 to 2) and its 1.5 tiles of slack; this starts the flare
+  R.position(room, host, at(3, 0));  // the first tile outside the base zone, within the slack
+  t.mock.timers.tick(90000);
+  assert.equal(m.expedition.flare.over, true);
+  assert.deepEqual(m.expedition.flare.hit, ['minh'], 'lena, a step outside the base zone, has cover');
+});
+
+test('co-op: a player cannot start or end the solar flare (the server times it), although solo play asks the same table for both', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, guest } = inMission();
+  const m = room.mission;
+  m.schedule[m.turn].spe = true;
+  assert.equal(say(R, room, guest, 'flareStart', { t: 0 }).body.error, 'badAction');
+  assert.equal(m.expedition.flare, null);
+  R.position(room, guest, at(30, 0));
+  assert.equal(say(R, room, guest, 'flareEnd', { t: 999 }).body.error, 'badAction');
+  assert.equal(m.expedition.flare.over, false, 'the countdown runs on');
+});
+
 test('co-op: a round that ends before its flare hits calls the flare off, and a round without one never starts it', t => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
   const { R, room, host, guest } = inMission();

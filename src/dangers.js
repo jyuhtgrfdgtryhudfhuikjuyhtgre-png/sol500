@@ -1,24 +1,34 @@
 /*
  * SOL 500 — dangers outside (spec §3.4): solar flares and the shelters that cover you from them, dust devils, and how far
- * you can see in a dust storm. Pure (no DOM), like src/expedition.js: the server runs the flare in co-op and ui.js runs it
- * in solo play, and every screen draws the same dust devils from the mission code and the round's clock, without syncing.
+ * you can see in a dust storm; and the one table of exploring actions (act). Pure (no DOM), like src/expedition.js: the
+ * server runs the flare in co-op and ui.js runs it in solo play, and every screen draws the same dust devils from the
+ * mission code and the round's clock, without syncing.
  *
  * The round's clock counts seconds since the round began: in solo play it is the surface's own time (it stops while the
  * console is open, like the suit) and is saved with the mission; in co-op it is the server's, sent with each room frame.
  * Positions are world pixels { x, y } (64 px a tile, the HQ tile's corner at 0, 0).
  *
  * API: viewTiles(m, inRover) → tiles you can see around you this round (dust storms shrink it)
- *      shelterAt(m, pos, slack) → 'base' | 'shelter' | 'cave' | null: what covers you from a solar flare at pos
- *      cavesNear(m, fx, fy, r) → caves whose mouth's middle is within r tiles of (fx, fy) (tile units)
+ *      outside(m) → what waits outside this round, in the order the round's brief and the Expedition panel say it: 'flare'
+ *        (a solar flare is due), 'devils' (a dust-devil round), 'storm' (a regional or global dust storm), 'rupture' (an O₂
+ *        line rupture at the base: canisters carried home count)
+ *      coversIn(m, x0, y0, x1, y1, peek) → [{ kind: 'shelter' | 'cave', x, y }]: the cover from a solar flare whose middle
+ *        (x, y) is in that box (tile units); DANGERS.shelter tiles from it count. peek(cx, cy) → a data chunk or null: the
+ *        surface passes the chunks it holds (SolWorld's peek); the rules leave it out
+ *      shelterAt(m, pos, slack, peek) → 'base' | 'shelter' | 'cave' | null: what covers you from a solar flare at pos
+ *      slackOf(m) → the slack (tiles) the flare's verdict gives a position: EXPEDITION.reach in co-op (the server judges
+ *        where it last saw you), 0 in solo play
  *      flareDue(m) → does a solar flare come this round (the schedule's spe)?
  *      flareStart(m, t) → { ok, flare } or { error }: someone stepped outside at round time t; the warning comes 30 s later
  *      flareEnd(m, spots, slack, t) → { ok, hit } or { error }: the flare hits. spots { crewId: pos } are the crew out on
  *        the map (the rest, and anyone sitting out the round after a solo collapse, are at the base); whoever has no cover
- *        gets a flare incident, counted at the advance
+ *        (with slackOf(m) as the slack) gets a flare incident, counted at the advance
  *      setClock(m, t) · clockOf(m) → the solo round clock kept with the mission (it only goes up within a round)
  *      devils(m, x0, y0, x1, y1, t) → [{ id, x, y, a, dx, dy, spin }] in that box (world px) at round time t;
  *        a: 0–1, how formed it is (it fades in and out); (dx, dy): the way it drifts
  *      devilHit(m, pos, t) → the formed devil close enough to hit you at pos, or null
+ *      act(m, crewId, type, body, pos) → the rules' answer to one exploring action ({ ok, ... } or { error }; 'badAction' for
+ *        one they do not have): the one table solo play and the co-op server both run
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'), require('./worldgen.js'), require('./engine.js'), require('./expedition.js'));
@@ -40,33 +50,50 @@
     return inRover ? Z.view.rover : Z.view.clear;
   }
 
+  // ---------- what waits outside this round ----------
+  // The surface's round brief and the console's Expedition panel both read this list, so a new danger is added here once;
+  // each says it in its own words (eva.brief.<id>, eva.cond.<id>).
+  function outside(m) {
+    const r = round(m) || {}, out = [];
+    if (flareDue(m)) out.push('flare');
+    if (r.devil) out.push('devils');
+    if (r.weather === 'regional' || r.weather === 'global') out.push('storm');
+    if (m && (m.events || []).some(e => e.type === 'o2_rupture')) out.push('rupture');
+    return out;
+  }
+
   // ---------- shelter from a solar flare ----------
-  function cavesNear(m, fx, fy, r) {
-    const out = [];
-    for (let cy = Math.floor((fy - r) / CH); cy <= Math.floor((fy + r) / CH); cy++) {
-      for (let cx = Math.floor((fx - r) / CH); cx <= Math.floor((fx + r) / CH); cx++) {
-        for (const k of X.cavesIn(m, cx, cy)) {
-          const dx = k.x + 0.5 - fx, dy = k.y + 0.5 - fy;
-          if (dx * dx + dy * dy <= r * r) out.push(k);
-        }
+  // Every cover whose middle is in the box (tile units, edges included): the built storm shelter (spec §3.4), then the caves'
+  // mouths. shelterAt, the surface's amber rings and its cover checks all read this one list, so lava-tube interiors and
+  // abandoned hab pods (M4c) join it here. peek(cx, cy) → a data chunk or null; without it the chunks are built.
+  function coversIn(m, x0, y0, x1, y1, peek) {
+    const out = [], chunk = peek || ((cx, cy) => X.chunkAt(m, cx, cy));
+    const add = (kind, x, y) => { if (x >= x0 && x <= x1 && y >= y0 && y <= y1) out.push({ kind, x, y }); };
+    const sh = E.activeCount(m, 'shelter') > 0 ? m.layout.find(k => k.type === 'shelter') : null;
+    if (sh) add('shelter', sh.x + W.BASE_RECT.x + 0.5, sh.y + W.BASE_RECT.y + 0.5);
+    for (let cy = Math.floor(y0 / CH); cy <= Math.floor(y1 / CH); cy++) {
+      for (let cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++) {
+        const c = chunk(cx, cy);
+        if (c) for (const k of c.caves) add('cave', k.x + 0.5, k.y + 0.5);
       }
     }
     return out;
   }
-  // The base zone, the built storm shelter (spec §3.4) or a cave's mouth. `slack` (tiles) widens each for a position sent a
-  // moment ago. Lava tubes and hab pods (M4c) join the list here.
-  function shelterAt(m, pos, slack) {
+  // The base zone, or the first cover in the list within DANGERS.shelter tiles of its middle. `slack` (tiles) widens each
+  // for a position sent a moment ago; `peek` is the lister's.
+  function shelterAt(m, pos, slack, peek) {
     if (!m || !okPos(pos)) return null;
-    const s = slack || 0, r = Z.shelter + s;
+    const s = slack || 0, r = Z.shelter + s, fx = pos.x / T, fy = pos.y / T;
     if (X.inBaseZone(pos, s)) return 'base';
-    const sh = E.activeCount(m, 'shelter') > 0 ? m.layout.find(k => k.type === 'shelter') : null;
-    if (sh) {
-      const dx = pos.x / T - (sh.x + W.BASE_RECT.x + 0.5), dy = pos.y / T - (sh.y + W.BASE_RECT.y + 0.5);
-      if (dx * dx + dy * dy <= r * r) return 'shelter';
+    for (const k of coversIn(m, fx - r, fy - r, fx + r, fy + r, peek)) {
+      const dx = k.x - fx, dy = k.y - fy;
+      if (dx * dx + dy * dy <= r * r) return k.kind;
     }
-    if (cavesNear(m, pos.x / T, pos.y / T, r).length) return 'cave';
     return null;
   }
+  // The co-op server judges where it last saw you, a moment ago, so it gives you the slack every checked action gets; solo
+  // play judges you where you are. The server, the solo verdict and the surface's banner all ask here, so they agree.
+  const slackOf = m => (m && m.coop ? D.EXPEDITION.reach : 0);
 
   // ---------- the solar flare (spec §3.4) ----------
   function flareDue(m) { const r = round(m); return !!(r && r.spe); }
@@ -165,5 +192,29 @@
     return best;
   }
 
-  return { viewTiles, shelterAt, cavesNear, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit };
+  // ---------- the exploring actions, one table ----------
+  // What each action a game asks for runs in the rules (src/expedition.js, and the flare here). body holds what only the
+  // asking game knows: the find or the drop, its live suit level, how far the rover went, the round's clock. Solo play's hook
+  // (ui.js) runs any of them on the spot; the co-op server runs those its players may send (EXPEDITION_ACTIONS in
+  // lib/rooms.js), never the flare's two, because it times the flare itself. A new action is one line here.
+  const ACTIONS = {
+    collect: (m, id, b, pos) => X.collect(m, id, b.find, pos),
+    deliver: (m, id, b, pos) => X.deliver(m, id, pos),
+    canister: (m, id, b, pos) => X.useCanister(m, id, pos, b.suit),
+    pickup: (m, id, b, pos) => X.pickUp(m, id, b.drop, pos),
+    collapse: (m, id, b, pos) => X.collapse(m, id, pos, b.driven),
+    revive: (m, id, b, pos) => X.revive(m, id, b.target, pos),
+    board: (m, id, b, pos) => X.board(m, id, pos),
+    park: (m, id, b, pos) => X.park(m, id, pos, b.driven),
+    // Solo play's flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
+    // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
+    flareStart: (m, id, b) => flareStart(m, b.t),
+    flareEnd: (m, id, b, pos) => flareEnd(m, { [id]: pos }, slackOf(m), b.t),
+  };
+  function act(m, crewId, type, body, pos) {
+    const run = Object.prototype.hasOwnProperty.call(ACTIONS, type) ? ACTIONS[type] : null;
+    return run ? run(m, crewId, body || {}, pos) : { error: 'badAction' };
+  }
+
+  return { viewTiles, outside, coversIn, shelterAt, slackOf, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit, act };
 });

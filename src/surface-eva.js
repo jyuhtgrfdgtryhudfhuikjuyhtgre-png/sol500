@@ -52,6 +52,7 @@
     let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [];
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
+    let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
 
     const mission = () => (data && data.mission) || null;
     const exp = () => mission().expedition;
@@ -91,9 +92,10 @@
     const text = (n, k, v) => { if (shown[k] !== v) { shown[k] = v; n.textContent = v; } };
     const prop = (k, v, set) => { if (shown[k] !== v) { shown[k] = v; set(v); } };
 
-    // Are you under cover from the flare? In co-op the server judges with the slack every checked action gets (it knows
-    // where you were a moment ago), so the banner and the red edge ask the same; solo has none.
-    const covered = p => !!(p && Z.shelterAt(mission(), p, mission().coop ? XD.reach : 0));
+    // Are you under cover from the flare? The banner and the red edge ask with the slack the verdict gives (Z.slackOf: the
+    // co-op server's, none in solo play), so they agree with it. Like the in-cave note, it reads the chunks the surface
+    // holds, so asking every frame never builds one.
+    const covered = p => !!(p && Z.shelterAt(mission(), p, Z.slackOf(mission()), peek));
     // The flare as your astronaut sees it: null, or { cls, msg, left (seconds, or null) } for the banner.
     function flareView(p) {
       const m = mission(), f = m && m.expedition && m.expedition.flare;
@@ -119,7 +121,7 @@
       const atBase = !!p && X.inBaseZone(p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t('eva.full'), cls: '' };
       if (live() && suit <= XD.suit * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
-      if (live() && p && !atBase && Z.shelterAt(mission(), p, 0) === 'cave') return { text: t('eva.inCave'), cls: 'ok' };
+      if (live() && p && !atBase && Z.shelterAt(mission(), p, 0, peek) === 'cave') return { text: t('eva.inCave'), cls: 'ok' };
       return null;
     }
     // The canister button shows only when breathing one now is worth it: outside, on your feet, and with room for all 45 s.
@@ -191,15 +193,10 @@
       });
     }
 
-    // What is waiting outside this round, said once a round when you first look at it.
+    // What is waiting outside this round (Z.outside), said once a round when you first look at it.
     function brief(m) {
-      const r = m.schedule && m.schedule[m.turn];
-      if (!r) return;
-      const list = [];
-      if (Z.flareDue(m)) list.push(t('eva.brief.flare'));
-      if (r.devil) list.push(t('eva.brief.devils'));
-      if (r.weather === 'regional' || r.weather === 'global') list.push(t('eva.brief.storm', { n: Z.viewTiles(m, false) }));
-      if ((m.events || []).some(e => e.type === 'o2_rupture')) list.push(t('eva.brief.rupture'));
+      const params = { storm: { n: Z.viewTiles(m, false) } };
+      const list = Z.outside(m).map(k => t('eva.brief.' + k, params[k]));
       if (list.length) say(t('eva.brief', { list: list.join(', ') }), 'warn', 8);
     }
 
@@ -239,7 +236,7 @@
     // A new mission or room (SolSurface.reset): nothing of the last one's exploring carries over, so the next sync is a
     // fresh look even with the same astronaut in the same round.
     function reset() {
-      data = me = turn = hold = note = coopClock = null;
+      data = me = turn = hold = note = coopClock = peek = null;
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
       driven = soloClock = 0;
@@ -260,6 +257,7 @@
 
     function step(dt, p, world, moved, focus) {
       now += dt;
+      peek = world.peek;
       const m = mission();
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
@@ -393,7 +391,7 @@
     // ---------- drawing ----------
     const warning = () => { const f = mission() && mission().expedition && mission().expedition.flare; return !!f && !f.over && clock() >= f.warn; };
     // The base zone: where the suit pauses and loads are delivered (5 × 5 tiles around the HQ). While a flare's warning
-    // runs, it and every other cover in view (cave mouths, the storm shelter) pulse amber.
+    // runs, it and every cover in view (Z.coversIn, from the chunks the surface holds) pulse amber.
     function drawZone(ctx, x0, y0, x1, y1, world) {
       if (!mission() || !mission().expedition) return;
       const m = mission(), r = (XD.baseZone + 0.5) * T, warn = warning(), pulse = 0.5 + 0.5 * Math.sin(now * 6);
@@ -405,20 +403,10 @@
       ctx.stroke();
       ctx.setLineDash([]);
       if (warn && world) {
-        const spots = [];
-        for (let cy = SW.chunkOf(Math.floor(y0 / T) - 1); cy <= SW.chunkOf(Math.floor(y1 / T) + 1); cy++) {
-          for (let cx = SW.chunkOf(Math.floor(x0 / T) - 1); cx <= SW.chunkOf(Math.floor(x1 / T) + 1); cx++) {
-            const c = world.peek(cx, cy);
-            if (c) for (const k of c.caves) spots.push([(k.x + 0.5) * T, (k.y + 0.5) * T]);
-          }
-        }
-        const sh = m.modules.shelter && m.modules.shelter.count > 0 ? m.layout.find(k => k.type === 'shelter') : null;
-        if (sh) spots.push([(sh.x + W.BASE_RECT.x + 0.5) * T, (sh.y + W.BASE_RECT.y + 0.5) * T]);
         ctx.strokeStyle = 'rgba(242,184,79,' + (0.5 + 0.45 * pulse).toFixed(3) + ')';
         ctx.lineWidth = 3;
-        for (const [cx, cy] of spots) {
-          if (cx < x0 - T || cx > x1 + T || cy < y0 - T || cy > y1 + T) continue;
-          ctx.beginPath(); ctx.ellipse(cx, cy + 6, 26 + 5 * pulse, 12 + 2 * pulse, 0, 0, Math.PI * 2); ctx.stroke();
+        for (const k of Z.coversIn(m, x0 / T - 1, y0 / T - 1, x1 / T + 1, y1 / T + 1, world.peek)) {
+          ctx.beginPath(); ctx.ellipse(k.x * T, k.y * T + 6, 26 + 5 * pulse, 12 + 2 * pulse, 0, 0, Math.PI * 2); ctx.stroke();
         }
       }
       ctx.restore();

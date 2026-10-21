@@ -8,6 +8,7 @@ const E = require('../src/engine.js');
 const W = require('../src/worldgen.js');
 const X = require('../src/expedition.js');
 const Z = require('../src/dangers.js');
+const SW = require('../src/surface-world.js');
 
 const T = 64;
 const KIT = { solar: 4, battery: 2, reactor: 1, recycler: 1, oxygen: 1, greenhouse: 1, waterwall: 1, spares: 3, materials: 1, food: 6, o2: 3, water: 3 };
@@ -41,6 +42,23 @@ test('you see 8 tiles around you in clear weather (10 in the rover), 5 in a regi
   assert.equal(Z.viewTiles(null, false), 8, 'no mission: clear');
 });
 
+test('what waits outside this round, in the order the brief and the Expedition panel say it: a solar flare, dust devils, a dust storm, an O₂ leak', () => {
+  const quiet = { spe: false, devil: false, weather: 'clear' };
+  assert.deepEqual(Z.outside(solo('DNG-OUT', quiet)), [], 'a quiet round');
+  const m = solo('DNG-OUT', { spe: true, devil: true, weather: 'regional' });
+  m.events = [{ type: 'o2_rupture', options: ['hide', 'salvage'], emergency: true }];
+  assert.deepEqual(Z.outside(m), ['flare', 'devils', 'storm', 'rupture']);
+  m.schedule[m.turn].weather = 'global';
+  assert.deepEqual(Z.outside(m), ['flare', 'devils', 'storm', 'rupture'], 'a global dust storm too');
+  for (const [round, want] of [[{ spe: true }, 'flare'], [{ devil: true }, 'devils'], [{ weather: 'global' }, 'storm']]) {
+    assert.deepEqual(Z.outside(solo('DNG-OUT', Object.assign({}, quiet, round))), [want], want + ' alone');
+  }
+  const leak = solo('DNG-OUT', quiet);
+  leak.events = [{ type: 'water_leak' }, { type: 'o2_rupture', options: ['hide', 'salvage'], emergency: true }];
+  assert.deepEqual(Z.outside(leak), ['rupture'], 'an O₂ leak alone, among other events');
+  assert.deepEqual(Z.outside(null), []);
+});
+
 test("cover from a flare: the base zone, a cave's mouth and the storm shelter once it is built; nowhere else", () => {
   const m = solo('DNG-CAVE');
   const k = nearestCave(m);
@@ -50,7 +68,7 @@ test("cover from a flare: the base zone, a cave's mouth and the storm shelter on
   assert.equal(Z.shelterAt(m, { x: (k.x + 0.5) * T, y: (k.y + 0.5 + 0.85) * T }), 'cave', '0.85 tiles out of the middle of the mouth');
   assert.equal(Z.shelterAt(m, { x: (k.x + 0.5) * T, y: (k.y + 0.5 + 0.95) * T }), null, '0.95 tiles out is in the open');
   assert.equal(Z.shelterAt(m, { x: (k.x + 0.5) * T, y: (k.y + 0.5 + 2) * T }, 1.5), 'cave', 'with 1.5 tiles of slack for a position sent a moment ago');
-  assert.equal(Z.shelterAt(m, at(30, 30)) === 'cave', Z.cavesNear(m, 30.5, 30.5, D.DANGERS.shelter).length > 0);
+  assert.equal(Z.shelterAt(m, at(30, 30)) === 'cave', Z.coversIn(m, 29.6, 29.6, 31.4, 31.4).some(c => Math.hypot(c.x - 30.5, c.y - 30.5) <= D.DANGERS.shelter));
   for (const junk of [null, {}, { x: NaN, y: 0 }, { x: 'a', y: 1 }]) assert.equal(Z.shelterAt(m, junk), null);
 });
 
@@ -69,6 +87,64 @@ test('the storm shelter covers you once it is built, also outside the base zone:
   assert.equal(Z.shelterAt(m, at(5, 0)), null, 'a whole tile away is in the open');
   m.modules.shelter.count = 0;
   assert.equal(Z.shelterAt(m, pos), null, 'no shelter without the module');
+});
+
+// Every cave of the data chunks within r chunks of the base's, at the middle of its mouth (tile units).
+function cavesAround(m, r) {
+  const out = [];
+  for (let cy = -r; cy < r; cy++) for (let cx = -r; cx < r; cx++) for (const k of X.cavesIn(m, cx, cy)) out.push({ kind: 'cave', x: k.x + 0.5, y: k.y + 0.5 });
+  return out;
+}
+const byPlace = list => list.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+
+test('one lister for the cover in a box: every cave whose mouth has its middle in it, the edges included, across chunk borders', () => {
+  const m = solo('DNG-CAVE'), all = cavesAround(m, 6), near = cavesAround(m, 4);
+  assert.ok(near.length >= 4, 'caves to list: ' + near.length);
+  const inBox = (x0, y0, x1, y1) => all.filter(c => c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1);
+  const boxes = [[-128, -128, 128, 128], [-40.25, -40.75, 40.25, 39.5]];
+  for (const c of near) boxes.push([c.x, c.y, c.x + 40, c.y + 40], [c.x - 40, c.y - 40, c.x, c.y]); // each cave on two boxes' edges
+  for (const box of boxes) assert.deepEqual(byPlace(Z.coversIn(m, ...box)), byPlace(inBox(...box)), box.join(', '));
+  const k = near[0];
+  assert.deepEqual(Z.coversIn(m, k.x - 0.4, k.y - 0.4, k.x - 0.1, k.y + 0.4), [], 'a box with no middle of a mouth in it lists none');
+});
+
+test('the lister has the storm shelter once it is built, at the middle of its tile and before any cave', () => {
+  const m = solo('DNG-CAVE');
+  m.layout = m.layout.filter(k => !(k.x === 8 && k.y === 2));
+  m.layout.push({ type: 'shelter', x: 8, y: 2 }); // world tile (4, 0)
+  assert.deepEqual(Z.coversIn(m, 3, -1, 6, 1), [], 'no module, no shelter');
+  m.modules.shelter.count = 1;
+  assert.deepEqual(Z.coversIn(m, 3, -1, 6, 1), [{ kind: 'shelter', x: 4.5, y: 0.5 }]);
+  assert.deepEqual(Z.coversIn(m, 4.6, -1, 6, 1), [], 'its middle is out of the box');
+  const big = Z.coversIn(m, -128, -128, 128, 128);
+  assert.deepEqual(big.map(c => c.kind), ['shelter', ...cavesAround(m, 4).map(() => 'cave')], 'first, then the caves');
+  m.modules.shelter.broken = 1;
+  assert.deepEqual(Z.coversIn(m, 3, -1, 6, 1), [], 'one that is broken is no shelter (as in shelterAt; none can break, BREAKDOWN.shelter is 0)');
+});
+
+test("the lister reads the chunks it is given: the surface passes the ones it holds, so asking never builds one in a frame", () => {
+  const m = solo('DNG-CAVE'), k = cavesAround(m, 4)[0];
+  const box = [k.x - 3, k.y - 3, k.x + 3, k.y + 3];
+  const world = SW.create(m.seed);
+  assert.deepEqual(Z.coversIn(m, ...box, world.peek), [], 'the surface holds none of those chunks yet');
+  assert.equal(world.stats().data, 0, 'and asking built none');
+  for (let cy = Math.floor(box[1] / W.CHUNK); cy <= Math.floor(box[3] / W.CHUNK); cy++) for (let cx = Math.floor(box[0] / W.CHUNK); cx <= Math.floor(box[2] / W.CHUNK); cx++) world.get(cx, cy);
+  assert.deepEqual(Z.coversIn(m, ...box, world.peek), Z.coversIn(m, ...box), "once it holds them, the same caves as the rules' own chunks");
+});
+
+test('shelterAt reads the chunks it is given, like the lister; the base zone and the storm shelter need none', () => {
+  const m = solo('DNG-CAVE'), k = cavesAround(m, 4)[0], mouth = { x: k.x * T, y: k.y * T }, none = () => null;
+  const world = SW.create(m.seed);
+  assert.equal(Z.shelterAt(m, mouth), 'cave');
+  assert.equal(Z.shelterAt(m, mouth, 0, none), null, 'a lookup that holds no chunk has no cave');
+  assert.equal(Z.shelterAt(m, mouth, 0, world.peek), null, 'nor has a surface that has not built that chunk');
+  world.get(Math.floor(k.x / W.CHUNK), Math.floor(k.y / W.CHUNK));
+  assert.equal(Z.shelterAt(m, mouth, 0, world.peek), 'cave', 'once it has');
+  assert.equal(Z.shelterAt(m, at(0, 1), 0, none), 'base');
+  m.layout = m.layout.filter(c => !(c.x === 8 && c.y === 2));
+  m.layout.push({ type: 'shelter', x: 8, y: 2 });
+  m.modules.shelter.count = 1;
+  assert.equal(Z.shelterAt(m, at(4, 0), 0, none), 'shelter');
 });
 
 test("a solar flare comes in a round whose schedule has one: the warning 30 s after the first step outside, the hit 60 s later", () => {
@@ -106,6 +182,15 @@ test('the flare hits whoever is out in the open when it ends, once; whoever has 
   const c = solo('DNG-SLACK', { spe: true });
   Z.flareStart(c, 0);
   assert.deepEqual(Z.flareEnd(c, { minh: at(3, 0) }, D.EXPEDITION.reach, 90).hit, [], "co-op's slack: a step from the base zone counts as in it");
+});
+
+test("the flare's verdict gives a position the slack every checked action gets in co-op (1.5 tiles), and none in solo play", () => {
+  const m = solo('DNG-SLACK');
+  assert.equal(Z.slackOf(m), 0, 'solo play judges you where you are');
+  m.coop = true;
+  assert.equal(Z.slackOf(m), D.EXPEDITION.reach, 'the server judges where it saw you a moment ago');
+  assert.equal(D.EXPEDITION.reach, 1.5);
+  assert.equal(Z.slackOf(null), 0);
 });
 
 test('a solo pilot who collapsed sits out the round at the base: the flare never hits them, wherever their game last saw them', () => {
@@ -241,4 +326,19 @@ test('the dust devils of a sample of rounds, places and times match their pinned
   // Change it only when you mean to move the devils, and say so in the commit message.
   const PINNED = '2d741c4e';
   assert.equal(got, PINNED, 'devils hash is ' + got);
+});
+
+test('one table runs every exploring action a game asks for, solo or on the server; an action the rules do not have is refused, even one named like an object property', () => {
+  const m = solo('DNG-ACT', { spe: true });
+  assert.deepEqual(Z.act(m, 'minh', 'flareStart', { t: 5 }, at(6, 4)), { ok: true, flare: { warn: 35, end: 95, over: false, hit: [] } });
+  assert.deepEqual(Z.act(m, 'minh', 'flareEnd', { t: 95 }, at(3, 1)), { ok: true, hit: ['minh'] }, 'solo play: a step outside the base zone is in the open');
+  const c = solo('DNG-ACT', { spe: true });
+  c.coop = true;
+  Z.act(c, 'minh', 'flareStart', { t: 5 }, at(6, 4));
+  assert.deepEqual(Z.act(c, 'minh', 'flareEnd', { t: 95 }, at(3, 1)).hit, [], "on a co-op mission the verdict has the server's slack");
+  assert.deepEqual(Z.act(m, 'minh', 'revive', undefined, at(0, 1)), { error: 'solo' }, 'the rules, not the table, refuse a revive in solo play');
+  assert.deepEqual(Z.act(m, 'minh', 'collapse', undefined, at(30, 4)), { ok: true, benched: true }, 'no body reads as an empty one');
+  for (const type of ['fly', 'constructor', '__proto__', 'toString', 'hasOwnProperty', undefined]) {
+    assert.deepEqual(Z.act(m, 'minh', type, {}, at(0, 1)), { error: 'badAction' }, String(type));
+  }
 });

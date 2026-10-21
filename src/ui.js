@@ -735,24 +735,15 @@
       showRegionCard(id);
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
-    // Exploring (src/expedition.js). Solo: the rules run here on your mission, which is saved. Co-op: the server runs them
-    // against where it last saw you, and everyone gets the new room. Always resolves to { ok, ... } or { error }.
+    // Exploring (the rules' one table, Z.act). Solo: the rules run here for your pilot on your mission, which is saved, and
+    // that includes the solar flare. Co-op: the server runs them against where it last saw you, and everyone gets the new
+    // room. Always resolves to { ok, ... } or { error }.
     exp: (type, payload, pos) => {
       const s = mission();
       if (!s || !s.expedition || s.status !== 'active') return Promise.resolve({ error: 'badPhase' });
       const p = payload || {};
       if (lanOn()) return N.act(type, p).then(r => (r && (!r.error || I.has(store.lang, 'eva.err.' + r.error)) ? r : { error: 'net' }), () => ({ error: 'net' }));
-      const id = s.pilot;
-      const run = {
-        collect: () => X.collect(s, id, p.find, pos), deliver: () => X.deliver(s, id, pos), canister: () => X.useCanister(s, id, pos, p.suit),
-        pickup: () => X.pickUp(s, id, p.drop, pos), collapse: () => X.collapse(s, id, pos, p.driven), board: () => X.board(s, id, pos),
-        park: () => X.park(s, id, pos, p.driven),
-        // The solo flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
-        // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
-        flareStart: () => Z.flareStart(s, p.t),
-        flareEnd: () => Z.flareEnd(s, { [id]: pos }, 0, p.t),
-      }[type];
-      const r = run ? run() : { error: 'badAction' };
+      const r = Z.act(s, s.pilot, type, p, pos);
       if (!r.error) { saveSoloSoon(); render(); }
       return Promise.resolve(r);
     },
@@ -777,18 +768,18 @@
       amount: t('haul.' + l.res, { n: nf(l.amount) }), what: t('find.' + l.kind), region: t('region.' + W.REGIONS[l.region]), name: crewName(l.crewId),
     });
   }
-  // What is waiting outside this round (spec §3.4): a solar flare, dust devils, a dust storm, an oxygen leak at the base.
+  // What is waiting outside this round (Z.outside, spec §3.4): a solar flare, dust devils, a dust storm, an oxygen leak at the base.
   function conditions(s) {
-    const r = s.schedule[s.turn] || {}, f = s.expedition.flare, out = [];
-    if (Z.flareDue(s)) {
+    const on = Z.outside(s), f = s.expedition.flare, out = [];
+    if (on.includes('flare')) {
       if (!f) out.push(['crit', 'warn', t('eva.cond.flare', { d: D.DANGERS.flare.dose, w: D.DANGERS.flare.delay, c: D.DANGERS.flare.countdown })]);
       else if (!f.over) out.push(['crit', 'warn', t('eva.cond.flareOn')]);
       else if (f.hit.length) out.push(['warn', 'warn', t('eva.cond.flareHit', { names: f.hit.map(crewName).join(', '), d: D.DANGERS.flare.dose })]);
       else out.push(['ok', 'ok', t('eva.cond.flareSafe')]);
     }
-    if (r.devil) out.push(['warn', 'eva', t('eva.cond.devils', { n: D.DANGERS.devils.push, s: D.DANGERS.devils.suit })]);
-    if (r.weather === 'regional' || r.weather === 'global') out.push(['warn', 'warn', t('eva.cond.storm', { n: Z.viewTiles(s, false) })]);
-    if ((s.events || []).some(e => e.type === 'o2_rupture')) out.push(['', 'o2', t('eva.cond.rupture', { kg: D.EXPEDITION.canister.o2 })]);
+    if (on.includes('devils')) out.push(['warn', 'eva', t('eva.cond.devils', { n: D.DANGERS.devils.push, s: D.DANGERS.devils.suit })]);
+    if (on.includes('storm')) out.push(['warn', 'warn', t('eva.cond.storm', { n: Z.viewTiles(s, false) })]);
+    if (on.includes('rupture')) out.push(['', 'o2', t('eva.cond.rupture', { kg: D.EXPEDITION.canister.o2 })]);
     return out;
   }
   function expeditionPanel(s) {
