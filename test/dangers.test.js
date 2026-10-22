@@ -42,6 +42,24 @@ test('you see 8 tiles around you in clear weather (10 in the rover), 5 in a regi
   assert.equal(Z.viewTiles(null, false), 8, 'no mission: clear');
 });
 
+test("the view from the tile under you: in a lava tube the headlamp's reach ignores the weather; on a star dune's crest you see 4 tiles further", () => {
+  const m = solo(), K = W.TILE;
+  for (const [weather, foot, rover] of [['clear', 8, 10], ['regional', 5, 5], ['global', 3, 3]]) {
+    m.schedule[m.turn].weather = weather;
+    for (const tile of [K.TUBE_FLOOR, K.SKYLIGHT]) {
+      assert.equal(Z.viewAt(m, false, tile), 8, weather + ': the headlamp in a tube');
+      assert.equal(Z.viewAt(m, true, tile), 10, weather + ': the rover in a tube');
+    }
+    assert.equal(Z.viewAt(m, false, K.CREST), foot + 4, weather + ': on a crest');
+    assert.equal(Z.viewAt(m, true, K.CREST), rover + 4, weather + ': the rover on a crest');
+    for (const tile of [K.REGOLITH, K.DUNE, K.TUBE_WALL, undefined]) {
+      assert.equal(Z.viewAt(m, false, tile), foot, weather + ', tile ' + tile);
+      assert.equal(Z.viewAt(m, true, tile), rover, weather + ', tile ' + tile + ', the rover');
+    }
+  }
+  assert.equal(Z.viewAt(null, false, K.CREST), 12, 'no mission: clear');
+});
+
 test('what waits outside this round, in the order the brief and the Expedition panel say it: a solar flare, dust devils, a dust storm, an O₂ leak', () => {
   const quiet = { spe: false, devil: false, weather: 'clear' };
   assert.deepEqual(Z.outside(solo('DNG-OUT', quiet)), [], 'a quiet round');
@@ -103,7 +121,8 @@ test('one lister for the cover in a box: every cave whose mouth has its middle i
   const inBox = (x0, y0, x1, y1) => all.filter(c => c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1);
   const boxes = [[-128, -128, 128, 128], [-40.25, -40.75, 40.25, 39.5]];
   for (const c of near) boxes.push([c.x, c.y, c.x + 40, c.y + 40], [c.x - 40, c.y - 40, c.x, c.y]); // each cave on two boxes' edges
-  for (const box of boxes) assert.deepEqual(byPlace(Z.coversIn(m, ...box)), byPlace(inBox(...box)), box.join(', '));
+  const caves = box => Z.coversIn(m, ...box).filter(c => c.kind === 'cave'); // the pods and tubes are their own tests
+  for (const box of boxes) assert.deepEqual(byPlace(caves(box)), byPlace(inBox(...box)), box.join(', '));
   const k = near[0];
   assert.deepEqual(Z.coversIn(m, k.x - 0.4, k.y - 0.4, k.x - 0.1, k.y + 0.4), [], 'a box with no middle of a mouth in it lists none');
 });
@@ -117,7 +136,7 @@ test('the lister has the storm shelter once it is built, at the middle of its ti
   assert.deepEqual(Z.coversIn(m, 3, -1, 6, 1), [{ kind: 'shelter', x: 4.5, y: 0.5 }]);
   assert.deepEqual(Z.coversIn(m, 4.6, -1, 6, 1), [], 'its middle is out of the box');
   const big = Z.coversIn(m, -128, -128, 128, 128);
-  assert.deepEqual(big.map(c => c.kind), ['shelter', ...cavesAround(m, 4).map(() => 'cave')], 'first, then the caves');
+  assert.deepEqual(big.filter(c => c.kind !== 'pod').map(c => c.kind), ['shelter', ...cavesAround(m, 4).map(() => 'cave')], 'first, then the caves (a pod stands in this box too)');
   m.modules.shelter.broken = 1;
   assert.deepEqual(Z.coversIn(m, 3, -1, 6, 1), [], 'one that is broken is no shelter (as in shelterAt; none can break, BREAKDOWN.shelter is 0)');
 });
@@ -145,6 +164,45 @@ test('shelterAt reads the chunks it is given, like the lister; the base zone and
   m.layout.push({ type: 'shelter', x: 8, y: 2 });
   m.modules.shelter.count = 1;
   assert.equal(Z.shelterAt(m, at(4, 0), 0, none), 'shelter');
+});
+
+test('a cave hidden under a landmark is no cover and gets no ring: the lister leaves it out, as the rules do', () => {
+  const m = solo('DNG-1'), c = X.chunkAt(m, 1, -7), k = c.caves[c.hidden.caves[0]]; // under the methane vent's box
+  assert.ok(k, 'a hidden cave');
+  assert.ok(!X.cavesIn(m, 1, -7).includes(k), 'the rules never show it');
+  assert.deepEqual(Z.coversIn(m, k.x, k.y, k.x + 1, k.y + 1).filter(v => v.kind === 'cave'), [], 'no ring at its mouth');
+  assert.equal(Z.shelterAt(m, at(k.x, k.y)), null, 'its mouth is in the open');
+});
+
+test('an abandoned hab pod is cover inside its footprint, widened by the slack, with its ring at its door', () => {
+  const m = solo('DNG-CAVE'), p = X.structureById(m, 'S0,1', at(22, 73));
+  assert.equal(p.kind, 'pod');
+  const [x0, y0, x1, y1] = p.box;
+  assert.deepEqual(Z.coversIn(m, x0 - 9, y0 - 9, x1 + 9, y1 + 9).filter(k => k.kind === 'pod'), [{ kind: 'pod', id: p.id, x: p.x + 0.5, y: p.y + 0.5, box: p.box }], 'its ring at the middle of its door');
+  assert.equal(Z.shelterAt(m, at((x0 + x1) / 2, (y0 + y1) / 2)), 'pod', 'in the middle of its floor');
+  assert.equal(Z.shelterAt(m, at(p.x, p.y)), 'pod', 'in its door');
+  assert.equal(Z.shelterAt(m, at(p.x, y1 + 1)), null, 'a step out of the door is in the open');
+  assert.equal(Z.shelterAt(m, at(p.x, y1 + 1), 1.5), 'pod', 'unless the position was sent a moment ago');
+  assert.equal(Z.shelterAt(m, at(p.x, y1 + 3), 1.5), null, 'three steps out is in the open even then');
+  assert.equal(Z.shelterAt(m, at(x0 - 1, (y0 + y1) / 2)), null, 'beside its wall is in the open');
+});
+
+test('a lava tube is cover on its floor and under its skylight, not on the ground round its wall; listed once, its ring at the skylight', () => {
+  const m = solo('DNG-TUBE'), l = X.landmarkById(m, 'L1,0', at(284, 69));
+  assert.equal(l.kind, 'tube');
+  assert.equal(l.vert, false, 'it runs east–west, so its skylight is in its south wall');
+  const [sx, sy] = l.skylight, b = l.box;
+  assert.notEqual(Math.floor(b[0] / W.CHUNK), Math.floor(b[2] / W.CHUNK), 'its box spans two chunks');
+  assert.deepEqual(Z.coversIn(m, ...b).filter(k => k.kind === 'tube'), [{ kind: 'tube', id: l.id, x: sx + 0.5, y: sy + 0.5, box: b }], 'listed once, by id');
+  assert.equal(Z.shelterAt(m, at(l.x, l.y)), 'tube', 'on its floor');
+  assert.equal(Z.shelterAt(m, at(b[0] + 2, l.y)), 'tube', 'at its west end');
+  assert.equal(Z.shelterAt(m, at(sx, sy)), 'tube', 'under its skylight');
+  assert.equal(Z.shelterAt(m, at(b[0], b[1])), null, 'the corner of its box is plain ground');
+  assert.equal(Z.shelterAt(m, at(sx, sy + 1)), null, 'a step out of the skylight is in the open');
+  assert.equal(Z.shelterAt(m, at(sx, sy + 1), 1.5), 'tube', 'unless the position was sent a moment ago');
+  assert.equal(Z.shelterAt(m, at(b[0], l.y)), null, 'nor is the ground beyond its west wall');
+  assert.equal(Z.shelterAt(m, at(b[0], l.y), 1.5), 'tube', 'unless the position was sent a moment ago, 2 tiles from its floor');
+  assert.equal(Z.shelterAt(m, at(l.x, l.y), 0, () => null), null, 'a lookup that holds no chunk has no tube');
 });
 
 test("a solar flare comes in a round whose schedule has one: the warning 30 s after the first step outside, the hit 60 s later", () => {

@@ -248,7 +248,7 @@
     DANGERS: {
       flare: { delay: 30, countdown: 60, dose: 15 }, // the warning comes 30 s after the first step outside; 60 s to take cover
       shelter: 0.9,             // tiles from the middle of a cave's mouth, or of the storm shelter's tile, that count as cover
-      view: { clear: 8, rover: 10, regional: 5, global: 3 }, // tiles you can see around you; dust storms shrink it
+      view: { clear: 8, rover: 10, regional: 5, global: 3, crest: 4 }, // tiles you can see around you; dust storms shrink it, a star dune's crest adds `crest`
       devils: {
         quiet: [0, 1], round: [3, 5], dunes: 2, // devils a chunk in most rounds and in a dust-devil round; the Dune Sea doubles both
         life: 24, fade: 2, track: [6, 12], // a devil lasts 24 s (2 s to form, 2 to die down) and drifts 6–12 tiles in a line

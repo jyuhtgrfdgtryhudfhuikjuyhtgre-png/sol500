@@ -227,6 +227,9 @@
   //   { x, y } parked out on the map, or { driver } while someone drives it · roverDriven: tiles driven this round.
   // M4b adds the dangers: flare (null, or this round's solar flare { warn, end, over, hit } on the round's clock, see
   //   src/dangers.js) · clock (solo: the round's clock, seconds) · where { crewId: { x, y } } (solo: where you last stood).
+  // M4c adds the points of interest (src/expedition.js): landmarks { landmarkId: { by, round } } (discovered) ·
+  //   structures { structId: 'used' | 'repaired' } · forecastUntil: the last round a repaired weather station forecasts
+  //   the next one's weather (−1: none) · stats[crewId].landmarks, .structures (counts).
   // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
   const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
   function freshBank() {
@@ -239,7 +242,7 @@
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
       carried: {}, drops: [], banked: freshBank(), goals: [], incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
-      flare: null, clock: 0, where: {},
+      flare: null, clock: 0, where: {}, forecastUntil: -1,
     };
   }
 

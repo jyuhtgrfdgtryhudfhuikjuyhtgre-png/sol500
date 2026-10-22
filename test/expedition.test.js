@@ -6,6 +6,7 @@ const E = require('../src/engine.js');
 const D = require('../src/data.js');
 const W = require('../src/worldgen.js');
 const X = require('../src/expedition.js');
+const F = require('../src/fog.js');
 
 const T = 64;
 const KIT = { solar: 4, battery: 2, reactor: 1, recycler: 1, oxygen: 1, greenhouse: 1, waterwall: 1, spares: 3, materials: 1, food: 6, o2: 3, water: 3 };
@@ -477,4 +478,333 @@ test('a landmark and a structure are read by id from inside their cell, frozen; 
     assert.equal(X.structureById(m, s.id, { x: NaN, y: 0 }), null);
   } finally { W.landmarkAt = real.L; W.structureAt = real.S; }
   assert.equal(looked, 0, 'nothing was looked up for them');
+});
+
+test("a landmark's site is collected like a find: a load by its kind and ring, its loads left kept under its id, the backpack's rules too", () => {
+  const m = solo('EXP-1'), l = X.landmarkById(m, 'L0,-1', at(134, -46)); // a giant crater: floor ice and a peak survey
+  const s = l.sites[0], id = 'L0,-1:0', here = at(s.x, s.y);
+  assert.equal(s.kind, 'ice');
+  const r = X.collect(m, 'minh', id, here);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.item, { kind: 'ice', id, region: s.region, res: 'water', amount: 40 });
+  assert.equal(r.left, D.FINDS.ice.loads[s.ring] - 1);
+  assert.equal(m.expedition.sites[id], r.left);
+  assert.deepEqual(m.expedition.stats.minh, { finds: { ice: 1 } });
+  assert.equal(X.collect(m, 'minh', id, { x: here.x + 1.6 * T, y: here.y }).error, 'tooFar', '1.5 tiles of slack, no more');
+  X.collect(m, 'minh', id, here);
+  X.collect(m, 'minh', id, here);
+  assert.equal(X.collect(m, 'minh', id, here).error, 'full', 'the backpack holds 3 loads on foot');
+  for (let i = 3; i < D.FINDS.ice.loads[s.ring]; i++) m.expedition.carried.minh = [], X.collect(m, 'minh', id, here);
+  m.expedition.carried.minh = [];
+  assert.equal(X.collect(m, 'minh', id, here).error, 'empty');
+  assert.equal(X.collect(m, 'minh', 'L0,-1:1', at(l.sites[1].x, l.sites[1].y)).ok, true, 'each site has its own loads');
+});
+
+test("a survey at a landmark or a formation gives science by its ring (half again in the Crater Field and for the Scientist), its subject the landmark's or the formation's", () => {
+  const m = solo('EXP-1'), s = X.landmarkById(m, 'L0,-1', at(134, -46)).sites[2], id = 'L0,-1:2';
+  const crater = W.REGIONS[s.region] === 'craters' ? 1.5 : 1;
+  const r = X.collect(m, 'diego', id, at(s.x, s.y));
+  assert.deepEqual(r.item, { kind: 'science', id, region: s.region, res: 'science', amount: Math.round(D.FINDS.science.science[s.ring] * crater * 1.5), sub: 'crater' });
+  assert.equal(X.collect(m, 'diego', id, at(s.x, s.y)).error, 'empty', 'a survey is one load');
+  const p = solo('POI-1'), f = X.chunkAt(p, 0, 0).formations[0], g = f.sites[0], fid = 'F0,0:0';
+  assert.equal(f.id + ':0', fid);
+  const q = X.collect(p, 'minh', fid, at(g.x, g.y));
+  assert.deepEqual(q.item, { kind: 'science', id: fid, region: g.region, res: 'science', amount: D.FINDS.science.science[g.ring], sub: f.kind });
+  assert.equal(p.expedition.sites[fid], 0);
+});
+
+test("a site from outside its landmark's cell or its formation's chunk is refused before anything is looked up or built; odd spellings are no site", () => {
+  const m = solo('EXP-1'), s = X.landmarkById(m, 'L0,-1', at(134, -46)).sites[0], here = at(s.x, s.y), before = snap(m);
+  const real = { L: W.landmarkAt, C: W.chunk };
+  let looked = 0;
+  W.landmarkAt = (...a) => { looked++; return real.L(...a); };
+  W.chunk = (...a) => { looked++; return real.C(...a); };
+  try {
+    for (const id of ['L1,-1:0', 'L-4000,4000:0', 'F4000,4000:0', 'F5,-2:0']) assert.equal(X.collect(m, 'minh', id, here).error, 'tooFar', id);
+  } finally { W.landmarkAt = real.L; W.chunk = real.C; }
+  assert.equal(looked, 0, 'nothing was looked up for them');
+  for (const id of ['L0,-1:9', 'L0,-1:', 'L0,-1', 'L00,-1:0', 'L0,-1:00', 'l0,-1:0', 'F4,-2:1', 'F4,-2', 'S0,-1:0']) {
+    assert.equal(X.collect(m, 'minh', id, here).error, 'noFind', id);
+  }
+  assert.equal(X.collect(m, 'minh', 'F4,-2:0', here).error, 'noFind', 'a chunk with no formation has no survey');
+  const p = solo('POI-1'), f = X.chunkAt(p, -2, -1).formations[0];
+  assert.equal(f.sites.length, 0);
+  assert.equal(X.collect(p, 'minh', 'F-2,-1:0', at(f.x, f.y)).error, 'noFind', 'nor has a formation that is only scenery');
+  assert.equal(snap(m), before);
+});
+
+test("the first to see a landmark's centre discovers it: 80–150 science by the landmark, banked once for them, the Scientist's half again", () => {
+  const m = solo('EXP-1'), l = X.landmarkById(m, 'L0,-1', at(134, -46)), seen = at(l.x + 10, l.y), x = m.expedition;
+  const r = X.discover(m, 'minh', l.id, seen);
+  assert.equal(r.ok, true);
+  assert.ok(r.science >= 80 && r.science <= 150, String(r.science));
+  assert.deepEqual(r, { ok: true, landmark: l.id, science: r.science });
+  assert.deepEqual(x.landmarks, { [l.id]: { by: 'minh', round: m.turn } });
+  assert.equal(x.banked.science, r.science);
+  assert.deepEqual(x.banked.lines, [{ crewId: 'minh', kind: 'landmark', res: 'science', region: l.region, amount: r.science, loads: 1, late: false }]);
+  assert.equal(x.stats.minh.landmarks, 1);
+  const before = snap(m);
+  assert.equal(X.discover(m, 'diego', l.id, seen).error, 'known', 'once, whoever sees it next');
+  assert.equal(snap(m), before);
+  const s = solo('EXP-1');
+  assert.equal(X.discover(s, 'diego', l.id, seen).science, Math.round(r.science * 1.5), 'the Scientist gets half again');
+  // The reward goes by the landmark: the same in every mission of the world, and not the same for every landmark.
+  const all = [];
+  for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) {
+    const k = W.landmarkAt(W.seedOf(m.seed), i, j);
+    if (k) all.push(X.discover(solo('EXP-1'), 'minh', k.id, at(k.x, k.y)).science);
+  }
+  assert.ok(all.length >= 8 && all.every(v => v >= 80 && v <= 150), all.join(' '));
+  assert.ok(new Set(all).size > all.length / 2, all.join(' '));
+  assert.equal(all[all.length - 1], X.discover(solo('EXP-1'), 'minh', 'L2,2', at(605, 640)).science);
+});
+
+test("a landmark is seen from 15.5 tiles of its centre at most (the rover's 10 on a star dune's crest, 4 more, and the slack); far ids are refused before anything is looked up", () => {
+  const m = solo('EXP-1'), l = X.landmarkById(m, 'L0,-1', at(134, -46)), c = at(l.x, l.y), before = snap(m);
+  assert.equal(X.discover(m, 'minh', l.id, { x: c.x + 15.6 * T, y: c.y }).error, 'tooFar');
+  assert.equal(snap(m), before);
+  assert.equal(X.discover(m, 'minh', l.id, { x: c.x, y: c.y - 15.4 * T }).ok, true);
+  const p = solo('EXP-1'), real = W.landmarkAt;
+  let looked = 0;
+  W.landmarkAt = (...a) => { looked++; return real(...a); };
+  try {
+    for (const id of ['L1,-1', 'L-4000,4000', 'L0,0']) assert.equal(X.discover(p, 'minh', id, c).error, 'tooFar', id);
+  } finally { W.landmarkAt = real; }
+  assert.equal(looked, 0, 'nothing was looked up for them');
+  for (const id of ['L0,-1:0', 'l0,-1', 'L00,-1', 'L0, -1', 'S0,-1', '', null]) assert.equal(X.discover(p, 'minh', id, c).error, 'noLandmark', String(id));
+  let none = null;
+  for (let j = -3; j <= 3 && !none; j++) for (let i = -3; i <= 3 && !none; i++) if (!W.landmarkAt(W.seedOf(p.seed), i, j)) none = [i, j];
+  assert.equal(X.discover(p, 'minh', 'L' + none[0] + ',' + none[1], at(none[0] * 256 + 128, none[1] * 256 + 128)).error, 'noLandmark', 'a cell without one');
+  assert.equal(X.discover(p, 'minh', l.id, null).error, 'badPos');
+  assert.equal(X.discover(p, 'nobody', l.id, c).error, 'noCrew');
+  assert.deepEqual(p.expedition.landmarks, {});
+});
+
+// A structure of a kind near the base (EXP-1 has one of each within 5 cells); you use it from its door, (x, y).
+function structure(m, kind) {
+  const seed = W.seedOf(m.seed);
+  for (let r = 0; r < 6; r++) for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
+    const s = W.structureAt(seed, i, j);
+    if (s && s.kind === kind) return s;
+  }
+  throw new Error('no ' + kind + ' near the base');
+}
+const loadsOf = (m, s, r) => r.items.concat(r.left ? m.expedition.drops.find(d => d.id === s.id).items : []);
+// The numbers of loads the structures of a kind within r cells of EXP-1's base hold (each opened in a fresh mission).
+function loadCounts(kind, r) {
+  const seed = W.seedOf('EXP-1'), out = new Set();
+  for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
+    const s = W.structureAt(seed, i, j), q = s && s.kind === kind && X.interact(solo('EXP-1'), 'minh', s.id, at(s.x, s.y));
+    if (q) out.add(q.items.length + q.left);
+  }
+  return [...out].sort();
+}
+
+test('a cache opens once: its 1–2 supplies, fixed by the mission code, go into your backpack and what does not fit is left at its door', () => {
+  const m = solo('EXP-1'), s = structure(m, 'cache'), door = at(s.x, s.y), x = m.expedition;
+  const ice = { kind: 'ice', res: 'water', amount: 40 };
+  x.carried.minh = [ice, ice, ice];
+  const r = X.interact(m, 'minh', s.id, door);
+  assert.equal(r.ok, true);
+  assert.equal(r.done, 'used');
+  assert.deepEqual(x.structures, { [s.id]: 'used' });
+  assert.equal(x.stats.minh.structures, 1);
+  assert.deepEqual(r.items, [], 'a full backpack takes none');
+  const d = x.drops.find(k => k.id === s.id);
+  assert.deepEqual([d.x, d.y], [door.x, door.y], 'they wait at its door');
+  assert.ok(d.items.length >= 1 && d.items.length <= 2 && r.left === d.items.length);
+  for (const it of d.items) {
+    assert.equal(it.kind, 'cache');
+    assert.equal(it.id, s.id);
+    assert.ok(['spares', 'food', 'o2'].includes(it.res), it.res);
+  }
+  const supplies = d.items.slice();
+  x.carried.minh = [];
+  assert.deepEqual(X.pickUp(m, 'minh', s.id, door).items, supplies, 'picked up as any drop');
+  const again = solo('EXP-1');
+  assert.deepEqual(X.interact(again, 'diego', s.id, door).items, supplies, 'the same supplies in every mission of the code, whoever opens it');
+  assert.equal(X.interact(m, 'diego', s.id, door).error, 'done', 'once');
+  assert.deepEqual(loadCounts('cache', 4), [1, 2], 'by the cache: some hold 1, some 2');
+});
+
+test('a wreck gives 2–3 metal loads and a spare kit, a solar array 2 loads of materials; on foot 3 loads fit and the rest is left at the door', () => {
+  const m = solo('EXP-1'), w = structure(m, 'wreck'), x = m.expedition;
+  const r = X.interact(m, 'lena', w.id, at(w.x, w.y)), loads = loadsOf(m, w, r);
+  const metal = loads.filter(it => it.res === 'materials');
+  assert.ok(metal.length >= 2 && metal.length <= 3, String(metal.length));
+  assert.ok(metal.every(it => it.amount === D.FINDS.metal.kg && it.kind === 'wreck'));
+  assert.deepEqual(loads.filter(it => it.res === 'spares').map(it => it.amount), [1]);
+  assert.equal(loads.length, metal.length + 1);
+  assert.equal(r.items.length, 3);
+  assert.equal(x.carried.lena.length, 3);
+  assert.deepEqual(loadCounts('wreck', 5), [3, 4], 'by the wreck: 2 or 3 metal loads, and the spare kit');
+  const a = structure(m, 'array'), q = X.interact(m, 'diego', a.id, at(a.x, a.y));
+  const load = { kind: 'array', id: a.id, region: a.region, res: 'materials', amount: D.FINDS.metal.kg };
+  assert.deepEqual(q, { ok: true, done: 'used', items: [load, load], left: 0, fog: {} });
+  assert.deepEqual(x.structures, { [w.id]: 'used', [a.id]: 'used' });
+});
+
+test('a repaired weather station reveals the fog within 24 tiles of it, banks 20 science and forecasts the weather a round ahead for 3 rounds', () => {
+  const m = solo('EXP-1'), s = structure(m, 'weather'), x = m.expedition;
+  assert.equal(X.forecastAhead(m), null, 'no forecast before');
+  const r = X.interact(m, 'minh', s.id, at(s.x, s.y));
+  assert.equal(r.done, 'repaired');
+  assert.deepEqual(r.items, []);
+  assert.deepEqual(r.fog, x.revealed, 'what it revealed, for the co-op server to share');
+  const seen = (tx, ty) => {
+    const cx = Math.floor(tx / 32), cy = Math.floor(ty / 32), k = cx + ',' + cy, bits = x.revealed[k] && F.decode(x.revealed[k]);
+    return !!bits && F.has(bits, tx - cx * 32, ty - cy * 32) === 1;
+  };
+  const mx = (s.box[0] + s.box[2] + 1) / 2, my = (s.box[1] + s.box[3] + 1) / 2; // the middle of its 2×2 footprint
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const tile = d => [Math.floor(mx + dx * d), Math.floor(my + dy * d)]; // the tile whose middle is d tiles out
+    assert.ok(seen(...tile(23.5)), '23.5 tiles out, ' + [dx, dy]);
+    assert.ok(!seen(...tile(24.5)), 'not 24.5 tiles out, ' + [dx, dy]);
+  }
+  assert.equal(x.banked.science, D.STRUCTURES.kinds.weather.science);
+  assert.deepEqual(x.banked.lines, [{ crewId: 'minh', kind: 'weather', res: 'science', region: s.region, amount: 20, loads: 1, late: false }]);
+  assert.equal(x.forecastUntil, m.turn + 3);
+  const now = m.turn;
+  for (let t = now; t <= now + 3; t++) {
+    m.turn = t;
+    assert.equal(X.forecastAhead(m), m.schedule[t + 1].weather, 'round ' + t + ' sees the next');
+  }
+  m.turn = now + 4;
+  assert.equal(X.forecastAhead(m), null, 'then it stops');
+});
+
+test('a repaired comms mast marks the nearest landmark and every other structure within 96 tiles; the marks are read from the world, never stored', () => {
+  const m = solo('EXP-1'), seed = W.seedOf(m.seed), s = W.structureAt(seed, -3, -4); // a mast with 4 structures near it
+  assert.equal(s.kind, 'mast');
+  assert.deepEqual(X.mastMarks(m), [], 'nothing before it is repaired');
+  X.interact(m, 'lena', s.id, at(s.x, s.y));
+  let near = null;
+  for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) {
+    const l = W.landmarkAt(seed, i, j), d = l && (l.x - s.x) * (l.x - s.x) + (l.y - s.y) * (l.y - s.y);
+    if (l && (!near || d < near.d)) near = { d, mark: { id: l.id, x: l.x, y: l.y, kind: l.kind } };
+  }
+  const want = [near.mark];
+  for (let j = -8; j <= 8; j++) for (let i = -8; i <= 8; i++) {
+    const k = W.structureAt(seed, i, j);
+    if (k && k.id !== s.id && (k.x - s.x) * (k.x - s.x) + (k.y - s.y) * (k.y - s.y) <= 96 * 96) want.push({ id: k.id, x: k.x, y: k.y, kind: k.kind });
+  }
+  assert.ok(want.length >= 3, 'structures to mark: ' + (want.length - 1));
+  const byId = list => list.slice().sort((a, b) => (a.id < b.id ? -1 : 1));
+  const marks = X.mastMarks(m);
+  assert.deepEqual(byId(marks), byId(want));
+  assert.ok(marks.every(k => Object.keys(k).join() === 'id,x,y,kind'), 'exactly { id, x, y, kind }');
+  assert.deepEqual(m.expedition.structures, { [s.id]: 'repaired' }, 'only its state is stored');
+});
+
+test('using a structure is refused from outside its cell before anything is looked up, and for odd spellings, an empty cell, a hab pod, one already used or a door out of reach', () => {
+  const m = solo('EXP-1'), s = structure(m, 'cache'), door = at(s.x, s.y), before = snap(m), real = W.structureAt;
+  let looked = 0;
+  W.structureAt = (...a) => { looked++; return real(...a); };
+  try {
+    for (const id of ['S-4000,9', 'S' + (s.i + 1) + ',' + s.j, 'S' + s.i + ',' + (s.j - 1)]) assert.equal(X.interact(m, 'minh', id, door).error, 'tooFar', id);
+  } finally { W.structureAt = real; }
+  assert.equal(looked, 0, 'nothing was looked up for them');
+  for (const id of ['s' + s.i + ',' + s.j, 'S0' + s.i + ',' + s.j, s.id + ':0', 'L' + s.i + ',' + s.j, '', null]) {
+    assert.equal(X.interact(m, 'minh', id, door).error, 'noStructure', String(id));
+  }
+  let none = null;
+  for (let j = -4; j <= 4 && !none; j++) for (let i = -4; i <= 4 && !none; i++) if (!W.structureAt(W.seedOf(m.seed), i, j)) none = [i, j];
+  assert.equal(X.interact(m, 'minh', 'S' + none[0] + ',' + none[1], at(none[0] * 64 + 32, none[1] * 64 + 32)).error, 'noStructure', 'a cell without one');
+  const pod = structure(m, 'pod');
+  assert.equal(X.interact(m, 'minh', pod.id, at(pod.x, pod.y)).error, 'badKind', 'a hab pod is walked into, not used');
+  assert.equal(X.interact(m, 'minh', s.id, { x: door.x, y: door.y + 1.6 * T }).error, 'tooFar', '1.5 tiles of slack, no more');
+  assert.equal(X.interact(m, 'minh', s.id, null).error, 'badPos');
+  assert.equal(X.interact(m, 'nobody', s.id, door).error, 'noCrew');
+  assert.equal(snap(m), before, 'a refused action changes nothing');
+  assert.equal(X.interact(m, 'minh', s.id, { x: door.x, y: door.y + 1.4 * T }).ok, true);
+  assert.equal(X.interact(m, 'minh', s.id, door).error, 'done');
+});
+
+test('holding E at a structure: 3 s for a cache, 6 s for a wreck, a weather station or a mast (the Engineer 3 s), 5 s for a solar array', () => {
+  const want = { cache: [3, 3], wreck: [6, 3], weather: [6, 3], mast: [6, 3], array: [5, 5] };
+  for (const kind of Object.keys(want)) {
+    assert.equal(X.holdSeconds(kind, 'medic'), want[kind][0], kind);
+    assert.equal(X.holdSeconds(kind, 'engineer'), want[kind][1], kind + ', the Engineer');
+  }
+  assert.equal(X.holdSeconds('pod', 'engineer'), 1.5, "a cargo pod's loads are still the Engineer's quick work");
+  assert.equal(X.holdSeconds('pod', 'medic'), 3);
+});
+
+test("a mast marks the nearest landmark, also when it stands across the border of the mast's own landmark cell", () => {
+  let masts = 0, across = 0;
+  for (const code of ['EXP-1', 'POI-1', 'EXP-SCI']) {
+    const seed = W.seedOf(code);
+    for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) {
+      const s = W.structureAt(seed, i, j);
+      if (!s || s.kind !== 'mast') continue;
+      const m = solo(code);
+      m.expedition.structures[s.id] = 'repaired';
+      let near = null, nd = Infinity;
+      for (let b = -5; b <= 5; b++) for (let a = -5; a <= 5; a++) {
+        const l = W.landmarkAt(seed, a, b), d = l && (l.x - s.x) * (l.x - s.x) + (l.y - s.y) * (l.y - s.y);
+        if (l && d < nd) { near = l; nd = d; }
+      }
+      assert.equal(X.mastMarks(m).filter(k => k.id[0] === 'L').map(k => k.id).join(), near.id, code + ' ' + s.id);
+      masts++;
+      if (Math.floor(s.x / 256) !== near.i || Math.floor(s.y / 256) !== near.j) across++;
+    }
+  }
+  assert.ok(masts >= 10 && across >= 3, masts + ' masts, ' + across + ' with the nearest in another cell');
+});
+
+test('a hab pod refills your suit from inside it, once per pod for each crew member each round; the advance gives a new one', () => {
+  const m = solo('EXP-1'), p = X.structureById(m, 'S0,-1', at(32, -53)), x = m.expedition;
+  assert.equal(p.kind, 'pod');
+  const floor = at((p.box[0] + p.box[2]) / 2, (p.box[1] + p.box[3]) / 2);
+  x.suits.minh = 40;
+  assert.deepEqual(X.refill(m, 'minh', p.id, floor), { ok: true, suit: D.EXPEDITION.suit });
+  assert.equal(x.suits.minh, D.EXPEDITION.suit);
+  assert.deepEqual(x.refills, { minh: [p.id] });
+  const before = snap(m);
+  assert.equal(X.refill(m, 'minh', p.id, floor).error, 'refilled', 'once a round');
+  assert.equal(snap(m), before);
+  assert.equal(X.refill(m, 'diego', p.id, floor).ok, true, 'each crew member has their own');
+  const { state } = E.resolveTurn(m, E.defaultPlan(m));
+  assert.deepEqual(state.expedition.refills, {}, 'the advance clears them');
+  assert.equal(X.refill(state, 'minh', p.id, floor).ok, true, 'and the next round it refills again');
+});
+
+test('a hab pod refills only from inside its footprint, with the 1.5 tiles of slack every action gets; nothing else refills', () => {
+  const m = solo('EXP-1'), p = X.structureById(m, 'S0,-1', at(32, -53)), b = p.box, before = snap(m);
+  assert.equal(X.refill(m, 'minh', p.id, at(p.x, b[3] + 2)).error, 'tooFar', 'two steps out of its door');
+  assert.equal(X.refill(m, 'minh', p.id, at(b[0] - 3, (b[1] + b[3]) / 2)).error, 'tooFar', 'three steps west of its wall');
+  const c = structure(m, 'cache');
+  assert.equal(X.refill(m, 'minh', c.id, at(c.x, c.y)).error, 'badKind', 'a cache is no hab pod');
+  const real = W.structureAt;
+  let looked = 0;
+  W.structureAt = (...a) => { looked++; return real(...a); };
+  try {
+    for (const id of ['S-4000,9', 'S1,-1', 'S0,0']) assert.equal(X.refill(m, 'minh', id, at(p.x, p.y)).error, 'tooFar', id);
+  } finally { W.structureAt = real; }
+  assert.equal(looked, 0, 'nothing was looked up for them');
+  for (const id of ['s0,-1', 'S00,-1', 'S0,-1:0', 'L0,-1', '', null]) assert.equal(X.refill(m, 'minh', id, at(p.x, p.y)).error, 'noStructure', String(id));
+  assert.equal(X.refill(m, 'minh', p.id, null).error, 'badPos');
+  assert.equal(X.refill(m, 'nobody', p.id, at(p.x, p.y)).error, 'noCrew');
+  assert.equal(snap(m), before, 'a refused action changes nothing');
+  assert.equal(X.refill(m, 'minh', p.id, at(p.x, b[3] + 1)).ok, true, 'a step out of its door is within the slack');
+});
+
+test("a mission saved by 3.4.0 loads with the points of interest's state: no forecast running, its stats kept, and the new actions work on it", () => {
+  const m = solo('EXP-1');
+  delete m.expedition.forecastUntil; // what 3.4.0 saved: every field but the weather station's forecast
+  m.expedition.stats = { minh: { finds: { ice: 2 } } };
+  const up = E.upgradeMission(JSON.parse(JSON.stringify(m)), {}), x = up.expedition; // a save is JSON
+  assert.equal(x.forecastUntil, -1);
+  assert.equal(X.forecastAhead(up), null);
+  assert.deepEqual(x.stats.minh, { finds: { ice: 2 } }, 'kept as it was');
+  assert.equal(X.discover(up, 'minh', 'L0,-1', at(134, -46)).ok, true);
+  assert.deepEqual(x.stats.minh, { finds: { ice: 2 }, landmarks: 1 });
+  assert.equal(X.interact(up, 'minh', 'S3,0', at(200, 12)).done, 'repaired');
+  assert.equal(x.forecastUntil, up.turn + 3);
+  assert.equal(X.refill(up, 'minh', 'S0,-1', at(32, -55)).ok, true);
+  for (const junk of ['3', NaN, Infinity, null, {}]) {
+    const s = solo('EXP-1');
+    s.expedition.forecastUntil = junk;
+    assert.equal(E.upgradeMission(s, {}).expedition.forecastUntil, -1, 'a hand-edited forecast is none: ' + String(junk));
+  }
 });

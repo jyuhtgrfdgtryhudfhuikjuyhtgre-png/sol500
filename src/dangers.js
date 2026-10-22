@@ -9,13 +9,17 @@
  * Positions are world pixels { x, y } (64 px a tile, the HQ tile's corner at 0, 0).
  *
  * API: viewTiles(m, inRover) → tiles you can see around you this round (dust storms shrink it)
+ *      viewAt(m, inRover, tile) → the same from the tile under you: a lava tube's headlamp ignores the storm, a star
+ *        dune's crest sees further
  *      outside(m) → what waits outside this round, in the order the round's brief and the Expedition panel say it: 'flare'
  *        (a solar flare is due), 'devils' (a dust-devil round), 'storm' (a regional or global dust storm), 'rupture' (an O₂
  *        line rupture at the base: canisters carried home count)
- *      coversIn(m, x0, y0, x1, y1, peek) → [{ kind: 'shelter' | 'cave', x, y }]: the cover from a solar flare whose middle
- *        (x, y) is in that box (tile units); DANGERS.shelter tiles from it count. peek(cx, cy) → a data chunk or null: the
- *        surface passes the chunks it holds (SolWorld's peek); the rules leave it out
- *      shelterAt(m, pos, slack, peek) → 'base' | 'shelter' | 'cave' | null: what covers you from a solar flare at pos
+ *      coversIn(m, x0, y0, x1, y1, peek) → [{ kind: 'shelter' | 'cave', x, y } | { kind: 'pod' | 'tube', id, x, y, box }]: the
+ *        cover from a solar flare in that box (tile units): a point whose middle (x, y) is in it (DANGERS.shelter tiles from
+ *        it count), or an interior whose box touches it ((x, y) is where its ring goes). peek(cx, cy) → a data chunk or null:
+ *        the surface passes the chunks it holds (SolWorld's peek); the rules leave it out
+ *      shelterAt(m, pos, slack, peek) → 'base' | 'shelter' | 'cave' | 'pod' | 'tube' | null: what covers you from a solar
+ *        flare at pos
  *      slackOf(m) → the slack (tiles) the flare's verdict gives a position: EXPEDITION.reach in co-op (the server judges
  *        where it last saw you), 0 in solo play
  *      flareDue(m) → does a solar flare come this round (the schedule's spe)?
@@ -49,6 +53,12 @@
     if (w === 'regional') return Z.view.regional;
     return inRover ? Z.view.rover : Z.view.clear;
   }
+  // The same from the tile under you (spec §3.4, §3.6): inside a lava tube (its floor or under its skylight) the headlamp
+  // lights what clear weather shows, whatever the storm outside; a star dune's crest adds view.crest tiles to the weather's.
+  function viewAt(m, inRover, tile) {
+    if (tile === W.TILE.TUBE_FLOOR || tile === W.TILE.SKYLIGHT) return inRover ? Z.view.rover : Z.view.clear;
+    return viewTiles(m, inRover) + (tile === W.TILE.CREST ? Z.view.crest : 0);
+  }
 
   // ---------- what waits outside this round ----------
   // The surface's round brief and the console's Expedition panel both read this list, so a new danger is added here once;
@@ -63,33 +73,61 @@
   }
 
   // ---------- shelter from a solar flare ----------
-  // Every cover whose middle is in the box (tile units, edges included): the built storm shelter (spec §3.4), then the caves'
-  // mouths. shelterAt, the surface's amber rings and its cover checks all read this one list, so lava-tube interiors and
-  // abandoned hab pods (M4c) join it here. peek(cx, cy) → a data chunk or null; without it the chunks are built.
+  // Every cover in the box (tile units, edges included): the built storm shelter (spec §3.4), then, chunk by chunk, the caves'
+  // mouths (not those hidden under a point of interest's footprint), the abandoned hab pods and the lava tubes. shelterAt, the
+  // surface's amber rings and its cover checks all read this one list. The shelter and a cave are points, listed when their
+  // middle is in the box. A pod and a tube are interiors: the entry carries its id and its box (inclusive tiles), and is listed
+  // when that box touches the query's; its (x, y) is where its ring goes, the middle of the pod's door or of the tube's
+  // skylight. Every chunk a landmark's box (or a structure's apron) touches lists it, so each is added once, by id.
+  // peek(cx, cy) → a data chunk or null; without it the chunks are built.
+  const chunksOf = (m, peek) => peek || ((cx, cy) => X.chunkAt(m, cx, cy));
   function coversIn(m, x0, y0, x1, y1, peek) {
-    const out = [], chunk = peek || ((cx, cy) => X.chunkAt(m, cx, cy));
+    const out = [], seen = new Set(), chunk = chunksOf(m, peek);
     const add = (kind, x, y) => { if (x >= x0 && x <= x1 && y >= y0 && y <= y1) out.push({ kind, x, y }); };
+    const room = (kind, id, [x, y], box) => {
+      if (seen.has(id) || box[0] > x1 || box[2] + 1 < x0 || box[1] > y1 || box[3] + 1 < y0) return;
+      seen.add(id);
+      out.push({ kind, id, x: x + 0.5, y: y + 0.5, box });
+    };
     const sh = E.activeCount(m, 'shelter') > 0 ? m.layout.find(k => k.type === 'shelter') : null;
     if (sh) add('shelter', sh.x + W.BASE_RECT.x + 0.5, sh.y + W.BASE_RECT.y + 0.5);
     for (let cy = Math.floor(y0 / CH); cy <= Math.floor(y1 / CH); cy++) {
       for (let cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++) {
         const c = chunk(cx, cy);
-        if (c) for (const k of c.caves) add('cave', k.x + 0.5, k.y + 0.5);
+        if (!c) continue;
+        for (const k of c.caves) if (!c.hidden.caves.includes(k.n)) add('cave', k.x + 0.5, k.y + 0.5);
+        for (const s of c.structures) if (s.kind === 'pod') room('pod', s.id, [s.x, s.y], s.box);
+        for (const l of c.landmarks) if (l.kind === 'tube') room('tube', l.id, l.skylight, l.box);
       }
     }
     return out;
   }
-  // The base zone, or the first cover in the list within DANGERS.shelter tiles of its middle. `slack` (tiles) widens each
-  // for a position sent a moment ago; `peek` is the lister's.
+  // The base zone, or the first cover in the list that holds you: within DANGERS.shelter tiles of a point's middle, or
+  // inside an interior. `slack` (tiles) widens each for a position sent a moment ago; `peek` is the lister's.
   function shelterAt(m, pos, slack, peek) {
     if (!m || !okPos(pos)) return null;
     const s = slack || 0, r = Z.shelter + s, fx = pos.x / T, fy = pos.y / T;
     if (X.inBaseZone(pos, s)) return 'base';
     for (const k of coversIn(m, fx - r, fy - r, fx + r, fy + r, peek)) {
       const dx = k.x - fx, dy = k.y - fy;
-      if (dx * dx + dy * dy <= r * r) return k.kind;
+      if (k.box ? inside(m, k, fx, fy, s, peek) : dx * dx + dy * dy <= r * r) return k.kind;
     }
     return null;
+  }
+  // Inside an interior: in its box, widened by the slack. A tube's box also holds its wall and the plain ground round it, so
+  // there you must be on its floor or under its skylight: on one of those tiles, or within the slack of one.
+  function inside(m, k, fx, fy, s, peek) {
+    const b = k.box;
+    if (fx < b[0] - s || fx >= b[2] + 1 + s || fy < b[1] - s || fy >= b[3] + 1 + s) return false;
+    if (k.kind !== 'tube') return true;
+    const chunk = chunksOf(m, peek);
+    for (let ty = Math.floor(fy - s); ty <= Math.floor(fy + s); ty++) {
+      for (let tx = Math.floor(fx - s); tx <= Math.floor(fx + s); tx++) {
+        const cx = Math.floor(tx / CH), cy = Math.floor(ty / CH), c = chunk(cx, cy), t = c && W.tileOf(c, tx - cx * CH, ty - cy * CH);
+        if (t === W.TILE.TUBE_FLOOR || t === W.TILE.SKYLIGHT) return true;
+      }
+    }
+    return false;
   }
   // The co-op server judges where it last saw you, a moment ago, so it gives you the slack every checked action gets; solo
   // play judges you where you are. The server, the solo verdict and the surface's banner all ask here, so they agree.
@@ -206,6 +244,9 @@
     revive: (m, id, b, pos) => X.revive(m, id, b.target, pos),
     board: (m, id, b, pos) => X.board(m, id, pos),
     park: (m, id, b, pos) => X.park(m, id, pos, b.driven),
+    discover: (m, id, b, pos) => X.discover(m, id, b.landmark, pos),
+    interact: (m, id, b, pos) => X.interact(m, id, b.structure, pos),
+    refill: (m, id, b, pos) => X.refill(m, id, b.pod, pos),
     // Solo play's flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
     // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
     flareStart: (m, id, b) => flareStart(m, b.t),
@@ -216,5 +257,5 @@
     return run ? run(m, crewId, body || {}, pos) : { error: 'badAction' };
   }
 
-  return { viewTiles, outside, coversIn, shelterAt, slackOf, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit, act };
+  return { viewTiles, viewAt, outside, coversIn, shelterAt, slackOf, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit, act };
 });

@@ -611,9 +611,10 @@ test("a new mission has an empty exploring state and, in solo play, the player's
   assert.deepEqual(s.expedition.revealed, {});
   assert.deepEqual(s.expedition.regions, []);
   assert.deepEqual(Object.keys(s.expedition).sort(),
-    ['banked', 'beacons', 'benched', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'goals', 'incidents', 'kits', 'landmarks', 'refills',
-      'regions', 'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
+    ['banked', 'beacons', 'benched', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'forecastUntil', 'goals', 'incidents', 'kits', 'landmarks',
+      'refills', 'regions', 'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
   assert.equal(s.expedition.flare, null, 'no solar flare yet');
+  assert.equal(s.expedition.forecastUntil, -1, 'no weather station forecast yet');
   assert.equal(s.expedition.clock, 0, "the round's clock starts at 0");
   assert.deepEqual(s.expedition.where, {});
   assert.equal(calm().pilot, null, 'no pilot unless one is chosen (co-op seats choose their own)');
