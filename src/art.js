@@ -1,5 +1,5 @@
 /*
- * SOL 500 — hand-built SVG art: UI icons, outpost structures, crew portraits and the dusk landscape.
+ * SOL 500 — hand-built SVG art: UI icons, outpost structures, points of interest, crew portraits and the dusk landscape.
  * Every function returns an SVG string built only from constants (never from player text).
  */
 (function (root) {
@@ -166,6 +166,155 @@
     return `<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
   }
 
+  // ---------- points of interest on the map (64×64, 3/4 view and light from the upper left, as the modules) ----------
+  // Each fills a square as wide as its footprint, with its bottom edge on the footprint's: a footprint wider than deep (the
+  // 3×2 wreck, the 4×2 array) leaves the top of the square to what stands up, as with the modules. A size that is not a
+  // positive number gives 64 px; an unknown id gives a known drawing.
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const svg64 = (size, inner) => {
+    const s = Number.isFinite(size) && size > 0 ? size : 64;
+    return `<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
+  };
+
+  // The Kestrel Survey (spec §3.7): robotic hardware older than the outpost, so its paint is faded and dust lies on its
+  // tops and feet. One teal accent marks the programme; a repaired machine's beacon is lit. Paint: hull, its lit top, its
+  // shade, dark.
+  const KH = '#c3b7a7', KT = '#d8cdbe', KS = '#968a7c', KD = '#3d3537', TEAL = '#4a978e', LIT = '#a9f4e4', DUST = '#a96f48', STRUT = '#7a736d';
+  const dust = (d, op) => `<path d="${d}" fill="${DUST}" opacity="${op || 0.45}"/>`;
+  const beacon = (x, y, on) => (on ? `<circle cx="${x}" cy="${y}" r="6" fill="${LIT}" opacity="0.3"/><circle cx="${x}" cy="${y}" r="2.4" fill="${LIT}"/>`
+    : `<circle cx="${x}" cy="${y}" r="2.2" fill="#4d4346"/>`);
+  // the weather station's top, from the break in its mast up: the boom with the wind cups and the vane, and the beacon
+  const weatherTop = on => `<path d="M32 27V12M21 18h22M21 18v-4M17 14h8" stroke="#8f8780" stroke-width="1.6"/><circle cx="17" cy="14" r="1.8" fill="${KH}"/>` +
+    `<circle cx="25" cy="14" r="1.8" fill="${KH}"/><path d="M43 18l5-4v8z" fill="${TEAL}"/>` + beacon(32, 10, on);
+
+  const KESTREL_ART = {
+    // a supply cache on its four landing legs; opened, its lid stands up behind and the box is empty
+    cache: done => shadow(27) +
+      `<path d="M16 46 9 53M48 46l7 7M24 48l-1 6M40 48l1 6" stroke="${STRUT}" stroke-width="2"/><path d="M6 53.5h6M52 53.5h6" stroke="${STRUT}" stroke-width="2.4" stroke-linecap="round"/>` +
+      (done ? `<path d="M15 20l2-14h30l2 14z" fill="#a89c8d"/><path d="M19 9h26" stroke="${TEAL}" stroke-width="2"/>` : '') +
+      `<rect x="12" y="29" width="40" height="20" rx="2" fill="${KH}"/><path d="M32 29v20" stroke="${KS}"/><rect x="12" y="35" width="40" height="3.5" fill="${TEAL}"/>` + dust('M12 43h40v6H12z') +
+      (done ? `<path d="M15 20h34l3 9H12z" fill="${KD}"/><path d="M15 20h34l1 3H14z" fill="#62575a"/><path d="M15 20h34" stroke="${KS}" stroke-width="1.5"/>`
+        : `<path d="M15 20h34l3 9H12z" fill="${KT}"/><path d="M20 27v4M44 27v4" stroke="${KD}" stroke-width="3"/>` + dust('M17 22h18l-1 4H16z', 0.35)),
+    // a six-wheeled scout rover that crashed nose down; salvaged, only its stripped frame is left
+    wreck: done => (done
+      ? shadow(25) + `<g transform="rotate(-8 32 44)"><rect x="10" y="35" width="42" height="11" rx="2" fill="#a39a90"/><path d="M13 38h9v5h-9zM26 38h10v5H26zM40 38h9v5h-9z" fill="${KD}"/>` +
+        `<path d="M13 29h36l3 6H10z" fill="${KD}"/><path d="M18 29l-1 6M26 29v6M34 29v6M42 29l1 6" stroke="#a39a90" stroke-width="1.5"/><path d="M17 29v-4" stroke="#9a938c" stroke-width="2"/>` +
+        `<rect x="10" y="44" width="14" height="1.5" fill="${TEAL}" opacity="0.7"/><path d="M16 46v3M30 46v3M45 46v3" stroke="${STRUT}" stroke-width="2"/></g>`
+      : shadow(28) + dust('M5 53q8-7 20-3l1 3z', 0.55) + `<g transform="rotate(-8 32 44)"><rect x="10" y="30" width="42" height="12" rx="2.5" fill="${KH}"/>` +
+        `<path d="M13 24h36l3 6H10z" fill="#55627a"/>` + dust('M13 24h36l3 6H10z', 0.5) + `<rect x="10" y="35" width="42" height="2.5" fill="${TEAL}"/>` +
+        `<path d="M16 45l7-4 7 5" stroke="${STRUT}" stroke-width="1.8" fill="none"/><g fill="${KD}" stroke="${STRUT}" stroke-width="1.5"><circle cx="16" cy="45" r="5"/><circle cx="30" cy="46" r="5"/></g>` +
+        `<path d="M46 42l2 5" stroke="${STRUT}" stroke-width="2"/><path d="M17 24v-8l7-3" stroke="#9a938c" stroke-width="2" fill="none"/><rect x="22" y="10" width="8" height="5" rx="1" fill="${STRUT}"/></g>` +
+        `<ellipse cx="54" cy="51" rx="5" ry="3" fill="${KD}" stroke="${STRUT}" stroke-width="1.4"/>`),
+    // a weather station: a box on a tripod with its own small panel; broken, the mast is snapped and its top leans over, a cup
+    // in the dust; repaired, it stands straight, the panel is clean and the beacon is lit
+    weather: done => shadow(22) +
+      `<path d="M32 40 20 54M32 40l12 14" stroke="${STRUT}" stroke-width="2"/><path d="M15 51v-6" stroke="${STRUT}" stroke-width="1.6"/><path d="M8 45l4-7h10l-4 7z" fill="${done ? PANEL : '#4c5b76'}"/>` +
+      (done ? `<path d="M10 41.5h10M15 38l-2 7" stroke="${GRID}" stroke-width="0.7" opacity="0.7"/>` : dust('M8 45l4-7h10l-4 7z', 0.6)) +
+      `<path d="M32 40V27" stroke="#8f8780" stroke-width="1.6"/><rect x="24" y="41" width="16" height="10" rx="1.5" fill="${KH}"/><path d="M25 38h14l1 3H24z" fill="${KT}"/><rect x="24" y="45" width="16" height="2.5" fill="${TEAL}"/>` +
+      (done ? weatherTop(true) : `<g transform="rotate(35 32 27)">${weatherTop(false)}</g><circle cx="50" cy="52" r="1.8" fill="${KH}"/>`),
+    // a lattice comms mast; broken, a guy wire hangs and the dish droops; repaired, the dish looks up and the beacon is lit
+    mast: done => shadow(19) +
+      `<path d="M31 16 9 53${done ? 'M33 16l22 37' : 'M33 16q7 14 4 24'}" stroke="#9b938c" stroke-width="0.8" opacity="0.8" fill="none"/>` +
+      `<path d="M21 50h22l3 4H18z" fill="${STRUT}"/><path d="M26 51 30.5 13M38 51 33.5 13" stroke="#857d76" stroke-width="2"/><path d="M26.6 46l10.6-6-9.9-5 9.3-6-8.7-5 8.1-6" stroke="#857d76" stroke-width="1.1" fill="none"/>` +
+      `<rect x="26" y="42" width="12" height="8" rx="1" fill="${KH}"/><rect x="26" y="45" width="12" height="2.5" fill="${TEAL}"/><path d="M34 24h5" stroke="#857d76" stroke-width="1.6"/>` +
+      (done ? `<ellipse cx="43" cy="20" rx="8" ry="3.6" transform="rotate(-40 43 20)" fill="${KH}"/><path d="M43 20l4-5" stroke="${KS}" stroke-width="1.2"/><path d="M50 9a7 7 0 0 1 5 5M52 5a11 11 0 0 1 7 8" stroke="${LIT}" stroke-width="1.2" fill="none" opacity="0.7"/>`
+        : `<ellipse cx="41" cy="30" rx="8" ry="3.6" transform="rotate(70 41 30)" fill="${KS}"/><ellipse cx="41.6" cy="30" rx="6" ry="2.4" transform="rotate(70 41.6 30)" fill="#7d7268"/>`) +
+      beacon(32, 11, done),
+    // an abandoned hab pod: its roof from outside; inside (the roof hidden), its room. Drawn for a 5×5 footprint: a ring of
+    // wall one tile thick, a 3×3 room, and the door in the middle of the south wall
+    pod: (done, inside) => `<ellipse cx="32" cy="58" rx="31" ry="5" fill="#000" opacity="0.32"/>` +
+      `<rect x="2" y="44" width="60" height="15" rx="4" fill="${KS}"/><rect x="2" y="49" width="60" height="2.5" fill="${TEAL}"/><rect x="26" y="45" width="12" height="14" rx="1.5" fill="${KD}"/>` +
+      `<circle cx="13" cy="54.5" r="2.2" fill="${WIN}" stroke="${KH}"/><circle cx="51" cy="54.5" r="2.2" fill="${WIN}" stroke="${KH}"/>` +
+      (inside
+        ? `<rect x="2" y="3" width="60" height="45" rx="9" fill="#b9ad9d"/><rect x="13" y="13" width="38" height="33" fill="#6d625c"/><rect x="13" y="13" width="38" height="5" fill="#4f4542"/>` +
+          `<path d="M13 31h38M26 18v28M38 18v28" stroke="#5c524d" stroke-width="0.8"/><rect x="14" y="21" width="9" height="18" rx="1.5" fill="#8c8076"/><rect x="15" y="22" width="7" height="5" rx="1" fill="#c9bfb3"/>` +
+          `<rect x="27" y="13" width="12" height="7" rx="1" fill="#3a3436"/><rect x="29" y="14.5" width="8" height="3" fill="${LIT}" opacity="0.65"/>` +
+          `<rect x="44" y="20" width="6" height="12" rx="3" fill="#86b8ea"/><circle cx="47" cy="34" r="1.3" fill="${LIT}"/><rect x="42" y="37" width="8" height="8" rx="1" fill="${KS}"/>` + dust('M26 46q6-5 12 0z', 0.5)
+        : `<rect x="2" y="3" width="60" height="45" rx="9" fill="#c9bdad"/><rect x="2" y="12" width="60" height="13" fill="${KT}"/><rect x="2" y="33" width="60" height="6" fill="#b4a898"/>` +
+          `<path d="M14 4v43M26 3v45M38 3v45M50 4v43" stroke="${KS}" stroke-width="0.8" opacity="0.7"/><rect x="40" y="14" width="12" height="8" rx="2" fill="${KS}"/><rect x="42" y="16" width="8" height="4" rx="1" fill="#837768"/>` +
+          dust('M6 22q7-4 14-1t12 0v3H6z', 0.3) + dust('M36 36q8-3 16 0v3H36z', 0.3) + `<path d="M10 12V2" stroke="${STRUT}" stroke-width="1.4"/>` + beacon(10, 2, false)),
+    // a dusty solar array of three panels; salvaged, two panels are gone and the one left is wiped clean
+    array: done => shadow(28) + [0, 1, 2].map(i => {
+      const x = 6 + i * 18, gone = done && i > 0;
+      const panel = `M${x} 44l5-13h14l-5 13z`;
+      return `<path d="M${x + 4} 44v7M${x + 12} 44v6" stroke="${STRUT}" stroke-width="1.6"/>` +
+        (gone ? `<path d="${panel}" fill="none" stroke="${STRUT}" stroke-width="1.4"/>`
+          : `<path d="${panel}" fill="${PANEL}"/><path d="M${x + 3} 37.5h14M${x + 9} 31l-5 13" stroke="${GRID}" stroke-width="0.8" opacity="0.7"/>` + (done ? '' : dust(panel, 0.75)));
+    }).join('') + `<rect x="52" y="47" width="7" height="6" rx="1" fill="${TEAL}"/>`,
+  };
+
+  // Natural formations (spec §3.7), real geology in regolith tones: lit top, face, shade and deep shade.
+  const R0 = '#c4916a', R1 = '#a06a4b', R2 = '#7a4a34', R3 = '#4f2f23';
+  const FORMATION_ART = {
+    // a thin span over a wide opening, the ground showing through it
+    arch: shadow(28) + `<path d="M4 54 5 44 3 36l4-8 3-6 6-6 8-3 10-1 10 1 8 4 4 5 1 8-2 8 3 8-1 8zM19 54l-1-10 2-10 4-8 8-5 8 1 5 6 2 10-1 8 1 8z" fill="${R1}" fill-rule="evenodd"/>` +
+      `<path d="M10 22l6-6 8-3 10-1 10 1 8 4 4 5-6-1-8-3-9-1-9 1-8 2z" fill="${R0}"/><path d="M52 17l4 5 1 8-2 8 3 8-1 8h-5l1-8-2-8 1-8-1-8z" fill="${R2}"/>` +
+      `<path d="M19 54l-1-10 2-10 4-8 8-5-2 4-5 5-2 8-1 8 1 8z" fill="${R3}"/><path d="M5 44h12M48 44h8M7 32h11M49 30h7" stroke="${R3}" stroke-width="0.8" opacity="0.5"/>`,
+    // three wind-carved ridges in a row: a blunt head into the wind (from the left), a long tail, grooves along the flanks
+    yardang: [[14, 30, 43, 6, 9], [6, 43, 54, 9, 12], [20, 54, 32, 5, 7]].map(([x, y, l, d, h]) =>
+      `<ellipse cx="${x + l / 2}" cy="${y + 0.5}" rx="${l / 2 + 1}" ry="2" fill="#000" opacity="0.3"/><path d="M${x} ${y}c0-${h - 4} 2-${h - 1} ${d}-${h}l${l - d} ${h - 2}v2z" fill="${R1}"/>` +
+      `<path d="M${x} ${y}c0-${h - 4} 2-${h - 1} ${d}-${h}l${l - d} ${h - 2}-${l - d - 1}-${h - 5}c-3 0-${d - 1} 2-${d} ${h - 5}z" fill="${R0}"/><path d="M${x + d + 2} ${y - 3}l${l - d - 6} 2" stroke="${R2}" stroke-width="0.8" opacity="0.7"/>`).join(''),
+    hoodoo: shadow(22) +
+      `<path d="M21 54c1-9-2-15 0-23s-1-11 1-17h8c2 6-1 10 0 17s-1 14 1 23z" fill="${R1}"/><path d="M26 14h4c2 6-1 10 0 17s-1 14 1 23h-5z" fill="${R2}"/><ellipse cx="26" cy="14" rx="7.5" ry="3.4" fill="${R3}"/><ellipse cx="25.5" cy="12.8" rx="6.5" ry="2.3" fill="${R0}"/>` +
+      `<path d="M38 54c1-7-1-11 0-17s-1-8 0-11h7c1 3-1 6 0 11s-1 10 1 17z" fill="${R1}"/><path d="M42 26h3c1 3-1 6 0 11s-1 10 1 17h-4z" fill="${R2}"/><ellipse cx="41.5" cy="26" rx="6" ry="2.8" fill="${R3}"/><ellipse cx="41" cy="25" rx="5" ry="1.9" fill="${R0}"/>` +
+      `<path d="M10 54c1-6-1-9 0-13s0-5 1-7h5c1 2-1 4 0 7s0 7 1 13z" fill="${R1}"/><ellipse cx="13.5" cy="34" rx="4.8" ry="2.2" fill="${R3}"/><ellipse cx="13.2" cy="33.2" rx="4" ry="1.5" fill="${R0}"/>` +
+      `<path d="M21 30h10M21 42h11M38 38h8M10 44h7" stroke="${R0}" stroke-width="1.2" opacity="0.6"/>`,
+    // the oblong boulder of its fact: it tumbled down a slope, leaving a trail of dents behind it, and came to rest standing
+    // on end, nearly twice as tall as it is wide
+    balanced: shadow(16) +
+      `<ellipse cx="18" cy="46" rx="2.6" ry="1.2" fill="${R3}" opacity="0.5"/><ellipse cx="12" cy="40" rx="2.2" ry="1" fill="${R3}" opacity="0.4"/><ellipse cx="7" cy="34.5" rx="1.8" ry="0.8" fill="${R3}" opacity="0.3"/>` +
+      `<path d="M24 54 22 41 24 27 29 19 36 16 42 21 44 34 43 46 41 54z" fill="${R1}"/><path d="M24 54 22 41 24 27 29 19 36 16 32 22 28 34 27 54z" fill="${R0}"/>` +
+      `<path d="M42 21 44 34 43 46 41 54H36L38 40 39 27z" fill="${R2}"/><path d="M30 28l3 4M33 45l2-5" stroke="${R2}" stroke-width="0.9" opacity="0.7"/><ellipse cx="47" cy="53" rx="3" ry="1.7" fill="${R2}"/>`,
+    ventifact: shadow(24) + `<path d="M10 51 14 35l12-8 14 1 10 10 2 13z" fill="#4a4140"/><path d="M14 35l12-8 6 7-12 7z" fill="#7d716c"/><path d="M26 27l14 1 10 10-18-4z" fill="#605654"/>` +
+      `<path d="M40 28l10 10 2 13-12-4z" fill="#2f2928"/><path d="M16 41l8-5M17 45l9-6M19 49l8-5" stroke="#2a2423" stroke-width="0.9"/>` +
+      `<path d="M41 55l3-8 8-2 6 5-1 5z" fill="#4a4140"/><path d="M44 47l8-2 2 4-9 1z" fill="#7d716c"/><path d="M15 36l10-7" stroke="#b3a59d" stroke-width="0.8" opacity="0.7"/>`,
+    // an outcrop of soft and hard layers: a steep face on the left, ledges stepping down to the right, a ragged cap
+    layered: shadow(30) + [[3, 61, 46, 8, '#a2603f'], [4, 57, 39, 7, '#c99f78'], [6, 52, 32, 7, R1], [8, 46, 26, 6, '#cfa883']].map(([a, b, y, h, c]) =>
+      `<path d="M${a} ${y + h}l1-${h}h${b - a - 3}l2 ${h}z" fill="${c}"/><path d="M${a + 1} ${y + 0.6}h${b - a - 3}" stroke="#fff" stroke-width="1.2" opacity="0.2"/><path d="M${b - 7} ${y}h5l2 ${h}h-7z" fill="#000" opacity="0.18"/>`).join('') +
+      `<path d="M9 26l1-5 4-1 3-2 8-1 3 2h7l4 2 3 2 1 3z" fill="${R2}"/><path d="M9 26l1-5 4-1 3-2 8-1v9z" fill="${R1}"/>` +
+      `<path d="M34 39v-7M44 54v-8" stroke="${R3}" stroke-width="0.9" opacity="0.4"/><path d="M52 54l2-3h4l2 3zM6 54l2-2h3l1 2z" fill="${R2}"/>`,
+    // dust-devil tracks: dark lanes where the devils scoured off the bright dust, each as wide all along as the devil that
+    // made it, crossing one another; flat on the ground, and each ends inside the square, so no track is cut off at its edge
+    deviltracks: `<g fill="none" stroke="#1d110d" stroke-linecap="round" opacity="0.26"><path d="M6 49C17 45 27 38 35 32C43 26 50 21 58 17" stroke-width="4"/>` +
+      `<path d="M5 31C14 29 22 24 30 22C38 20 45 15 51 8" stroke-width="2.4"/><path d="M11 12C20 21 27 31 35 40C42 48 49 53 55 58" stroke-width="1.6"/>` +
+      `<path d="M31 58C39 55 47 50 58 45" stroke-width="3"/></g>`,
+  };
+
+  // Landmark props (spec §3.6): the skylight into a lava tube, and the methane vent (its puffs: ventPuff).
+  const PROP_ART = {
+    // a collapse pit with no rim: cracks round it, the far wall lit inside, black below, a slope of rubble going in at the front
+    skylight: `<ellipse cx="32" cy="34" rx="28" ry="18" fill="#000" opacity="0.12"/><path d="M5 30l7 2M59 38l-7-2M18 52l4-4M47 15l-3 4M8 42l6-2" stroke="#1a0f0c" stroke-width="1" opacity="0.45"/>` +
+      `<ellipse cx="32" cy="34" rx="22" ry="14" fill="#0b0607"/><path d="M10 34a22 14 0 0 1 44 0c-5-5-13-8-22-8s-17 3-22 8z" fill="#4a2a1f"/><path d="M10 34a22 14 0 0 1 44 0c-4-6-12-11-22-11s-18 5-22 11z" fill="#7a4632"/>` +
+      `<path d="M10 34a22 14 0 0 0 44 0" stroke="#b07a58" stroke-width="1.2" fill="none" opacity="0.5"/><path d="M25 48l3-6 4-3 4 3 3 6z" fill="#4e2c21"/><path d="M27 46h2M33 44h2M30 41h2" stroke="#8a5538" stroke-width="1.6"/>` +
+      `<ellipse cx="9" cy="24" rx="3.5" ry="2.2" fill="${R2}"/><ellipse cx="55" cy="47" rx="3" ry="1.9" fill="${R2}"/><ellipse cx="47" cy="12" rx="2.4" ry="1.5" fill="${R2}"/>`,
+    // a low mound split by a fissure, its lips crusted pale, in a faint pale halo
+    vent: `<ellipse cx="32" cy="42" rx="27" ry="12" fill="#e3d3ab" opacity="0.14"/><path d="M8 46c4-6 14-10 24-10s20 4 24 10c-6 3-14 4-24 4S14 49 8 46z" fill="#8a5a40"/>` +
+      `<path d="M10 45c5-5 13-8 22-8s17 3 22 8c-8-3-14-4-22-4s-15 1-22 4z" fill="#a87250"/><path d="M18 43l6-2 4 1 5-2 4 1 6-2 5 1" stroke="#1a0f0c" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>` +
+      `<path d="M19 41.4l5-2 4 1 5-2 4 1 6-2" stroke="#efe4c4" stroke-width="1" fill="none" opacity="0.7"/><path d="M13 47l5-2M46 45l5 2" stroke="#1a0f0c" stroke-width="1" opacity="0.6"/>` +
+      `<ellipse cx="22" cy="46.5" rx="3" ry="1.1" fill="#efe4c4" opacity="0.45"/><ellipse cx="42" cy="46" rx="2.5" ry="1" fill="#efe4c4" opacity="0.45"/><ellipse cx="11" cy="50" rx="2.6" ry="1.6" fill="${R2}"/><ellipse cx="53" cy="49" rx="2.2" ry="1.4" fill="${R2}"/>`,
+  };
+
+  // opts: { done } opened, salvaged or repaired; { inside } the hab pod's room, drawn while you are in it (its roof hidden).
+  function kestrel(id, size, opts) {
+    const o = opts || {};
+    return svg64(size, KESTREL_ART[own(KESTREL_ART, id) ? id : 'cache'](!!o.done, !!o.inside));
+  }
+  function formation(id, size) { return svg64(size, FORMATION_ART[own(FORMATION_ART, id) ? id : 'ventifact']); }
+  function prop(id, size) { return svg64(size, PROP_ART[own(PROP_ART, id) ? id : 'vent']); }
+
+  // The methane vent's puff, drawn over prop('vent') in the same square: three wisps rise from the fissure, grow and fade,
+  // a third of a cycle apart, so phase 1 looks like phase 0 and the loop never jumps. Any phase is safe (not a number: 0).
+  function ventPuff(phase, size) {
+    const p = Number.isFinite(phase) ? phase - Math.floor(phase) : 0;
+    let o = '';
+    for (let i = 0; i < 3; i++) {
+      const q = (p + i / 3) % 1, x = 33 + q * 10, y = 40 - q * 30, r = 2.5 + q * 8, a = (q * (1 - q) * 1.6).toFixed(2);
+      o += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="#efe6dc" opacity="${a}"/>` +
+        `<circle cx="${(x - r * 0.6).toFixed(1)}" cy="${(y + r * 0.4).toFixed(1)}" r="${(r * 0.7).toFixed(1)}" fill="#efe6dc" opacity="${a}"/>`;
+    }
+    return svg64(size, o);
+  }
+
   // ---------- crew portraits (64×64) ----------
   let uid = 0;
   const GLYPH = {
@@ -230,5 +379,5 @@
       `</svg>`;
   }
 
-  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, ROLE };
+  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, ROLE, kestrel, formation, prop, ventPuff };
 })(typeof self !== 'undefined' ? self : this);
