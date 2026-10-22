@@ -92,3 +92,38 @@ test("in the rover the battery caps the haul, and it never grows", () => {
     assert.ok(mean(loads.slice(15)) <= mean(loads.slice(0, 5)), seed + ': ' + loads.join(' '));
   }
 });
+
+const W = require('../src/worldgen.js');
+// Plays 20 calm rounds with the explorer out every round, thoughtfully or not; returns the mission at the end, the loads
+// and the refills it took. The science of a discovery or a weather station is banked on the spot, not delivered as a load.
+function mission(seed, kit, poi) {
+  let s = E.createMission({ seed, loadout: kit, events: false, pilot: 'diego' }), loads = 0, refills = 0;
+  const delivered = () => s.expedition.banked.lines.filter(l => !l.late && l.kind !== 'landmark' && l.kind !== 'weather').reduce((n, l) => n + l.loads, 0);
+  while (s.status === 'active') {
+    const before = delivered(), got = haulRound(s, s.pilot, poi);
+    assert.equal(delivered() - before, got.loads, 'what it reports is what the real rules banked');
+    loads += got.loads;
+    refills += (s.expedition.refills.diego || []).length;
+    s = E.resolveTurn(s, E.defaultPlan(s)).state;
+  }
+  return { s, loads, refills };
+}
+
+test('played thoughtfully, the explorer also uses the points of interest near the base, and on foot a hab pod lets it haul more', () => {
+  const sites = x => Object.keys(x.sites).filter(id => /^[LF]/.test(id)).length;
+  let landmarks = 0;
+  for (const seed of ['FARM-1', 'FARM-3']) {
+    const plain = mission(seed, KIT, false), keen = mission(seed, KIT, true), x = keen.s.expedition;
+    assert.deepEqual([plain.s.expedition.structures, plain.s.expedition.landmarks, sites(plain.s.expedition), plain.refills], [{}, {}, 0, 0], seed + ': a careless explorer leaves them');
+    assert.ok(Object.values(x.structures).length >= 1 && Object.values(x.structures).every(v => v === 'used' || v === 'repaired'), seed + ': ' + JSON.stringify(x.structures));
+    assert.ok(sites(x) >= 1, seed + ': it collects the sites of landmarks and formations');
+    assert.ok(keen.refills >= 5, seed + ': ' + keen.refills + ' refills');
+    assert.ok(keen.loads > plain.loads, seed + ': ' + keen.loads + ' loads, careless ' + plain.loads);
+    landmarks += Object.keys(x.landmarks).length;
+  }
+  assert.ok(landmarks >= 1, 'it discovers the landmarks it comes near');
+  // BAL-2 has a comms mast 62 tiles from the base, nearer than most of what it uses.
+  const used = mission('BAL-2', KIT, true).s.expedition.structures;
+  const kinds = Object.keys(used).map(id => W.structureAt(W.seedOf('BAL-2'), ...id.slice(1).split(',').map(Number)).kind);
+  assert.ok(kinds.length >= 1 && !kinds.includes('mast'), 'it leaves the comms masts, it knows the map: ' + kinds);
+});

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Plays many seeded missions with scripted strategies and prints success rates,
-// end causes and scores, each without and with exploring (tools/explorer.js).
+// end causes and scores, each without and with exploring (tools/explorer.js; the thoughtful player's explorer also
+// uses the points of interest).
 // Usage: node tools/balance.js [runs]   (LEVELS=commander to run one difficulty)
 'use strict';
 const E = require('../src/engine.js');
@@ -107,7 +108,7 @@ function play(loadoutName, planner, seed, explore, haul) {
   let s = E.createMission({ seed, loadout: LOADOUTS[loadoutName], difficulty: DIFF, pilot: explore ? EXPLORER : undefined });
   while (s.status === 'active') {
     if (explore) {
-      const got = haulRound(s, s.pilot);
+      const got = haulRound(s, s.pilot, planner === smartPlan);
       haul[s.turn] = haul[s.turn] || [0, 0];
       haul[s.turn][0] += got.loads;
       haul[s.turn][1] += 1;
