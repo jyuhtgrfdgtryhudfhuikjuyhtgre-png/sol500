@@ -100,3 +100,36 @@ test("the legend's swatches are the colours the minimap paints for each region's
     assert.deepEqual(painted, rgb(legend.children[r].children[0].style.background), id + ': the swatch is the colour on the map');
   });
 });
+
+// ---------- the points of interest (M4c) ----------
+
+test("the maps mark the landmarks discovered, the structures used or repaired, and a mast's '?' on what is not marked already", () => {
+  const sandbox = { SolWorldgen: W, SolPaint: P, document: { createElement: element } };
+  vm.runInNewContext(SOURCE, sandbox);
+  const seed = W.seedOf('MAP-POI');
+  let l = null, s = null;
+  for (let j = -2; j < 2 && !l; j++) for (let i = -2; i < 2 && !l; i++) l = W.landmarkAt(seed, i, j);
+  for (let j = -3; j < 3 && !s; j++) for (let i = -3; i < 3 && !s; i++) s = W.structureAt(seed, i, j);
+  assert.ok(l && s, 'a landmark and a structure near the base');
+  const x = { landmarks: { [l.id]: { by: 'minh', round: 3 } }, structures: { [s.id]: 'repaired' } };
+  const masts = [{ id: l.id, x: l.x, y: l.y, kind: l.kind }, { id: 'S9,9', x: 600, y: 610, kind: 'cache' }];
+  const b = s.box;
+  assert.deepEqual(JSON.parse(JSON.stringify(sandbox.SolMap.poiMarks(seed, x, masts))), [
+    { x: (l.x + 0.5) * 64, y: (l.y + 0.5) * 64, color: '#f0c35a', diamond: true, ring: '#120a0c' },
+    { x: (b[0] + b[2] + 1) * 32, y: (b[1] + b[3] + 1) * 32, color: '#a9f4e4', square: true },
+    { x: 600.5 * 64, y: 610.5 * 64, color: '#a9f4e4', text: '?' }, // the discovered landmark has its diamond, not a "?"
+  ]);
+  assert.deepEqual(sandbox.SolMap.poiMarks(seed, {}, undefined).length, 0, 'nothing before the rules have any');
+});
+
+test("the minimap draws a landmark's diamond and a mast's '?' where their marks are", () => {
+  const { map } = setup('MAP-DRAW');
+  const calls = [];
+  const ctx = new Proxy({}, { get(t, p) { if (p in t) return t[p]; return (...a) => { calls.push([p, ...a]); }; }, set(t, p, v) { t[p] = v; return true; } });
+  map.minimap.children[0].getContext = () => ctx;
+  // you at the HQ: the minimap's left edge is 80 tiles west of you, its top 80 tiles north (one CSS pixel a tile)
+  map.drawMini({ px: 0, py: 0, crew: [], marks: [{ x: 640, y: 0, color: '#f0c35a', diamond: true, ring: '#120a0c' }, { x: -640, y: 0, color: '#a9f4e4', text: '?' }] }, 1000);
+  const at = calls.findIndex(c => c[0] === 'moveTo' && c[1] === 90 && c[2] === 76);
+  assert.deepEqual(calls.slice(at, at + 6), [['moveTo', 90, 76], ['lineTo', 94, 80], ['lineTo', 90, 84], ['lineTo', 86, 80], ['closePath'], ['fill']]);
+  assert.ok(calls.some(c => c[0] === 'fillText' && c[1] === '?' && c[2] === 70 && c[3] === 80), 'the "?" 10 tiles west of you');
+});

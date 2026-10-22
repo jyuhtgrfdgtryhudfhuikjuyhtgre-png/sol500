@@ -66,9 +66,11 @@
       const cx = chunkOf(tx), cy = chunkOf(ty);
       return W.regionOf(get(cx, cy), tx - cx * CH, ty - cy * CH);
     }
-    // The cave whose mouth is tile (tx, ty), or null (its wall is the tile north of it, in the same chunk).
+    // The cave whose mouth is tile (tx, ty), or null (its wall is the tile north of it, in the same chunk). A cave under a
+    // landmark or a structure (the chunk's `hidden`) is gone, so the painter draws no mouth there.
     function caveAt(tx, ty) {
-      for (const k of get(chunkOf(tx), chunkOf(ty)).caves) if (k.x === tx && k.y === ty) return k;
+      const c = get(chunkOf(tx), chunkOf(ty));
+      for (const k of c.caves) if (k.x === tx && k.y === ty && !c.hidden.caves.includes(k.n)) return k;
       return null;
     }
     // Base things the world doesn't know about (the HQ, the reactor, the lander, rocks on the build grid) block too.

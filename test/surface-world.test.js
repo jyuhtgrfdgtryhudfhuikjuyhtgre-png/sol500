@@ -105,6 +105,28 @@ test('walking is slower on dunes; everything else is normal speed', () => {
   assert.equal(w.speed(0, 0), 1);
 });
 
+test("a cave under a landmark or a structure has no mouth: caveAt leaves out the chunk's hidden caves", () => {
+  // Caves lie at the foot of walls, so few are under a footprint: look in the chunks under the landmarks round the base.
+  let name = null, hidden = null, open = null;
+  for (let s = 0; s < 40 && !(hidden && open); s++) {
+    const seed = W.seedOf('WORLD-CAVE-' + s);
+    hidden = open = null;
+    for (let j = -2; j < 2; j++) for (let i = -2; i < 2; i++) {
+      const b = (W.landmarkAt(seed, i, j) || {}).box;
+      if (!b) continue;
+      for (let cy = Math.floor(b[1] / 32); cy <= Math.floor(b[3] / 32); cy++) for (let cx = Math.floor(b[0] / 32); cx <= Math.floor(b[2] / 32); cx++) {
+        const c = W.chunk(seed, cx, cy);
+        for (const k of c.caves) if (c.hidden.caves.includes(k.n)) hidden = hidden || k; else open = open || k;
+      }
+    }
+    name = 'WORLD-CAVE-' + s;
+  }
+  assert.ok(hidden && open, 'a hidden cave and one in the open');
+  const w = SW.create(name);
+  assert.equal(w.caveAt(hidden.x, hidden.y), null, 'the hidden one');
+  assert.equal(w.caveAt(open.x, open.y).n, open.n, 'the one in the open');
+});
+
 test('fog: a circle is seen once, takeFog hands over only new chunks, and merging ORs', () => {
   const w = SW.create('WORLD-9');
   let expect = 0;

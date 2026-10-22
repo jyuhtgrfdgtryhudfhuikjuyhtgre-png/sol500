@@ -66,6 +66,29 @@
   }
   function ready(img) { return img && img.complete && img.naturalWidth > 0; }
 
+  // The points of interest in the live data chunks under the view, grown by 4 tiles for the sprites that stand up into it
+  // (src/surface-paint.js scenery). A structure is done once the rules mark it used or repaired (m.expedition.structures).
+  // S.tube is the lava tube you are inside, whose roof hides while the dark closes in round your headlamp.
+  function pointsOfInterest(x0, y0, x1, y1, m) {
+    const C = W.CHUNK * T, chunks = [], marked = (m.expedition && m.expedition.structures) || {};
+    for (let cy = Math.floor((y0 - 4 * T) / C); cy <= Math.floor((y1 + 4 * T) / C); cy++) {
+      for (let cx = Math.floor((x0 - 4 * T) / C); cx <= Math.floor((x1 + 4 * T) / C); cx++) { const c = S.world.peek(cx, cy); if (c) chunks.push(c); }
+    }
+    const at = [Math.floor(S.player.x / T), Math.floor(S.player.y / T)];
+    S.tube = P.tubeAt(chunks, at, S.world.tile(at[0], at[1]));
+    S.pois = P.scenery(chunks, { at, done: id => !!marked[id], tube: S.tube });
+    return S.pois;
+  }
+  // One point of interest's SolArt drawing, made into an image once per look and size (the vent's puff: a 3 s loop in 24
+  // steps); a lava tube's roof is drawn on the canvas.
+  function drawArt(ctx, it) {
+    if (it.art === 'roof') return P.sprites.drawRoof(ctx, it);
+    const o = it.opts || {}, step = it.art === 'puff' ? Math.floor(S.time / 3 * 24) % 24 : 0;
+    const k = it.art + '|' + it.id + '|' + (o.done ? 1 : 0) + (o.inside ? 1 : 0) + '|' + step + '|' + it.w;
+    if (!S.images[k]) S.images[k] = image(it.art === 'puff' ? A.ventPuff(step / 24, it.w * 128) : A[it.art](it.id, it.w * 128, it.opts));
+    if (ready(S.images[k])) ctx.drawImage(S.images[k], it.x * T, it.y * T, it.w * T, it.h * T);
+  }
+
   // ---------- world model ----------
   // A mission (by its code) gets its own world, painter and fog; reset() forces a fresh one for a new mission.
   function world() {
@@ -515,8 +538,16 @@
     if (!S.player) return { px: 0, py: 0, crew: [], marks: [] };
     return {
       px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })),
-      marks: S.eva.marks(S.world, S.player.x, S.player.y),
+      marks: S.eva.marks(S.world, S.player.x, S.player.y).concat(poiMarks()),
     };
+  }
+  // The maps' marks for the points of interest (src/surface-map.js poiMarks), made again only when what they show changes:
+  // the landmarks discovered, the structures used or repaired (a repaired mast adds "?" marks: X.mastMarks, when the rules have it).
+  function poiMarks() {
+    const m = S.data.mission, x = m.expedition || {}, X = root.SolExpedition;
+    const key = m.seed + '|' + Object.keys(x.landmarks || {}).join() + '|' + JSON.stringify(x.structures || {});
+    if (S.poiKey !== key) { S.poiKey = key; S.poiMarks = SM.poiMarks(S.world.seed, x, X && X.mastMarks ? X.mastMarks(m) : []); }
+    return S.poiMarks;
   }
 
   function drawDebugText() {
@@ -1017,6 +1048,9 @@
     const k = v.dpr * v.zoom;
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
     S.painter.drawGround(ctx, x0, y0, x1, y1);
+    // the points of interest: their decals lie flat on the ground, under everything; the rest are sorted with the sprites
+    const pois = pointsOfInterest(x0, y0, x1, y1, m);
+    for (const it of pois) if (it.depth == null) drawArt(ctx, it);
     S.eva.drawZone(ctx, x0, y0, x1, y1, S.world);
 
     // buried ice at the base: the only cue for where the ice drill can go
@@ -1122,11 +1156,13 @@
         ctx.fillStyle = A.ROLE[c.role]; ctx.fillRect(fx, fy - 22, 10, 7);
       } });
     });
+    for (const it of pois) if (it.depth != null) sprites.push({ y: it.depth, draw: () => drawArt(ctx, it) });
     for (const s of S.eva.sprites(x0, y0, x1, y1, S.world, S.time)) sprites.push(s);
     sprites.sort((a, b) => a.y - b.y);
     for (const s of sprites) s.draw(ctx); // the exploring layer's sprites take the context; the others close over it
     // the fog over what you can't see, then the name tags (with teammates' suit bars) on top of it
     P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, S.eva.view(p) * T);
+    if (S.tube) P.drawDark(ctx, x0, y0, x1, y1, p.x, p.y - 12, S.eva.view(p) * T); // inside a lava tube: your headlamp's light
     drawTags(ctx, S.tags);
     S.eva.drawOver(ctx);
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
@@ -1187,6 +1223,8 @@
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
       hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
+      pois: JSON.parse(JSON.stringify(S.pois || [])), tube: S.tube ? S.tube.id : null, // the last frame's points of interest
+      marks: JSON.parse(JSON.stringify(mapState().marks)), // what the maps mark
     };
   }
 

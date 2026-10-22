@@ -8,6 +8,8 @@
  *
  * API: SolPaint.createPainter(world, { canvas, cap, now, scale }) → painter · SolPaint.drawFog(...) · SolPaint.decorFor(...)
  *      SolPaint.tileRGB(code, region) · SolPaint.REGION_COLORS · SolPaint.sprites
+ *      SolPaint.scenery(chunks, { at, done, tube }) → the points of interest's sprites and decals (see there)
+ *      SolPaint.tubeAt(chunks, at, under) → the lava tube you are inside, or null · SolPaint.drawDark(...): its headlamp's dark
  *      scale (default 1): the ground is painted at this many canvas pixels per world pixel, so each chunk image is scale·256 px
  *      square (the Display settings' Best level paints at 2); painter.setScale(s) changes it while playing.
  */
@@ -37,6 +39,17 @@
   CODE_RGB[TL.POLYGON] = [177, 156, 144];
   CODE_RGB[TL.LAVA] = [59, 45, 44];
   CODE_RGB[TL.BASE] = [128, 70, 45];
+  // The points of interest (M4c): a delta's pale layered sediment, an ice scarp's dusty top, a star dune's sunlit crest, a
+  // lava tube's basalt floor and walls and the sunlit floor under its skylight, a hab pod's deck, and a Kestrel structure's
+  // footprint in the programme's teal (the minimap's colour: the ground under its sprite is painted as the region's own).
+  CODE_RGB[TL.SEDIMENT] = [150, 102, 74];
+  CODE_RGB[TL.SCARP] = [176, 184, 188];
+  CODE_RGB[TL.CREST] = [122, 82, 61];
+  CODE_RGB[TL.TUBE_FLOOR] = [48, 37, 36];
+  CODE_RGB[TL.TUBE_WALL] = [74, 58, 55];
+  CODE_RGB[TL.SKYLIGHT] = [118, 82, 62];
+  CODE_RGB[TL.STRUCT_FLOOR] = [106, 100, 96];
+  CODE_RGB[TL.STRUCT_WALL] = [74, 151, 142];
   function tileRGB(code, region) {
     if (code === TL.REGOLITH || CODE_RGB[code] == null) return REGION_GROUND[region] || REGION_GROUND[0];
     return CODE_RGB[code];
@@ -47,7 +60,7 @@
   const channel = v => Math.min(255, Math.round(v));
   const css = (rgb, k) => 'rgb(' + channel(rgb[0] * k) + ',' + channel(rgb[1] * k) + ',' + channel(rgb[2] * k) + ')';
   const RAISED = new Uint8Array(32);
-  for (const k of ['CLIFF', 'RIM', 'CANYON_WALL']) RAISED[TL[k]] = 1;
+  for (const k of ['CLIFF', 'RIM', 'CANYON_WALL', 'SCARP', 'TUBE_WALL']) RAISED[TL[k]] = 1;
   // A gentle brightness drift across the ground. It comes from smooth noise, so tiles never show as a checkerboard.
   const shade = (world, tx, ty) => 0.96 + 0.08 * W.noise(world.seed, 920, tx, ty, 5);
 
@@ -58,12 +71,13 @@
     const reg = world.region(tx, ty);
     const h = W.hash(world.seed, tx, ty, 900);
     const X = tx * T, Y = ty * T;
-    // A boulder sits on its region's usual ground, drawn just like that ground (the rock goes on top in paintRaised).
-    const look = code === TL.BOULDER ? UNDER_BOULDER[reg] : code;
+    // A boulder sits on its region's usual ground, drawn just like that ground (the rock goes on top in paintRaised), and so
+    // does a Kestrel structure (the surface draws its sprite on top).
+    const look = code === TL.BOULDER || code === TL.STRUCT_WALL ? UNDER_BOULDER[reg] : code;
     g.fillStyle = css(tileRGB(look, reg), shade(world, tx, ty));
     g.fillRect(X, Y, T, T);
-    if (look === TL.DUNE) { // ripples across the wind; the ends line up with the next tile's, so they run on unbroken
-      g.strokeStyle = 'rgba(140,96,74,0.45)';
+    if (look === TL.DUNE || look === TL.CREST) { // ripples across the wind; the ends line up with the next tile's, so they run on unbroken
+      g.strokeStyle = look === TL.CREST ? 'rgba(92,60,46,0.35)' : 'rgba(140,96,74,0.45)'; // on the sunlit crest they lie in shade
       g.lineWidth = 2;
       for (let k = 0; k < 4; k++) { const y = Y + 8 + k * 16; g.beginPath(); g.moveTo(X, y); g.quadraticCurveTo(X + 32, y - 3 - ((h >>> (4 + k * 2)) & 3) * 2, X + T, y); g.stroke(); }
     } else if (look === TL.POLYGON) { // ground cracked into polygons by freezing and thawing
@@ -75,7 +89,7 @@
       g.strokeStyle = 'rgba(255,255,255,0.8)';
       g.lineWidth = 1.5;
       drawIceCracks(g, X, Y);
-    } else if (look === TL.LAVA) {
+    } else if (look === TL.LAVA || look === TL.TUBE_FLOOR) {
       g.fillStyle = 'rgba(20,14,14,0.5)';
       for (let k = 0; k < 6; k++) { const v = W.hash(world.seed, tx, ty, 901 + k); g.fillRect(X + (v % 60), Y + ((v >>> 8) % 60), 2 + ((v >>> 16) % 3), 2 + ((v >>> 20) % 3)); }
     } else if (code === TL.CANYON_FLOOR) {
@@ -85,6 +99,16 @@
     } else if (code === TL.CRATER_FLOOR) {
       g.fillStyle = 'rgba(30,10,6,0.12)';
       g.fillRect(X, Y, T, T);
+    } else if (code === TL.SEDIMENT) { // a delta's beds: pale bands that run on from tile to tile across the fan
+      g.fillStyle = 'rgba(236,196,156,0.16)';
+      g.fillRect(X, Y + 10, T, 3);
+      g.fillRect(X, Y + 30, T, 2);
+      g.fillRect(X, Y + 49, T, 3);
+    } else if (code === TL.STRUCT_FLOOR) { // a hab pod's deck: a plate a tile, split down the middle
+      g.strokeStyle = 'rgba(30,24,24,0.4)';
+      g.lineWidth = 2;
+      g.strokeRect(X + 1, Y + 1, T - 2, T - 2);
+      g.beginPath(); g.moveTo(X + T / 2, Y); g.lineTo(X + T / 2, Y + T); g.stroke();
     } else if (code === TL.BASE) { // compacted regolith with the build grid's dashed lines
       const B = W.BASE_RECT;
       g.strokeStyle = 'rgba(255,220,190,0.12)';
@@ -104,7 +128,7 @@
     }
   }
 
-  // Things that stand up (mesa cliffs, crater rims, canyon walls, boulders) go on top of the decor.
+  // Things that stand up (mesa cliffs, crater rims, canyon walls, ice scarps, lava tubes' walls, boulders) go on top of the decor.
   function paintRaised(g, world, tx, ty) {
     const code = world.tile(tx, ty);
     const X = tx * T, Y = ty * T;
@@ -122,7 +146,17 @@
           g.fillStyle = 'rgba(0,0,0,0.25)';
           g.fillRect(X, Y + T - 6, T, 6);
         }
-      } else {
+      } else if (code === TL.SCARP) { // a cliff of ice under a dusty top: a bright edge, its face clean blue ice with streaks
+        if (above) { g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(X, Y, T, 3); }
+        if (below) {
+          g.fillStyle = '#6f9fb8';
+          g.fillRect(X, Y + T - 30, T, 30);
+          g.fillStyle = 'rgba(235,250,255,0.35)';
+          for (const dx of [9, 30, 47]) g.fillRect(X + dx, Y + T - 28, 2, 20);
+          g.fillStyle = 'rgba(10,30,45,0.35)';
+          g.fillRect(X, Y + T - 6, T, 6);
+        }
+      } else { // a crater's rim, a canyon's wall, a lava tube's wall
         if (above) { g.fillStyle = code === TL.RIM ? 'rgba(255,214,170,0.22)' : 'rgba(255,214,170,0.12)'; g.fillRect(X, Y, T, 4); }
         if (below) { g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(X, Y + T - 10, T, 10); }
       }
@@ -206,9 +240,20 @@
     }
   }
 
+  // The world's decor props (src/worldgen.js, M4c: whole tiles, the kinds above plus `rock`) on the tiles of image chunk
+  // (ix, iy) and the ring round it, whose flat ones can spill in. None without the world's data chunks (a fake world).
+  function propsNear(world, ix, iy) {
+    if (!world.get) return [];
+    const x0 = ix * IMG - 1, y0 = iy * IMG - 1, x1 = x0 + IMG + 1, y1 = y0 + IMG + 1, out = [];
+    for (let cy = Math.floor(y0 / CH); cy <= Math.floor(y1 / CH); cy++) for (let cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++) {
+      for (const p of world.get(cx, cy).props) if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) out.push(p);
+    }
+    return out;
+  }
+
   function paintChunk(world, ix, iy, canvas, scale) {
     const g = canvas.getContext('2d');
-    const tx0 = ix * IMG, ty0 = iy * IMG;
+    const tx0 = ix * IMG, ty0 = iy * IMG, props = propsNear(world, ix, iy);
     g.setTransform(scale, 0, 0, scale, -ix * PX * scale, -iy * PX * scale); // draw in world pixels, `scale` canvas pixels each
     for (let ty = ty0; ty < ty0 + IMG; ty++) for (let tx = tx0; tx < tx0 + IMG; tx++) paintTile(g, world, tx, ty);
     g.save();
@@ -216,8 +261,18 @@
     g.rect(ix * PX, iy * PX, PX, PX);
     g.clip();
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const d of decorFor(world, ix + dx, iy + dy)) drawDecor(g, d);
+    for (const p of props) {
+      if (p.kind === 'rock') continue;
+      const h = W.hash(world.seed, p.x, p.y, 912);
+      drawDecor(g, { kind: p.kind, x: p.x * T + T / 2, y: p.y * T + T / 2, s: 8 + ((h >>> 20) % 28), h });
+    }
     g.restore();
     for (let ty = ty0; ty < ty0 + IMG; ty++) for (let tx = tx0; tx < tx0 + IMG; tx++) paintRaised(g, world, tx, ty);
+    for (const p of props) { // a small rock stands up, as a boulder does; it stays inside its tile
+      if (p.kind !== 'rock' || p.x < tx0 || p.x >= tx0 + IMG || p.y < ty0 || p.y >= ty0 + IMG) continue;
+      const h = W.hash(world.seed, p.x, p.y, 912);
+      drawRock(g, { wx: p.x, wy: p.y, s: 0.4 + (h % 16) / 100, ox: ((h >>> 8) % 9) - 4, oy: ((h >>> 12) % 7) - 3 });
+    }
   }
 
   // ---------- the painter: image chunks and mini images, with their caches ----------
@@ -400,6 +455,73 @@
     const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad);
     g.addColorStop(0, 'rgba(10,6,8,0)');
     g.addColorStop(1, 'rgba(10,6,8,0.5)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+
+  // ---------- the points of interest (M4c) ----------
+  // What the surface draws over the ground for the points of interest in `chunks` (the data chunks round the view), each
+  // once: a landmark is listed by every chunk its box touches, a structure by every chunk its apron touches. An item is
+  // { art, id, opts, x, y, w, h, depth }: the SolArt drawing (kestrel, formation, prop, or 'puff', the vent's puff), the
+  // box it fills in tiles, and the world-pixel y it is sorted by among the sprites, or null for a decal flat on the
+  // ground, drawn under every sprite. o: { at: [tx, ty] the tile you stand on, done(id): that structure is used or repaired,
+  // tube: the lava tube you are inside (tubeAt), or none }.
+  const inBox = (b, x, y) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
+  const feet = b => (b[3] + 1) * T - 6; // the bottom of a box's last row, where a module's feet are sorted too
+  // The lava tube you are inside: the one whose box holds the tile you stand on, when that tile (`under`) is its floor or
+  // its skylight. Its open ring and its walls are outside (the walls can't be stood on).
+  function tubeAt(chunks, at, under) {
+    if (under !== TL.TUBE_FLOOR && under !== TL.SKYLIGHT) return null;
+    for (const c of chunks) for (const l of c.landmarks) if (l.kind === 'tube' && inBox(l.box, at[0], at[1])) return l;
+    return null;
+  }
+  function scenery(chunks, o) {
+    const out = [], seen = new Set(), [ax, ay] = o.at;
+    const once = id => !seen.has(id) && !!seen.add(id);
+    for (const c of chunks) {
+      // A structure is a square as wide as its footprint, standing on the footprint's bottom edge. The hab pod is its room
+      // while you stand inside its box, sorted by its top edge so whoever is in there is drawn over it; its roof otherwise.
+      for (const s of c.structures) {
+        if (!once(s.id)) continue;
+        const b = s.box, w = b[2] - b[0] + 1, inside = s.kind === 'pod' && inBox(b, ax, ay);
+        const opts = s.kind === 'pod' ? { inside } : { done: !!o.done(s.id) };
+        out.push({ art: 'kestrel', id: s.kind, opts, x: b[0], y: b[3] + 1 - w, w, h: w, depth: inside ? b[1] * T : feet(b) });
+      }
+      // A formation fills its square; the dust-devil tracks are dark lanes on the ground.
+      for (const f of c.formations) {
+        const b = f.box, n = b[2] - b[0] + 1;
+        out.push({ art: 'formation', id: f.kind, opts: null, x: b[0], y: b[1], w: n, h: n, depth: f.kind === 'deviltracks' ? null : feet(b) });
+      }
+      // The methane vent is a low mound on its survey's tile, its puff rising from it. A lava tube's roof covers its walls and
+      // floor (its box but the open ring round it), with the skylight's pit on it, while you are outside; inside, both hide.
+      for (const l of c.landmarks) {
+        if (!once(l.id)) continue;
+        if (l.kind === 'methane') {
+          const at = { x: l.x - 0.5, y: l.y - 1, w: 2, h: 2 };
+          out.push(Object.assign({ art: 'prop', id: 'vent', opts: null, depth: null }, at));
+          out.push(Object.assign({ art: 'puff', id: 'vent', opts: null, depth: (l.y + 1) * T - 6 }, at));
+        } else if (l.kind === 'tube' && !(o.tube && o.tube.id === l.id)) {
+          const r = [l.box[0] + 1, l.box[1] + 1, l.box[2] - 1, l.box[3] - 1];
+          out.push({ art: 'roof', id: l.id, opts: null, x: r[0], y: r[1], w: r[2] - r[0] + 1, h: r[3] - r[1] + 1, depth: feet(r) });
+          out.push({ art: 'prop', id: 'skylight', opts: null, x: l.skylight[0] - 0.5, y: l.skylight[1] - 0.5, w: 2, h: 2, depth: feet(r) + 1 });
+        }
+      }
+    }
+    return out;
+  }
+  // A lava tube's roof (scenery's item: its box in tiles): a long ridge of basalt, lit along its top, its south face in shade.
+  function drawRoof(ctx, it) {
+    const X = it.x * T, Y = it.y * T, w = it.w * T, h = it.h * T;
+    ctx.fillStyle = 'rgba(0,0,0,0.28)'; roundRect(ctx, X - 2, Y + 10, w + 4, h, 18); ctx.fill(); // its shadow on the ground
+    ctx.fillStyle = '#4e3c39'; roundRect(ctx, X, Y, w, h, 16); ctx.fill();
+    ctx.fillStyle = '#35282a'; roundRect(ctx, X, Y + h - 24, w, 24, 10); ctx.fill(); // the south face
+    ctx.fillStyle = 'rgba(255,214,170,0.14)'; roundRect(ctx, X + 8, Y + 5, w - 16, 7, 3); ctx.fill(); // the lit top
+  }
+  // Inside a lava tube it is dark but for your headlamp: clear round you (px, py), nearly black from `rad` world pixels out.
+  function drawDark(ctx, x0, y0, x1, y1, px, py, rad) {
+    const g = ctx.createRadialGradient(px, py, rad * 0.3, px, py, rad);
+    g.addColorStop(0, 'rgba(5,3,4,0)');
+    g.addColorStop(1, 'rgba(5,3,4,0.94)');
     ctx.fillStyle = g;
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
@@ -721,7 +843,7 @@
   }
 
   return {
-    IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar, drawDevil },
+    IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar, drawDevil, drawRoof },
   };
 });

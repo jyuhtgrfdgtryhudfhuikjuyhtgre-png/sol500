@@ -6,12 +6,12 @@
  * API: SolMap.create({ t, onOpen, onClose }) → map
  *        map.attach(world, painter)          a new mission's world
  *        map.minimap · map.el                elements for the surface overlay
- *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, ring }] }
- *                                            (world pixels; marks are finds, cave mouths, dropped loads and the parked rover)
+ *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, diamond, text, ring }] }
+ *                                            (world pixels; marks are finds, cave mouths, dropped loads, the parked rover and poiMarks)
  *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
  *        map.frame(state, deadline)          every animation frame (does nothing while closed)
  *        map.relabel()                       after a language change
- *      SolMap.debugText(stats) → string
+ *      SolMap.debugText(stats) → string · SolMap.poiMarks(seed, expedition, masts) → the points of interest's marks
  */
 (function (root) {
   'use strict';
@@ -37,9 +37,20 @@
       for (const k of st.marks || []) {
         const [x, y] = at(k.x, k.y);
         g.fillStyle = k.color;
+        if (k.text) { // a comms mast's "?", edged in dark so it reads on any ground
+          g.font = '700 10px system-ui, sans-serif';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.strokeStyle = '#120a0c';
+          g.lineWidth = 2.5;
+          g.strokeText(k.text, x, y);
+          g.fillText(k.text, x, y);
+          continue;
+        }
         if (k.square) g.fillRect(x - 2.5, y - 2.5, 5, 5);
+        else if (k.diamond) { g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + 4, y); g.lineTo(x, y + 4); g.lineTo(x - 4, y); g.closePath(); g.fill(); }
         else { g.beginPath(); g.arc(x, y, k.ring ? 2.5 : 2, 0, Math.PI * 2); g.fill(); }
-        if (k.ring) { g.strokeStyle = k.ring; g.lineWidth = 1; g.stroke(); } // a cave's mouth: dark, with a light rim
+        if (k.ring) { g.strokeStyle = k.ring; g.lineWidth = 1; g.stroke(); } // a cave's mouth: dark, with a light rim; a landmark's dark edge
       }
       const [bx, by] = at(T / 2, T / 2); // the HQ is tile (0, 0)
       g.fillStyle = '#f4e9df';
@@ -201,6 +212,25 @@
     };
   }
 
+  // The points of interest both maps mark (spec §2.6, §3.7), in world pixels: the landmarks the crew has discovered
+  // (x.landmarks, a gold diamond at its centre), the structures used or repaired (x.structures, a pale teal square on its
+  // footprint's teal), and the comms masts' "?" (`masts`: the rules' X.mastMarks(m), [{ id, x, y, kind }] in tiles) on
+  // what is not marked already. x is the mission's expedition, seed the world's.
+  const cellOf = id => id.slice(1).split(',').map(Number); // "L<i>,<j>" or "S<i>,<j>"
+  function poiMarks(seed, x, masts) {
+    const out = [], shown = new Set();
+    for (const id of Object.keys(x.landmarks || {})) {
+      const l = W.landmarkAt(seed, ...cellOf(id));
+      if (l) { shown.add(id); out.push({ x: (l.x + 0.5) * T, y: (l.y + 0.5) * T, color: '#f0c35a', diamond: true, ring: '#120a0c' }); }
+    }
+    for (const id of Object.keys(x.structures || {})) {
+      const s = W.structureAt(seed, ...cellOf(id)), b = s && s.box;
+      if (s) { shown.add(id); out.push({ x: (b[0] + b[2] + 1) / 2 * T, y: (b[1] + b[3] + 1) / 2 * T, color: '#a9f4e4', square: true }); }
+    }
+    for (const k of masts || []) if (!shown.has(k.id)) out.push({ x: (k.x + 0.5) * T, y: (k.y + 0.5) * T, color: '#a9f4e4', text: '?' });
+    return out;
+  }
+
   function debugText(s) {
     return [
       'fps ' + s.fps,
@@ -211,5 +241,5 @@
     ].join('\n');
   }
 
-  root.SolMap = { create, debugText };
+  root.SolMap = { create, debugText, poiMarks };
 })(typeof self !== 'undefined' ? self : this);

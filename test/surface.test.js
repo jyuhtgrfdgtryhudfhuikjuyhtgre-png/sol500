@@ -79,15 +79,16 @@ function element(tag) {
 // was last shown, then show it again: ui.js renders the same mission after a solo action, and a co-op room broadcasts a new copy
 // (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for. Like ui.js, the page
 // is shown where its astronaut last stood (the solo save; `opts.lastPos` stands for the co-op server's position).
-// `opts.dpr` is the screen's pixel ratio (1); `opts.gfx` the Display settings the page passes to update (setGfx changes them).
+// `opts.dpr` is the screen's pixel ratio (1); `opts.gfx` the Display settings the page passes to update (setGfx changes them);
+// `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet).
 function page(m, me, opts) {
   const o = opts || {};
   let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7;
   const on = {}, sent = [], calls = [];
   const { painter, seen } = stubPainter(() => clock);
   const win = {
-    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolWorld: SW,
-    SolPaint: Object.assign({}, P, { createPainter: (world, popts) => { seen.scale = (popts && popts.scale) || 1; return painter; } }),
+    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW,
+    SolPaint: Object.assign({}, P, o.paint, { createPainter: (world, popts) => { seen.scale = (popts && popts.scale) || 1; return painter; } }),
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
     location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: function () {},
     matchMedia: () => ({ matches: false }),
@@ -662,4 +663,71 @@ test('the FPS readout is hidden unless Show FPS is on; then it reads "<n> FPS", 
   assert.equal(chip.hidden, true, 'hidden again when it is turned off');
   on.setGfx({ showFps: 1 });
   assert.equal(chip.hidden, false, 'any true value shows it');
+});
+
+// ---------- the points of interest (M4c) ----------
+
+// The structure nearest the HQ that is not a hab pod.
+function structureNear(m) {
+  let s = null;
+  for (let cy = -3; cy <= 2; cy++) for (let cx = -3; cx <= 2; cx++) for (const k of X.structuresIn(m, cx, cy)) {
+    if (k.kind !== 'pod' && (!s || k.x * k.x + k.y * k.y < s.x * s.x + s.y * s.y)) s = k;
+  }
+  return s;
+}
+
+test('a Kestrel structure in view is drawn as the rules leave it: done once m.expedition.structures marks it', () => {
+  const m = mission({ seed: 'POI-1' }), s = structureNear(m);
+  assert.ok(s, 'a structure near the base');
+  const pg = page(m, 'minh');
+  pg.qa.teleport(s.x, s.y + 1); // just south of its door
+  pg.step(1);
+  const drawn = () => plain(pg.probe().pois).filter(i => i.art === 'kestrel' && i.x === s.box[0]).map(i => [i.id, i.opts]);
+  assert.deepEqual(drawn(), [[s.kind, { done: false }]]);
+  m.expedition.structures = Object.assign({}, m.expedition.structures, { [s.id]: 'used' });
+  pg.show(m);
+  pg.step(0.1);
+  assert.deepEqual(drawn(), [[s.kind, { done: true }]]);
+});
+
+test("in a lava tube its roof hides and the dark closes in round your headlamp, from your view's radius; outside, the roof is back", () => {
+  let found = null;
+  for (let s = 0; s < 80 && !found; s++) for (let j = -2; j < 2 && !found; j++) for (let i = -2; i < 2 && !found; i++) {
+    const l = W.landmarkAt(W.seedOf('TUBE-' + s), i, j);
+    if (l && l.kind === 'tube') found = { seed: 'TUBE-' + s, l };
+  }
+  assert.ok(found, 'a lava tube near a base');
+  const { seed, l } = found, darks = [];
+  const pg = page(mission({ seed }), 'minh', { paint: { drawDark: (...a) => darks.push(a.slice(5)) } });
+  const roof = () => plain(pg.probe().pois).filter(i => i.art === 'roof' && i.id === l.id).length;
+  pg.qa.teleport(l.x, l.y); // the middle of its floor
+  pg.step(1);
+  assert.equal(pg.probe().tube, l.id);
+  assert.equal(roof(), 0, 'no roof over you');
+  const [px, py, rad] = darks[darks.length - 1];
+  assert.deepEqual([px, py + 12, rad], [pg.probe().player.x, pg.probe().player.y, pg.probe().view * T], 'the dark round you, at your view');
+  pg.qa.teleport(l.skylight[0] + (l.vert ? 1 : 0), l.skylight[1] + (l.vert ? 0 : 1)); // out through the skylight
+  const before = darks.length;
+  pg.step(0.5);
+  assert.equal(pg.probe().tube, null);
+  assert.equal(roof(), 1, 'its roof covers it again');
+  assert.equal(darks.length, before, 'and the dark has gone');
+});
+
+test("the maps are given the points of interest's marks: a landmark once it is discovered, and the masts' '?' once the rules give them", () => {
+  const m = mission({ seed: 'POI-2' }), seed = W.seedOf(m.seed);
+  let l = null;
+  for (let j = -2; j < 2 && !l; j++) for (let i = -2; i < 2 && !l; i++) l = W.landmarkAt(seed, i, j);
+  assert.ok(l, 'a landmark near the base');
+  const poi = pg => plain(pg.probe().marks).filter(k => k.diamond || k.text);
+  const bare = page(m, 'minh'); // rules with no X.mastMarks yet
+  bare.step(0.1);
+  assert.deepEqual(poi(bare), [], 'nothing discovered, no masts');
+  m.expedition.landmarks = { [l.id]: { by: 'minh', round: 1 } };
+  bare.show(m);
+  bare.step(0.1);
+  assert.deepEqual(poi(bare).map(k => [k.x, k.y, k.diamond]), [[(l.x + 0.5) * T, (l.y + 0.5) * T, true]]);
+  const pg = page(m, 'minh', { expedition: { mastMarks: () => [{ id: 'S5,5', x: 330, y: 340, kind: 'wreck' }] } });
+  pg.step(0.1);
+  assert.deepEqual(poi(pg).map(k => k.text || 'diamond'), ['diamond', '?']);
 });

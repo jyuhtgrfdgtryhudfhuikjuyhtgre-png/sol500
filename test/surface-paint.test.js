@@ -145,6 +145,49 @@ test('an ice tile of the ground is painted with those cracks at its corner', () 
   assert.ok(at >= 0, 'the cracks were drawn at the ice tile');
 });
 
+// ---------- the points of interest's tiles (M4c) ----------
+
+const POI_TILES = ['SEDIMENT', 'SCARP', 'CREST', 'TUBE_FLOOR', 'TUBE_WALL', 'SKYLIGHT', 'STRUCT_FLOOR', 'STRUCT_WALL'];
+// Paints the image chunk (0, 0) of a fake world whose every tile is `code` in `region`, and returns its calls in order, each
+// fillRect with the fill style it was made in.
+function paintAll(code, region) {
+  const calls = [];
+  const ctx = new Proxy({}, {
+    get(t, p) { if (p in t) return t[p]; return (...a) => { calls.push(p === 'fillRect' ? [p, t.fillStyle, ...a] : [p, ...a]); }; },
+    set(t, p, v) { t[p] = v; return true; },
+  });
+  const world = { seed: 7, tile: () => code, region: () => region };
+  const p = P.createPainter(world, { canvas: (w, h) => ({ width: w, height: h, getContext: () => ctx }), now: () => 0 });
+  p.retainView(0, 0, 255, 255);
+  p.work(-Infinity, 1); // the chunk in the middle only
+  return calls;
+}
+
+test("the points of interest's eight tiles have colours of their own: none of them falls back to the region's ground", () => {
+  const W = require('../src/worldgen.js');
+  const colours = new Set();
+  for (const k of POI_TILES) {
+    for (let r = 0; r < W.REGIONS.length; r++) assert.notDeepEqual(P.tileRGB(W.TILE[k], r), P.tileRGB(W.TILE.REGOLITH, r), `${k} in ${W.REGIONS[r]}`);
+    colours.add(String(P.tileRGB(W.TILE[k], 0)));
+  }
+  assert.equal(colours.size, POI_TILES.length, 'eight different colours');
+});
+
+test("an ice scarp and a lava tube's wall stand up as cliffs do, painted over the decor; the other six lie flat under it", () => {
+  const W = require('../src/worldgen.js');
+  for (const k of POI_TILES) {
+    const calls = paintAll(W.TILE[k], 0), fill = calls.findIndex(c => c[0] === 'fillRect'), decor = calls.findIndex(c => c[0] === 'clip');
+    assert.equal(fill > decor, k === 'SCARP' || k === 'TUBE_WALL', k);
+  }
+});
+
+test("a Kestrel structure's footprint is painted as its region's usual ground, for its sprite to stand on", () => {
+  const W = require('../src/worldgen.js');
+  const UNDER = [W.TILE.REGOLITH, W.TILE.DUNE, W.TILE.REGOLITH, W.TILE.REGOLITH, W.TILE.POLYGON, W.TILE.LAVA];
+  const ground = calls => calls.slice(0, calls.findIndex(c => c[0] === 'save')); // the tiles, before the decor
+  W.REGIONS.forEach((id, r) => assert.deepEqual(ground(paintAll(W.TILE.STRUCT_WALL, r)), ground(paintAll(UNDER[r], r)), id));
+});
+
 // ---------- the graphics level: chunk images painted at a scale (the Display settings) ----------
 
 // A painter whose canvases are kept, each with a recording 2D context: the tests see their size and what was drawn on them.
@@ -204,4 +247,89 @@ test('a painted chunk is hashed whole at any scale (the browser QA helper)', () 
   p.work(Infinity);
   p.chunkHash(0, 0);
   assert.deepEqual(asked, [0, 0, 512, 512]);
+});
+
+// ---------- the points of interest over the ground (M4c) ----------
+
+// A data chunk holding only the points of interest given (the fields src/worldgen.js gives every chunk).
+const chunkWith = o => Object.assign({ structures: [], formations: [], landmarks: [], props: [] }, o);
+const nobody = { at: [1000, 1000], done: () => false };
+
+test('a Kestrel structure is drawn once, however many chunks list it: a square as wide as its footprint on its bottom edge, done once the rules say so', () => {
+  const wreck = { id: 'S1,2', kind: 'wreck', x: 11, y: 22, box: [10, 20, 12, 21] }; // 3×2, its door south of it
+  const chunks = [chunkWith({ structures: [wreck] }), chunkWith({ structures: [Object.assign({}, wreck)] })];
+  assert.deepEqual(P.scenery(chunks, nobody), [{ art: 'kestrel', id: 'wreck', opts: { done: false }, x: 10, y: 19, w: 3, h: 3, depth: 22 * 64 - 6 }]);
+  assert.deepEqual(P.scenery(chunks, { at: nobody.at, done: id => id === 'S1,2' })[0].opts, { done: true });
+});
+
+test('the hab pod is its room while you stand inside its box, sorted under whoever is in there; its roof otherwise', () => {
+  const pod = { id: 'S0,3', kind: 'pod', x: 2, y: 4, box: [0, 0, 4, 4] };
+  const at = (x, y) => P.scenery([chunkWith({ structures: [pod] })], { at: [x, y], done: () => true })[0];
+  assert.deepEqual([at(2, 2).opts, at(2, 2).depth], [{ inside: true }, 0], 'inside: under everyone in it');
+  assert.deepEqual([at(2, 4).opts, at(2, 4).depth], [{ inside: true }, 0], 'in its doorway');
+  assert.deepEqual([at(2, 5).opts, at(2, 5).depth], [{ inside: false }, 5 * 64 - 6], 'outside, at its door: a sprite like the others');
+});
+
+test('formations fill their square, sorted at its foot; the dust-devil tracks are a decal flat on the ground', () => {
+  const arch = { id: 'F0,0', kind: 'arch', x: 6, y: 8, box: [5, 5, 7, 7] }, tracks = { id: 'F1,0', kind: 'deviltracks', x: 41, y: 8, box: [40, 5, 42, 7] };
+  assert.deepEqual(P.scenery([chunkWith({ formations: [arch] }), chunkWith({ formations: [tracks] })], nobody), [
+    { art: 'formation', id: 'arch', opts: null, x: 5, y: 5, w: 3, h: 3, depth: 8 * 64 - 6 },
+    { art: 'formation', id: 'deviltracks', opts: null, x: 40, y: 5, w: 3, h: 3, depth: null },
+  ]);
+});
+
+test("the methane vent is a mound on its survey's tile, drawn once, with its puff rising from it", () => {
+  const vent = chunkWith({ landmarks: [{ id: 'L1,1', kind: 'methane', x: 300, y: 310, box: [296, 306, 304, 314] }] });
+  assert.deepEqual(P.scenery([vent, vent], nobody), [
+    { art: 'prop', id: 'vent', opts: null, depth: null, x: 299.5, y: 309, w: 2, h: 2 },
+    { art: 'puff', id: 'vent', opts: null, depth: 311 * 64 - 6, x: 299.5, y: 309, w: 2, h: 2 },
+  ]);
+});
+
+// A lava tube 29 tiles long, east–west, its skylight in its south wall (src/worldgen.js SHAPES.tube, a = 13, s = 4).
+const TUBE = { id: 'L2,1', kind: 'tube', x: 600, y: 310, skylight: [604, 312], box: [585, 307, 615, 313] };
+
+test("you are inside a lava tube when you stand on its floor or its skylight, in its box; not on the open ground round it", () => {
+  const W = require('../src/worldgen.js'), chunks = [chunkWith({ landmarks: [TUBE] })];
+  assert.equal(P.tubeAt(chunks, [600, 310], W.TILE.TUBE_FLOOR), TUBE);
+  assert.equal(P.tubeAt(chunks, [604, 312], W.TILE.SKYLIGHT), TUBE);
+  assert.equal(P.tubeAt(chunks, [604, 313], W.TILE.REGOLITH), null, 'the ring of open ground in its box');
+  assert.equal(P.tubeAt(chunks, [700, 310], W.TILE.TUBE_FLOOR), null, "another tube's floor");
+});
+
+test("a lava tube's roof covers its walls and floor with the skylight's pit on it while you are outside; inside, both hide", () => {
+  const chunks = [chunkWith({ landmarks: [TUBE] })];
+  assert.deepEqual(P.scenery(chunks, nobody), [
+    { art: 'roof', id: 'L2,1', opts: null, x: 586, y: 308, w: 29, h: 5, depth: 313 * 64 - 6 },
+    { art: 'prop', id: 'skylight', opts: null, x: 603.5, y: 311.5, w: 2, h: 2, depth: 313 * 64 - 5 },
+  ]);
+  assert.deepEqual(P.scenery(chunks, { at: [600, 310], done: () => false, tube: TUBE }), []);
+});
+
+test('inside a lava tube the dark closes in from the radius given: clear round your headlamp, nearly black at the radius and beyond', () => {
+  const calls = [], stops = [];
+  const ctx = new Proxy({}, {
+    get(t, p) {
+      if (p in t) return t[p];
+      if (p === 'createRadialGradient') return (...a) => { calls.push([p, ...a]); return { addColorStop: (k, c) => stops.push([k, c]) }; };
+      return (...a) => { calls.push([p, ...a]); };
+    },
+    set(t, p, v) { t[p] = v; return true; },
+  });
+  P.drawDark(ctx, 0, 0, 1280, 720, 640, 348, 512);
+  assert.deepEqual(calls, [['createRadialGradient', 640, 348, 512 * 0.3, 640, 348, 512], ['fillRect', 0, 0, 1280, 720]]);
+  assert.deepEqual(stops, [[0, 'rgba(5,3,4,0)'], [1, 'rgba(5,3,4,0.94)']]);
+});
+
+test("the world's decor props are painted into the ground: the flat ones with the decor, a rock standing up over it", () => {
+  const { ctx, calls } = recorder();
+  const props = [{ x: 1, y: 1, kind: 'pit' }, { x: 2, y: 2, kind: 'rock' }];
+  const world = { seed: 7, tile: () => 0, region: () => 0, get: (cx, cy) => chunkWith(cx === 0 && cy === 0 ? { props } : {}) };
+  const p = P.createPainter(world, { canvas: (w, h) => ({ width: w, height: h, getContext: () => ctx }), now: () => 0 });
+  p.retainView(0, 0, 255, 255);
+  p.work(-Infinity, 1); // the chunk (0, 0) only
+  const clip = calls.findIndex(c => c[0] === 'clip'), restore = calls.findIndex(c => c[0] === 'restore');
+  const pit = calls.findIndex(c => c[0] === 'ellipse' && c[1] === 96 && c[2] === 96);
+  assert.ok(pit > clip && pit < restore, 'the pit, centred on its tile, with the decor');
+  assert.ok(calls.slice(restore).some(c => c[0] === 'ellipse'), 'the rock, after the decor (the ground here has nothing else that stands up)');
 });
