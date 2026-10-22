@@ -287,10 +287,11 @@ test('during a mission nobody can take over a crew member who has died, but a li
 const F = require('../src/fog.js');
 const fogOf = cells => { const b = F.empty(); for (const [x, y] of cells) F.set(b, x, y); return F.encode(b); };
 const wait = ms => new Promise(r => setTimeout(r, ms));
-function inMission() {
+function inMission(seed) {
   const R = createRooms();
   const { room, player: host } = R.create('Host');
   const { player: guest } = R.join(room.code, 'Guest');
+  if (seed) say(R, room, host, 'settings', { seed }); // a mission code whose world the test knows
   say(R, room, host, 'claim', { crewId: 'lena' });
   say(R, room, guest, 'claim', { crewId: 'minh' });
   say(R, room, host, 'launch');
@@ -666,4 +667,60 @@ test("co-op: a new round forgets where everyone stood, so a seat last seen outsi
   assert.equal(room.mission.expedition.flare.over, true);
   assert.deepEqual(room.mission.expedition.flare.hit, [], 'the guest was out last round, not this one');
   assert.deepEqual(room.mission.expedition.incidents, [], 'so nobody is counted as hit');
+});
+
+// ---------- co-op points of interest (M4c) ----------
+// EXP-1's world: a giant crater L0,-1 centred on tile (134, −46), a weather station S3,0 with its door at (200, 12) and a
+// hab pod S0,-1 whose 5×5 footprint has its door at (32, −53).
+const events = (c, mark) => c.got.slice(mark).filter(m => m.type === 'event').map(m => m.data);
+
+test('co-op: a landmark is discovered once, from where the server last saw you, and every tab hears the discover event', () => {
+  const { R, room, host, guest, hc, gc } = inMission('EXP-1');
+  assert.equal(room.mission.seed, 'EXP-1');
+  R.position(room, guest, at(134 + 20, -46));
+  assert.equal(say(R, room, guest, 'discover', { landmark: 'L0,-1' }).body.error, 'tooFar', '20 tiles from its centre');
+  R.position(room, guest, at(134 + 10, -46));
+  const mark = hc.got.length, r = say(R, room, guest, 'discover', { landmark: 'L0,-1' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.landmark, 'L0,-1');
+  for (const c of [hc, gc]) assert.deepEqual(events(c, mark), [{ kind: 'discover', landmark: 'L0,-1', by: 'minh', science: r.body.science }], 'every tab shows the card, with its reward');
+  assert.deepEqual(frames(hc, mark).at(-1).data.mission.expedition.landmarks, { 'L0,-1': { by: 'minh', round: room.mission.turn } });
+  assert.equal(room.mission.expedition.banked.science, r.body.science);
+  R.position(room, host, at(134, -46 + 5));
+  const again = hc.got.length;
+  assert.equal(say(R, room, host, 'discover', { landmark: 'L0,-1' }).body.error, 'known', 'the reward is banked once');
+  assert.deepEqual(events(hc, again), []);
+  assert.equal(room.mission.expedition.banked.science, r.body.science);
+});
+
+test("co-op: a structure is used through the server from its door, and a weather station's fog reaches every tab", async () => {
+  const { R, room, guest, hc, gc } = inMission('EXP-1');
+  R.position(room, guest, at(200, 12 + 3));
+  assert.equal(say(R, room, guest, 'interact', { structure: 'S3,0' }).body.error, 'tooFar', 'three steps from its door');
+  R.position(room, guest, at(200, 12));
+  const mark = hc.got.length, r = say(R, room, guest, 'interact', { structure: 'S3,0' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.done, 'repaired');
+  assert.equal(frames(hc, mark).at(-1).data.mission.expedition.structures['S3,0'], 'repaired', 'everyone sees it repaired');
+  assert.ok(Object.keys(r.body.fog).length >= 4, 'it revealed the fog round it');
+  await wait(650);
+  for (const c of [hc, gc]) {
+    const fog = c.got.slice(mark).filter(m => m.type === 'fog');
+    assert.equal(fog.length, 1);
+    assert.deepEqual(fog[0].data, r.body.fog);
+  }
+  assert.equal(say(R, room, guest, 'interact', { structure: 'S3,0' }).body.error, 'done');
+});
+
+test('co-op: a hab pod refills a suit through the server from inside it, once a round for each crew member', () => {
+  const { R, room, host, guest, hc } = inMission('EXP-1');
+  R.position(room, guest, Object.assign(at(32, -53 + 3), { suit: 50 }));
+  assert.equal(say(R, room, guest, 'refill', { pod: 'S0,-1' }).body.error, 'tooFar', 'three steps out of its door');
+  R.position(room, guest, Object.assign(at(32, -55), { suit: 50 }));
+  const mark = hc.got.length, r = say(R, room, guest, 'refill', { pod: 'S0,-1' });
+  assert.deepEqual(r.body, { ok: true, suit: D.EXPEDITION.suit });
+  assert.deepEqual(frames(hc, mark).at(-1).data.mission.expedition.refills, { minh: ['S0,-1'] });
+  assert.equal(say(R, room, guest, 'refill', { pod: 'S0,-1' }).body.error, 'refilled');
+  R.position(room, host, at(31, -55));
+  assert.equal(say(R, room, host, 'refill', { pod: 'S0,-1' }).status, 200, 'a crewmate has their own');
 });
