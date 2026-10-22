@@ -297,18 +297,32 @@
         array: { size: [4, 2], hold: 5, materials: 2, log: 'ks.array' },
       },
     },
-    // Natural formations: scenery with real geology, scattered per chunk in the regions listed; about 1 in 3 is also a
-    // science site.
+    // Natural formations: scenery with real geology, scattered per chunk in the regions listed: a chunk holds one with
+    // `chance`. About 1 in 3 is also a science site. `size` is the side of its square in tiles (art draws each sprite
+    // that wide); none of them blocks, and the dust-devil tracks are a flat mark on the ground.
     FORMATIONS: {
-      science: 1 / 3,
+      chance: 0.75, science: 1 / 3,
       kinds: {
-        arch: { regions: ['canyons', 'craters'], fact: 'fm.arch' },
-        yardang: { regions: ['plains', 'volcanic'], fact: 'fm.yardang' },
-        hoodoo: { regions: ['canyons'], fact: 'fm.hoodoo' },
-        balanced: { regions: ['plains', 'craters', 'icy'], fact: 'fm.balanced' },
-        ventifact: { regions: ['plains', 'dunes', 'volcanic'], fact: 'fm.ventifact' },
-        layered: { regions: ['canyons', 'craters'], fact: 'fm.layered' },
-        deviltracks: { regions: ['plains', 'dunes', 'icy'], fact: 'fm.deviltracks' },
+        arch: { regions: ['canyons', 'craters'], size: 3, fact: 'fm.arch' },
+        yardang: { regions: ['plains', 'volcanic'], size: 3, fact: 'fm.yardang' },
+        hoodoo: { regions: ['canyons'], size: 2, fact: 'fm.hoodoo' },
+        balanced: { regions: ['plains', 'craters', 'icy'], size: 2, fact: 'fm.balanced' },
+        ventifact: { regions: ['plains', 'dunes', 'volcanic'], size: 2, fact: 'fm.ventifact' },
+        layered: { regions: ['canyons', 'craters'], size: 3, fact: 'fm.layered' },
+        deviltracks: { regions: ['plains', 'dunes', 'icy'], size: 3, fact: 'fm.deviltracks' },
+      },
+    },
+    // Decor (spec §3.7): props scattered by each chunk's seed, `props` darts a chunk. Scenery only: nothing blocks or is
+    // picked up. 4–6 kinds per region: the painter's own decor (src/surface-paint.js) and `rock`, a small rock standing up.
+    DECOR: {
+      props: 12,
+      kinds: {
+        plains: ['pebbles', 'pit', 'blotch', 'crack', 'rock'],
+        dunes: ['ripple', 'blotch', 'pebbles', 'pit'],
+        craters: ['pit', 'pebbles', 'blotch', 'crack', 'rock'],
+        canyons: ['strata', 'pebbles', 'blotch', 'crack', 'rock'],
+        icy: ['crack', 'frost', 'blotch', 'pit', 'pebbles'],
+        volcanic: ['vesicles', 'pebbles', 'blotch', 'crack', 'rock'],
       },
     },
     // Role skills on the map (spec §3.3): factors on how long you hold E, and the scientist's extra science.

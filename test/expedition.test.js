@@ -413,3 +413,68 @@ test('solo play remembers where you stand (whole pixels), for a reload; junk and
   const next = E.resolveTurn(m, E.defaultPlan(m)).state;
   assert.equal(X.whereOf(next, 'minh'), null, 'a new round starts at the base');
 });
+
+// The first chunk under a landmark near the base, on mission codes tried in turn, that hides a find (or a cave).
+function hiding(what) {
+  for (let s = 0; s < 40; s++) {
+    const m = solo('HIDE-' + s), seed = W.seedOf(m.seed);
+    for (let j = -2; j < 2; j++) for (let i = -2; i < 2; i++) {
+      const b = (W.landmarkAt(seed, i, j) || {}).box;
+      if (!b) continue;
+      for (let cy = Math.floor(b[1] / 32); cy <= Math.floor(b[3] / 32); cy++) for (let cx = Math.floor(b[0] / 32); cx <= Math.floor(b[2] / 32); cx++) {
+        const c = X.chunkAt(m, cx, cy);
+        if (c.hidden[what].length) return { m, c, cx, cy };
+      }
+    }
+  }
+  throw new Error('no chunk near the base hides one of its ' + what);
+}
+
+test('a find or a cave under a footprint is left out: findsIn, cavesIn and findById skip it, and collect refuses it', () => {
+  const { m, c, cx, cy } = hiding('finds'), n = c.hidden.finds[0], f = c.finds[n], id = cx + ',' + cy + ':' + n;
+  const finds = X.findsIn(m, cx, cy);
+  assert.ok(!finds.some(g => g.n === n), 'findsIn leaves it out');
+  assert.equal(finds.length, c.finds.length - c.hidden.finds.length);
+  assert.ok(Object.isFrozen(finds));
+  assert.equal(X.findById(m, id), null);
+  const before = snap(m);
+  assert.equal(X.collect(m, 'minh', id, at(f.x, f.y)).error, 'noFind');
+  assert.equal(snap(m), before, 'a refused action changes nothing');
+  // The others keep their ids: a find's id is its index in the whole list.
+  for (const g of finds) assert.equal(X.findById(m, cx + ',' + cy + ':' + g.n).x, g.x);
+  const k = hiding('caves'), caves = X.cavesIn(k.m, k.cx, k.cy);
+  assert.deepEqual(caves.map(v => v.n), k.c.caves.map(v => v.n).filter(v => !k.c.hidden.caves.includes(v)));
+  assert.ok(Object.isFrozen(caves));
+});
+
+test('a landmark and a structure are read by id from inside their cell, frozen; other spellings and cells get null, and nothing is looked up', () => {
+  const m = solo('POI-1'), seed = W.seedOf(m.seed);
+  let l = null, s = null;
+  for (let j = -3; j < 3 && !l; j++) for (let i = -3; i < 3 && !l; i++) l = W.landmarkAt(seed, i, j);
+  for (let j = -6; j < 6 && !s; j++) for (let i = -6; i < 6 && !s; i++) s = W.structureAt(seed, i, j);
+  const lp = at(l.x, l.y), sp = at(s.x, s.y);
+  assert.deepEqual(X.landmarkById(m, l.id, lp), l);
+  assert.deepEqual(X.structureById(m, s.id, sp), s);
+  assert.ok(Object.isFrozen(X.landmarkById(m, l.id, lp).sites) && Object.isFrozen(X.structureById(m, s.id, sp).box));
+  // The chunks round them list them, frozen.
+  const lc = [Math.floor(l.x / 32), Math.floor(l.y / 32)], sc = [Math.floor(s.x / 32), Math.floor(s.y / 32)];
+  assert.ok(X.landmarksIn(m, ...lc).some(k => k.id === l.id) && Object.isFrozen(X.landmarksIn(m, ...lc)));
+  assert.ok(X.structuresIn(m, ...sc).some(k => k.id === s.id) && Object.isFrozen(X.structuresIn(m, ...sc)));
+  const real = { L: W.landmarkAt, S: W.structureAt };
+  let looked = 0;
+  W.landmarkAt = (...a) => { looked++; return real.L(...a); };
+  W.structureAt = (...a) => { looked++; return real.S(...a); };
+  try {
+    for (const id of [l.id + ':0', 'l' + l.i + ',' + l.j, 'L0' + l.i + ',' + l.j, 'L' + l.i + ', ' + l.j, 'S' + l.i + ',' + l.j, '', null, 'L4000,4000']) {
+      assert.equal(X.landmarkById(m, id, lp), null, String(id));
+    }
+    for (const id of [s.id + ':0', 's' + s.i + ',' + s.j, 'S0' + s.i + ',' + s.j, 'L' + s.i + ',' + s.j, 'S-4000,9']) {
+      assert.equal(X.structureById(m, id, sp), null, String(id));
+    }
+    assert.equal(X.landmarkById(m, l.id, { x: lp.x + 256 * T, y: lp.y }), null, 'from the next cell');
+    assert.equal(X.structureById(m, s.id, { x: sp.x, y: sp.y - 64 * T }), null, 'from the next cell');
+    assert.equal(X.landmarkById(m, l.id, null), null);
+    assert.equal(X.structureById(m, s.id, { x: NaN, y: 0 }), null);
+  } finally { W.landmarkAt = real.L; W.structureAt = real.S; }
+  assert.equal(looked, 0, 'nothing was looked up for them');
+});

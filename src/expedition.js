@@ -8,6 +8,8 @@
  * the surface draws with and the network sends. The mission state is described at newExpedition in src/engine.js.
  *
  * API: findById(m, id) → the find plus { id, cx, cy, left } or null · findsIn(m, cx, cy) · cavesIn(m, cx, cy)
+ *      (the finds and caves under a point of interest's footprint are left out: never shown, never collected)
+ *      landmarksIn(m, cx, cy) · structuresIn(m, cx, cy) · landmarkById(m, id, pos) · structureById(m, id, pos) → or null
  *      chunkAt(m, cx, cy) → the data chunk · loadsLeft(m, find, id) · itemFor(m, find, load, role) · holdSeconds(kind, role)
  *      capacity(m, crewId) · inBaseZone(pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m) → the rover's bay
  *      setWhere(m, crewId, pos) · whereOf(m, crewId) (solo: where you stand, so a reload puts you back there)
@@ -39,8 +41,13 @@
     if (cache.size > CACHE) cache.delete(cache.keys().next().value);
     return c;
   }
-  function findsIn(m, cx, cy) { return chunkAt(m, cx, cy).finds; }
-  function cavesIn(m, cx, cy) { return chunkAt(m, cx, cy).caves; }
+  // A find or a cave under a landmark's or a structure's footprint keeps its place in its chunk's list (its id is its index)
+  // but is never shown: the chunk lists it in `hidden`, and the readers here leave it out.
+  const shown = (list, hidden) => (hidden.length ? Object.freeze(list.filter(o => !hidden.includes(o.n))) : list);
+  function findsIn(m, cx, cy) { const c = chunkAt(m, cx, cy); return shown(c.finds, c.hidden.finds); }
+  function cavesIn(m, cx, cy) { const c = chunkAt(m, cx, cy); return shown(c.caves, c.hidden.caves); }
+  function landmarksIn(m, cx, cy) { return chunkAt(m, cx, cy).landmarks; }
+  function structuresIn(m, cx, cy) { return chunkAt(m, cx, cy).structures; }
 
   // Ids are written exactly the way the world writes them, so one thing has one id: the numbers in one, or null.
   function idNums(re, id) {
@@ -58,9 +65,22 @@
     const g = idNums(ID, id);
     if (!g) return null;
     const [cx, cy, n] = g;
-    const f = findsIn(m, cx, cy)[n];
-    if (!f) return null;
+    const c = chunkAt(m, cx, cy), f = c.finds[n];
+    if (!f || c.hidden.finds.includes(n)) return null;
     return Object.assign({ id, cx, cy, left: loadsLeft(m, f, id) }, f);
+  }
+  // A landmark's id is "L<i>,<j>" (its 256-tile cell), a structure's "S<i>,<j>" (its 64-tile cell). Each is only looked up
+  // from a position inside its cell, as a find is from its chunk: you see a landmark's centre (22 tiles inside its cell)
+  // and use a structure from its door (2 tiles inside) only from there, so an id sent from far away costs nothing. The
+  // world reads them from its own cells, without building a chunk; they are frozen, like the cache.
+  const LID = /^L(-?\d{1,7}),(-?\d{1,7})$/, SID = /^S(-?\d{1,7}),(-?\d{1,7})$/;
+  function landmarkById(m, id, pos) {
+    const g = idNums(LID, id);
+    return g && okPos(pos) && inCell(pos, g[0], g[1], D.LANDMARKS.cell) ? W.landmarkAt(W.seedOf(m.seed), g[0], g[1]) : null;
+  }
+  function structureById(m, id, pos) {
+    const g = idNums(SID, id);
+    return g && okPos(pos) && inCell(pos, g[0], g[1], D.STRUCTURES.cell) ? W.structureAt(W.seedOf(m.seed), g[0], g[1]) : null;
   }
   function loadsLeft(m, f, id) {
     const v = m.expedition.sites[id == null ? f.id : id];
@@ -305,7 +325,7 @@
   }
 
   return {
-    findById, findsIn, cavesIn, chunkAt, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
+    findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park,
     cacheSize: () => cache.size,
   };

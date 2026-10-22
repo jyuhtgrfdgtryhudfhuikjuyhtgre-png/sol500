@@ -240,8 +240,9 @@ test('a pinned hash of 1,000 chunks catches any change to the world', () => {
   const got = fnv(parts);
   // The world as this plan's worldgen.js builds it. The browser QA (Task 11) checks Chrome gets the same value.
   // Change it only when you mean to change the world, and say so in the commit message.
-  // M4c: the landmarks stamp their footprints (was 4f1ff5dc). Only tiles inside a footprint changed: 0 outside on 6 seeds,
-  // and the regions, finds and caves are as they were (their own pinned hashes did not move).
-  const PINNED = '59ba57b3';
+  // M4c: the landmarks and the structures stamp their footprints (was 4f1ff5dc). Only tiles inside a footprint changed (and
+  // the boulders on a structure's apron): 0 outside on 6 seeds, and the regions, finds and caves are as they were (their own
+  // pinned hashes did not move).
+  const PINNED = '3ae4db5e';
   assert.equal(got, PINNED, 'world hash is ' + got);
 });

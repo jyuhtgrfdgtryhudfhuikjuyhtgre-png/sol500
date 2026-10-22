@@ -10,19 +10,26 @@
  * (−4, −2), so the HQ is at (0, 0). Nothing that blocks is ever placed within FLAT_RADIUS tiles of the HQ.
  *
  * API: seedOf(missionSeed) → uint32 · regionAt(seed, x, y) → index into REGIONS
- *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds, caves, hidden, landmarks }
- *        (32×32, row-major)
+ *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds, caves, hidden, landmarks,
+ *        structures, formations, props }   (32×32, row-major)
  *        finds: [{ n, x, y, kind, ring, region, sub? }] in world tiles; a find's id is "<cx>,<cy>:<n>"
  *        caves: [{ n, x, y, region }] in world tiles: a cave's mouth, an open tile; its wall is the tile north of it
- *        hidden: { finds: [n], caves: [n] }: the ones under a point of interest's footprint. They keep their place in the
- *          lists, so every id stays stable; src/expedition.js leaves them out.
+ *        hidden: { finds: [n], caves: [n] }: the ones under a landmark's box or a structure's footprint. They keep their
+ *          place in the lists, so every id stays stable; src/expedition.js leaves them out.
  *        landmarks: the ones whose box touches the chunk: { id: "L<i>,<j>", kind, i, j, x, y (its centre), region,
  *          box: [x0, y0, x1, y1] (its footprint, inclusive), sites: finds as above (a site's id is "<landmark id>:<n>"),
- *          and its shape (delta: dir, apex · tube: a, vert, s · crater: r, gaps · stardune: arms) }
+ *          and its shape (delta: dir, apex · tube: a, vert, s, skylight: [x, y] · crater: r, gaps · stardune: arms) }
+ *        structures: the ones whose footprint or apron touches the chunk: { id: "S<i>,<j>", kind, i, j, x, y (its door),
+ *          region, box: its footprint [x0, y0, x1, y1] (inclusive; the ring of tiles round it, its apron, is open ground) }
+ *        formations: the chunk's formation, or none: [{ id: "F<cx>,<cy>", kind, x, y (its spot, the tile south of its
+ *          middle), region, box: its square, sites: [] or its survey (id "<formation id>:0") }]; it blocks nothing
+ *        props: decor, scenery only: [{ x, y, kind }], kind from D.DECOR for the region
  *      ringOf(x, y) → 0 inner · 1 middle · 2 outer · 3 far
  *      tileOf(chunk, lx, ly) · regionOf(chunk, lx, ly)
  *      featuresNear(seed, x0, y0, x1, y1) → { canyons, craters, mesas } touching that tile box (inclusive)
  *      landmarkAt(seed, i, j) → the landmark of cell (i, j) of the 256-tile grid, or null · landmarksNear(seed, x0, y0, x1, y1)
+ *      structureAt(seed, i, j) → the structure of cell (i, j) of the 64-tile grid, or null · structuresNear(seed, x0, y0, x1, y1)
+ *      reachesOut(seed, x, y, box?) → can (x, y) reach the border of the 96×96 window round it on foot (§2.3)
  *      hash(seed, a, b, c) → uint32 · unit(h) → [0, 1) · noise(seed, salt, x, y, size) → [0, 1]
  */
 (function (root, factory) {
@@ -437,7 +444,7 @@
         const h = hash(seed, i, j, 1010), a = 12 + (h % 6), vert = (h >>> 8) % 2 === 1, s = ((h >>> 12) % (a + 1)) - (a >> 1);
         const at = (u, v) => (vert ? [x + v, y + u] : [x + u, y + v]);
         const box = vert ? [x - 3, y - a - 2, x + 3, y + a + 2] : [x - a - 2, y - 3, x + a + 2, y + 3];
-        return { a, vert, s, box, spots: [at(1 - a, 0), at(a - 1, 0)] };
+        return { a, vert, s, skylight: at(s, 2), box, spots: [at(1 - a, 0), at(a - 1, 0)] };
       },
       code(seed, l, x, y) {
         const u = l.vert ? y - l.y : x - l.x, v = l.vert ? x - l.x : y - l.y, au = Math.abs(u), av = Math.abs(v);
@@ -532,17 +539,122 @@
     for (const [i, j] of cellsTouching(box, LM.cell)) { const l = landmark(seed, i, j); if (l && touch(l.box, box)) out.push(l); }
     return out;
   }
-  // Redraws the chunk's tiles that lie in a landmark's box: its shape, or the region's own ground.
-  function stampLandmarks(seed, tiles, regions, x0, y0, lms) {
-    for (const l of lms) {
-      const code = SHAPES[l.kind].code, b = l.box;
-      for (let y = Math.max(b[1], y0); y <= Math.min(b[3], y0 + CHUNK - 1); y++) {
-        for (let x = Math.max(b[0], x0); x <= Math.min(b[2], x0 + CHUNK - 1); x++) {
-          const i = (y - y0) * CHUNK + x - x0, t = code(seed, l, x, y);
-          tiles[i] = t !== NONE ? t : ground(seed, nibble(regions, i), x, y);
-        }
+  // Redraws the chunk's tiles that lie in the box b: code(x, y), or the region's own ground where it gives NONE.
+  function stamp(seed, tiles, regions, x0, y0, b, code) {
+    for (let y = Math.max(b[1], y0); y <= Math.min(b[3], y0 + CHUNK - 1); y++) {
+      for (let x = Math.max(b[0], x0); x <= Math.min(b[2], x0 + CHUNK - 1); x++) {
+        const i = (y - y0) * CHUNK + x - x0, t = code(x, y);
+        tiles[i] = t !== NONE ? t : ground(seed, nibble(regions, i), x, y);
       }
     }
+  }
+
+  // ---------- Kestrel structures (spec §3.7, M4c): one per 64×64 cell at most, on flat ground ----------
+  // A structure's footprint (D.STRUCTURES' size, 2×2 to 5×5) is jittered inside its cell, with the 1-tile apron round it
+  // 2 tiles inside the cell, so two structures never touch; a 32-tile chunk lies inside one cell, so it looks up only that
+  // one. Its chance is its region's (the region at its door). It is placed only on flat ground: no landmark and no
+  // feature (crater, canyon, mesa) has its box touching the footprint or the apron, it is at least 20 tiles from the HQ,
+  // and its entrance passes §2.3's reachability check. It is stamped over the boulders (precedence landmark > structure >
+  // features > boulders): its footprint solid, or a hab pod's walls round a 3×3 floor, and its apron the region's ground.
+  // So it stands in a ring of open ground and can never cut ground off.
+  const ST = D.STRUCTURES, ST_KINDS = Object.keys(ST.kinds), WIN = 48; // the reachability window is 2 × WIN tiles across
+
+  // The tiles before any point of interest is stamped, a chunk at a time (terrain(), with the chunks below): the
+  // reachability check reads them, and the chunk they belong to starts from them. A few are kept, as the 4 chunks of a
+  // structure cell share them.
+  const terrainMemo = new Map();
+  function terrainTile(seed, x, y) {
+    const cx = Math.floor(x / CHUNK), cy = Math.floor(y / CHUNK);
+    return terrain(seed, cx, cy).tiles[(y - cy * CHUNK) * CHUNK + x - cx * CHUNK];
+  }
+
+  // §2.3's reachability check: can (ex, ey) reach the border of the 96×96 window round it over open ground? The terrain
+  // without the points of interest gives the same answer, as each one stands in a ring of open ground; only the footprint
+  // being placed (`box`: solid, with its open apron) is drawn in. A depth-first search that tries south first (structures
+  // face south): on open ground it walks straight out in 48 steps.
+  const OUT4 = [[0, -1], [-1, 0], [1, 0], [0, 1]]; // pushed in this order, so south is popped first
+  function reachesOut(seed, ex, ey, box) {
+    const n = 2 * WIN, seen = new Uint8Array(n * n), stack = [ex, ey], apron = box && grow(box, 1);
+    const open = (x, y) => (apron && inBox(apron, x, y) ? !inBox(box, x, y) : !BLOCKING[terrainTile(seed, x, y)]);
+    seen[WIN * n + WIN] = 1;
+    while (stack.length) {
+      const y = stack.pop(), x = stack.pop(), u = x - ex + WIN, v = y - ey + WIN;
+      if (u === 0 || v === 0 || u === n - 1 || v === n - 1) return true;
+      for (const [dx, dy] of OUT4) {
+        const k = (v + dy) * n + u + dx;
+        if (seen[k]) continue;
+        seen[k] = 1;
+        if (open(x + dx, y + dy)) stack.push(x + dx, y + dy);
+      }
+    }
+    return false;
+  }
+
+  // The structure of cell (i, j) of the 64-tile grid, or null. Its id is "S<i>,<j>"; (x, y) is its door, the open tile it
+  // is used from: a hab pod's is the gap in its south wall, the others' the tile just south of the middle of their south face.
+  function structure(seed, i, j) {
+    return memo('S' + seed + ':' + i + ':' + j, () => {
+      const kind = ST_KINDS[hash(seed, i, j, 1102) % ST_KINDS.length], w = ST.kinds[kind].size[0], d = ST.kinds[kind].size[1];
+      const h = hash(seed, i, j, 1101), bx = i * ST.cell + 3 + (h % (ST.cell - 5 - w)), by = j * ST.cell + 3 + ((h >>> 16) % (ST.cell - 5 - d));
+      const box = [bx, by, bx + w - 1, by + d - 1], apron = grow(box, 1);
+      const x = bx + (w >> 1), y = kind === 'pod' ? box[3] : box[3] + 1, region = regionAt(seed, x, y);
+      if (unit(hash(seed, i, j, 1100)) >= ST.chance[REGIONS[region]]) return null;
+      if (fromHQ2(box) < ST.clear * ST.clear || landmarksNear(seed, ...apron).length) return null;
+      const f = featuresNear(seed, ...apron);
+      if (f.canyons.length || f.craters.length || f.mesas.length) return null;
+      if (!reachesOut(seed, x, box[3] + 1, box)) return null;
+      return deepFreeze({ id: 'S' + i + ',' + j, kind, i, j, x, y, region, box });
+    });
+  }
+  // Every structure whose footprint or apron touches the tile box [x0..x1] × [y0..y1] (inclusive).
+  function structuresNear(seed, x0, y0, x1, y1) {
+    const box = [x0, y0, x1, y1], out = [];
+    for (const [i, j] of cellsTouching(box, ST.cell)) { const s = structure(seed, i, j); if (s && touch(grow(s.box, 1), box)) out.push(s); }
+    return out;
+  }
+  // A structure's tile at (x, y) in its footprint and apron: NONE on the apron, for the region's ground.
+  function structTile(s, x, y) {
+    const b = s.box;
+    if (!inBox(b, x, y)) return NONE;
+    if (s.kind !== 'pod') return TILE.STRUCT_WALL;
+    const edge = x === b[0] || x === b[2] || y === b[1] || y === b[3];
+    return edge && !(x === s.x && y === s.y) ? TILE.STRUCT_WALL : TILE.STRUCT_FLOOR;
+  }
+
+  // ---------- formations and decor (spec §3.7, M4c): scenery placed by each chunk's own seed, last ----------
+  // A chunk holds a formation with D.FORMATIONS' chance, of a kind its region has (the region at its spot). Its square
+  // (`size` tiles a side) stands just north of its spot, the tile you survey it from, and only on plain ground: the square
+  // and the spot are the region's own ground (no feature, point of interest, boulder or base), inside the chunk, outside
+  // the flat zone, with no find or cave mouth on them, and no point of interest's footprint or apron comes within a tile.
+  // Nothing in it blocks (art draws it over the ground), so it changes no tile. About 1 in 3 is also a science site, at
+  // its spot. Decor props land on open ground, never on a formation.
+  const FM = D.FORMATIONS, FM_KINDS = REGIONS.map(r => Object.keys(FM.kinds).filter(k => FM.kinds[k].regions.includes(r)));
+  const PLAIN = new Uint8Array(32), DECOR_GROUND = new Uint8Array(32);
+  for (const k of ['REGOLITH', 'SAND', 'DUNE', 'ICE', 'POLYGON', 'LAVA']) PLAIN[TILE[k]] = DECOR_GROUND[TILE[k]] = 1;
+  DECOR_GROUND[TILE.CRATER_FLOOR] = DECOR_GROUND[TILE.CANYON_FLOOR] = 1;
+  function placeFormation(seed, cx, cy, tiles, regions, finds, caves, areas) {
+    if (unit(hash(seed, cx, cy, 1200)) >= FM.chance) return null;
+    const h = hash(seed, cx, cy, 1201), lx = 2 + (h % (CHUNK - 4)), ly = 4 + ((h >>> 8) % (CHUNK - 5));
+    const x0 = cx * CHUNK, y0 = cy * CHUNK, x = x0 + lx, y = y0 + ly, region = nibble(regions, ly * CHUNK + lx);
+    const kinds = FM_KINDS[region], kind = kinds[(h >>> 16) % kinds.length], s = FM.kinds[kind].size;
+    const box = [x - (s >> 1), y - s, x - (s >> 1) + s - 1, y - 1];
+    const plain = (tx, ty) => PLAIN[tiles[(ty - y0) * CHUNK + tx - x0]] && !inFlat(tx, ty);
+    for (let ty = box[1]; ty <= box[3]; ty++) for (let tx = box[0]; tx <= box[2]; tx++) if (!plain(tx, ty)) return null;
+    const on = p => inBox(box, p.x, p.y) || (p.x === x && p.y === y);
+    if (!plain(x, y) || finds.some(on) || caves.some(on) || areas.some(a => touch(a, grow(box, 1)))) return null;
+    const sites = unit(hash(seed, cx, cy, 1202)) < FM.science ? [site(seed, 0, x, y, 'science', kind)] : [];
+    return deepFreeze({ id: 'F' + cx + ',' + cy, kind, x, y, region, box, sites });
+  }
+  function placeProps(seed, cx, cy, tiles, regions, formation) {
+    const out = [];
+    for (let i = 0; i < D.DECOR.props; i++) {
+      const h = hash(seed, cx, cy, 1210 + i), lx = h % CHUNK, ly = (h >>> 8) % CHUNK, n = ly * CHUNK + lx;
+      const x = cx * CHUNK + lx, y = cy * CHUNK + ly;
+      if (!DECOR_GROUND[tiles[n]] || (formation && inBox(formation.box, x, y))) continue;
+      const kinds = D.DECOR.kinds[REGIONS[nibble(regions, n)]];
+      out.push({ x, y, kind: kinds[(h >>> 16) % kinds.length] });
+    }
+    return out;
   }
 
   // ---------- chunks ----------
@@ -550,7 +662,17 @@
   // so its lists are frozen: a reader can't change them for everyone. Typed arrays can't be frozen; tiles and regions are
   // read-only by agreement.
   const frozen = list => { for (const o of list) Object.freeze(o); return Object.freeze(list); };
-  function chunk(seed, cx, cy) {
+  function terrain(seed, cx, cy) {
+    const k = seed + ':' + cx + ':' + cy;
+    let t = terrainMemo.get(k);
+    if (!t) {
+      t = buildTerrain(seed, cx, cy);
+      if (terrainMemo.size >= 64) terrainMemo.clear();
+      terrainMemo.set(k, t);
+    }
+    return t;
+  }
+  function buildTerrain(seed, cx, cy) {
     const x0 = cx * CHUNK, y0 = cy * CHUNK, w = CHUNK + 2;
     const sites = sitesFor(seed, x0 - 1, y0 - 1, x0 + CHUNK, y0 + CHUNK);
     const feats = featuresNear(seed, x0 - 1, y0 - 1, x0 + CHUNK, y0 + CHUNK);
@@ -576,18 +698,27 @@
       else t = ground(seed, r, x, y);
       tiles[i] = t;
     }
-    const finds = frozen(placeFinds(seed, cx, cy, tiles, regions, feats)), caves = frozen(placeCaves(seed, cx, cy, tiles, regions));
+    return { tiles, regions, feats };
+  }
+  function chunk(seed, cx, cy) {
+    const x0 = cx * CHUNK, y0 = cy * CHUNK, x1 = x0 + CHUNK - 1, y1 = y0 + CHUNK - 1, t = terrain(seed, cx, cy);
+    const tiles = t.tiles.slice(), regions = t.regions.slice(); // the kept terrain stays as it was
+    const finds = frozen(placeFinds(seed, cx, cy, tiles, regions, t.feats)), caves = frozen(placeCaves(seed, cx, cy, tiles, regions));
     // The points of interest are stamped last, over the finished tiles. The finds and caves were placed from the tiles as
     // they were, so every find id a saved mission holds is unchanged: the ones under a footprint are listed in `hidden`
     // (src/expedition.js leaves them out), never moved. A cave is hidden when its mouth or its wall is under one.
-    const landmarks = Object.freeze(landmarksNear(seed, x0, y0, x0 + CHUNK - 1, y0 + CHUNK - 1));
-    stampLandmarks(seed, tiles, regions, x0, y0, landmarks);
-    const under = (x, y) => landmarks.some(l => inBox(l.box, x, y));
+    const landmarks = Object.freeze(landmarksNear(seed, x0, y0, x1, y1)), structures = Object.freeze(structuresNear(seed, x0, y0, x1, y1));
+    for (const s of structures) stamp(seed, tiles, regions, x0, y0, grow(s.box, 1), (x, y) => structTile(s, x, y));
+    for (const l of landmarks) stamp(seed, tiles, regions, x0, y0, l.box, (x, y) => SHAPES[l.kind].code(seed, l, x, y));
+    const under = (x, y) => landmarks.some(l => inBox(l.box, x, y)) || structures.some(s => inBox(s.box, x, y));
     const hidden = Object.freeze({
       finds: Object.freeze(finds.filter(f => under(f.x, f.y)).map(f => f.n)),
       caves: Object.freeze(caves.filter(k => under(k.x, k.y) || under(k.x, k.y - 1)).map(k => k.n)),
     });
-    return Object.freeze({ cx, cy, tiles, regions, finds, caves, hidden, landmarks });
+    const areas = landmarks.map(l => l.box).concat(structures.map(s => grow(s.box, 1)));
+    const formation = placeFormation(seed, cx, cy, tiles, regions, finds, caves, areas);
+    const formations = Object.freeze(formation ? [formation] : []), props = frozen(placeProps(seed, cx, cy, tiles, regions, formation));
+    return Object.freeze({ cx, cy, tiles, regions, finds, caves, hidden, landmarks, structures, formations, props });
   }
 
   const tileOf = (c, lx, ly) => c.tiles[ly * CHUNK + lx];
@@ -596,5 +727,6 @@
   return {
     CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16, RINGS, FIND_KINDS,
     seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear, ringOf, landmarkAt: landmark, landmarksNear,
+    structureAt: structure, structuresNear, reachesOut,
   };
 });
