@@ -151,12 +151,14 @@ test('every blocking feature fits its size bounds', () => {
   for (let n = 0; n < 10; n++) {
     const seed = W.seedOf('SIZE-' + n), cache = new Map();
     const f = W.featuresNear(seed, -512, -512, 511, 511);
-    for (const m of f.mesas) {
+    // A landmark overrides the features its box overlaps (spec §2.3), so only the ones clear of every landmark are measured.
+    const lms = W.landmarksNear(seed, -512, -512, 511, 511), clear = g => !lms.some(l => touch(l.box, g.box));
+    for (const m of f.mesas.filter(clear)) {
       kinds.mesa++;
       const e = blockedExtent(seed, m, T.CLIFF, cache);
       assert.ok(e.w >= 4 && e.w <= 14 && e.h >= 4 && e.h <= 14, `mesa at ${m.x},${m.y} is ${e.w}×${e.h}`);
     }
-    for (const c of f.craters) {
+    for (const c of f.craters.filter(clear)) {
       kinds.crater++;
       assert.ok(c.r >= 4 && c.r <= 12, 'crater radius ' + c.r);
       assert.ok(c.gaps.length === 2 || c.gaps.length === 3, 'crater gaps ' + c.gaps.length);
@@ -238,6 +240,8 @@ test('a pinned hash of 1,000 chunks catches any change to the world', () => {
   const got = fnv(parts);
   // The world as this plan's worldgen.js builds it. The browser QA (Task 11) checks Chrome gets the same value.
   // Change it only when you mean to change the world, and say so in the commit message.
-  const PINNED = '4f1ff5dc';
+  // M4c: the landmarks stamp their footprints (was 4f1ff5dc). Only tiles inside a footprint changed: 0 outside on 6 seeds,
+  // and the regions, finds and caves are as they were (their own pinned hashes did not move).
+  const PINNED = '59ba57b3';
   assert.equal(got, PINNED, 'world hash is ' + got);
 });

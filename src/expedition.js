@@ -42,13 +42,22 @@
   function findsIn(m, cx, cy) { return chunkAt(m, cx, cy).finds; }
   function cavesIn(m, cx, cy) { return chunkAt(m, cx, cy).caves; }
 
-  // A find's id is "<cx>,<cy>:<n>", written exactly the way the world writes it, so one find has one id.
+  // Ids are written exactly the way the world writes them, so one thing has one id: the numbers in one, or null.
+  function idNums(re, id) {
+    const g = typeof id === 'string' && re.exec(id);
+    if (!g) return null;
+    const nums = g.slice(1).map(Number);
+    return g.slice(1).every((s, i) => String(nums[i]) === s) ? nums : null;
+  }
+  // Is a position (world pixels) in cell (i, j) of a grid `size` tiles wide?
+  const inCell = (pos, i, j, size) => Math.floor(pos.x / (T * size)) === i && Math.floor(pos.y / (T * size)) === j;
+
+  // A find's id is "<cx>,<cy>:<n>".
   const ID = /^(-?\d{1,7}),(-?\d{1,7}):(\d{1,2})$/;
   function findById(m, id) {
-    const g = ID.exec(String(id));
+    const g = idNums(ID, id);
     if (!g) return null;
-    const cx = Number(g[1]), cy = Number(g[2]), n = Number(g[3]);
-    if (cx + ',' + cy + ':' + n !== id) return null;
+    const [cx, cy, n] = g;
     const f = findsIn(m, cx, cy)[n];
     if (!f) return null;
     return Object.assign({ id, cx, cy, left: loadsLeft(m, f, id) }, f);
@@ -124,6 +133,11 @@
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
+    const g = idNums(ID, findId);
+    if (!g) return { error: 'noFind' };
+    // A find stands 3 tiles inside its chunk, so it is only in reach from there. Checked before the chunk is built: an id
+    // from far away would cost a build and push other rooms' chunks out of the shared cache.
+    if (!inCell(pos, g[0], g[1], W.CHUNK)) return { error: 'tooFar' };
     const f = findById(m, findId);
     if (!f) return { error: 'noFind' };
     if (!nearTile(pos, f.x, f.y)) return { error: 'tooFar' };

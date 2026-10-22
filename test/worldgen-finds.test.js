@@ -36,8 +36,11 @@ test('every find stands on open ground inside its chunk, outside the flat zone, 
       const lx = f.x - c.cx * 32, ly = f.y - c.cy * 32;
       assert.ok(lx >= 3 && ly >= 3 && lx <= 28 && ly <= 28, `find ${c.cx},${c.cy}:${i} is 3 tiles inside its chunk`);
       const code = W.tileOf(c, lx, ly);
-      assert.equal(W.BLOCKING[code], 0, 'on open ground');
-      assert.notEqual(code, T.BASE);
+      // A find under a point of interest is hidden, never shown: the footprint drew its own tiles over it.
+      if (!c.hidden.finds.includes(i)) {
+        assert.equal(W.BLOCKING[code], 0, 'on open ground');
+        assert.notEqual(code, T.BASE);
+      }
       assert.ok(!inFlat(f.x, f.y), 'outside the flat zone');
       assert.equal(f.region, W.regionOf(c, lx, ly), 'its region is the region of its tile');
       assert.equal(f.ring, W.ringOf(f.x, f.y));
@@ -90,6 +93,22 @@ test('every crater centre a chunk owns holds an ice deposit', () => {
     }
   }
   assert.ok(craters > 5, 'craters checked: ' + craters);
+});
+
+test('every canyon middle a chunk owns holds an ice deposit', () => {
+  let canyons = 0;
+  for (let s = 0; s < 5; s++) {
+    const seed = W.seedOf('CANYON-ICE-' + s);
+    for (const k of W.featuresNear(seed, -1024, -1024, 1023, 1023).canyons) {
+      // The middle of the canyon's middle bend.
+      const x = Math.floor((k.pts[1][0] + k.pts[2][0]) / 2), y = Math.floor((k.pts[1][1] + k.pts[2][1]) / 2);
+      const cx = Math.floor(x / 32), cy = Math.floor(y / 32), lx = x - cx * 32, ly = y - cy * 32;
+      if (lx < 3 || ly < 3 || lx > 28 || ly > 28 || inFlat(x, y)) continue;
+      canyons++;
+      assert.ok(W.chunk(seed, cx, cy).finds.some(f => f.kind === 'ice' && f.x === x && f.y === y), `canyon at ${x},${y} has ice`);
+    }
+  }
+  assert.ok(canyons > 50, 'canyon middles checked: ' + canyons);
 });
 
 test('the rings end 20, 40 and 80 tiles out, finds are thinner per tile nearer the base, and the Dune Sea has the fewest', () => {

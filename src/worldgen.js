@@ -10,33 +10,41 @@
  * (−4, −2), so the HQ is at (0, 0). Nothing that blocks is ever placed within FLAT_RADIUS tiles of the HQ.
  *
  * API: seedOf(missionSeed) → uint32 · regionAt(seed, x, y) → index into REGIONS
- *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds, caves }   (32×32, row-major)
+ *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds, caves, hidden, landmarks }
+ *        (32×32, row-major)
  *        finds: [{ n, x, y, kind, ring, region, sub? }] in world tiles; a find's id is "<cx>,<cy>:<n>"
  *        caves: [{ n, x, y, region }] in world tiles: a cave's mouth, an open tile; its wall is the tile north of it
+ *        hidden: { finds: [n], caves: [n] }: the ones under a point of interest's footprint. They keep their place in the
+ *          lists, so every id stays stable; src/expedition.js leaves them out.
+ *        landmarks: the ones whose box touches the chunk: { id: "L<i>,<j>", kind, i, j, x, y (its centre), region,
+ *          box: [x0, y0, x1, y1] (its footprint, inclusive), sites: finds as above (a site's id is "<landmark id>:<n>"),
+ *          and its shape (delta: dir, apex · tube: a, vert, s · crater: r, gaps · stardune: arms) }
  *      ringOf(x, y) → 0 inner · 1 middle · 2 outer · 3 far
  *      tileOf(chunk, lx, ly) · regionOf(chunk, lx, ly)
  *      featuresNear(seed, x0, y0, x1, y1) → { canyons, craters, mesas } touching that tile box (inclusive)
+ *      landmarkAt(seed, i, j) → the landmark of cell (i, j) of the 256-tile grid, or null · landmarksNear(seed, x0, y0, x1, y1)
  *      hash(seed, a, b, c) → uint32 · unit(h) → [0, 1) · noise(seed, salt, x, y, size) → [0, 1]
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.SolWorldgen = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'));
+  else root.SolWorldgen = factory(root.SolData);
+})(typeof self !== 'undefined' ? self : this, function (D) {
   'use strict';
 
   const CHUNK = 32;
+  // SEDIMENT is a river delta's fan, SCARP an ice scarp's cliff and CREST the ridge of a star dune (landmarks, M4c).
   const TILE = {
     REGOLITH: 0, SAND: 1, DUNE: 2, BOULDER: 3, CLIFF: 4, RIM: 5, CRATER_FLOOR: 6, CANYON_FLOOR: 7, CANYON_WALL: 8,
     RAMP: 9, ICE: 10, POLYGON: 11, LAVA: 12, TUBE_FLOOR: 13, TUBE_WALL: 14, SKYLIGHT: 15, STRUCT_FLOOR: 16,
-    STRUCT_WALL: 17, BASE: 18,
+    STRUCT_WALL: 17, BASE: 18, SEDIMENT: 19, SCARP: 20, CREST: 21,
   };
   const NONE = 255; // "no feature here" in the feature layer
   const BLOCKING = new Uint8Array(32);
-  for (const k of ['BOULDER', 'CLIFF', 'RIM', 'CANYON_WALL', 'TUBE_WALL', 'STRUCT_WALL']) BLOCKING[TILE[k]] = 1;
-  // Walking speed on each tile (the rover ignores it).
+  for (const k of ['BOULDER', 'CLIFF', 'RIM', 'CANYON_WALL', 'TUBE_WALL', 'STRUCT_WALL', 'SCARP']) BLOCKING[TILE[k]] = 1;
+  // Walking speed on each tile (the rover ignores it). A star dune's crest is sand too.
   const SPEED = [];
   for (let i = 0; i < 32; i++) SPEED.push(1);
-  SPEED[TILE.DUNE] = 0.7;
+  SPEED[TILE.DUNE] = SPEED[TILE.CREST] = 0.7;
 
   const REGIONS = ['plains', 'dunes', 'craters', 'canyons', 'icy', 'volcanic'];
   const R = { PLAINS: 0, DUNES: 1, CRATERS: 2, CANYONS: 3, ICY: 4, VOLCANIC: 5 };
@@ -169,11 +177,12 @@
   }
   const grow = (b, p) => [b[0] - p, b[1] - p, b[2] + p, b[3] + p];
   const touch = (a, b) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
-  function nearBase(box) {
-    const b = grow(box, CLEAR);
+  // The squared distance from the HQ's tile to the nearest tile of a box.
+  function fromHQ2(b) {
     const dx = Math.max(b[0], 0, -b[2]), dy = Math.max(b[1], 0, -b[3]);
-    return dx * dx + dy * dy <= FLAT_RADIUS * FLAT_RADIUS;
+    return dx * dx + dy * dy;
   }
+  const nearBase = box => fromHQ2(grow(box, CLEAR)) <= FLAT_RADIUS * FLAT_RADIUS;
   function cellsTouching(box, size) {
     const out = [];
     for (let j = Math.floor(box[1] / size); j <= Math.floor(box[3] / size); j++) {
@@ -322,7 +331,7 @@
   // test proves all open ground near the base is connected, so every find can be reached on foot.
   const RINGS = [20, 40, 80];                   // inner ≤ 20 < middle ≤ 40 < outer ≤ 80 < far, in tiles from the HQ
   const FIND_KINDS = ['ice', 'metal', 'pod', 'science'];
-  const FIND_DARTS = 24, FIND_EDGE = 3, FIND_GAP = 5;
+  const FIND_DARTS = 24, FIND_EDGE = 3, FIND_GAP = 5; // dart i hashes salts 500 + i, 540 + i and 580 + i: keep FIND_DARTS ≤ 40
   const FIND_DENSITY = [1.6, 0.8, 1.6, 1.6, 1.8, 1.6]; // finds a chunk aims for, by region (the Dune Sea has few)
   const RING_DENSITY = [0.3, 0.6, 1, 1];               // fewer finds close to the base
   const KIND_WEIGHTS = [                             // ice, metal, pod, science, by region
@@ -336,6 +345,9 @@
     const d2 = x * x + y * y;
     return d2 <= RINGS[0] * RINGS[0] ? 0 : d2 <= RINGS[1] * RINGS[1] ? 1 : d2 <= RINGS[2] * RINGS[2] ? 2 : 3;
   }
+  // The region of tile i (row-major) of a chunk: its regions hold two tiles to a byte, four bits each.
+  const nibble = (regions, i) => (regions[i >> 1] >> ((i & 1) * 4)) & 15;
+  const tooClose = (list, x, y, gap) => list.some(f => Math.abs(f.x - x) < gap && Math.abs(f.y - y) < gap);
 
   // Crater floors and canyon floors hold ice: the chunk that owns a crater's centre (or a canyon's middle) puts an ice
   // deposit there first. Then darts land at random spots.
@@ -348,8 +360,8 @@
     for (const [x, y] of spots) {
       if (!own(x, y) || inFlat(x, y)) continue;
       const n = (y - y0) * CHUNK + (x - x0);
-      if (!ICY_GROUND[tiles[n]]) continue;
-      out.push({ n: out.length, x, y, kind: 'ice', ring: ringOf(x, y), region: (regions[n >> 1] >> ((n & 1) * 4)) & 15 });
+      if (!ICY_GROUND[tiles[n]] || tooClose(out, x, y, FIND_GAP)) continue; // spaced features never trip the gap today
+      out.push({ n: out.length, x, y, kind: 'ice', ring: ringOf(x, y), region: nibble(regions, n) });
     }
     for (let i = 0; i < FIND_DARTS; i++) {
       const h = hash(seed, cx, cy, 500 + i);
@@ -358,9 +370,9 @@
       if (inFlat(x, y)) continue;
       const code = tiles[n];
       if (BLOCKING[code] || code === TILE.BASE) continue;
-      const r = (regions[n >> 1] >> ((n & 1) * 4)) & 15, ring = ringOf(x, y);
+      const r = nibble(regions, n), ring = ringOf(x, y);
       if (unit(hash(seed, cx, cy, 540 + i)) >= FIND_DENSITY[r] * RING_DENSITY[ring] / FIND_DARTS) continue;
-      if (out.some(f => Math.abs(f.x - x) < FIND_GAP && Math.abs(f.y - y) < FIND_GAP)) continue;
+      if (tooClose(out, x, y, FIND_GAP)) continue;
       const w = KIND_WEIGHTS[r].slice();
       if (ICY_GROUND[code]) w[0] += 6;
       let pick = unit(hash(seed, cx, cy, 580 + i)) * (w[0] + w[1] + w[2] + w[3]), k = 0;
@@ -385,15 +397,159 @@
       if (wall !== TILE.CLIFF && wall !== TILE.CANYON_WALL) continue;
       const m = n + CHUNK, below = tiles[m];
       if (BLOCKING[below] || below === TILE.BASE) continue;
-      const x = cx * CHUNK + lx, y = cy * CHUNK + ly + 1, r = (regions[m >> 1] >> ((m & 1) * 4)) & 15;
+      const x = cx * CHUNK + lx, y = cy * CHUNK + ly + 1, r = nibble(regions, m);
       if (unit(hash(seed, x, y, 650)) >= CAVE_CHANCE[r]) continue;
-      if (out.some(c => Math.abs(c.x - x) < CAVE_GAP[r] && Math.abs(c.y - y) < CAVE_GAP[r])) continue;
+      if (tooClose(out, x, y, CAVE_GAP[r])) continue;
       out.push({ n: out.length, x, y, region: r });
     }
     return out;
   }
 
+  // ---------- landmarks (spec §3.6, M4c): one per 256×256 cell, over everything else ----------
+  // A landmark's centre is jittered inside its cell and its kind is picked from the kinds of the region at the centre
+  // (D.LANDMARKS). Its footprint is a box of at most 40×40 tiles lying at least 3 tiles inside the cell, so two landmarks
+  // never touch and a chunk looks up only the cells it touches. Inside the box the landmark overrides every feature: each
+  // tile is its shape's code, or the region's own ground. The box's outer ring is always ground and every open tile of the
+  // shape connects to it, so a landmark can never cut a pocket of open ground off.
+  const LM = D.LANDMARKS, LM_LO = 22; // its centre is at least 22 tiles inside the cell (half a 40-tile box plus 2)
+  const LM_KINDS = REGIONS.map(r => Object.keys(LM.kinds).filter(k => LM.kinds[k].regions.includes(r)));
+  const near = v => Math.floor(v + 0.5); // the nearest whole tile
+  const scarpTop = (y, dx) => y - 2 + Math.floor(dx * dx / 50);
+  // Each shape: make(seed, i, j, x, y) → its box, the spots of its finds (in the order of D.LANDMARKS' sites) and what
+  // drawing it needs; code(seed, landmark, x, y) → the tile at (x, y) in its box, or NONE for the region's ground.
+  const SHAPES = {
+    // A fan of layered sediment spreading 17 tiles from its apex, up to 53° either side of its axis, with three surveys.
+    delta: {
+      make(seed, i, j, x, y) {
+        const dir = hash(seed, i, j, 1010) % 16, u = DIRS16[dir], ax = x - u[0] * 8.5, ay = y - u[1] * 8.5;
+        const spots = [dir + 14, dir, dir + 2].map(k => { const d = DIRS16[k % 16]; return [near(ax + 9 * d[0]), near(ay + 9 * d[1])]; });
+        return { dir, apex: [ax, ay], box: [x - 15, y - 15, x + 15, y + 15], spots };
+      },
+      code(seed, l, x, y) {
+        const dx = x - l.apex[0], dy = y - l.apex[1], u = DIRS16[l.dir], along = dx * u[0] + dy * u[1], d2 = dx * dx + dy * dy;
+        return along > 0 && d2 <= 17 * 17 && along * along >= 0.36 * d2 ? TILE.SEDIMENT : NONE;
+      },
+    },
+    // A lava tube: a floor 3 tiles wide and 25–35 long inside its wall, running east–west (or north–south), entered
+    // through a skylight in its south (or east) wall. Ice lies near one end and rare metal near the other.
+    tube: {
+      make(seed, i, j, x, y) {
+        const h = hash(seed, i, j, 1010), a = 12 + (h % 6), vert = (h >>> 8) % 2 === 1, s = ((h >>> 12) % (a + 1)) - (a >> 1);
+        const at = (u, v) => (vert ? [x + v, y + u] : [x + u, y + v]);
+        const box = vert ? [x - 3, y - a - 2, x + 3, y + a + 2] : [x - a - 2, y - 3, x + a + 2, y + 3];
+        return { a, vert, s, box, spots: [at(1 - a, 0), at(a - 1, 0)] };
+      },
+      code(seed, l, x, y) {
+        const u = l.vert ? y - l.y : x - l.x, v = l.vert ? x - l.x : y - l.y, au = Math.abs(u), av = Math.abs(v);
+        if (au > l.a + 1 || av > 2) return NONE;
+        if (au <= l.a && av <= 1) return TILE.TUBE_FLOOR;
+        return u === l.s && v === 2 ? TILE.SKYLIGHT : TILE.TUBE_WALL;
+      },
+    },
+    // A rim 20 tiles across (D.LANDMARKS radius 10) with three gaps, a floor patched with ice and a central peak. Ice lies
+    // on the floor either side of the peak, and the peak's survey just south of it.
+    crater: {
+      make(seed, i, j, x, y) {
+        const r = LM.kinds.crater.radius, h = hash(seed, i, j, 1010), g = DIRS16[(h >>> 8) % 16];
+        const gaps = [0, 5, 10].map(k => DIRS16[(h % 16 + k) % 16]);
+        const spots = [[near(x + 6 * g[0]), near(y + 6 * g[1])], [near(x - 6 * g[0]), near(y - 6 * g[1])], [x, y + 2]];
+        return { r, gaps, box: [x - r - 2, y - r - 2, x + r + 2, y + r + 2], spots };
+      },
+      code(seed, l, x, y) {
+        const dx = x - l.x, dy = y - l.y;
+        if (dx * dx + dy * dy <= 2.25) return TILE.CLIFF; // the central peak: the 3×3 tiles round the middle
+        const t = CODE.crater(l, x, y);
+        return t === TILE.CRATER_FLOOR && noise(seed, 1020, x, y, 5) > 0.62 ? TILE.ICE : t;
+      },
+    },
+    // A vent in the open ground: its survey is the vent itself (the surface draws the vent and its puffs there).
+    methane: {
+      make: (seed, i, j, x, y) => ({ box: [x - 4, y - 4, x + 4, y + 4], spots: [[x, y]] }),
+      code: () => NONE,
+    },
+    // A cliff of clean ice 31 tiles long and 2 thick, bowed so its ends lie 4 tiles further south, with 2 rows of exposed
+    // ice at its foot (its south face, the one the surface draws) and four ice deposits along the cliff.
+    scarp: {
+      make: (seed, i, j, x, y) => ({ box: [x - 17, y - 3, x + 17, y + 6], spots: [-11, -4, 4, 11].map(dx => [x + dx, scarpTop(y, dx) + 2]) }),
+      code(seed, l, x, y) {
+        const dx = x - l.x;
+        if (dx < -15 || dx > 15) return NONE;
+        const k = y - scarpTop(l.y, dx);
+        return k === 0 || k === 1 ? TILE.SCARP : k === 2 || k === 3 ? TILE.ICE : NONE;
+      },
+    },
+    // A star dune: 3–5 arms 11–16 tiles long round a summit. The arms' ridges and the summit are its crest, where the view
+    // is wider; the dune spreads 2.5 tiles either side of the ridges and 5 round the summit.
+    stardune: {
+      make(seed, i, j, x, y) {
+        const h = hash(seed, i, j, 1010), n = 3 + (h % 3), step = Math.floor(16 / n), first = (h >>> 4) % 16, arms = [];
+        for (let k = 0; k < n; k++) arms.push([(first + k * step) % 16, 11 + (hash(seed, i, j, 1011 + k) % 6)]);
+        return { arms, box: [x - 19, y - 19, x + 19, y + 19], spots: [] };
+      },
+      code(seed, l, x, y) {
+        const dx = x - l.x, dy = y - l.y, s2 = dx * dx + dy * dy;
+        let best = s2;
+        for (const [k, len] of l.arms) {
+          const u = DIRS16[k], t = Math.max(0, Math.min(len, dx * u[0] + dy * u[1])), px = dx - u[0] * t, py = dy - u[1] * t;
+          best = Math.min(best, px * px + py * py);
+        }
+        // 0.75 tiles either side of a ridge, so even a diagonal one is a path of side-by-side tiles.
+        if (best <= 0.5625 || s2 <= 2) return TILE.CREST;
+        return best <= 6.25 || s2 <= 25 ? TILE.DUNE : NONE;
+      },
+    },
+  };
+
+  // A find held by a point of interest, written like a chunk's finds. A survey's subject is the landmark's (or formation's)
+  // kind, but the methane vent's is 'vent', the subject the surface already labels, paints and lets the Biologist smell.
+  function site(seed, n, x, y, kind, sub) {
+    const f = { n, x, y, kind, ring: ringOf(x, y), region: regionAt(seed, x, y) };
+    if (kind === 'science') f.sub = sub;
+    return f;
+  }
+  // Points of interest are shared by every chunk they touch (and every mission with the seed), so they are frozen whole.
+  function deepFreeze(o) {
+    if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const k of Object.keys(o)) deepFreeze(o[k]); }
+    return o;
+  }
+
+  // The landmark of cell (i, j) of the 256-tile grid, or null. Its id is "L<i>,<j>".
+  function landmark(seed, i, j) {
+    return memo('L' + seed + ':' + i + ':' + j, () => {
+      if (unit(hash(seed, i, j, 1001)) >= LM.chance) return null;
+      const h = hash(seed, i, j, 1002), span = LM.cell - 2 * LM_LO;
+      const x = i * LM.cell + LM_LO + (h % span), y = j * LM.cell + LM_LO + ((h >>> 16) % span);
+      const region = regionAt(seed, x, y), kinds = LM_KINDS[region], kind = kinds[hash(seed, i, j, 1003) % kinds.length];
+      const { spots, ...shape } = SHAPES[kind].make(seed, i, j, x, y);
+      if (fromHQ2(shape.box) < LM.clear * LM.clear) return null;
+      const sites = spots.map(([sx, sy], n) => site(seed, n, sx, sy, LM.kinds[kind].sites[n], kind === 'methane' ? 'vent' : kind));
+      return deepFreeze(Object.assign({ id: 'L' + i + ',' + j, kind, i, j, x, y, region }, shape, { sites }));
+    });
+  }
+  // Every landmark whose box touches the tile box [x0..x1] × [y0..y1] (inclusive).
+  function landmarksNear(seed, x0, y0, x1, y1) {
+    const box = [x0, y0, x1, y1], out = [];
+    for (const [i, j] of cellsTouching(box, LM.cell)) { const l = landmark(seed, i, j); if (l && touch(l.box, box)) out.push(l); }
+    return out;
+  }
+  // Redraws the chunk's tiles that lie in a landmark's box: its shape, or the region's own ground.
+  function stampLandmarks(seed, tiles, regions, x0, y0, lms) {
+    for (const l of lms) {
+      const code = SHAPES[l.kind].code, b = l.box;
+      for (let y = Math.max(b[1], y0); y <= Math.min(b[3], y0 + CHUNK - 1); y++) {
+        for (let x = Math.max(b[0], x0); x <= Math.min(b[2], x0 + CHUNK - 1); x++) {
+          const i = (y - y0) * CHUNK + x - x0, t = code(seed, l, x, y);
+          tiles[i] = t !== NONE ? t : ground(seed, nibble(regions, i), x, y);
+        }
+      }
+    }
+  }
+
   // ---------- chunks ----------
+  // A chunk is shared (src/expedition.js keeps one cache for every mission with its seed, and on the server for every room),
+  // so its lists are frozen: a reader can't change them for everyone. Typed arrays can't be frozen; tiles and regions are
+  // read-only by agreement.
+  const frozen = list => { for (const o of list) Object.freeze(o); return Object.freeze(list); };
   function chunk(seed, cx, cy) {
     const x0 = cx * CHUNK, y0 = cy * CHUNK, w = CHUNK + 2;
     const sites = sitesFor(seed, x0 - 1, y0 - 1, x0 + CHUNK, y0 + CHUNK);
@@ -420,17 +576,25 @@
       else t = ground(seed, r, x, y);
       tiles[i] = t;
     }
-    return { cx, cy, tiles, regions, finds: placeFinds(seed, cx, cy, tiles, regions, feats), caves: placeCaves(seed, cx, cy, tiles, regions) };
+    const finds = frozen(placeFinds(seed, cx, cy, tiles, regions, feats)), caves = frozen(placeCaves(seed, cx, cy, tiles, regions));
+    // The points of interest are stamped last, over the finished tiles. The finds and caves were placed from the tiles as
+    // they were, so every find id a saved mission holds is unchanged: the ones under a footprint are listed in `hidden`
+    // (src/expedition.js leaves them out), never moved. A cave is hidden when its mouth or its wall is under one.
+    const landmarks = Object.freeze(landmarksNear(seed, x0, y0, x0 + CHUNK - 1, y0 + CHUNK - 1));
+    stampLandmarks(seed, tiles, regions, x0, y0, landmarks);
+    const under = (x, y) => landmarks.some(l => inBox(l.box, x, y));
+    const hidden = Object.freeze({
+      finds: Object.freeze(finds.filter(f => under(f.x, f.y)).map(f => f.n)),
+      caves: Object.freeze(caves.filter(k => under(k.x, k.y) || under(k.x, k.y - 1)).map(k => k.n)),
+    });
+    return Object.freeze({ cx, cy, tiles, regions, finds, caves, hidden, landmarks });
   }
 
   const tileOf = (c, lx, ly) => c.tiles[ly * CHUNK + lx];
-  function regionOf(c, lx, ly) {
-    const i = ly * CHUNK + lx;
-    return (c.regions[i >> 1] >> ((i & 1) * 4)) & 15;
-  }
+  const regionOf = (c, lx, ly) => nibble(c.regions, ly * CHUNK + lx);
 
   return {
     CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16, RINGS, FIND_KINDS,
-    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear, ringOf,
+    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear, ringOf, landmarkAt: landmark, landmarksNear,
   };
 });

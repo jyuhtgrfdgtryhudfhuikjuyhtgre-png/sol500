@@ -67,6 +67,30 @@ test('a find has exactly one id: odd spellings, made-up finds and bad positions 
   assert.equal(snap(m), before);
 });
 
+test('a find id from another chunk than the one you stand in is refused before that chunk is built', () => {
+  const m = solo(), f = first(m, 'metal'), before = snap(m);
+  const real = W.chunk;
+  let built = 0;
+  W.chunk = (...args) => { built++; return real(...args); };
+  try {
+    for (const id of ['4000,4000:0', '-3999,17:2', (f.cx + 1) + ',' + f.cy + ':0']) {
+      assert.equal(X.collect(m, 'minh', id, at(f.x, f.y)).error, 'tooFar', id);
+    }
+  } finally { W.chunk = real; }
+  assert.equal(built, 0, 'no chunk was built for them');
+  assert.equal(snap(m), before);
+});
+
+test('nobody can change the shared world cache: the chunk, its finds and its caves are frozen', () => {
+  const m = solo(), f = first(m, 'metal');
+  const finds = X.findsIn(m, f.cx, f.cy);
+  assert.ok(Object.isFrozen(finds) && finds.every(Object.isFrozen));
+  assert.throws(() => { finds[0].x = 99; }, TypeError);
+  assert.throws(() => { finds.push({}); }, TypeError);
+  assert.ok(Object.isFrozen(X.cavesIn(m, f.cx, f.cy)));
+  assert.ok(Object.isFrozen(X.chunkAt(m, f.cx, f.cy)), 'nobody can swap a list for another');
+});
+
 test('a find runs out, and the backpack holds 3 loads on foot', () => {
   const m = solo(), f = first(m, 'ice', g => D.FINDS.ice.loads[g.ring] >= 4);
   for (let i = 0; i < 3; i++) assert.equal(X.collect(m, 'minh', f.id, at(f.x, f.y)).ok, true);

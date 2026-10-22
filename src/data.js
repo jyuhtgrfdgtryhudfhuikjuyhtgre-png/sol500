@@ -264,6 +264,53 @@
       pod: { loads: [3, 3, 3, 3], food: 60 },   // each load: a spare kit, 60 kg of food or an O₂ canister
       science: { loads: [1, 1, 1, 1], science: [20, 35, 60, 80], craters: 1.5 },
     },
+    // Points of interest (spec §3.6, §3.7, M4c). src/worldgen.js places them from these numbers. Distances are world
+    // tiles, `regions` are worldgen REGIONS names, and `fact` (lm.<id>, fm.<id>) and `log` (ks.<id>) are i18n.js keys.
+    // Landmarks: one per 256×256 cell with a 60 % chance; the footprint (at most 40×40) never comes within 60 tiles of
+    // the HQ. Its kind is picked from the kinds of the region at its centre, all equally likely. Discovering one banks
+    // 80–150 science (the Scientist gets +50 %). `sites` are the finds it holds: the delta's three rich surveys, the ice
+    // and rare metal inside a lava tube, the giant crater's floor ice and peak survey, the vent's survey, the scarp's ice.
+    LANDMARKS: {
+      cell: 256, chance: 0.6, clear: 60, size: 40, science: [80, 150],
+      kinds: {
+        delta: { regions: ['plains', 'craters'], sites: ['science', 'science', 'science'], fact: 'lm.delta' },
+        tube: { regions: ['volcanic'], sites: ['ice', 'metal'], fact: 'lm.tube' },
+        crater: { regions: ['craters'], radius: 10, sites: ['ice', 'ice', 'science'], fact: 'lm.crater' },
+        methane: { regions: ['canyons', 'plains'], sites: ['science'], fact: 'lm.methane' },
+        scarp: { regions: ['icy'], sites: ['ice', 'ice', 'ice', 'ice'], fact: 'lm.scarp' },
+        stardune: { regions: ['dunes'], sites: [], fact: 'lm.stardune' },
+      },
+    },
+    // Kestrel Survey structures (fictional): one per 64×64 cell with a chance by region, at least 20 tiles from the HQ,
+    // `size` tiles wide and deep. `hold` is the seconds of holding E (the Engineer's own in `engineer`); the pod has
+    // none, you walk in. Rewards: a cache's loads, a wreck's metal loads and spare kit, the weather station's fog reveal
+    // (tiles), science and forecast rounds, the mast's marks (tiles), the pod's suit refills a round, the array's loads.
+    STRUCTURES: {
+      cell: 64, clear: 20,
+      chance: { plains: 0.45, dunes: 0.25, craters: 0.35, canyons: 0.3, icy: 0.35, volcanic: 0.3 },
+      kinds: {
+        cache: { size: [2, 2], hold: 3, loads: [1, 2], log: 'ks.cache' },
+        wreck: { size: [3, 2], hold: 6, engineer: 3, metal: [2, 3], spares: 1, log: 'ks.wreck' },
+        weather: { size: [2, 2], hold: 6, engineer: 3, reveal: 24, science: 20, forecast: 3, log: 'ks.weather' },
+        mast: { size: [2, 2], hold: 6, engineer: 3, marks: 96, log: 'ks.mast' },
+        pod: { size: [5, 5], refills: 1, log: 'ks.pod' },
+        array: { size: [4, 2], hold: 5, materials: 2, log: 'ks.array' },
+      },
+    },
+    // Natural formations: scenery with real geology, scattered per chunk in the regions listed; about 1 in 3 is also a
+    // science site.
+    FORMATIONS: {
+      science: 1 / 3,
+      kinds: {
+        arch: { regions: ['canyons', 'craters'], fact: 'fm.arch' },
+        yardang: { regions: ['plains', 'volcanic'], fact: 'fm.yardang' },
+        hoodoo: { regions: ['canyons'], fact: 'fm.hoodoo' },
+        balanced: { regions: ['plains', 'craters', 'icy'], fact: 'fm.balanced' },
+        ventifact: { regions: ['plains', 'dunes', 'volcanic'], fact: 'fm.ventifact' },
+        layered: { regions: ['canyons', 'craters'], fact: 'fm.layered' },
+        deviltracks: { regions: ['plains', 'dunes', 'icy'], fact: 'fm.deviltracks' },
+      },
+    },
     // Role skills on the map (spec §3.3): factors on how long you hold E, and the scientist's extra science.
     SKILLS: {
       scientist: { science: 0.5, scienceBonus: 1.5 },

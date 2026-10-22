@@ -21,9 +21,12 @@ test('a cave opens in the south face of a mesa or a canyon wall: its mouth is th
         const lx = k.x - cx * 32, ly = k.y - cy * 32;
         assert.ok(lx >= 0 && lx < 32 && ly >= 1 && ly < 32, `cave ${cx},${cy}:${i} has its mouth and its wall in its chunk`);
         const mouth = W.tileOf(c, lx, ly), wall = W.tileOf(c, lx, ly - 1);
-        assert.equal(W.BLOCKING[mouth], 0, 'the mouth is open ground');
-        assert.notEqual(mouth, T.BASE);
-        assert.ok(wall === T.CLIFF || wall === T.CANYON_WALL, 'the wall is a mesa cliff or a canyon wall, not ' + wall);
+        // A cave under a point of interest is hidden, never shown: the footprint drew its own tiles over it.
+        if (!c.hidden.caves.includes(i)) {
+          assert.equal(W.BLOCKING[mouth], 0, 'the mouth is open ground');
+          assert.notEqual(mouth, T.BASE);
+          assert.ok(wall === T.CLIFF || wall === T.CANYON_WALL, 'the wall is a mesa cliff or a canyon wall, not ' + wall);
+        }
         assert.equal(k.region, W.regionOf(c, lx, ly), "its region is its mouth's");
         assert.ok(!inFlat(k.x, k.y), 'never in the flat zone round the base');
       });
