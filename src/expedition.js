@@ -80,14 +80,24 @@
   // and use a structure from its door (2 tiles inside) only from there, so an id sent from far away costs nothing. The
   // world reads them from its own cells, without building a chunk; they are frozen, like the cache.
   const LID = /^L(-?\d{1,7}),(-?\d{1,7})$/, SID = /^S(-?\d{1,7}),(-?\d{1,7})$/;
-  function landmarkById(m, id, pos) {
-    const g = idNums(LID, id);
-    return g && okPos(pos) && inCell(pos, g[0], g[1], D.LANDMARKS.cell) ? W.landmarkAt(W.seedOf(m.seed), g[0], g[1]) : null;
+  // What turns an id from outside into the world's landmark or structure: how it is spelled (its first two numbers are its
+  // cell), the grid of cells it lies on, the world's lookup (called through W each time, never held on to, so a test that
+  // swaps it to count the lookups counts them all) and the error for none.
+  const LANDMARK = { re: LID, grid: D.LANDMARKS, at: (seed, i, j) => W.landmarkAt(seed, i, j), none: () => ({ error: 'noLandmark' }) };
+  const STRUCTURE = { re: SID, grid: D.STRUCTURES, at: (seed, i, j) => W.structureAt(seed, i, j), none: () => ({ error: 'noStructure' }) };
+  // The one place it happens, for every action that takes such an id and for the two readers below: the landmark or the
+  // structure, or the { error } of the first check to fail, with the world asked last. Not spelled so, or nothing there, is
+  // K.none(); a position outside its cell is 'tooFar'.
+  function poiAt(m, id, pos, K) {
+    const g = idNums(K.re, id);
+    if (!g) return K.none();
+    if (!inCell(pos, g[0], g[1], K.grid.cell)) return { error: 'tooFar' };
+    return K.at(W.seedOf(m.seed), g[0], g[1]) || K.none();
   }
-  function structureById(m, id, pos) {
-    const g = idNums(SID, id);
-    return g && okPos(pos) && inCell(pos, g[0], g[1], D.STRUCTURES.cell) ? W.structureAt(W.seedOf(m.seed), g[0], g[1]) : null;
-  }
+  // The two readers say null to any refusal, whatever the reason.
+  const found = o => (o.error ? null : o);
+  function landmarkById(m, id, pos) { return okPos(pos) ? found(poiAt(m, id, pos, LANDMARK)) : null; }
+  function structureById(m, id, pos) { return okPos(pos) ? found(poiAt(m, id, pos, STRUCTURE)) : null; }
   function loadsLeft(m, f, id) {
     const v = m.expedition.sites[id == null ? f.id : id];
     return Number.isFinite(v) ? v : D.FINDS[f.kind].loads[f.ring];
@@ -96,6 +106,8 @@
   // and loads left, or { error }. Each is looked up only from inside what holds it: a find's or a formation's chunk (the
   // survey is at the formation's spot, 2 tiles inside it), a landmark's cell (its sites lie in its box, 3 tiles inside).
   const LSITE = /^L(-?\d{1,7}),(-?\d{1,7}):(\d{1,2})$/, FSITE = /^F(-?\d{1,7}),(-?\d{1,7}):0$/;
+  // A landmark's site is spelled with its number after the landmark's id, and no landmark there is no find.
+  const LANDMARK_SITE = Object.assign({}, LANDMARK, { re: LSITE, none: () => ({ error: 'noFind' }) });
   function siteAt(m, id, pos) {
     let g = idNums(ID, id), f = null;
     if (g) {
@@ -103,9 +115,9 @@
       return findById(m, id) || { error: 'noFind' };
     }
     if ((g = idNums(LSITE, id))) {
-      if (!inCell(pos, g[0], g[1], D.LANDMARKS.cell)) return { error: 'tooFar' };
-      const l = W.landmarkAt(W.seedOf(m.seed), g[0], g[1]);
-      f = l && l.sites[g[2]];
+      const l = poiAt(m, id, pos, LANDMARK_SITE);
+      if (l.error) return l;
+      f = l.sites[g[2]];
     } else if ((g = idNums(FSITE, id))) {
       if (!inCell(pos, g[0], g[1], W.CHUNK)) return { error: 'tooFar' };
       const k = chunkAt(m, g[0], g[1]).formations[0];
@@ -365,11 +377,8 @@
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
-    const g = idNums(LID, landmarkId);
-    if (!g) return { error: 'noLandmark' };
-    if (!inCell(pos, g[0], g[1], D.LANDMARKS.cell)) return { error: 'tooFar' };
-    const l = W.landmarkAt(W.seedOf(m.seed), g[0], g[1]), x = m.expedition;
-    if (!l) return { error: 'noLandmark' };
+    const l = poiAt(m, landmarkId, pos, LANDMARK), x = m.expedition;
+    if (l.error) return l;
     if (x.landmarks[l.id]) return { error: 'known' };
     if (!nearPx(pos, (l.x + 0.5) * T, (l.y + 0.5) * T, SIGHT)) return { error: 'tooFar' };
     const [lo, hi] = D.LANDMARKS.science, base = lo + W.hash(W.seedOf(m.seed), l.i, l.j, 1300) % (hi - lo + 1);
@@ -419,11 +428,8 @@
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
-    const g = idNums(SID, structId);
-    if (!g) return { error: 'noStructure' };
-    if (!inCell(pos, g[0], g[1], D.STRUCTURES.cell)) return { error: 'tooFar' };
-    const s = W.structureAt(W.seedOf(m.seed), g[0], g[1]), x = m.expedition;
-    if (!s) return { error: 'noStructure' };
+    const s = poiAt(m, structId, pos, STRUCTURE), x = m.expedition;
+    if (s.error) return s;
     if (!DONE[s.kind]) return { error: 'badKind' };
     if (x.structures[s.id]) return { error: 'done' };
     if (!nearTile(pos, s.x, s.y)) return { error: 'tooFar' };
@@ -453,11 +459,8 @@
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
-    const g = idNums(SID, podId);
-    if (!g) return { error: 'noStructure' };
-    if (!inCell(pos, g[0], g[1], D.STRUCTURES.cell)) return { error: 'tooFar' };
-    const s = W.structureAt(W.seedOf(m.seed), g[0], g[1]), x = m.expedition;
-    if (!s) return { error: 'noStructure' };
+    const s = poiAt(m, podId, pos, STRUCTURE), x = m.expedition;
+    if (s.error) return s;
     if (s.kind !== 'pod') return { error: 'badKind' };
     const b = s.box, r = X.reach, tx = pos.x / T, ty = pos.y / T;
     if (tx < b[0] - r || tx >= b[2] + 1 + r || ty < b[1] - r || ty >= b[3] + 1 + r) return { error: 'tooFar' };

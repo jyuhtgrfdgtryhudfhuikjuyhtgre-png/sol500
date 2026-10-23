@@ -789,6 +789,29 @@ test('a hab pod refills only from inside its footprint, with the 1.5 tiles of sl
   assert.equal(X.refill(m, 'minh', p.id, at(p.x, b[3] + 1)).ok, true, 'a step out of its door is within the slack');
 });
 
+test('a landmark or a structure is looked up through W each time, once, so the checks that nothing was looked up count something', () => {
+  const m = solo('EXP-1'), l = X.landmarkById(m, 'L0,-1', at(134, -46)), c = structure(m, 'cache'), p = X.structureById(m, 'S0,-1', at(32, -53));
+  const real = { L: W.landmarkAt, S: W.structureAt };
+  let looked = 0;
+  W.landmarkAt = (...a) => { looked++; return real.L(...a); };
+  W.structureAt = (...a) => { looked++; return real.S(...a); };
+  try {
+    for (const [name, go] of [
+      ['landmarkById', () => X.landmarkById(m, l.id, at(l.x, l.y))],
+      ['structureById', () => X.structureById(m, c.id, at(c.x, c.y))],
+      ['collect a landmark site', () => X.collect(m, 'minh', l.id + ':0', at(l.sites[0].x, l.sites[0].y))],
+      ['discover', () => X.discover(m, 'minh', l.id, at(l.x, l.y))],
+      ['interact', () => X.interact(m, 'minh', c.id, at(c.x, c.y))],
+      ['refill', () => X.refill(m, 'minh', p.id, at(p.x, p.y))],
+    ]) {
+      looked = 0;
+      const r = go();
+      assert.ok(r && !r.error, name + ': ' + JSON.stringify(r));
+      assert.equal(looked, 1, name + ' asks the world once');
+    }
+  } finally { W.landmarkAt = real.L; W.structureAt = real.S; }
+});
+
 test("a mission saved by 3.4.0 loads with the points of interest's state: no forecast running, its stats kept, and the new actions work on it", () => {
   const m = solo('EXP-1');
   delete m.expedition.forecastUntil; // what 3.4.0 saved: every field but the weather station's forecast
