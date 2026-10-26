@@ -29,8 +29,9 @@ const ART = fs.readFileSync(path.join(__dirname, '..', 'src', 'art.js'), 'utf8')
 const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'src', 'surface-eva.js'), 'utf8');
 
 // A surface layer for a mission; hooks run the rules' one table on it (Z.act, as ui.js does in solo play and the server in
-// co-op) and record every call, every 2-second report and every dust-devil push. `clock.now` is the wall clock the layer
-// reads (co-op's round clock runs on it).
+// co-op) and record every call, every 2-second report, every card asked for and every dust-devil push. `clock.now` is the wall clock the layer
+// reads (co-op's round clock runs on it). `answer(type, payload)`, when it returns something, answers in the rules' place
+// (a server's refusal).
 function setup(opts) {
   const o = opts || {};
   const sandbox = { SolData: D, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolPaint: P, SolWorld: SW, document: { createElement: element } };
@@ -38,13 +39,14 @@ function setup(opts) {
   vm.runInNewContext(SOURCE, sandbox);
   const m = o.mission || E.createMission({ seed: 'EVA-1', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' });
   const me = o.me || 'minh';
-  const calls = [], home = [], reports = [], pushes = [], clock = { now: 0 }, player = { p: null };
+  const calls = [], home = [], reports = [], pushes = [], cards = [], clock = { now: 0 }, player = { p: null };
   const hooks = {
     exp: (type, payload, pos) => {
       calls.push({ type, payload, pos });
-      return Promise.resolve(Z.act(m, me, type, payload, pos));
+      return Promise.resolve((o.answer && o.answer(type, payload)) || Z.act(m, me, type, payload, pos));
     },
     suit: r => reports.push(JSON.parse(JSON.stringify(r))),
+    card: c => cards.push(JSON.parse(JSON.stringify(c))),
   };
   const eva = sandbox.SolEva.create({
     t: o.t || (k => k), hooks: () => hooks, crewName: id => id, player: () => player.p, home: () => home.push(1), drawRover: () => {},
@@ -53,7 +55,7 @@ function setup(opts) {
   const data = { mission: m, controlId: me, lang: 'en', clock: o.clock || null };
   eva.sync(data);
   const world = SW.create(m.seed);
-  return { eva, m, calls, home, data, world, reports, pushes, clock, player };
+  return { eva, m, calls, home, data, world, reports, pushes, cards, clock, player };
 }
 const outside = (tx, ty) => ({ x: (tx + 0.5) * T, y: (ty + 0.5) * T, moving: false, sprinting: false, inRover: false });
 const tick = (s, p, secs, focus) => { for (let i = 0; i < secs * 10; i++) s.eva.step(0.1, p, s.world, 0, focus || null); };
@@ -586,4 +588,201 @@ test('taking over another astronaut mid-round picks up their suit; a new round r
   const next = E.resolveTurn(s.m, E.defaultPlan(s.m)).state;
   s.eva.sync({ mission: next, controlId: 'diego', lang: 'en' });
   assert.equal(s.eva.report().driven, 0, 'recharged overnight');
+});
+
+// ---------- points of interest (M4c) ----------
+// Seed PAINT-QA-1 has every kind of point of interest near the HQ (the painter's QA seed); EVA-POI has a find and a cave
+// under a footprint. Places are world tiles.
+const QA = { skylight: [-182, 441], crest: [393, 24], podIn: [291, -32], cache: [-25, 47], weather: [13, 48], mast: [-137, 105], array: [-40, -50] };
+const poiMission = o => E.createMission(Object.assign({ seed: 'PAINT-QA-1', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' }, o));
+const quiet = m => { Object.assign(m.schedule[m.turn], { weather: 'clear', spe: false, devil: false }); return m; };
+const hold = (s, tx, ty) => s.world.get(SW.chunkOf(tx), SW.chunkOf(ty)); // the surface holds the chunk of that tile
+// The same surface with every chunk's `hidden` emptied: what the layer would show if it read the lists raw.
+const raw = world => ({ peek: (cx, cy) => { const c = world.peek(cx, cy); return c && Object.assign({}, c, { hidden: { finds: [], caves: [] } }); }, seen: world.seen, region: world.region });
+
+test('a find or a cave under a point of interest is never offered, drawn or marked on the map', () => {
+  const s = setup({ mission: quiet(poiMission({ seed: 'EVA-POI' })), t: say });
+  const W0 = W.seedOf('EVA-POI'), fc = W.chunk(W0, -2, 5), f = fc.finds[fc.hidden.finds[0]], kc = W.chunk(W0, 9, -10), k = kc.caves[kc.hidden.caves[0]];
+  for (const [x, y] of [[f.x, f.y], [k.x, k.y]]) { hold(s, x, y); s.world.reveal(x, y, 6); }
+  const p = outside(f.x, f.y);
+  assert.equal(s.eva.focusAt(p.x, p.y, p, raw(s.world)).id, '-2,5:' + f.n, 'read raw, the hidden find would be offered');
+  const focus = s.eva.focusAt(p.x, p.y, p, s.world);
+  assert.notEqual(focus && focus.id, '-2,5:' + f.n, 'it is not');
+  const box = [(f.x - 1) * T, (f.y - 1) * T, (f.x + 2) * T, (f.y + 2) * T];
+  s.player.p = p;
+  assert.equal(s.eva.sprites(...box, raw(s.world), 0).length - s.eva.sprites(...box, s.world, 0).length, 1, 'one sprite fewer: the hidden find');
+  const marks = (world, x, y) => { tick(s, NEAR(0, 1), 0.2); return s.eva.marks(world, x * T, y * T).filter(q => q.x === (f.x + 0.5) * T && q.y === (f.y + 0.5) * T || q.x === (k.x + 0.5) * T && q.y === (k.y + 0.5) * T).length; };
+  assert.equal(marks(raw(s.world), f.x, f.y), 1, 'read raw, the find would be marked');
+  assert.equal(marks(s.world, f.x, f.y), 0, 'it is not');
+  assert.equal(marks(raw(s.world), k.x, k.y), 1, 'read raw, the cave would be marked');
+  assert.equal(marks(s.world, k.x, k.y), 0, 'it is not');
+});
+
+test("the view is the headlamp's in a lava tube and the weather's plus 4 on a star dune's crest, also in a dust storm; the dust devils fade at its edge", () => {
+  const m = poiMission();
+  Object.assign(m.schedule[m.turn], { weather: 'global', devil: true });
+  const s = setup({ mission: m, t: say });
+  const at = ([x, y]) => outside(x, y), [sx, sy] = QA.skylight;
+  for (const [x, y] of [QA.skylight, QA.crest]) hold(s, x, y);
+  s.eva.step(0.1, at(QA.skylight), s.world, 0, null); // a frame: the layer now reads the chunks the surface holds
+  assert.equal(s.eva.view(at(QA.skylight)), D.DANGERS.view.clear, "under the tube's skylight: the headlamp, whatever the storm");
+  assert.equal(s.eva.view(Object.assign(at(QA.skylight), { inRover: true })), D.DANGERS.view.rover, "the rover's headlamps");
+  assert.equal(s.eva.view(at(QA.crest)), D.DANGERS.view.global + D.DANGERS.view.crest, "on the dune's crest: the storm's view and 4 more");
+  assert.equal(s.eva.view(at([sx, sy + 8])), D.DANGERS.view.global, 'out on open ground: the storm');
+  // A formed devil 5 to 8 tiles from the skylight: inside the headlamp's 8 tiles it is drawn; the storm's 3 would hide it.
+  const px = (sx + 0.5) * T, py = (sy + 0.5) * T;
+  let t = 30, d = null;
+  for (; t < 600 && !d; t += 0.5) d = Z.devils(m, px - 12 * T, py - 12 * T, px + 12 * T, py + 12 * T, t).find(k => k.a === 1 && Math.hypot(k.x - px, k.y - py) / T > 5 && Math.hypot(k.x - px, k.y - py) / T < 7.5);
+  assert.ok(d, 'a devil near the tube');
+  s.player.p = at(QA.skylight);
+  s.eva.qaClock(t - 0.5);
+  const devils = world => { s.eva.step(0, s.player.p, world, 0, null); return s.eva.sprites(d.x - T, d.y - T, d.x + T, d.y + T, world, 0).filter(q => q.y === d.y).length; };
+  assert.equal(devils(s.world), 1, "in the tube's headlamp: the devil is drawn");
+  assert.equal(devils({ peek: () => null, region: s.world.region }), 0, "on a surface that knows no tube there, the storm's view hides it");
+});
+
+test('in a lava tube or a hab pod out on the map, the note says you are in cover from a solar flare, in its own words', () => {
+  const s = setup({ mission: quiet(poiMission()), t: say });
+  for (const [x, y] of [QA.skylight, QA.podIn]) hold(s, x, y);
+  s.eva.step(0.1, outside(...QA.skylight), s.world, 0, null);
+  assert.equal(noteOf(s), 'eva.inTube');
+  s.eva.step(0.1, outside(...QA.podIn), s.world, 0, null);
+  assert.equal(noteOf(s), 'eva.inPod');
+  s.eva.step(0.1, outside(QA.podIn[0], QA.podIn[1] + 4), s.world, 0, null);
+  assert.equal(noteOf(s), '', 'out of the pod: no note');
+});
+
+// Standing on the door of a structure (world tiles), facing it: the focus the surface would get.
+const atDoor = (s, [x, y]) => { hold(s, x, y); const p = outside(x, y); return { p, focus: s.eva.focusAt(p.x, p.y - 8 - 34, p, s.world) }; };
+const role = (s, id) => s.m.crew.find(c => c.id === id).role;
+
+test("at a Kestrel structure's door, holding E opens, salvages or repairs it once: the prompt names it and its seconds, the loads go into the backpack, and its story log opens", async () => {
+  const s = setup({ mission: quiet(poiMission()), t: say });
+  const { p, focus } = atDoor(s, QA.cache);
+  assert.equal(focus.kind, 'kestrel');
+  assert.equal(focus.id, 'S-1,0');
+  assert.equal(s.eva.label(focus), 'eva.open ' + JSON.stringify({ what: 'ks.cache.name', s: '3' }));
+  assert.equal(s.eva.start(focus), true, 'E holds');
+  tick(s, p, X.holdSeconds('cache', role(s, 'minh')) + 0.2, focus);
+  await flush();
+  s.eva.step(0.1, p, s.world, 0, null); // the HUD shows the answer
+  assert.deepEqual(s.calls.filter(c => c.type === 'interact').map(c => plain(c.payload)), [{ structure: 'S-1,0' }]);
+  assert.equal(s.m.expedition.structures['S-1,0'], 'used');
+  const got = s.m.expedition.carried.minh;
+  assert.ok(got.length >= 1 && got.every(i => i.kind === 'cache'), 'its supplies are in the backpack');
+  assert.equal(noteOf(s), got.map(i => 'haul.' + i.res + ' ' + JSON.stringify({ n: i.amount })).join(' · '), 'and the note says what');
+  assert.deepEqual(s.cards, [{ type: 'log', id: 'S-1,0', kind: 'cache' }], 'its story log opens');
+  const again = s.eva.focusAt(p.x, p.y - 42, p, s.world);
+  assert.notEqual(again && again.kind, 'kestrel', 'a used cache has no prompt');
+});
+
+test('a structure says its own verb and seconds (the Engineer repairs faster); a repair says what it did; loads that do not fit wait at the door', async () => {
+  const s = setup({ mission: quiet(poiMission()), t: say });
+  const label = (id, at) => { s.eva.sync({ mission: s.m, controlId: id, lang: 'en' }); return s.eva.label(atDoor(s, at).focus); };
+  assert.equal(label('minh', QA.weather), 'eva.repair ' + JSON.stringify({ what: 'ks.weather.name', s: '6' }));
+  assert.equal(label('lena', QA.weather), 'eva.repair ' + JSON.stringify({ what: 'ks.weather.name', s: '3' }), "the Engineer's 3 s");
+  assert.equal(label('minh', QA.mast), 'eva.repair ' + JSON.stringify({ what: 'ks.mast.name', s: '6' }));
+  assert.equal(label('minh', QA.array), 'eva.salvage ' + JSON.stringify({ what: 'ks.array.name', s: '5' }));
+  const use = async at => {
+    const { p, focus } = atDoor(s, at);
+    s.eva.start(focus);
+    tick(s, p, 6.2, focus);
+    await flush();
+    s.eva.step(0.1, p, s.world, 0, null);
+    return noteOf(s);
+  };
+  assert.equal(await use(QA.weather), 'eva.repairedWeather ' + JSON.stringify({ n: 20 }));
+  assert.ok(Object.keys(s.m.expedition.revealed).length > 0, 'the fog round it is revealed');
+  assert.equal(await use(QA.mast), 'eva.repairedMast');
+  s.m.expedition.carried.minh = [{ kind: 'ice', res: 'water', amount: 40 }, { kind: 'ice', res: 'water', amount: 40 }]; // room for one more
+  assert.equal(await use(QA.array), 'haul.materials ' + JSON.stringify({ n: 40 }) + ' · eva.atDoor ' + JSON.stringify({ n: 1 }));
+  assert.deepEqual(s.m.expedition.drops.map(d => [d.id, d.items.length]), [['S-1,-1', 1]], 'the other load is a drop at the door');
+  assert.deepEqual(s.cards.map(c => c.kind), ['weather', 'mast', 'array'], 'each story log opens');
+});
+
+test("walking into a hab pod fills your suit once a round and opens its log; staying in, or coming back the same round, asks nothing more; a 'refilled' answer is not said", async () => {
+  const s = setup({ mission: quiet(poiMission()), t: say });
+  const [ix, iy] = QA.podIn, out = outside(ix, iy + 3), inside = outside(ix, iy); // its door, the gap in its south wall, is iy + 2
+  hold(s, ix, iy);
+  s.eva.qaSuit(50);
+  tick(s, outside(ix, iy + 4), 0.5);
+  const refills = () => s.calls.filter(c => c.type === 'refill');
+  assert.equal(refills().length, 0, 'outside the pod: nothing');
+  tick(s, inside, 0.1);
+  await flush();
+  tick(s, inside, 0.1);
+  assert.deepEqual(refills().map(c => plain(c.payload)), [{ pod: 'S4,-1' }]);
+  assert.ok(s.eva.state().suit > D.EXPEDITION.suit - 1, "the suit from the rules' answer");
+  assert.equal(noteOf(s), 'eva.refilled ' + JSON.stringify({ s: D.EXPEDITION.suit }));
+  assert.deepEqual(s.cards, [{ type: 'log', id: 'S4,-1', kind: 'pod' }], "the pod's story log");
+  tick(s, inside, 3);
+  tick(s, out, 0.5);
+  tick(s, inside, 3);
+  await flush();
+  assert.equal(refills().length, 1, 'once this round');
+  assert.equal(s.cards.length, 2, 'walking in again asks for the log again (ui.js shows it once a mission)');
+  assert.deepEqual(plain(await s.eva.act('refill', inside, { pod: 'S4,-1' })), { error: 'refilled' });
+  tick(s, inside, 0.1);
+  assert.doesNotMatch(noteOf(s), /eva\.err/, "and 'refilled' is not said");
+});
+
+test("a landmark is discovered when its centre comes into your view: asked once while the answer is out, its card opens with the reward, and it is never asked again", async () => {
+  const s = setup({ mission: quiet(poiMission()), t: say });
+  const [lx, ly] = [68, 462]; // the river delta L0,1's centre; clear weather: 8 tiles of view
+  hold(s, lx, ly);
+  tick(s, outside(lx, ly + 9), 1);
+  const asked = () => s.calls.filter(c => c.type === 'discover');
+  assert.equal(asked().length, 0, '9 tiles away: not in view');
+  tick(s, outside(lx, ly + 8), 1); // ten frames before the answer is read
+  assert.deepEqual(asked().map(c => plain(c.payload)), [{ landmark: 'L0,1' }], 'in view: asked once while the answer is out');
+  await flush();
+  const science = s.m.expedition.banked.lines.find(l => l.kind === 'landmark').amount;
+  assert.deepEqual(s.m.expedition.landmarks['L0,1'], { by: 'minh', round: s.m.turn });
+  assert.deepEqual(s.cards, [{ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science }]);
+  tick(s, outside(lx, ly + 2), 5);
+  await flush();
+  assert.equal(asked().length, 1, 'discovered: never asked again');
+  assert.deepEqual(plain(await s.eva.act('discover', outside(lx, ly), { landmark: 'L0,1' })), { error: 'known' });
+  tick(s, outside(lx, ly), 0.1);
+  assert.doesNotMatch(noteOf(s), /eva\.err/, "'known' (a crewmate was first) is not said");
+});
+
+test('a refused discovery is asked again 3 s later while the landmark is still in view and undiscovered, and opens no card', async () => {
+  const s = setup({ mission: quiet(poiMission()), t: say, answer: type => (type === 'discover' ? { error: 'tooFar' } : null) });
+  hold(s, 68, 462);
+  const asked = () => s.calls.filter(c => c.type === 'discover').length;
+  tick(s, outside(68, 465), 0.1);
+  await flush();
+  tick(s, outside(68, 465), 2.8);
+  assert.equal(asked(), 1, 'not again within 3 s of the refusal');
+  tick(s, outside(68, 465), 0.3);
+  assert.equal(asked(), 2, 'again after 3 s');
+  assert.deepEqual(s.cards, []);
+});
+
+test("the sites of landmarks and formations are offered, drawn and marked as finds by their own ids, once each; surveying a formation opens its fact", async () => {
+  const s = setup({ mission: quiet(poiMission()), t: say });
+  const site = [63, 466], centre = [68, 462], spot = [37, 12]; // the delta L0,1's sites 0 and 1, the ventifact F1,0's survey
+  for (const [x, y] of [site, centre, spot]) { hold(s, x, y); s.world.reveal(x, y, 3); }
+  for (const [cx, cy] of [[1, 13], [2, 13], [1, 14], [2, 14]]) s.world.get(cx, cy); // every chunk the delta's box touches
+  const p = outside(...site), f = s.eva.focusAt(p.x, p.y, p, s.world), survey = String(X.holdSeconds('science', role(s, 'minh')));
+  assert.deepEqual(f && [f.kind, f.id], ['find', 'L0,1:0'], "the delta's site, offered as a find");
+  assert.equal(s.eva.label(f), 'eva.survey ' + JSON.stringify({ what: 'find.science · sci.delta', s: survey }));
+  s.player.p = p;
+  const box = [(site[0] - 1) * T, (site[1] - 1) * T, (site[0] + 1) * T, (site[1] + 1) * T];
+  assert.equal(s.eva.sprites(...box, s.world, 0).filter(q => q.y === (site[1] + 0.5) * T + 12).length, 1, 'drawn');
+  tick(s, NEAR(0, 1), 0.2);
+  const at = ([x, y]) => s.eva.marks(s.world, x * T, y * T).filter(q => q.x === (x + 0.5) * T && q.y === (y + 0.5) * T).length;
+  assert.equal(at(centre), 1, 'marked once, though four chunks list the delta');
+  const q = outside(...spot), g = s.eva.focusAt(q.x, q.y, q, s.world);
+  assert.deepEqual(g && [g.kind, g.id], ['find', 'F1,0:0'], "the ventifact's survey");
+  assert.equal(s.eva.label(g), 'eva.survey ' + JSON.stringify({ what: 'find.science · sci.ventifact', s: survey }));
+  s.eva.start(g);
+  tick(s, q, X.holdSeconds('science', role(s, 'minh')) + 0.2, g);
+  await flush();
+  assert.deepEqual(s.calls.filter(c => c.type === 'collect').map(c => plain(c.payload)), [{ find: 'F1,0:0' }]);
+  assert.equal(s.m.expedition.carried.minh[0].sub, 'ventifact');
+  assert.deepEqual(s.cards, [{ type: 'formation', id: 'F1,0', kind: 'ventifact' }], "the formation's fact and source");
+  const h = s.eva.focusAt(q.x, q.y, q, s.world);
+  assert.notEqual(h && h.id, 'F1,0:0', 'surveyed: gone');
 });

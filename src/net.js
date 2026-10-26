@@ -8,7 +8,7 @@
   const KEY = 'sol500.lan';
   let session = null;
   let ws = null;        // the live socket, or null
-  let handlers = null;  // { onRoom, onStatus, onPos, onFog } while connected
+  let handlers = null;  // { onRoom, onStatus, onPos, onFog, onEvent } while connected
   let retry = 0;
   let timer = null;
   let gen = 0;          // bumped by disconnect(): tells an in-flight recover() it is stale
@@ -70,10 +70,10 @@
     return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?' + q.toString();
   }
 
-  function connect(onRoom, onStatus, onPos, onFog) {
+  function connect(onRoom, onStatus, onPos, onFog, onEvent) {
     if (!session) return;
     disconnect();
-    handlers = { onRoom, onStatus, onPos, onFog };
+    handlers = { onRoom, onStatus, onPos, onFog, onEvent };
     open();
   }
 
@@ -93,6 +93,7 @@
       else if (msg.t === 'pos') { if (h.onPos) h.onPos(msg.d); }
       else if (msg.t === 'fog') { if (h.onFog) h.onFog(msg.d); }
       else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone(msg.d.kind);
+      else if (msg.t === 'event' && msg.d) { if (h.onEvent) h.onEvent(msg.d); } // the rest (a discovery) are the game's
     };
     sock.onclose = () => {
       if (ws !== sock) return; // closed on purpose

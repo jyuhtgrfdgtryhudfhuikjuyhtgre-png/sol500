@@ -140,6 +140,10 @@ p { margin: 0; }
 .chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .chip.crit { background: var(--crit-soft); color: var(--crit); border-color: transparent; }
 .chip.info { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+/* The weather station's forecast of next round's weather: dashed, as a prediction, in the weather's colours. */
+.chip.fc { border-style: dashed; }
+.chip.fc.warn { border-color: var(--warn); }
+.chip.fc.crit { border-color: var(--crit); }
 
 .bar { height: 6px; border-radius: 6px; background: var(--sunk); overflow: hidden; position: relative; }
 .bar > span { display: block; height: 100%; border-radius: 6px; background: var(--fg-2); }
@@ -228,6 +232,8 @@ p { margin: 0; }
 .track span.regional { background: #b07a4a; }
 .track span.global { background: var(--rust); }
 .track span.now { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+/* While the forecast chip shows, the round track gives way down to its minimum, so the bar stays one row at 1280 px. */
+.hud-top:has(.chip.fc) .track { flex-basis: 180px; }
 .meters { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; }
 .meter { display: grid; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); min-width: 0; }
 .meter .k { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -456,6 +462,17 @@ p { margin: 0; }
 .region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
 .region-card .src { font-size: var(--fs-xs); }
 .region-card a { color: var(--accent); }
+/* Wide screens: the card sits under the HUD's column, whose note (what a structure gave, a refill) can run to three lines
+   as the card opens; a longer column is drawn over the card (.sf-eva's z-index) while its note lasts. */
+@media (min-width: 641px) { .region-card { top: 196px; } }
+/* A Kestrel Survey story log: the programme's teal (its structures on the maps) and a log's monospace. */
+.region-card.log { border-left-color: #4a978e; }
+.region-card.log .eyebrow { color: #7cc7bd; }
+.region-card.log p { font-family: var(--font-data); font-size: var(--fs-xs); line-height: 1.5; }
+/* A landmark's discovery: the gold of its diamond on the maps; the reward and the finder under the name. */
+.region-card.disc { border-left-color: #f0c35a; }
+.region-card.disc .eyebrow, .region-card .meta { color: #f0c35a; }
+.region-card .meta { font-family: var(--font-data); font-size: var(--fs-xs); }
 
 .sf-root { position: relative; height: min(74vh, 780px); min-height: 440px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #3a1d14; touch-action: none; user-select: none; -webkit-user-select: none; }
 .sf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
@@ -494,7 +511,7 @@ p { margin: 0; }
 .sf-region:hover, .sf-region:focus-visible { border-color: var(--accent); }
 .sf-region:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Exploring: the suit, the rover's battery, the backpack and notes, under the region name. */
-.sf-eva { position: absolute; left: 14px; top: 58px; display: grid; gap: 6px; width: 210px; pointer-events: none; }
+.sf-eva { position: absolute; left: 14px; top: 58px; z-index: 3; display: grid; gap: 6px; width: 210px; pointer-events: none; }
 .sf-eva > * { pointer-events: auto; }
 .sf-suit { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px; font-size: var(--fs-xs); color: var(--fg); }
 .sf-suit .k { color: var(--fg-2); font-weight: 600; }

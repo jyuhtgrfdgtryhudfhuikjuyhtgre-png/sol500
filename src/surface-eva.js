@@ -12,20 +12,25 @@
  * API: SolEva.create(env) → eva
  *        env: { t(key, params), hooks(), crewName(id), home(), drawRover(ctx, x, y), player(), now() → seconds,
  *               push(dx, dy) (a dust devil throws your astronaut that far, world px) }
+ *        hooks() is ui.js's: exp(type, payload, pos) runs the rules (above), suit(report) keeps the solo save, and
+ *        card({ type, id, kind, ... }) shows a point of interest's card (a Kestrel structure's story log, a hab pod's as you
+ *        walk in, a landmark's discovery { by, science }, a formation's fact when you survey it)
  *      eva.el · eva.alert                           the HUD node and the flare's banner, for the surface overlay
  *      eva.sync(data) → { round, fresh }            round: a new round began; fresh: first look at this mission/seat
  *                                                   (data.clock, co-op only: { t: round seconds, at: env.now() then })
  *      eva.reset()                                  a new mission or room: forget the last one's suit, battery, collapse and hold
  *      eva.canMove(player, nx, ny) → may your astronaut step to (nx, ny)? (world px)
  *      eva.step(dt, player, world, moved, focus)    every frame: suit, battery, delivering, holds, dangers, the HUD
- *      eva.focusAt(x, y, player, world) → a focus on a find, a dropped load, a collapsed crewmate or the parked rover
+ *      eva.focusAt(x, y, player, world) → a focus on a find (or a landmark's or a formation's site, as one), a dropped load, a
+ *        collapsed crewmate, the parked rover or the door
+ *        of a Kestrel structure not used yet (kind 'kestrel')
  *      eva.holdable(focus) · eva.label(focus) · eva.start(focus) · eva.stop()       E / the action button
  *      eva.hasRoom() → does your backpack take another load?
  *      eva.act(type, player, payload) → Promise of the rules' answer (board, park) · eva.canister(player) (the button, or Q)
  *      eva.drawZone(ctx, x0, y0, x1, y1, world) the base zone, and every cover in view during a flare warning
  *      eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx)
  *      eva.flareFx(player) → { warn: 0–1, flash: 0–1 }: the red edge of a flare countdown, the flash when it hits
- *      eva.view(player) → tiles you can see this round · eva.clock() → the round's clock (s) · eva.alerting()
+ *      eva.view(player) → tiles you see from where you stand (Z.viewAt) · eva.clock() → the round's clock (s) · eva.alerting()
  *      eva.suitBar(teammate) → 0–1, or null: the suit bar on a teammate's name tag (drawn by SolPaint's drawTags)
  *      eva.marks(world, px, py) → minimap markers · eva.report() → { suit (null while collapsed), driven } for positions
  *      eva.roverAtBay(player) · eva.driving() · eva.collapsed(crewId) · eva.state() (play-testing)
@@ -39,20 +44,38 @@
   const REACH = 0.9 * T;                        // how close the spot you look at must be to a find
   const COLORS = { ice: '#9fd3ea', metal: '#d9b46a', pod: '#ece5db', science: '#6fa8ff' };
   const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science' };
-  // No message when these are refused: they are retried, or harmless.
-  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd'];
+  // No message when these are refused: they are retried, or harmless (a discovery is asked for when a landmark comes into
+  // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
+  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
   const CAN_BELOW = XD.suit - XD.canister.suit;  // a canister is breathed only when all of its 45 s fit in the suit
   const VERDICT = 8;                             // seconds the flare's verdict stays on the banner
+  const INSIDE = { cave: 'eva.inCave', tube: 'eva.inTube', pod: 'eva.inPod' }; // the note while you are in cover out there
+  // What holding E does at a Kestrel structure's door (the hab pod has no hold: you walk in).
+  const VERB = { cache: 'eva.open', wreck: 'eva.salvage', array: 'eva.salvage', weather: 'eva.repair', mast: 'eva.repair' };
+  // A chunk's finds or caves less those under a point of interest's footprint (its `hidden`), as X.findsIn / X.cavesIn
+  // give them: never drawn, marked, smelled or offered.
+  const visible = (c, k) => (c.hidden[k].length ? c[k].filter(o => !c.hidden[k].includes(o.n)) : c[k]);
+  // What can be collected in a chunk, with its id: its finds ("<cx>,<cy>:<n>") and the sites lying in it of the landmarks and
+  // formations it lists ("L<i>,<j>:<n>", "F<cx>,<cy>:0"). A landmark is listed by every chunk its box touches, so each chunk
+  // takes only the sites in it, and a site comes once.
+  function sitesIn(c, cx, cy) {
+    const out = visible(c, 'finds').map(f => [cx + ',' + cy + ':' + f.n, f]);
+    for (const k of c.landmarks.concat(c.formations)) {
+      for (const f of k.sites) if (SW.chunkOf(f.x) === cx && SW.chunkOf(f.y) === cy) out.push([k.id + ':' + f.n, f]);
+    }
+    return out;
+  }
 
   function create(env) {
     const t = (k, p) => env.t(k, p);
     const wall = () => (env.now ? env.now() : 0);
     let data = null, me = null, turn = null, wasDown = false;
     let suit = XD.suit, driven = 0, hold = null, keyHeld = false;
-    let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [];
+    let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [], refillAt = -1e9, inPod = null;
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
     let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
+    let asked = {};                                // landmark id → when its discovery was answered (Infinity while asked)
 
     const mission = () => (data && data.mission) || null;
     const exp = () => mission().expedition;
@@ -67,6 +90,8 @@
     const secs = s => (Math.round(s * 10) / 10).toString();
     const clock = () => (coopClock ? coopClock.t + (wall() - coopClock.at) : soloClock);
     function say(text, cls, s) { note = { text, cls: cls || '', until: now + (s || 3) }; }
+    // A point of interest's card over the surface (ui.js shows each once a mission): { type: 'log' | ..., id, kind }.
+    const card = c => { const h = env.hooks(); if (h && h.card) h.card(c); };
 
     // ---------- the HUD ----------
     const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -96,6 +121,40 @@
     // co-op server's, none in solo play), so they agree with it. Like the in-cave note, it reads the chunks the surface
     // holds, so asking every frame never builds one.
     const covered = p => !!(p && Z.shelterAt(mission(), p, Z.slackOf(mission()), peek));
+    // A landmark is discovered the first time anyone sees its centre (spec §3.6): here, when that tile comes into your view
+    // as the fog's does (within viewOf(p) tiles of the tile under you; the rules allow 15.5). It is asked once while the
+    // answer is out, and again 3 s after a refusal while it is still in view and undiscovered. Its card opens on the ok; in
+    // co-op the server's event opens it on every tab as well (ui.js shows it once).
+    function sight(p) {
+      const x = exp(), tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), r = viewOf(p);
+      for (let cy = SW.chunkOf(ty) - 1; cy <= SW.chunkOf(ty) + 1; cy++) for (let cx = SW.chunkOf(tx) - 1; cx <= SW.chunkOf(tx) + 1; cx++) {
+        const c = peek && peek(cx, cy);
+        if (c) for (const l of c.landmarks) {
+          if (x.landmarks[l.id] || now - (asked[l.id] == null ? -1e9 : asked[l.id]) < 3) continue;
+          if ((l.x - tx) * (l.x - tx) + (l.y - ty) * (l.y - ty) > r * r) continue;
+          asked[l.id] = Infinity;
+          const by = me;
+          act('discover', p, { landmark: l.id }).then(res => {
+            asked[l.id] = now;
+            if (res.ok) card({ type: 'landmark', id: l.id, kind: l.kind, by, science: res.science });
+          });
+        }
+      }
+    }
+    // The hab pod you stand in (the painter's "inside": the tile under you is in its 5×5 box), from the chunks the surface
+    // holds: the chunk of that tile lists it.
+    function podAt(p) {
+      const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), c = peek && peek(SW.chunkOf(tx), SW.chunkOf(ty));
+      if (c) for (const s of c.structures) if (s.kind === 'pod' && tx >= s.box[0] && tx <= s.box[2] && ty >= s.box[1] && ty <= s.box[3]) return s;
+      return null;
+    }
+    // Tiles you see from where you stand (Z.viewAt): the weather's view, a lava tube's headlamp, a star dune's crest. The
+    // tile under you comes from the chunks the surface holds; before the first frame, or off them, it is open ground.
+    function viewOf(p) {
+      const tx = p ? Math.floor(p.x / T) : 0, ty = p ? Math.floor(p.y / T) : 0, cx = SW.chunkOf(tx), cy = SW.chunkOf(ty);
+      const c = p && peek ? peek(cx, cy) : null;
+      return Z.viewAt(mission(), !!(p && p.inRover), c ? W.tileOf(c, tx - cx * W.CHUNK, ty - cy * W.CHUNK) : null);
+    }
     // The flare as your astronaut sees it: null, or { cls, msg, left (seconds, or null) } for the banner.
     function flareView(p) {
       const m = mission(), f = m && m.expedition && m.expedition.flare;
@@ -121,7 +180,8 @@
       const atBase = !!p && X.inBaseZone(p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t('eva.full'), cls: '' };
       if (live() && suit <= XD.suit * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
-      if (live() && p && !atBase && Z.shelterAt(mission(), p, 0, peek) === 'cave') return { text: t('eva.inCave'), cls: 'ok' };
+      const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
+      if (cover) return { text: t(cover), cls: 'ok' };
       return null;
     }
     // The canister button shows only when breathing one now is worth it: outside, on your feet, and with room for all 45 s.
@@ -240,7 +300,9 @@
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
       driven = soloClock = 0;
-      deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = -1e9;
+      deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = refillAt = -1e9;
+      inPod = null;
+      asked = {};
       marksCache = [];
     }
 
@@ -299,6 +361,20 @@
           warned = true;
           say(t('eva.flare.warned', { s: ZD.flare.countdown }), 'crit', 6);
         }
+        // An abandoned hab pod (spec §3.7): walking in fills your suit, once per pod a round (x.refills, C3), and its story log
+        // opens (ui.js shows each once a mission).
+        const pod = out ? podAt(p) : null;
+        if (pod && pod.id !== inPod) card({ type: 'log', id: pod.id, kind: 'pod' });
+        inPod = pod ? pod.id : null;
+        if (pod && !(x.refills[me] || []).includes(pod.id) && now - refillAt > 2) {
+          refillAt = now;
+          act('refill', p, { pod: pod.id }).then(r => {
+            if (!r.ok) return;
+            suit = r.suit;
+            say(t('eva.refilled', { s: Math.round(r.suit) }), 'ok', 4);
+          });
+        }
+        if (out) sight(p);
         if (atBase && pack().length && !collapsed(me) && now - deliverAt > 1.5) { // the rules refuse anything while you are down
           deliverAt = now;
           const n = pack().length;
@@ -323,22 +399,38 @@
       hold = null;
       const ask = f.kind === 'find' ? act('collect', p, { find: f.id })
         : f.kind === 'drop' ? act('pickup', p, { drop: f.id })
-          : act('revive', p, { target: f.id });
+          : f.kind === 'kestrel' ? act('interact', p, { structure: f.id })
+            : act('revive', p, { target: f.id });
       ask.then(r => {
         if (!r.ok) return;
+        if (f.kind === 'kestrel') return used(f.struct, r);
         if (f.kind === 'find') say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
+        // A formation's survey: its real fact and source, once per formation (spec §3.7).
+        if (f.kind === 'find' && f.id[0] === 'F') card({ type: 'formation', id: f.id.split(':')[0], kind: f.find.sub });
         else if (f.kind === 'drop') say(t('eva.pickedUp'), 'ok', 2);
         else say(t('eva.revivedThem', { name: env.crewName(f.id) }), 'ok', 3);
         if (f.kind === 'find' && keyHeld && live()) hold = { f, t: 0, dur: hold0(f) }; // keep going while E is held
       });
     }
 
+    // A Kestrel structure opened, salvaged or repaired (X.interact): its loads are in your backpack and what did not fit waits
+    // at its door as a drop (C2); a weather station's fog is in the mission's (solo) or comes as any fog does (co-op), and a
+    // mast's marks are read by the maps. Its story log opens: a structure is used once, so this is the first time.
+    function used(s, r) {
+      const said = (r.items || []).map(i => t('haul.' + i.res, { n: i.amount }));
+      if (r.left) said.push(t('eva.atDoor', { n: r.left }));
+      if (s.kind === 'weather') said.push(t('eva.repairedWeather', { n: D.STRUCTURES.kinds.weather.science }));
+      if (s.kind === 'mast') said.push(t('eva.repairedMast'));
+      say(said.join(' · '), 'ok', 5);
+      card({ type: 'log', id: s.id, kind: s.kind });
+    }
+
     // ---------- what you can work on ----------
     function hold0(f) {
       const role = crew() && crew().role;
-      return X.holdSeconds(f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : 'revive', role);
+      return X.holdSeconds(f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : 'revive', role);
     }
-    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive');
+    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive' || f.kind === 'kestrel');
 
     function focusAt(lx, ly, p, world) {
       if (!live() || collapsed(me) || benched()) return null;
@@ -352,10 +444,14 @@
       for (let cy = ccy - 1; cy <= ccy + 1; cy++) for (let cx = ccx - 1; cx <= ccx + 1; cx++) {
         const c = world.peek(cx, cy);
         if (!c) continue;
-        for (const f of c.finds) {
-          const id = cx + ',' + cy + ':' + f.n;
+        for (const [id, f] of sitesIn(c, cx, cy)) {
           if (X.loadsLeft(m, f, id) <= 0) continue;
           consider((f.x + 0.5) * T, (f.y + 0.5) * T, { kind: 'find', key: 'f:' + id, id, find: f, wx: f.x, wy: f.y, x: (f.x + 0.5) * T, y: (f.y + 0.5) * T });
+        }
+        // A Kestrel structure is used from its door, once (x.structures). Up to 4 chunks list one: the same door again changes nothing.
+        for (const s of c.structures) {
+          if (!VERB[s.kind] || x.structures[s.id]) continue;
+          consider((s.x + 0.5) * T, (s.y + 0.5) * T, { kind: 'kestrel', key: 's:' + s.id, id: s.id, struct: s, x: (s.x + 0.5) * T, y: (s.y + 0.5) * T });
         }
       }
       for (const d of x.drops) consider(d.x, d.y, { kind: 'drop', key: 'd:' + d.id, id: d.id, x: d.x, y: d.y });
@@ -375,6 +471,7 @@
         return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role)) });
       }
       if (f.kind === 'drop') return t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
+      if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role)) });
       if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
       if (f.kind === 'rover') return t('sf.boardRover');
       return '';
@@ -420,9 +517,9 @@
       for (let cy = SW.chunkOf(ty0); cy <= SW.chunkOf(ty1); cy++) for (let cx = SW.chunkOf(tx0); cx <= SW.chunkOf(tx1); cx++) {
         const c = world.peek(cx, cy);
         if (!c) continue;
-        for (const f of c.finds) {
+        for (const [id, f] of sitesIn(c, cx, cy)) {
           if (f.x < tx0 || f.x > tx1 || f.y < ty0 || f.y > ty1) continue;
-          if (X.loadsLeft(m, f, cx + ',' + cy + ':' + f.n) <= 0) continue;
+          if (X.loadsLeft(m, f, id) <= 0) continue;
           const fx = (f.x + 0.5) * T, fy = (f.y + 0.5) * T;
           out.push({ y: fy + 12, draw: ctx => drawFind(ctx, f, fx, fy, time) });
         }
@@ -435,7 +532,7 @@
       }
       // Dust devils: every screen draws the same ones from the round's clock. Past the edge of your view they fade out, so in
       // a dust storm one can be on you before you see it.
-      const pl = env.player && env.player(), view = Z.viewTiles(m, !!(pl && pl.inRover));
+      const pl = env.player && env.player(), view = viewOf(pl);
       for (const d of Z.devils(m, x0 - T, y0 - T, x1 + T, y1 + 2 * T, clock())) {
         const dist = pl ? Math.sqrt(near2(d.x, d.y, pl.x, pl.y)) / T : 0;
         const a = d.a * Math.max(0, Math.min(1, (view + 1 - dist) / 2));
@@ -472,12 +569,12 @@
       for (let cy = SW.chunkOf(ty - 80); cy <= SW.chunkOf(ty + 79); cy++) for (let cx = SW.chunkOf(tx - 80); cx <= SW.chunkOf(tx + 79); cx++) {
         const c = world.peek(cx, cy);
         if (!c) continue;
-        for (const f of c.finds) {
-          if (X.loadsLeft(m, f, cx + ',' + cy + ':' + f.n) <= 0) continue;
+        for (const [id, f] of sitesIn(c, cx, cy)) {
+          if (X.loadsLeft(m, f, id) <= 0) continue;
           const smelt = sniff && (f.kind === 'ice' || f.sub === 'vent') && near2(f.x, f.y, tx, ty) <= sniff * sniff;
           if (smelt || world.seen(f.x, f.y)) out.push({ x: (f.x + 0.5) * T, y: (f.y + 0.5) * T, color: COLORS[f.kind] });
         }
-        for (const k of c.caves) if (world.seen(k.x, k.y)) out.push({ x: (k.x + 0.5) * T, y: (k.y + 0.5) * T, color: '#1a0d0a', ring: '#e8c9a8' });
+        for (const k of visible(c, 'caves')) if (world.seen(k.x, k.y)) out.push({ x: (k.x + 0.5) * T, y: (k.y + 0.5) * T, color: '#1a0d0a', ring: '#e8c9a8' });
       }
       for (const d of x.drops) out.push({ x: d.x, y: d.y, color: '#f46e5f' });
       if (x.rover && !x.rover.driver) out.push({ x: x.rover.x, y: x.rover.y, color: '#e9e2d8', square: true });
@@ -488,7 +585,7 @@
     return {
       el, alert, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, drawZone, sprites, drawOver,
       flareFx, suitBar, marks, clock,
-      view: p => Z.viewTiles(mission(), !!(p && p.inRover)),
+      view: viewOf,
       alerting: () => !alert.hidden,
       // While you are down your suit is not sent: a position in flight could undo a revive the server has just made.
       report: () => ({ suit: collapsed(me) ? null : Math.round(suit * 10) / 10, driven: Math.round(driven * 10) / 10 }),

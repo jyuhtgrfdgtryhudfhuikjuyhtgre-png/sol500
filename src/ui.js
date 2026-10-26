@@ -46,7 +46,7 @@
     prevScreen: null,
     opsView: LS.get('opsView', 'surface'),
     regionsSeen: (rs => (rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }))(LS.get('regionsSeen', null)),
-    regionCard: null,
+    card: null,           // the card over the surface (a region's fact, a point of interest's): see setCard
     fog: {},
     launchSeen: null, // co-op: the launch number of the mission this tab last showed (see SolFog.isNewLaunch)
   };
@@ -605,72 +605,120 @@
     ];
   }
 
-  // ---------- regions ----------
-  // The first time you walk into a region in a mission: its name and one real fact, with the source. The region's name on
-  // the surface is a button that shows the card again. The card stays while the mouse is on it or it has keyboard focus
-  // (WCAG 2.2.1), and goes 15 s after that.
-  let regionTimer = null, regionIsNew = true;
+  // ---------- the card on the surface ----------
+  // One card at a time over the surface: a region's name and one real fact, with the source, the first time you walk into
+  // it in a mission, and a point of interest's card the first time it is met (a landmark's discovery, a formation's fact
+  // when you survey it, a Kestrel structure's story log). Facts and logs come once a mission: store.regionsSeen keeps the ids
+  // shown (regions' and points of interest's), by mission code and mode. The region's name on the surface is a button that shows
+  // its card again. The card stays while the mouse is on it or it has keyboard focus (WCAG 2.2.1), and goes 15 s after that.
+  let cardTimer = null;
   // Sets the card and changes the live stage in place. The walking loop gets here, and a render() would move the surface
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
-  function setRegionCard(id) {
-    store.regionCard = id;
-    if (!id) clearTimeout(regionTimer);
+  function setCard(c) {
+    store.card = c;
+    if (!c) clearTimeout(cardTimer);
     const stage = document.querySelector('.sf-stage');
     if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
-    const old = stage.querySelector('.region-card'), card = regionCard();
+    const old = stage.querySelector('.region-card'), card = surfaceCard();
     if (old && card) old.replaceWith(card);
     else if (card) stage.appendChild(card);
     else if (old) old.remove();
   }
 
   // The card closes 15 s from now, unless by then the mouse is on it or it has keyboard focus: it then waits another 15 s.
-  // The mouse or the focus leaving the card (see regionCard) starts the 15 s again. Touch never holds it: :hover sticks
+  // The mouse or the focus leaving the card (see surfaceCard) starts the 15 s again. Touch never holds it: :hover sticks
   // after a tap, so only a mouse (hover: hover) counts.
   const canHover = () => !!window.matchMedia && window.matchMedia('(hover: hover)').matches;
-  function armRegionTimer() {
-    clearTimeout(regionTimer);
-    if (!store.regionCard) return;
-    regionTimer = setTimeout(() => {
+  function armCardTimer() {
+    clearTimeout(cardTimer);
+    if (!store.card) return;
+    cardTimer = setTimeout(() => {
       const card = document.querySelector('.region-card');
-      if (card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement))) armRegionTimer();
-      else setRegionCard(null);
+      if (card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement))) armCardTimer();
+      else setCard(null);
     }, 15000);
   }
 
-  function showRegionCard(id) {
+  // Is this the first time the card of `id` (a region, or a point of interest) comes up in this mission and mode?
+  function firstTime(id) {
     const s = mission();
     const key = s.seed + '|' + (lanOn() ? 'coop' : 'solo');
     if (store.regionsSeen.key !== key) store.regionsSeen = { key, list: [] };
-    if (store.regionsSeen.list.includes(id)) return;
+    if (store.regionsSeen.list.includes(id)) return false;
     store.regionsSeen.list.push(id);
     LS.set('regionsSeen', store.regionsSeen);
-    regionIsNew = true;
-    setRegionCard(id);
-    armRegionTimer();
+    return true;
+  }
+
+  function showRegionCard(id) {
+    if (!firstTime(id)) return;
+    setCard({ type: 'region', id });
+    armCardTimer();
   }
 
   // The region's name on the surface was selected: read its card again, for another 15 s.
   function reopenRegionCard(id) {
-    regionIsNew = false;
-    setRegionCard(id);
-    armRegionTimer();
+    setCard({ type: 'region', id, again: true });
+    armCardTimer();
   }
 
-  function regionCard() {
-    const id = store.regionCard;
-    if (!id) return null;
-    const src = I.SOURCES[I.REGION_SOURCES[id]];
+  // A point of interest's card, asked for by the surface (src/surface-eva.js) or a crewmate's discovery (onEvent): { type:
+  // 'landmark', id, kind, by, science } (science: null when not known), { type: 'formation', id, kind } or { type: 'log', id,
+  // kind } (a Kestrel structure's story log, its id the structure's). A fact or a log is reading, shown once a mission code
+  // as a region's is; a discovery is this mission's event (the rules make it once), shown whenever it happens. The
+  // discoverer's own tab hears of it twice, its answer and the server's event, in either order: the second only adds the
+  // reward when the first had none.
+  function showCard(c) {
+    if (!c || !mission()) return;
+    const cur = store.card;
+    if (cur && cur.id === c.id) {
+      if (cur.science == null && c.science != null) setCard(Object.assign({}, cur, { science: c.science }));
+      return;
+    }
+    if (c.type !== 'landmark' && !firstTime(c.id)) return;
+    setCard(c);
+    armCardTimer();
+  }
+
+  // A server event (src/net.js): a crewmate's discovery opens its card on every tab (spec §5, C6). The event names the
+  // landmark by id; its kind is the world's.
+  function onEvent(d) {
+    const s = mission(), g = d && d.kind === 'discover' && /^L(-?\d+),(-?\d+)$/.exec(d.landmark);
+    const l = s && g && W.landmarkAt(W.seedOf(s.seed), Number(g[1]), Number(g[2]));
+    if (l) showCard({ type: 'landmark', id: l.id, kind: l.kind, by: d.by, science: Number.isFinite(d.science) ? d.science : null });
+  }
+
+  // What a card says, in the language of the moment: { cls, eyebrow, title, meta, body, src } (meta: a discovery's reward
+  // and finder; src: a real fact's source, when the sources table has it).
+  function cardText(c) {
+    if (c.type === 'region') return { cls: '', eyebrow: t(c.again ? 'region.note' : 'region.new'), title: t('region.' + c.id), body: t('region.fact.' + c.id), src: I.SOURCES[I.REGION_SOURCES[c.id]] };
+    if (c.type === 'landmark') {
+      const stem = D.LANDMARKS.kinds[c.kind].fact, meta = [c.science != null ? t('haul.science', { n: nf(c.science) }) : null, t('disc.by', { name: crewName(c.by) })];
+      const src = I.LANDMARK_SOURCES ? I.SOURCES[I.LANDMARK_SOURCES[c.kind]] : null;
+      return { cls: ' disc', eyebrow: t('disc.new'), title: t(stem + '.name'), meta: meta.filter(Boolean).join(' · '), body: t(stem + '.fact'), src };
+    }
+    if (c.type === 'formation') {
+      const stem = D.FORMATIONS.kinds[c.kind].fact, src = I.FORMATION_SOURCES ? I.SOURCES[I.FORMATION_SOURCES[c.kind]] : null;
+      return { cls: '', eyebrow: t('disc.formation'), title: t(stem + '.name'), body: t(stem + '.fact'), src };
+    }
+    const stem = D.STRUCTURES.kinds[c.kind].log; // a Kestrel structure's story log: fiction (ks.label says so), no source
+    return { cls: ' log', eyebrow: t('ks.label'), title: t(stem + '.name'), body: t(stem + '.log'), src: null };
+  }
+  function surfaceCard() {
+    if (!store.card) return null;
+    const { cls, eyebrow, title, meta, body, src } = cardText(store.card);
     const card = h('aside', {
-      class: 'region-card', role: 'status', 'aria-live': 'polite',
-      onpointerleave: e => { if (e.pointerType === 'mouse') armRegionTimer(); },
-      onfocusout: e => { if (!card.contains(e.relatedTarget)) armRegionTimer(); },
+      class: 'region-card' + cls, role: 'status', 'aria-live': 'polite',
+      onpointerleave: e => { if (e.pointerType === 'mouse') armCardTimer(); },
+      onfocusout: e => { if (!card.contains(e.relatedTarget)) armCardTimer(); },
     },
       h('div', { class: 'region-card-h' },
-        h('span', { class: 'eyebrow' }, t(regionIsNew ? 'region.new' : 'region.note')),
-        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setRegionCard(null) }, '×')),
-      h('h3', null, t('region.' + id)),
-      h('p', null, t('region.fact.' + id)),
-      h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)));
+        h('span', { class: 'eyebrow' }, eyebrow),
+        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setCard(null) }, '×')),
+      h('h3', null, title),
+      meta ? h('p', { class: 'meta' }, meta) : null,
+      h('p', null, body),
+      src ? h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null);
     return card;
   }
 
@@ -735,6 +783,7 @@
       showRegionCard(id);
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
+    card: c => showCard(c),
     // Exploring (the rules' one table, Z.act). Solo: the rules run here for your pilot on your mission, which is saved, and
     // that includes the solar flare. Co-op: the server runs them against where it last saw you, and everyone gets the new
     // room. Always resolves to { ok, ... } or { error }.
@@ -820,7 +869,7 @@
       // The Display settings of this device: the graphics level, the FPS limit and the readout.
       gfx: { quality: store.settings.gfx, fpsCap: store.settings.fpsCap, showFps: store.settings.showFps },
     });
-    return h('div', { class: 'sf-stage' }, node, regionCard());
+    return h('div', { class: 'sf-stage' }, node, surfaceCard());
   }
 
   // Co-op: your astronaut died, or you have none: take over a free crewmate, or watch.
@@ -892,6 +941,8 @@
   function hud(s, f) {
     const season = E.seasonAt(s.sol);
     const weather = s.schedule[s.turn].weather;
+    const next = X.forecastAhead(s); // a repaired weather station's forecast (C1): next round's weather, or null
+    const wx = w => (w === 'global' ? 'crit' : w === 'regional' ? 'warn' : '');
     const remaining = (D.TURNS - s.turn) * D.TURN_SOLS;
     const track = h('div', { class: 'track', 'aria-label': t('ops.round', { n: s.turn + 1, m: D.TURNS }) },
       Array.from({ length: D.TURNS }, (_, i) => {
@@ -921,7 +972,8 @@
         track,
         h('div', { class: 'topbar-actions' },
           h('span', { class: 'chip' }, t(seasonKey(season.ls)) + ' · Ls ' + Math.round(season.ls) + '°'),
-          h('span', { class: 'chip ' + (weather === 'global' ? 'crit' : weather === 'regional' ? 'warn' : '') }, t('weather.' + weather)),
+          h('span', { class: 'chip ' + wx(weather) }, t('weather.' + weather)),
+          next ? h('span', { class: 'chip fc ' + wx(next), title: t('eva.forecastBy') }, t('eva.forecast', { w: t('weather.' + next) })) : null,
           lanOn() ? lanChip() : null,
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.help'), onclick: () => { store.modal = 'help'; render(); } }, ico('help')),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.notes'), onclick: () => { store.modal = 'notes'; render(); } }, ico('book')),
@@ -1647,7 +1699,7 @@
     if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos, onFog);
+    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent);
   }
 
   async function joinRoom(code, name) {
@@ -1655,7 +1707,7 @@
     if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos, onFog);
+    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent);
   }
 
   // Desktop app only: a friend's game on another PC opens in the normal browser (see app/join.js).
@@ -1882,7 +1934,7 @@
         let joinCode = null;
         try { joinCode = new URLSearchParams(location.search).get('join'); } catch (e) { /* no query */ }
         const invited = !s && !!joinCode && /^[A-Za-z]{1,6}$/.test(joinCode);
-        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog); }
+        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog, onEvent); }
         else if (invited) { store.lanForm.code = joinCode.toUpperCase(); store.modal = 'lan'; }
         render();
         if (invited) { const el = document.getElementById('lan-me'); if (el) el.focus(); }

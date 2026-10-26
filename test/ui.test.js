@@ -35,8 +35,9 @@ class El {
 const walk = (n, out) => { out.push(n); for (const c of n.children) if (c instanceof El) walk(c, out); return out; };
 const click = n => { for (const fn of n.listeners.click) fn({ target: n, currentTarget: n }); };
 
-// ui.js booted on a device whose localStorage holds `stored` (keys without the "sol500." prefix). Timers wait for flush().
-function page(stored) {
+// ui.js booted on a device whose localStorage holds `stored` (keys without the "sol500." prefix), with `globals` added to its
+// window (a stub SolNet). Timers wait for flush().
+function page(stored, globals) {
   const ls = {}, timers = [], app = new El('div'), surface = { hooks: null, data: null };
   for (const [k, v] of Object.entries(stored || {})) ls['sol500.' + k] = JSON.stringify(v);
   const win = {
@@ -50,13 +51,14 @@ function page(stored) {
     SolSurface: { mount: hooks => { surface.hooks = hooks; return new El('div'); }, update: data => { surface.data = data; } },
   };
   win.window = win.self = win;
+  Object.assign(win, globals);
   win.Node = El;
   vm.createContext(win);
   for (const [f, code] of SOURCES) vm.runInContext(code, win, { filename: f });
   const UI = win.SolUI, E = win.SolEngine;
   const all = () => walk(app, []);
   return {
-    UI, E, X: win.SolExpedition, ls, surface, all,
+    UI, E, X: win.SolExpedition, I: win.SolI18n, ls, surface, all,
     byKey: k => all().find(n => n.attrs['data-k'] === k),
     dialog: () => all().find(n => n.attrs.role === 'dialog') || null,
     flush() { while (timers.length) timers.shift()(); },
@@ -171,4 +173,124 @@ test("the round report says whom the solar flare caught (+15 mSv) and who collap
   const lines = walk(pg.dialog(), []).filter(n => n.tagName === 'LI').map(n => n.textContent);
   assert.ok(lines.includes(en('rep.flare', { name: en('name.minh'), d: 15 })), lines.join(' | '));
   assert.ok(lines.includes(en('rep.collapse', { name: en('name.lena'), h: 20, m: 3 })));
+});
+
+// ---------- points of interest (M4c) ----------
+// Seed PAINT-QA-1 has every kind of point of interest near the HQ (the painter's QA seed). Until the words branch is
+// merged its names, facts and logs read as their keys, which en() gives back too.
+const QA = { weather: at(13, 48), cache: at(-25, 47) };
+const cardOf = pg => pg.all().find(n => /(^| )region-card( |$)/.test(n.className)) || null;
+const panelText = pg => { pg.UI.render(); return pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('eva.title')).textContent; };
+
+test("solo: a Kestrel structure's story log opens over the surface once a mission, tagged as a fictional log, with no source", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  pg.play(m);
+  pg.surface.hooks.card({ type: 'log', id: 'S0,0', kind: 'weather' });
+  pg.UI.render();
+  const card = cardOf(pg);
+  assert.match(card.className, /(^| )log( |$)/);
+  const [head, title, body, ...rest] = card.children;
+  assert.equal(head.children[0].textContent, en('ks.label'), 'the tag');
+  assert.equal(title.textContent, en('ks.weather.name'));
+  assert.equal(body.textContent, en('ks.weather.log'));
+  assert.deepEqual(rest, [], 'no source line: the Kestrel Survey is fiction');
+  click(pg.byKey('region-close'));
+  pg.UI.render();
+  assert.equal(cardOf(pg), null, 'closed');
+  pg.surface.hooks.card({ type: 'log', id: 'S0,0', kind: 'weather' });
+  pg.UI.render();
+  assert.equal(cardOf(pg), null, 'the same structure never opens it again in this mission');
+});
+
+test("solo: a repaired weather station's fog reaches the surface at once; its science and a cache's loads are report lines named after them", async () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  pg.play(m);
+  const r = await pg.surface.hooks.exp('interact', { structure: 'S0,0' }, QA.weather);
+  assert.equal(r.done, 'repaired');
+  assert.ok(Object.keys(r.fog).length > 0);
+  for (const k of Object.keys(r.fog)) assert.ok(pg.surface.data.fog[k], 'the surface has the fog of chunk ' + k);
+  assert.ok(panelText(pg).includes(en('find.weather')), 'the weather station line');
+  assert.equal((await pg.surface.hooks.exp('interact', { structure: 'S-1,0' }, QA.cache)).ok, true);
+  assert.equal((await pg.surface.hooks.exp('deliver', {}, at(0, 0))).ok, true);
+  assert.ok(panelText(pg).includes(en('find.cache')), 'the supply cache line');
+});
+
+test("solo: a landmark's discovery card shows its name, the reward and who found it, its real fact and its source", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  if (!pg.I.LANDMARK_SOURCES) pg.I.LANDMARK_SOURCES = { delta: 'jezero' }; // a stand-in until the words branch brings the real map
+  pg.play(m);
+  pg.surface.hooks.card({ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science: 120 });
+  pg.UI.render();
+  const card = cardOf(pg);
+  assert.match(card.className, /(^| )disc( |$)/);
+  const src = pg.I.SOURCES[pg.I.LANDMARK_SOURCES.delta];
+  assert.deepEqual(card.children.slice(1).map(n => n.textContent), [
+    en('lm.delta.name'), en('haul.science', { n: 120 }) + ' · ' + en('disc.by', { name: en('name.minh') }), en('lm.delta.fact'), en('region.source') + ': ' + src.label,
+  ]);
+  assert.equal(card.children[0].children[0].textContent, en('disc.new'));
+  assert.equal(walk(card, []).find(n => n.tagName === 'A').attrs.href, src.url);
+});
+
+test("the discoverer's own tab hears of a discovery twice, in either order: the second adds the reward the first did not have, and opens nothing new", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  pg.play(m);
+  pg.surface.hooks.card({ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science: null });
+  pg.surface.hooks.card({ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science: 120 });
+  assert.equal(pg.UI.store.card.science, 120);
+  pg.surface.hooks.card({ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science: null });
+  assert.equal(pg.UI.store.card.science, 120, 'a later copy without it changes nothing');
+});
+
+test("co-op: a crewmate's discovery from the server opens its card on this tab, the landmark's kind read from the world; an unknown landmark opens none", async () => {
+  const net = { info: () => Promise.resolve({ lan: true }), restore: () => ({ code: 'ABCD', playerId: 'p1', token: 't' }), connect: (...h) => { net.h = h; } };
+  const pg = page(null, { SolNet: net });
+  await new Promise(r => setImmediate(r)); // the boot asks the server for its info, then connects
+  const onEvent = net.h[4];
+  pg.UI.store.room = { mission: pg.mission({ seed: 'PAINT-QA-1', coop: true }), players: [], settings: { names: {} } };
+  onEvent({ kind: 'discover', landmark: 'L1,1', by: 'diego' });
+  assert.equal(pg.UI.store.card, null, 'no landmark in that cell of this world');
+  onEvent({ kind: 'discover', landmark: 'L0,1', by: 'diego' });
+  assert.deepEqual(plain(pg.UI.store.card), { type: 'landmark', id: 'L0,1', kind: 'delta', by: 'diego', science: null });
+  onEvent({ kind: 'discover', landmark: 'L0,1', by: 'diego', science: 132 });
+  assert.equal(pg.UI.store.card.science, 132, "the reward, when the server's event carries it");
+});
+
+test("solo: a formation's survey opens its real fact with its source, once per formation", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  if (!pg.I.FORMATION_SOURCES) pg.I.FORMATION_SOURCES = { ventifact: 'bagnold' }; // a stand-in until the words branch brings the real map
+  pg.play(m);
+  pg.surface.hooks.card({ type: 'formation', id: 'F1,0', kind: 'ventifact' });
+  pg.UI.render();
+  const card = cardOf(pg), src = pg.I.SOURCES[pg.I.FORMATION_SOURCES.ventifact];
+  assert.equal(card.children[0].children[0].textContent, en('disc.formation'));
+  assert.deepEqual(card.children.slice(1).map(n => n.textContent), [en('fm.ventifact.name'), en('fm.ventifact.fact'), en('region.source') + ': ' + src.label]);
+  click(pg.byKey('region-close'));
+  pg.surface.hooks.card({ type: 'formation', id: 'F1,0', kind: 'ventifact' });
+  pg.UI.render();
+  assert.equal(cardOf(pg), null, 'the same formation, surveyed again in this mission, opens nothing');
+});
+
+test("while a repaired weather station forecasts, the top bar also shows next round's weather, in that weather's colours", () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-FORECAST' });
+  m.schedule[m.turn + 1].weather = 'global';
+  const chip = () => { pg.UI.render(); return pg.all().find(n => n.tagName === 'SPAN' && /(^| )fc( |$)/.test(n.className)) || null; };
+  pg.play(m);
+  assert.equal(chip(), null, 'no station repaired: no forecast');
+  m.expedition.forecastUntil = m.turn + 3; // repaired this round (X.interact)
+  const c = chip();
+  assert.ok(c, 'the forecast chip');
+  assert.equal(c.textContent, en('eva.forecast', { w: en('weather.global') }));
+  assert.match(c.className, /(^| )crit( |$)/);
+  assert.equal(c.attrs.title, en('eva.forecastBy'));
+  m.expedition.forecastUntil = m.turn - 1;
+  assert.equal(chip(), null, 'the forecast has run out');
+});
+
+test('a landmark discovered in a new mission under a code played before opens its card again; a story log read under that code does not', () => {
+  const pg = page({ regionsSeen: { key: 'PAINT-QA-1|solo', list: ['L0,1', 'S0,0'] } }), m = pg.mission({ seed: 'PAINT-QA-1' });
+  pg.play(m);
+  pg.surface.hooks.card({ type: 'log', id: 'S0,0', kind: 'weather' });
+  assert.equal(pg.UI.store.card, null, 'the log was read under this code');
+  pg.surface.hooks.card({ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science: 120 });
+  assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'L0,1', "the discovery is this mission's");
 });

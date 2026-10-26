@@ -65,3 +65,41 @@ test('the Plains fact cites a page from after the landing and claims nothing tha
     assert.doesNotMatch(fact, /slav/i, lang + ': the meaning of the name is not on that page');
   }
 });
+
+// ---------- points of interest (M4c) ----------
+
+test("the flare's warnings name every cover out on the map, and each has its own in-cover note, in both languages", () => {
+  const cover = { en: ['cave', 'lava tube', 'hab pod', 'storm shelter'], vi: ['hang', 'ống dung nham', 'khoang sinh hoạt', 'hầm trú bão'] };
+  for (const lang of ['en', 'vi']) {
+    for (const k of ['eva.flare.run', 'eva.flare.warned']) for (const w of cover[lang]) assert.ok(I.STR[lang][k].includes(w), lang + ' ' + k + ': ' + w);
+    for (const k of ['eva.inCave', 'eva.inTube', 'eva.inPod']) assert.ok(I.STR[lang][k], lang + ' ' + k);
+  }
+});
+
+test("the Kestrel structures' prompts, notes and report lines have their strings in both languages", () => {
+  const keys = ['eva.open', 'eva.salvage', 'eva.repair', 'eva.atDoor', 'eva.repairedWeather', 'eva.repairedMast', 'eva.refilled', ...['cache', 'wreck', 'weather', 'array'].map(k => 'find.' + k)];
+  for (const lang of ['en', 'vi']) assert.deepEqual(keys.filter(k => !I.STR[lang][k]), [], 'missing in ' + lang);
+});
+
+test("every error the exploring rules can give has a string, so co-op never turns one into 'no answer from the server'", () => {
+  // src/ui.js passes a co-op error on only when eva.err.<code> exists (else 'net'): the surface must know 'known' and
+  // 'refilled' to stay quiet on them. The flare's own errors are solo play's, never sent to a server.
+  const fs = require('node:fs'), path = require('node:path');
+  const codes = [...new Set([...fs.readFileSync(path.join(__dirname, '..', 'src', 'expedition.js'), 'utf8').matchAll(/error: '(\w+)'/g)].map(g => g[1]))];
+  assert.ok(['noLandmark', 'known', 'noStructure', 'badKind', 'done', 'refilled'].every(c => codes.includes(c)), 'the points of interest\'s codes are read');
+  for (const lang of ['en', 'vi']) assert.deepEqual(codes.filter(c => !I.STR[lang]['eva.err.' + c]), [], 'missing in ' + lang);
+});
+
+test("the discovery and formation cards and a discovery's report line have their strings in both languages; the discovery names the finder", () => {
+  for (const lang of ['en', 'vi']) {
+    assert.deepEqual(['disc.new', 'disc.by', 'disc.formation', 'find.landmark'].filter(k => !I.STR[lang][k]), [], 'missing in ' + lang);
+    assert.match(I.STR[lang]['disc.by'], /\{name\}/, lang);
+  }
+});
+
+test("the weather station's forecast chip has its strings in both languages, naming the weather", () => {
+  for (const lang of ['en', 'vi']) {
+    assert.match(I.STR[lang]['eva.forecast'], /\{w\}/, lang);
+    assert.ok(I.STR[lang]['eva.forecastBy'], lang);
+  }
+});
