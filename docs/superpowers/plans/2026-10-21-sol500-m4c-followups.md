@@ -64,7 +64,7 @@ QA-NUMBERS: Task 10 Step 5 and Task 11 QA (filled in after QA)
 - `W.DIRS16`'s rows are frozen as a side effect, because the crater landmark puts them into `gaps` and `deepFreeze` freezes what it is given (`src/worldgen.js:461`, the export at `:728`), so which constants are frozen depends on call history: `.slice()` the rows or freeze `DIRS16` where it is defined (`:64`).
 - `LM_LO = 22` is a literal (`src/worldgen.js:421`) and nothing reads `D.LANDMARKS.size`: derive it from the table or assert the box size against it.
 - The `tooClose` guard on the ice spots is a verified no-op today (`src/worldgen.js:370`) and would drop a deposit without a word if it ever fired: drop it or assert the spacing in a test.
-- The comment above `reachesOut` (`src/worldgen.js:571-574`) says the terrain without the points of interest gives the stamped world's answer but does not name the guarantee behind it (every landmark box has an all-open outer ring, tested at `test/worldgen-poi.test.js:185`), and no structure test targets a landmark-adjacent door.
+- The comment above `reachesOut` (`src/worldgen.js:571-574`) says the terrain without the points of interest gives the stamped world's answer because each one stands in a ring of open ground, but not which test guarantees that for landmarks (`test/worldgen-poi.test.js:185`: every landmark box has an all-open outer ring), and no structure test targets a landmark-adjacent door.
 - `src/worldgen.js` grew from 600 to 732 lines, `test/worldgen-poi.test.js` from 234 to 442 and `src/surface-paint.js` to 849, because the no-new-files rule keeps the points of interest in the existing modules: split them when that rule lifts.
 
 ### Tests
