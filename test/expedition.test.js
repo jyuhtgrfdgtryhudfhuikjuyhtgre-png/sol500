@@ -530,6 +530,9 @@ test("a site from outside its landmark's cell or its formation's chunk is refuse
   const p = solo('POI-1'), f = X.chunkAt(p, -2, -1).formations[0];
   assert.equal(f.sites.length, 0);
   assert.equal(X.collect(p, 'minh', 'F-2,-1:0', at(f.x, f.y)).error, 'noFind', 'nor has a formation that is only scenery');
+  // A survey's spot can lie 1.5 tiles from its chunk's south edge (worldgen's placeFormation): a longer reach would let a
+  // player stand in reach but outside the chunk, and be refused after a full hold.
+  assert.ok(D.EXPEDITION.reach <= 1.5, "the reach stays inside a formation survey's chunk");
   assert.equal(snap(m), before);
 });
 

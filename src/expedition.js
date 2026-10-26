@@ -104,7 +104,8 @@
   }
   // What you can collect: a find, a landmark's site ("L<i>,<j>:<n>") or a formation's survey ("F<cx>,<cy>:0"), plus its id
   // and loads left, or { error }. Each is looked up only from inside what holds it: a find's or a formation's chunk (the
-  // survey is at the formation's spot, 2 tiles inside it), a landmark's cell (its sites lie in its box, 3 tiles inside).
+  // survey is at the formation's spot, 1.5 tiles or more inside it, no less than the reach), a landmark's cell (its sites
+  // lie in its box, 3 tiles inside).
   const LSITE = /^L(-?\d{1,7}),(-?\d{1,7}):(\d{1,2})$/, FSITE = /^F(-?\d{1,7}),(-?\d{1,7}):0$/;
   // A landmark's site is spelled with its number after the landmark's id, and no landmark there is no find.
   const LANDMARK_SITE = Object.assign({}, LANDMARK, { re: LSITE, none: () => ({ error: 'noFind' }) });
