@@ -227,7 +227,7 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
 |---|---|---|
 | Supply cache | open, 3 s | 1–2 loads: O₂ canister, spare kit or food |
 | Wrecked scout rover | salvage, 6 s (Engineer 3 s) | 2–3 metal loads + 1 spare kit |
-| Weather station | repair, 6 s (Engineer 3 s) | reveals the fog within 24 tiles; +20 science; the console's dust-storm forecast gains one extra round of warning for the next 3 rounds |
+| Weather station | repair, 6 s (Engineer 3 s) | reveals the fog within 24 tiles; +20 science; the top bar shows next round's weather in the round of the repair and the 3 after it *(as built; §13.11)* |
 | Comms mast | repair, 6 s (Engineer 3 s) | marks the nearest landmark and all structures within 96 tiles on the minimap as "?" |
 | Abandoned hab pod | walk in; the roof hides while you're inside | shelter zone; one suit refill per crew member per round; a story log |
 | Dusty solar array | salvage, 5 s | 2 loads of materials |
