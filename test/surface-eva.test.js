@@ -786,3 +786,30 @@ test("the sites of landmarks and formations are offered, drawn and marked as fin
   const h = s.eva.focusAt(q.x, q.y, q, s.world);
   assert.notEqual(h && h.id, 'F1,0:0', 'surveyed: gone');
 });
+
+test("a collect's note says what it hauled, from a plain find, a landmark's site or a formation's survey, never that you revived someone", async () => {
+  // Holds E on the focus until one collect is asked, lets go, and returns the note and the note the load should give.
+  const collect = async (s, p, f) => {
+    const asked = () => s.calls.filter(c => c.type === 'collect').length, before = asked();
+    s.eva.start(f);
+    for (let i = 0; i < 300 && asked() === before; i++) s.eva.step(0.1, p, s.world, 0, f);
+    s.eva.stop();
+    await flush();
+    s.eva.step(0.1, p, s.world, 0, null); // the HUD shows the answer
+    const got = s.m.expedition.carried.minh.at(-1);
+    return [noteOf(s), 'haul.' + got.res + ' ' + JSON.stringify({ n: got.amount })];
+  };
+  const a = setup({ t: say });
+  let f = null;
+  for (let cy = -2; cy < 2 && !f; cy++) for (let cx = -2; cx < 2 && !f; cx++) for (const g of X.findsIn(a.m, cx, cy)) if (g.kind === 'metal' && !f) f = Object.assign({ cx, cy }, g);
+  a.world.get(f.cx, f.cy);
+  const p = outside(f.x, f.y - 1);
+  assert.equal(...(await collect(a, p, a.eva.focusAt((f.x + 0.5) * T, (f.y + 0.5) * T, p, a.world))), 'a plain find');
+  const s = setup({ mission: quiet(poiMission()), t: say });
+  for (const [cx, cy] of [[1, 13], [2, 13], [1, 14], [2, 14]]) s.world.get(cx, cy); // every chunk the delta's box touches
+  for (const [x, y, what] of [[63, 466, "the delta's site"], [37, 12, "the ventifact's survey"]]) {
+    hold(s, x, y); s.world.reveal(x, y, 3);
+    const q = outside(x, y);
+    assert.equal(...(await collect(s, q, s.eva.focusAt(q.x, q.y, q, s.world))), what);
+  }
+});

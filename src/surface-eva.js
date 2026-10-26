@@ -404,10 +404,11 @@
       ask.then(r => {
         if (!r.ok) return;
         if (f.kind === 'kestrel') return used(f.struct, r);
-        if (f.kind === 'find') say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
-        // A formation's survey: its real fact and source, once per formation (spec §3.7).
-        if (f.kind === 'find' && f.id[0] === 'F') card({ type: 'formation', id: f.id.split(':')[0], kind: f.find.sub });
-        else if (f.kind === 'drop') say(t('eva.pickedUp'), 'ok', 2);
+        if (f.kind === 'find') {
+          say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
+          // A formation's survey: its real fact and source, once per formation (spec §3.7).
+          if (f.id[0] === 'F') card({ type: 'formation', id: f.id.split(':')[0], kind: f.find.sub });
+        } else if (f.kind === 'drop') say(t('eva.pickedUp'), 'ok', 2);
         else say(t('eva.revivedThem', { name: env.crewName(f.id) }), 'ok', 3);
         if (f.kind === 'find' && keyHeld && live()) hold = { f, t: 0, dur: hold0(f) }; // keep going while E is held
       });
