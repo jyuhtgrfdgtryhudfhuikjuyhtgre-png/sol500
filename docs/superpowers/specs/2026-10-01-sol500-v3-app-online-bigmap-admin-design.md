@@ -1,6 +1,6 @@
 # SOL 500 v3 — Desktop App · Online Share Link · Endless World · Admin Panel
 
-**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3, M4a and M4b shipped (v3.4.0); M4c, M4d and M5 to do
+**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3, M4a, M4b and M4c shipped (v3.5.0); M4d and M5 to do
 **Builds on:** `2026-09-30-sol500-mars-outpost-design.md` (v1/v2: engine, roles, LAN co-op, walkable outpost)
 **Branches:** one `feat/…` branch per milestone, off `master`
 
@@ -200,6 +200,7 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
   - a **discovery card** opens with a real fact and its NASA or peer-reviewed source (EN/VI);
   - a one-time reward is banked: science 80–150 (Scientist +50 %);
   - it counts towards achievements and expedition goals.
+  - *As built (M4c):* the game asks when the centre comes into the view its fog shows, and the rules accept the claim from up to **15.5 tiles** from the centre: the rover's 10 tiles, 4 more on a star dune's crest and 1.5 of slack (`X.discover`). Weather and walking only shrink a view, so a real sighting is never refused. M4c counts discoveries in `x.stats[crewId].landmarks`; the achievements and goals are M4d.
 
 | Landmark | Region weight | What's special |
 |---|---|---|
@@ -293,12 +294,13 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
   banked:     { water, materials, spares, food, o2, science, morale, lines: [...] },
   goals:      [{ id, kind, params, progress, done }],
   incidents:  [{ crewId, kind: 'collapse'|'flare' }],
+  forecastUntil: <round> | -1,                               // the last round a repaired weather station forecasts the next round's weather
   stats:      { crewId: { distance, finds: { ice, metal, pod, science }, structures, landmarks } } }
 ```
 
 - **`resolveTurn`** applies the banked haul, goal rewards and incidents before simulating, and adds them to the report. Then it resets those, the refills and the goals, and picks the next round's goals. The carried items, stats and world changes persist. The engine only reads these numbers and doesn't depend on `worldgen.js`; goal checks that need the world run in `expedition.js`.
 - **New mission field:** `mission.pilot`, the solo player's crewId (§4.1).
-- **Weather station bonus:** `mission.forecastBonus` holds rounds left; `E.forecast` looks one extra round ahead while it's > 0.
+- **Weather station forecast** *(M4c, as built; §13.11)*: `x.forecastUntil` is a round number (`-1`: none), not rounds left, so nothing counts down at the advance. Repairing a weather station sets it to the round of the repair + 3: that round and the three after it. `X.forecastAhead(m)` returns next round's weather while `m.turn <= x.forecastUntil`, else `null`, and the top bar shows it as a dashed "Next round: …" chip beside this round's weather. `E.forecast`, the console's "Next 25 sols" panel, is unchanged.
 
 **`src/expedition.js`** is pure UMD. The server uses it in co-op and `ui.js` uses it in solo play:
 - `createExpedition(seed)`
@@ -309,10 +311,12 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
 - `collapse(m, crewId, pos)`
 - `flare(m, crewIds)`
 - `reveal(m, chunkKey, bits)`
-- `interact(m, crewId, structId, pos)`
-- `discover(m, crewId, landmarkId, pos)`
+- `interact(m, crewId, structId, pos)` → `{ ok, done: 'used' | 'repaired', items, left, fog }` *(M4c)*: a Kestrel structure after its hold; the loads that don't fit in the backpack wait at the door as a drop, and `fog` is what a weather station revealed
+- `discover(m, crewId, landmarkId, pos)` → `{ ok, landmark, science }` *(M4c)*: the first sighting of a landmark's centre, claimed from up to 15.5 tiles (§3.6)
 - `placeBeacon(m, crewId, pos)`
-- `refill(m, crewId, sourceId, pos)`
+- `refill(m, crewId, podId, pos)` → `{ ok, suit }` *(M4c, hab pods; beacons join in M4d)*: a full suit inside a pod, once per pod for each crew member each round
+- `forecastAhead(m)` *(M4c)*: next round's weather while a repaired weather station forecasts it, else `null`
+- `mastMarks(m)` → `[{ id, x, y, kind }]` *(M4c)*: what the repaired comms masts mark on the maps, in world tiles; worked out from the world each time, never stored
 - `goalProgress(m)`
 
 Each looks up the world with `worldgen.chunk(seed, …)`, checks distance (1.5 tiles of tolerance), loads left and backpack space, and returns `{ error }` or `{ state }`. Pings aren't mission state: they travel as short-lived WebSocket messages (§5).
@@ -339,13 +343,13 @@ Each looks up the world with `worldgen.chunk(seed, …)`, checks distance (1.5 t
 | server→client | `room` | full public room on change |
 | server→client | `pos` | all positions + suit level + carried count, throttled to 80 ms |
 | server→client | `fog` | `{ "<cx>,<cy>": base64 }` diffs, OR-merged, throttled to 500 ms |
-| server→client | `event` | `flare` (start time), `ping` (x, y, from), `discover` (landmark), `kicked`, `closed` |
+| server→client | `event` | `flare` (start time), `ping` (x, y, from), `discover` (landmark, by, science), `kicked`, `closed` |
 | client→server | `pos` | at most every 110 ms; coordinates are unbounded integers |
 | client→server | `reveal` | newly seen cells, per chunk |
 | client→server | `ping` | x, y; at most 1 per second per player |
 
 - The server pings every 20 s. Clients reconnect with backoff from 0.5 s to 5 s and get a full `room` message on reconnect.
-- **Trust model:** this is a co-op game, so clients report their own suit level, collapses and flare exposure. Item actions (collect, deliver, revive, interact, place, refill) are checked on the server against the last position it received and the world it generates itself.
+- **Trust model:** this is a co-op game, so clients report their own suit level, collapses and flare exposure. Item actions (collect, deliver, revive, interact, discover, place, refill) are checked on the server against the last position it received and the world it generates itself.
 - **Server world cache:** a shared LRU of at most 256 data chunks across all rooms.
 
 **Server split** *(M1, done)*:
@@ -600,8 +604,8 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] Solar flare countdown and shelters (M4b)
 - [x] Dust devils and storm visibility (M4b)
 - [x] Display settings: graphics Best or Fast, an FPS limit and an FPS readout (M4b)
-- [ ] Landmarks with discovery cards (M4c)
-- [ ] Random structures and natural formations (M4c)
+- [x] Landmarks with discovery cards (M4c)
+- [x] Random structures and natural formations (M4c)
 - [ ] Relay beacons and the route home (M4d)
 - [ ] Expedition goals (M4d)
 - [ ] Role skills on the map and pings (M4d)
@@ -633,6 +637,10 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
    - A devil lasts 24 s (2 s to form, 2 to die down) and drifts 6–12 tiles along the round's wind, give or take 45°. It hits when its middle passes within 0.55 tiles of your feet once it has formed. The throw is a 0.25 s slide of 2 tiles that stops at walls, and 2 s of calm follow a hit. A hit still costs 10 s of suit, and the rover is immune, as §3.4 says.
    - Why: every screen draws the same devils from the mission code, the round and the round's clock, without knowing where anyone is, so nothing is synced. Devils near each explorer would need every screen to agree on where everyone stands.
    - Measured: about 1.7 devils within 12 tiles of you in a dust-devil round (0.23 in other rounds). A walker who never dodges is hit 1.61 times in a 150 s EVA in a dust-devil round, and 0.18 times in other rounds.
+11. *M4c:* **The weather station's forecast is a chip beside this round's weather, not a console look-ahead.** The user approved this on 2026-10-21 ("yes that what i want").
+   - §4 said `mission.forecastBonus` holds rounds left and `E.forecast` looks one extra round ahead while it's above 0. The console has no look-ahead to extend.
+   - Now repairing a weather station sets `x.forecastUntil` to the round of the repair + 3 (a round number; `-1` for none). While `X.forecastAhead(m)` returns a weather, the top bar shows "Next round: {weather}" beside this round's weather chip, dashed and in that weather's colours. Nothing counts down at the advance.
+   - It lives in the expedition state, which the save repair already covers: a save made before M4c loads with `forecastUntil` at `-1`.
 
 ## 14. Risks
 
