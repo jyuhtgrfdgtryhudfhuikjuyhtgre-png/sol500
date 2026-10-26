@@ -282,6 +282,9 @@ test("while a repaired weather station forecasts, the top bar also shows next ro
   assert.equal(c.textContent, en('eva.forecast', { w: en('weather.global') }));
   assert.match(c.className, /(^| )crit( |$)/);
   assert.equal(c.attrs.title, en('eva.forecastBy'));
+  const pair = pg.all().find(n => n.className === 'wxs'); // stacked: the top bar stays one row at 1280 px in any weather
+  assert.deepEqual(pair && pair.children.map(n => n.textContent), [en('weather.' + m.schedule[m.turn].weather), c.textContent],
+    "the forecast sits under this round's weather, in one column");
   m.expedition.forecastUntil = m.turn - 1;
   assert.equal(chip(), null, 'the forecast has run out');
 });

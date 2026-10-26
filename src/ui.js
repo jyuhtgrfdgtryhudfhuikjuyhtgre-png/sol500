@@ -972,8 +972,9 @@
         track,
         h('div', { class: 'topbar-actions' },
           h('span', { class: 'chip' }, t(seasonKey(season.ls)) + ' · Ls ' + Math.round(season.ls) + '°'),
-          h('span', { class: 'chip ' + wx(weather) }, t('weather.' + weather)),
-          next ? h('span', { class: 'chip fc ' + wx(next), title: t('eva.forecastBy') }, t('eva.forecast', { w: t('weather.' + next) })) : null,
+          h('span', { class: 'wxs' }, // this round's weather, with a repaired weather station's forecast stacked under it
+            h('span', { class: 'chip ' + wx(weather) }, t('weather.' + weather)),
+            next ? h('span', { class: 'chip fc ' + wx(next), title: t('eva.forecastBy') }, t('eva.forecast', { w: t('weather.' + next) })) : null),
           lanOn() ? lanChip() : null,
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.help'), onclick: () => { store.modal = 'help'; render(); } }, ico('help')),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.notes'), onclick: () => { store.modal = 'notes'; render(); } }, ico('book')),

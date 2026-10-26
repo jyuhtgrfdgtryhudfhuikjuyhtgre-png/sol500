@@ -144,6 +144,10 @@ p { margin: 0; }
 .chip.fc { border-style: dashed; }
 .chip.fc.warn { border-color: var(--warn); }
 .chip.fc.crit { border-color: var(--crit); }
+/* This round's weather with the forecast stacked under it, two slim chips in the bar's 44 px: the top bar stays one row at
+   1280 px in any weather, where side by side a storm and its forecast wrapped it to two. */
+.wxs { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+.wxs:has(.fc) .chip { padding-block: 1px; line-height: 1.2; }
 
 .bar { height: 6px; border-radius: 6px; background: var(--sunk); overflow: hidden; position: relative; }
 .bar > span { display: block; height: 100%; border-radius: 6px; background: var(--fg-2); }
@@ -226,14 +230,14 @@ p { margin: 0; }
 .hud-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
 .solclock { display: flex; align-items: baseline; gap: 10px; }
 .solclock b { font-family: var(--font-data); font-size: var(--fs-xl); font-weight: 600; }
-.track { display: grid; grid-template-columns: repeat(20, minmax(6px, 1fr)); gap: 3px; min-width: 180px; flex: 1 1 260px; max-width: 520px; }
+/* The round track is what gives way when the top bar is full (dust season's long season chip, a storm forecast), down to
+   3 px cells, before the bar wraps to two rows. */
+.track { display: grid; grid-template-columns: repeat(20, minmax(3px, 1fr)); gap: 3px; min-width: 120px; flex: 1 1 120px; max-width: 520px; }
 .track span { height: 10px; border-radius: 3px; background: var(--sunk); border: 1px solid var(--line); }
 .track span.done { background: var(--fg-3); border-color: transparent; }
 .track span.regional { background: #b07a4a; }
 .track span.global { background: var(--rust); }
 .track span.now { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-/* While the forecast chip shows, the round track gives way down to its minimum, so the bar stays one row at 1280 px. */
-.hud-top:has(.chip.fc) .track { flex-basis: 180px; }
 .meters { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; }
 .meter { display: grid; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); min-width: 0; }
 .meter .k { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
