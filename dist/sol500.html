@@ -155,6 +155,14 @@ p { margin: 0; }
 .chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .chip.crit { background: var(--crit-soft); color: var(--crit); border-color: transparent; }
 .chip.info { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+/* The weather station's forecast of next round's weather: dashed, as a prediction, in the weather's colours. */
+.chip.fc { border-style: dashed; }
+.chip.fc.warn { border-color: var(--warn); }
+.chip.fc.crit { border-color: var(--crit); }
+/* This round's weather with the forecast stacked under it, two slim chips in the bar's 44 px: the top bar stays one row at
+   1280 px in any weather, where side by side a storm and its forecast wrapped it to two. */
+.wxs { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+.wxs:has(.fc) .chip { padding-block: 1px; line-height: 1.2; }
 
 .bar { height: 6px; border-radius: 6px; background: var(--sunk); overflow: hidden; position: relative; }
 .bar > span { display: block; height: 100%; border-radius: 6px; background: var(--fg-2); }
@@ -237,7 +245,9 @@ p { margin: 0; }
 .hud-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: space-between; }
 .solclock { display: flex; align-items: baseline; gap: 10px; }
 .solclock b { font-family: var(--font-data); font-size: var(--fs-xl); font-weight: 600; }
-.track { display: grid; grid-template-columns: repeat(20, minmax(6px, 1fr)); gap: 3px; min-width: 180px; flex: 1 1 260px; max-width: 520px; }
+/* The round track is what gives way when the top bar is full (dust season's long season chip, a storm forecast), down to
+   3 px cells, before the bar wraps to two rows. */
+.track { display: grid; grid-template-columns: repeat(20, minmax(3px, 1fr)); gap: 3px; min-width: 120px; flex: 1 1 120px; max-width: 520px; }
 .track span { height: 10px; border-radius: 3px; background: var(--sunk); border: 1px solid var(--line); }
 .track span.done { background: var(--fg-3); border-color: transparent; }
 .track span.regional { background: #b07a4a; }
@@ -471,6 +481,17 @@ p { margin: 0; }
 .region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
 .region-card .src { font-size: var(--fs-xs); }
 .region-card a { color: var(--accent); }
+/* Wide screens: the card sits under the HUD's column, whose note (what a structure gave, a refill) can run to three lines
+   as the card opens; a longer column is drawn over the card (.sf-eva's z-index) while its note lasts. */
+@media (min-width: 641px) { .region-card { top: 196px; } }
+/* A Kestrel Survey story log: the programme's teal (its structures on the maps) and a log's monospace. */
+.region-card.log { border-left-color: #4a978e; }
+.region-card.log .eyebrow { color: #7cc7bd; }
+.region-card.log p { font-family: var(--font-data); font-size: var(--fs-xs); line-height: 1.5; }
+/* A landmark's discovery: the gold of its diamond on the maps; the reward and the finder under the name. */
+.region-card.disc { border-left-color: #f0c35a; }
+.region-card.disc .eyebrow, .region-card .meta { color: #f0c35a; }
+.region-card .meta { font-family: var(--font-data); font-size: var(--fs-xs); }
 
 .sf-root { position: relative; height: min(74vh, 780px); min-height: 440px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #3a1d14; touch-action: none; user-select: none; -webkit-user-select: none; }
 .sf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
@@ -480,7 +501,7 @@ p { margin: 0; }
 .sf-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); padding: 6px 14px; border-radius: 999px; font-size: var(--fs-xs); color: var(--fg-2); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
 .sf-prompt { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(20, 14, 16, 0.9); border: 1px solid var(--accent); color: var(--fg); padding: 8px 14px; border-radius: 10px; font-weight: 600; font-size: var(--fs-sm); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
 .sf-prompt kbd { font-family: var(--font-data); background: var(--accent); color: var(--accent-ink); border-radius: 5px; padding: 1px 7px; margin-right: 6px; }
-.sf-menu { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(580px, calc(100% - 24px)); max-height: calc(100% - 28px); overflow: auto; background: rgba(28, 20, 23, 0.97); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+.sf-menu { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(580px, calc(100% - 24px)); max-height: calc(100% - 28px); overflow: auto; background: rgba(28, 20, 23, 0.97); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); z-index: 3; } /* over the HUD column (.sf-eva, 3, earlier in the page); the full map (3, later) still covers it */
 .sf-mhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px 0 14px; font-family: var(--font-display); font-size: var(--fs-md); }
 .sf-x { background: none; border: 0; color: var(--fg-2); font-size: 24px; line-height: 1; cursor: pointer; width: 34px; height: 34px; border-radius: 8px; }
 .sf-x:hover { background: var(--raised); color: var(--fg); }
@@ -509,7 +530,7 @@ p { margin: 0; }
 .sf-region:hover, .sf-region:focus-visible { border-color: var(--accent); }
 .sf-region:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Exploring: the suit, the rover's battery, the backpack and notes, under the region name. */
-.sf-eva { position: absolute; left: 14px; top: 58px; display: grid; gap: 6px; width: 210px; pointer-events: none; }
+.sf-eva { position: absolute; left: 14px; top: 58px; z-index: 3; display: grid; gap: 6px; width: 210px; pointer-events: none; }
 .sf-eva > * { pointer-events: auto; }
 .sf-suit { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px; font-size: var(--fs-xs); color: var(--fg); }
 .sf-suit .k { color: var(--fg-2); font-weight: 600; }
@@ -849,7 +870,7 @@ p { margin: 0; }
     DANGERS: {
       flare: { delay: 30, countdown: 60, dose: 15 }, // the warning comes 30 s after the first step outside; 60 s to take cover
       shelter: 0.9,             // tiles from the middle of a cave's mouth, or of the storm shelter's tile, that count as cover
-      view: { clear: 8, rover: 10, regional: 5, global: 3 }, // tiles you can see around you; dust storms shrink it
+      view: { clear: 8, rover: 10, regional: 5, global: 3, crest: 4 }, // tiles you can see around you; dust storms shrink it, a star dune's crest adds `crest`
       devils: {
         quiet: [0, 1], round: [3, 5], dunes: 2, // devils a chunk in most rounds and in a dust-devil round; the Dune Sea doubles both
         life: 24, fade: 2, track: [6, 12], // a devil lasts 24 s (2 s to form, 2 to die down) and drifts 6–12 tiles in a line
@@ -864,6 +885,67 @@ p { margin: 0; }
       metal: { loads: [3, 4, 4, 5], res: 'materials', kg: 40 },
       pod: { loads: [3, 3, 3, 3], food: 60 },   // each load: a spare kit, 60 kg of food or an O₂ canister
       science: { loads: [1, 1, 1, 1], science: [20, 35, 60, 80], craters: 1.5 },
+    },
+    // Points of interest (spec §3.6, §3.7, M4c). src/worldgen.js places them from these numbers. Distances are world
+    // tiles, `regions` are worldgen REGIONS names, and `fact` (lm.<id>, fm.<id>) and `log` (ks.<id>) are i18n.js keys.
+    // Landmarks: one per 256×256 cell with a 60 % chance; the footprint (at most 40×40) never comes within 60 tiles of
+    // the HQ. Its kind is picked from the kinds of the region at its centre, all equally likely. Discovering one banks
+    // 80–150 science (the Scientist gets +50 %). `sites` are the finds it holds: the delta's three rich surveys, the ice
+    // and rare metal inside a lava tube, the giant crater's floor ice and peak survey, the vent's survey, the scarp's ice.
+    LANDMARKS: {
+      cell: 256, chance: 0.6, clear: 60, size: 40, science: [80, 150],
+      kinds: {
+        delta: { regions: ['plains', 'craters'], sites: ['science', 'science', 'science'], fact: 'lm.delta' },
+        tube: { regions: ['volcanic'], sites: ['ice', 'metal'], fact: 'lm.tube' },
+        crater: { regions: ['craters'], radius: 10, sites: ['ice', 'ice', 'science'], fact: 'lm.crater' },
+        methane: { regions: ['canyons', 'plains'], sites: ['science'], fact: 'lm.methane' },
+        scarp: { regions: ['icy'], sites: ['ice', 'ice', 'ice', 'ice'], fact: 'lm.scarp' },
+        stardune: { regions: ['dunes'], sites: [], fact: 'lm.stardune' },
+      },
+    },
+    // Kestrel Survey structures (fictional): one per 64×64 cell with a chance by region, at least 20 tiles from the HQ,
+    // `size` tiles wide and deep. `hold` is the seconds of holding E (the Engineer's own in `engineer`); the pod has
+    // none, you walk in. Rewards: a cache's loads, a wreck's metal loads and spare kit, the weather station's fog reveal
+    // (tiles), science and forecast rounds, the mast's marks (tiles), the pod's suit refills a round, the array's loads.
+    STRUCTURES: {
+      cell: 64, clear: 20,
+      chance: { plains: 0.45, dunes: 0.25, craters: 0.35, canyons: 0.3, icy: 0.35, volcanic: 0.3 },
+      kinds: {
+        cache: { size: [2, 2], hold: 3, loads: [1, 2], log: 'ks.cache' },
+        wreck: { size: [3, 2], hold: 6, engineer: 3, metal: [2, 3], spares: 1, log: 'ks.wreck' },
+        weather: { size: [2, 2], hold: 6, engineer: 3, reveal: 24, science: 20, forecast: 3, log: 'ks.weather' },
+        mast: { size: [2, 2], hold: 6, engineer: 3, marks: 96, log: 'ks.mast' },
+        pod: { size: [5, 5], refills: 1, log: 'ks.pod' },
+        array: { size: [4, 2], hold: 5, materials: 2, log: 'ks.array' },
+      },
+    },
+    // Natural formations: scenery with real geology, scattered per chunk in the regions listed: a chunk holds one with
+    // `chance`. About 1 in 3 is also a science site. `size` is the side of its square in tiles (art draws each sprite
+    // that wide); none of them blocks, and the dust-devil tracks are a flat mark on the ground.
+    FORMATIONS: {
+      chance: 0.75, science: 1 / 3,
+      kinds: {
+        arch: { regions: ['canyons', 'craters'], size: 3, fact: 'fm.arch' },
+        yardang: { regions: ['plains', 'volcanic'], size: 3, fact: 'fm.yardang' },
+        hoodoo: { regions: ['canyons'], size: 2, fact: 'fm.hoodoo' },
+        balanced: { regions: ['plains', 'craters', 'icy'], size: 2, fact: 'fm.balanced' },
+        ventifact: { regions: ['plains', 'dunes', 'volcanic'], size: 2, fact: 'fm.ventifact' },
+        layered: { regions: ['canyons', 'craters'], size: 3, fact: 'fm.layered' },
+        deviltracks: { regions: ['plains', 'dunes', 'icy'], size: 3, fact: 'fm.deviltracks' },
+      },
+    },
+    // Decor (spec §3.7): props scattered by each chunk's seed, `props` darts a chunk. Scenery only: nothing blocks or is
+    // picked up. 4–6 kinds per region: the painter's own decor (src/surface-paint.js) and `rock`, a small rock standing up.
+    DECOR: {
+      props: 12,
+      kinds: {
+        plains: ['pebbles', 'pit', 'blotch', 'crack', 'rock'],
+        dunes: ['ripple', 'blotch', 'pebbles', 'pit'],
+        craters: ['pit', 'pebbles', 'blotch', 'crack', 'rock'],
+        canyons: ['strata', 'pebbles', 'blotch', 'crack', 'rock'],
+        icy: ['crack', 'frost', 'blotch', 'pit', 'pebbles'],
+        volcanic: ['vesicles', 'pebbles', 'blotch', 'crack', 'rock'],
+      },
     },
     // Role skills on the map (spec §3.3): factors on how long you hold E, and the scientist's extra science.
     SKILLS: {
@@ -1129,6 +1211,9 @@ p { margin: 0; }
   //   { x, y } parked out on the map, or { driver } while someone drives it · roverDriven: tiles driven this round.
   // M4b adds the dangers: flare (null, or this round's solar flare { warn, end, over, hit } on the round's clock, see
   //   src/dangers.js) · clock (solo: the round's clock, seconds) · where { crewId: { x, y } } (solo: where you last stood).
+  // M4c adds the points of interest (src/expedition.js): landmarks { landmarkId: { by, round } } (discovered) ·
+  //   structures { structId: 'used' | 'repaired' } · forecastUntil: the last round a repaired weather station forecasts
+  //   the next one's weather (−1: none) · stats[crewId].landmarks, .structures (counts).
   // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
   const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
   function freshBank() {
@@ -1141,7 +1226,7 @@ p { margin: 0; }
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
       carried: {}, drops: [], banked: freshBank(), goals: [], incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
-      flare: null, clock: 0, where: {},
+      flare: null, clock: 0, where: {}, forecastUntil: -1,
     };
   }
 
@@ -2188,10 +2273,26 @@ p { margin: 0; }
     valles: { label: 'NASA Science: Valles Marineris, the Grand Canyon of Mars', url: 'https://science.nasa.gov/resource/valles-marineris-the-grand-canyon-of-mars/' },
     iceMap: { label: "NASA JPL (2019): NASA's treasure map for water ice on Mars", url: 'https://www.jpl.nasa.gov/news/nasas-treasure-map-for-water-ice-on-mars' },
     skylights: { label: 'NASA JPL (2007): Seven possible cave skylights on Mars (PIA09929)', url: 'https://www.jpl.nasa.gov/images/pia09929-seven-possible-cave-skylights-on-mars/' },
+    wildcat: { label: "NASA JPL (2022): NASA's Perseverance rover investigates geologically rich Mars terrain", url: 'https://www.jpl.nasa.gov/news/nasas-perseverance-rover-investigates-geologically-rich-mars-terrain/' },
+    pitCrater: { label: 'NASA (2020): Pit craters and giant volcanoes (PIA24149)', url: 'https://science.nasa.gov/photojournal/pit-craters-and-giant-volcanoes/' },
+    centralPeak: { label: 'NASA (2011): Colorful central peak in an unnamed crater (PIA14890)', url: 'https://science.nasa.gov/photojournal/colorful-central-peak-in-an-unnamed-crater/' },
+    methane: { label: "NASA JPL (2021): First you see it, then you don't: scientists closer to explaining Mars methane mystery", url: 'https://www.jpl.nasa.gov/news/first-you-see-it-then-you-dont-scientists-closer-to-explaining-mars-methane-mystery/' },
+    iceScarps: { label: 'NASA JPL (2018): Steep slopes on Mars reveal structure of buried ice', url: 'https://www.jpl.nasa.gov/news/steep-slopes-on-mars-reveal-structure-of-buried-ice/' },
+    starDunes: { label: 'NASA (2017): Opposing dunes, opposing winds (PIA21934)', url: 'https://science.nasa.gov/photojournal/opposing-dunes-opposing-winds/' },
+    rockBridge: { label: 'NASA (2006): Narrow trough in Tartarus Colles (PIA09383)', url: 'https://science.nasa.gov/photojournal/narrow-trough-in-tartarus-colles/' },
+    yardangs: { label: 'NASA (2003): Medusae Fossae yardangs (PIA04464)', url: 'https://science.nasa.gov/photojournal/medusae-fossae-yardangs/' },
+    hoodoos: { label: 'NASA (2017): The hoodoos of Mars (PIA21883)', url: 'https://science.nasa.gov/photojournal/the-hoodoos-of-mars/' },
+    uprightBoulder: { label: 'NASA JPL (2014): An irregular, upright boulder on Mars (PIA18594)', url: 'https://www.jpl.nasa.gov/images/pia18594-an-irregular-upright-boulder-on-mars/' },
+    gatorBack: { label: "NASA (2022): Curiosity's 360-degree panorama of gator-back rocks on Greenheugh (PIA25176)", url: 'https://science.nasa.gov/photojournal/curiositys-360-degree-panorama-of-gator-back-rocks-on-greenheugh/' },
+    becquerel: { label: 'NASA (2008): Periodic layering in Becquerel Crater, Mars (PIA11443)', url: 'https://science.nasa.gov/photojournal/periodic-layering-in-becquerel-crater-mars/' },
+    devilTracks: { label: 'NASA (2008): Dust-devil tracks in southern Schiaparelli Basin (PIA10226)', url: 'https://science.nasa.gov/photojournal/dust-devil-tracks-in-southern-schiaparelli-basin/' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
   const REGION_SOURCES = { plains: 'jezero', dunes: 'bagnold', craters: 'dichotomy', canyons: 'valles', icy: 'iceMap', volcanic: 'skylights' };
+  // Likewise for the landmarks and formations (the id of the kind in src/data.js).
+  const LANDMARK_SOURCES = { delta: 'wildcat', tube: 'pitCrater', crater: 'centralPeak', methane: 'methane', scarp: 'iceScarps', stardune: 'starDunes' };
+  const FORMATION_SOURCES = { arch: 'rockBridge', yardang: 'yardangs', hoodoo: 'hoodoos', balanced: 'uprightBoulder', ventifact: 'gatorBack', layered: 'becquerel', deviltracks: 'devilTracks' };
 
   const en = {
     'app.name': 'SOL 500',
@@ -2761,9 +2862,21 @@ p { margin: 0; }
     'find.ice': 'Ice deposit',
     'find.metal': 'Metal-rich rock',
     'find.pod': 'Crashed cargo pod',
+    'find.cache': 'Supply cache',
+    'find.wreck': 'Wrecked scout rover',
+    'find.weather': 'Weather station',
+    'find.array': 'Dusty solar array',
+    'find.landmark': 'Landmark discovered',
     'find.science': 'Science site',
     'sci.delta': 'old river delta',
     'sci.vent': 'methane vent',
+    'sci.crater': 'crater peak',
+    'sci.arch': 'rock arch',
+    'sci.yardang': 'yardang ridges',
+    'sci.hoodoo': 'hoodoos',
+    'sci.balanced': 'balanced rock',
+    'sci.ventifact': 'ventifacts',
+    'sci.deviltracks': 'dust-devil tracks',
     'sci.meteorite': 'meteorite',
     'sci.layered': 'layered rock',
     'haul.water': '+{n} kg water',
@@ -2828,28 +2941,48 @@ p { margin: 0; }
     'eva.err.notDriving': 'You are not driving the rover.',
     'eva.err.badAction': 'Not now.',
     'eva.err.suitFull': 'Not yet: breathe a canister at {s} s of suit or less, so none of it is wasted.',
-    'eva.flare.run': '☢ Solar flare coming: get under cover at the base, in a cave or in the storm shelter',
+    'eva.flare.run': '☢ Solar flare coming: get under cover at the base, in a cave, a lava tube, a hab pod or the storm shelter',
     'eva.flare.covered': '☢ Solar flare coming: you are under cover here',
     'eva.flare.now': '☢ The solar flare is here',
     'eva.flare.hit': '☢ The flare caught you in the open: +{d} mSv at the next advance',
     'eva.flare.missed': '☢ The flare has passed: you were under cover',
-    'eva.flare.warned': 'Solar flare warning: {s} s to get under cover, at the base, in a cave or in the storm shelter.',
+    'eva.flare.warned': 'Solar flare warning: {s} s to get under cover, at the base, in a cave, a lava tube, a hab pod or the storm shelter.',
     'eva.devil': 'A dust devil caught you: −{s} s of suit.',
     'eva.inCave': 'In a cave: cover from a solar flare.',
     'eva.brief': 'Outside this round: {list}.',
     'eva.brief.flare': 'a solar flare',
     'eva.brief.devils': 'dust devils',
+    'eva.inTube': 'In a lava tube: cover from a solar flare.',
+    'eva.inPod': 'In a hab pod: cover from a solar flare.',
+    'eva.open': 'Hold to open: {what} · {s} s',
+    'eva.salvage': 'Hold to salvage: {what} · {s} s',
+    'eva.repair': 'Hold to repair: {what} · {s} s',
+    'eva.atDoor': 'no room for {n}: left at the door',
+    'eva.refilled': 'Hab pod: your suit is full again ({s} s).',
+    'eva.forecast': 'Next round: {w}',
+    'eva.forecastBy': 'Forecast from a repaired weather station',
+    'disc.new': 'Landmark discovered',
+    'disc.by': 'found by {name}',
+    'disc.formation': 'Natural formation surveyed',
+    'eva.repairedWeather': "Weather station repaired: +{n} science, and the forecast now shows next round's weather",
+    'eva.repairedMast': 'Comms mast repaired: what it picks up is marked ? on the map',
+    'eva.err.noStructure': 'There is no structure here.',
+    'eva.err.badKind': 'That is not used this way.',
+    'eva.err.done': 'Already used or repaired.',
+    'eva.err.noLandmark': 'There is no landmark there.',
+    'eva.err.known': 'A crewmate found it first.',
+    'eva.err.refilled': 'You have already refilled your suit at this pod this round.',
     'eva.brief.storm': 'a dust storm (you see {n} tiles)',
     'eva.brief.rupture': 'an O₂ leak at the base (bring canisters home)',
     'eva.cond.title': 'Outside this round',
-    'eva.cond.flare': 'Solar flare: {w} s after the first of you steps outside, a {c} s countdown starts. Be under cover when it ends (the base, a cave or the storm shelter), or take +{d} mSv.',
+    'eva.cond.flare': 'Solar flare: {w} s after the first of you steps outside, a {c} s countdown starts. Be under cover when it ends (the base, a cave, a lava tube, a hab pod or the storm shelter), or take +{d} mSv.',
     'eva.cond.flareOn': 'The solar flare is on its way: watch the countdown on the surface.',
     'eva.cond.flareHit': 'The solar flare caught {names} in the open: +{d} mSv each at the advance.',
     'eva.cond.flareSafe': 'The solar flare has passed. Everyone outside was under cover.',
     'eva.cond.devils': 'Dust devils: one that catches you on foot throws you {n} tiles and takes {s} s of suit. The rover is safe.',
     'eva.cond.storm': 'Dust storm: you can see {n} tiles around you.',
     'eva.cond.rupture': 'O₂ line rupture: every O₂ canister you carry home adds {kg} kg to the base.',
-    'help.11': 'Dangers outside: a solar flare gives a 60 s warning. Be at the base, in a cave (a dark arch at the foot of a cliff) or in the storm shelter when it ends, or take +15 mSv. Dust devils throw you aside and take 10 s of suit, so walk round them (the rover is safe). A dust storm shrinks how far you can see.',
+    'help.11': 'Dangers outside: a solar flare gives a 60 s warning. Be at the base, in a cave (a dark arch at the foot of a cliff), a lava tube, a hab pod or the storm shelter when it ends, or take +15 mSv. Dust devils throw you aside and take 10 s of suit, so walk round them (the rover is safe). A dust storm shrinks how far you can see.',
     'help.9': 'Explore: the world goes on in every direction. Walk or drive out of the base, and what you see stays on your map. Press M or tap the minimap to open the map. Each region of Mars looks different and comes with a real fact.',
 
     'notes.title': 'Science notes',
@@ -2928,6 +3061,45 @@ p { margin: 0; }
     'region.fact.canyons': 'Like Valles Marineris, the Grand Canyon of Mars: about 3,870 km long, up to 600 km across, and about 9.3 km deep at its deepest.',
     'region.fact.icy': 'Like Arcadia Planitia, where orbiters mapped water ice less than 30 cm under the ground. "You wouldn\'t need a backhoe to dig up this ice. You could use a shovel," said NASA scientist Sylvain Piqueux.',
     'region.fact.volcanic': "Like the slopes of the volcano Arsia Mons. NASA's Mars Odyssey spotted seven very dark holes there, about 100 to 225 m across, that may be skylights into caves.",
+    'lm.delta.name': 'Ancient river delta',
+    'lm.delta.fact': 'Like the delta in Jezero Crater, a fan that formed about 3.5 billion years ago where a river met a lake. There, in 2022, Perseverance made its most abundant organic detections yet, in a rock called Wildcat Ridge.',
+    'lm.tube.name': 'Lava tube',
+    'lm.tube.fact': "Like the flanks of Arsia Mons, where a lava tube's ceiling collapsed in one spot and made a pit about 50 m across. The tube below is likely at least that big, much bigger than similar caves on Earth.",
+    'lm.crater.name': 'Crater with a central peak',
+    'lm.crater.fact': 'On Mars, craters wider than about 7 km stop being simple bowls: the walls collapse inward and form a central peak. It brings up material from deep below the surface, a good place to look for ancient rocks.',
+    'lm.methane.name': 'Methane vent',
+    'lm.methane.fact': 'Like Gale Crater, where Curiosity has repeatedly detected methane just above the ground: under half a part per billion on average, with spikes of up to 20. Microbes can make methane, but so can rocks, water and heat.',
+    'lm.scarp.name': 'Exposed ice scarp',
+    'lm.scarp.fact': "Like the eight slopes where NASA's Mars Reconnaissance Orbiter found thick buried ice laid bare, some as steep as 55 degrees. The fairly pure ice, likely snow from long ago, lies under just 1–2 m of rock and dust.",
+    'lm.stardune.name': 'Giant star dune',
+    'lm.stardune.fact': "Star dunes form when the sand-moving wind comes from several directions at different times of day or year. NASA's Mars Reconnaissance Orbiter spotted some between dunes pointing in opposite directions, a sign the area seems to be gathering sand.",
+    'fm.arch.name': 'Rock arch',
+    'fm.arch.fact': "In Tartarus Colles, NASA's HiRISE camera saw what may be a natural bridge, 23 m wide, over a narrow trough. The trough likely formed as a lava tube whose roof mostly caved in, leaving only a small section standing.",
+    'fm.yardang.name': 'Yardang ridges',
+    'fm.yardang.fact': "Yardangs are ridges scoured out by windblown sand. They are a hallmark of the Medusae Fossae Formation, imaged by NASA's Mars Odyssey: a patchy pile of eroding sediments spanning over 5,000 km along Mars' equator.",
+    'fm.hoodoo.name': 'Hoodoos',
+    'fm.hoodoo.fact': "Hoodoos are tall columns protected by a strong cap rock. Mars has something similar: NASA's Mars Reconnaissance Orbiter often sees river channels perched above the land, because the sediment inside them was stronger than its surroundings.",
+    'fm.balanced.name': 'Balanced rock',
+    'fm.balanced.fact': "NASA's HiRISE camera saw an oblong boulder, about 6 m tall and 3.5 m wide, that tumbled about 500 m down a slope on Mars and came to rest standing upright. Its dotted trail suggests it couldn't roll straight.",
+    'fm.ventifact.name': 'Ventifacts',
+    'fm.ventifact.fact': 'Wind-sharpened rocks are called ventifacts. In the foothills of Mount Sharp, Curiosity met scaly "gator-back" ventifacts made of sandstone, the hardest rock it has found on Mars. Rocks like these chewed up its wheels earlier in the mission.',
+    'fm.layered.name': 'Layered outcrop',
+    'fm.layered.fact': "In Becquerel Crater, rock layers averaging 3.6 m thick come in bundles of about 10. That matches a known 10-to-one pattern in how the tilt of Mars' axis changes, suggesting the rhythm comes from cycles in the planet's tilt.",
+    'fm.deviltracks.name': 'Dust-devil tracks',
+    'fm.deviltracks.fact': 'In southern Schiaparelli Basin, dark tracks form where dust devils scour off a thin blanket of bright dust, exposing darker rock beneath. Martian dust devils can grow as big as tornadoes on Earth, with plumes up to 9 km high.',
+    'ks.cache.name': 'Supply cache',
+    'ks.cache.log': 'Sol 96. Cache placed and sealed: O₂ canisters, spare kits and food for the crew. The seal is holding; next check in 50 sols. Kestrel Control: "Nice work. The crew launches in 300 sols."',
+    'ks.wreck.name': 'Wrecked scout rover',
+    'ks.wreck.log': 'Sol 458. Driving to the nearest pod as ordered, but it is nearly dark at noon and my cameras can barely see. Slid down a dune and tipped onto my side: wheel 4 cracked, panels in the sand, battery 9 %. Route map for the crew saved; sending at the next relay pass.',
+    'ks.weather.name': 'Weather station',
+    'ks.weather.log': 'Sol 455. Dust in the air has tripled in 5 sols, and every station reports the same: a global dust storm is coming. All units: charge your batteries and get ready to sleep through it. Scouts: drive to the nearest pod and park.',
+    'ks.mast.name': 'Comms mast',
+    'ks.mast.log': 'Sol 512. Storm over. The relay satellite passes twice a sol again, but it is getting old: one pass in five is lost. The scouts have been silent since sol 458, but their last route maps reached me. Saved here for the crew, with the position of every Kestrel unit in range.',
+    'ks.pod.name': 'Abandoned hab pod',
+    'ks.pod.log': 'Sol 977. Last message from Kestrel Control before the relay satellite went quiet: "The crew is coming, but not in time for us. Keep the pod warm for them." O₂ tanks full, heater on minimum, door unlocked. Waiting.',
+    'ks.array.name': 'Dusty solar array',
+    'ks.array.log': "Sol 410. Output down to 52 % of a clean panel; no dust devil has passed this way since sol 322. Battery: 410 charge cycles, capacity down to 81 %. Kestrel Control reports that the crew's launch has slipped to the next window, 26 months later. Switching off everything but the heaters.",
+    'ks.label': 'Kestrel Survey log · story, fictional',
     'sf.interact': "Interact",
     'sf.sprint': "Sprint",
     'sf.you': "You",
@@ -3679,9 +3851,21 @@ p { margin: 0; }
     'find.ice': 'Mỏ băng',
     'find.metal': 'Đá giàu kim loại',
     'find.pod': 'Khoang hàng bị rơi',
+    'find.cache': 'Thùng tiếp tế',
+    'find.wreck': 'Xác xe tự hành trinh sát',
+    'find.weather': 'Trạm khí tượng',
+    'find.array': 'Dàn pin mặt trời phủ bụi',
+    'find.landmark': 'Khám phá địa danh',
     'find.science': 'Địa điểm khoa học',
     'sci.delta': 'châu thổ sông cổ',
     'sci.vent': 'lỗ thoát khí mê-tan',
+    'sci.crater': 'đỉnh trung tâm hố va chạm',
+    'sci.arch': 'vòm đá',
+    'sci.yardang': 'dải gờ yardang',
+    'sci.hoodoo': 'cột đá hoodoo',
+    'sci.balanced': 'tảng đá cân bằng',
+    'sci.ventifact': 'đá gió mài',
+    'sci.deviltracks': 'vệt lốc bụi',
     'sci.meteorite': 'thiên thạch',
     'sci.layered': 'đá phân lớp',
     'haul.water': '+{n} kg nước',
@@ -3746,28 +3930,48 @@ p { margin: 0; }
     'eva.err.notDriving': 'Bạn đang không lái xe tự hành.',
     'eva.err.badAction': 'Chưa được lúc này.',
     'eva.err.suitFull': 'Chưa cần: hãy thở bình O₂ khi bộ đồ còn {s} giây trở xuống để không phí chút oxy nào.',
-    'eva.flare.run': '☢ Bão hạt Mặt Trời sắp tới: hãy vào nơi trú ẩn ở căn cứ, trong hang hoặc trong hầm trú bão',
+    'eva.flare.run': '☢ Bão hạt Mặt Trời sắp tới: hãy vào nơi trú ẩn ở căn cứ, trong hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão',
     'eva.flare.covered': '☢ Bão hạt Mặt Trời sắp tới: bạn đang ở nơi trú ẩn',
     'eva.flare.now': '☢ Bão hạt Mặt Trời đã tới',
     'eva.flare.hit': '☢ Bão hạt Mặt Trời bắt gặp bạn ngoài trời: +{d} mSv khi sang vòng mới',
     'eva.flare.missed': '☢ Bão hạt Mặt Trời đã qua: bạn đã ở nơi trú ẩn',
-    'eva.flare.warned': 'Cảnh báo bão hạt Mặt Trời: còn {s} giây để vào nơi trú ẩn ở căn cứ, trong hang hoặc trong hầm trú bão.',
+    'eva.flare.warned': 'Cảnh báo bão hạt Mặt Trời: còn {s} giây để vào nơi trú ẩn ở căn cứ, trong hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão.',
     'eva.devil': 'Một cơn lốc bụi cuốn trúng bạn: −{s} giây oxy bộ đồ.',
     'eva.inCave': 'Trong hang: nơi trú ẩn khỏi bão hạt Mặt Trời.',
     'eva.brief': 'Bên ngoài vòng này: {list}.',
     'eva.brief.flare': 'bão hạt Mặt Trời',
     'eva.brief.devils': 'lốc bụi',
+    'eva.inTube': 'Trong ống dung nham: nơi trú ẩn khỏi bão hạt Mặt Trời.',
+    'eva.inPod': 'Trong khoang sinh hoạt: nơi trú ẩn khỏi bão hạt Mặt Trời.',
+    'eva.open': 'Giữ để mở: {what} · {s} giây',
+    'eva.salvage': 'Giữ để tháo dỡ: {what} · {s} giây',
+    'eva.repair': 'Giữ để sửa: {what} · {s} giây',
+    'eva.atDoor': 'không còn chỗ cho {n} kiện: để lại ở cửa',
+    'eva.refilled': 'Khoang sinh hoạt: bộ đồ đã được nạp đầy ({s} giây).',
+    'eva.forecast': 'Vòng sau: {w}',
+    'eva.forecastBy': 'Dự báo từ một trạm khí tượng đã sửa',
+    'disc.new': 'Đã khám phá địa danh',
+    'disc.by': 'do {name} tìm thấy',
+    'disc.formation': 'Đã khảo sát địa hình tự nhiên',
+    'eva.repairedWeather': 'Đã sửa trạm khí tượng: +{n} điểm khoa học, và dự báo giờ cho thấy thời tiết vòng sau',
+    'eva.repairedMast': 'Đã sửa cột ăng-ten: những gì nó bắt được được đánh dấu ? trên bản đồ',
+    'eva.err.noStructure': 'Ở đây không có công trình nào.',
+    'eva.err.badKind': 'Không dùng được theo cách này.',
+    'eva.err.done': 'Đã được dùng hoặc sửa rồi.',
+    'eva.err.noLandmark': 'Ở đó không có địa danh nào.',
+    'eva.err.known': 'Một đồng đội đã tìm thấy nó trước.',
+    'eva.err.refilled': 'Bạn đã nạp đầy bộ đồ ở khoang này trong vòng này rồi.',
     'eva.brief.storm': 'bão bụi (bạn nhìn thấy {n} ô)',
     'eva.brief.rupture': 'rò rỉ O₂ ở căn cứ (hãy mang bình O₂ về)',
     'eva.cond.title': 'Bên ngoài vòng này',
-    'eva.cond.flare': 'Bão hạt Mặt Trời: {w} giây sau khi người đầu tiên bước ra ngoài, đồng hồ đếm ngược {c} giây bắt đầu. Hãy ở nơi trú ẩn khi hết giờ (căn cứ, hang hoặc hầm trú bão), nếu không sẽ nhận +{d} mSv.',
+    'eva.cond.flare': 'Bão hạt Mặt Trời: {w} giây sau khi người đầu tiên bước ra ngoài, đồng hồ đếm ngược {c} giây bắt đầu. Hãy ở nơi trú ẩn khi hết giờ (căn cứ, hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão), nếu không sẽ nhận +{d} mSv.',
     'eva.cond.flareOn': 'Bão hạt Mặt Trời đang tới: hãy theo dõi đồng hồ đếm ngược trên bề mặt.',
     'eva.cond.flareHit': 'Bão hạt Mặt Trời bắt gặp {names} ngoài trời: mỗi người +{d} mSv khi sang vòng mới.',
     'eva.cond.flareSafe': 'Bão hạt Mặt Trời đã qua. Mọi người bên ngoài đều đã ở nơi trú ẩn.',
     'eva.cond.devils': 'Lốc bụi: cơn lốc bắt gặp bạn khi đi bộ sẽ hất bạn đi {n} ô và lấy {s} giây oxy bộ đồ. Xe thám hiểm thì an toàn.',
     'eva.cond.storm': 'Bão bụi: bạn chỉ nhìn thấy {n} ô xung quanh.',
     'eva.cond.rupture': 'Vỡ ống dẫn oxy: mỗi bình O₂ bạn mang về căn cứ thêm {kg} kg oxy.',
-    'help.11': 'Nguy hiểm bên ngoài: bão hạt Mặt Trời báo trước 60 giây. Hãy ở căn cứ, trong hang (vòm tối dưới chân vách đá) hoặc trong hầm trú bão khi hết giờ, nếu không sẽ nhận +15 mSv. Lốc bụi hất bạn sang bên và lấy 10 giây oxy bộ đồ, nên hãy đi vòng qua (xe thám hiểm thì an toàn). Bão bụi làm bạn nhìn thấy gần hơn.',
+    'help.11': 'Nguy hiểm bên ngoài: bão hạt Mặt Trời báo trước 60 giây. Hãy ở căn cứ, trong hang (vòm tối dưới chân vách đá), ống dung nham, khoang sinh hoạt hoặc hầm trú bão khi hết giờ, nếu không sẽ nhận +15 mSv. Lốc bụi hất bạn sang bên và lấy 10 giây oxy bộ đồ, nên hãy đi vòng qua (xe thám hiểm thì an toàn). Bão bụi làm bạn nhìn thấy gần hơn.',
     'help.9': 'Khám phá: thế giới trải dài về mọi hướng. Hãy đi bộ hoặc lái xe ra khỏi căn cứ, những gì bạn nhìn thấy sẽ ở lại trên bản đồ. Nhấn M hoặc chạm bản đồ nhỏ để mở bản đồ. Mỗi vùng của sao Hỏa trông khác nhau và đi kèm một sự thật khoa học.',
 
     'notes.title': 'Ghi chú khoa học',
@@ -3846,6 +4050,45 @@ p { margin: 0; }
     'region.fact.canyons': 'Giống như Valles Marineris, "Grand Canyon của sao Hỏa": dài khoảng 3.870 km, rộng tới 600 km và sâu khoảng 9,3 km ở chỗ sâu nhất.',
     'region.fact.icy': 'Giống như đồng bằng Arcadia, nơi các tàu quỹ đạo phát hiện băng nước nằm dưới mặt đất chưa đến 30 cm. Nhà khoa học NASA Sylvain Piqueux nói: "Bạn không cần máy xúc để đào lớp băng này. Một cái xẻng là đủ."',
     'region.fact.volcanic': 'Giống như sườn núi lửa Arsia Mons. Tàu Mars Odyssey của NASA đã phát hiện ở đây bảy hố rất tối, rộng khoảng 100 đến 225 m, có thể là cửa sổ trời dẫn vào hang động.',
+    'lm.delta.name': 'Châu thổ sông cổ',
+    'lm.delta.fact': 'Giống như châu thổ trong hố Jezero, một dạng địa hình hình quạt hình thành khoảng 3,5 tỷ năm trước, nơi một con sông đổ vào hồ. Năm 2022, tàu Perseverance đã phát hiện lượng chất hữu cơ nhiều nhất từ đầu sứ mệnh tại đây, trong khối đá mang tên Wildcat Ridge.',
+    'lm.tube.name': 'Ống dung nham',
+    'lm.tube.fact': 'Giống như sườn núi lửa Arsia Mons, nơi trần của một ống dung nham sụp xuống ở một chỗ, tạo thành một hố rộng khoảng 50 m. Ống bên dưới có lẽ cũng rộng ít nhất chừng ấy, lớn hơn nhiều so với những hang tương tự trên Trái Đất.',
+    'lm.crater.name': 'Hố va chạm có đỉnh trung tâm',
+    'lm.crater.fact': 'Trên sao Hỏa, các hố va chạm rộng hơn khoảng 7 km không còn là những cái bát đơn giản: thành hố sụp vào trong và tạo nên một đỉnh ở giữa. Đỉnh này đưa vật chất từ sâu dưới bề mặt lên, nên là nơi thích hợp để tìm đá cổ.',
+    'lm.methane.name': 'Lỗ thoát khí mêtan',
+    'lm.methane.fact': 'Giống như hố Gale, nơi tàu Curiosity nhiều lần phát hiện khí mêtan ngay sát mặt đất: trung bình chưa đến nửa phần tỷ, có lúc vọt lên tới 20 phần tỷ. Vi sinh vật có thể tạo ra mêtan, nhưng đá, nước và nhiệt cũng có thể.',
+    'lm.scarp.name': 'Vách băng lộ thiên',
+    'lm.scarp.fact': 'Giống như tám sườn dốc nơi tàu Mars Reconnaissance Orbiter của NASA phát hiện những lớp băng dày bị chôn vùi nay lộ ra, có chỗ dốc tới 55 độ. Lớp băng khá tinh khiết này, có lẽ vốn là tuyết rơi từ rất lâu, chỉ nằm dưới 1–2 m đất đá và bụi.',
+    'lm.stardune.name': 'Cồn cát hình sao khổng lồ',
+    'lm.stardune.fact': 'Cồn cát hình sao hình thành khi gió cuốn cát thổi tới từ nhiều hướng, vào những thời điểm khác nhau trong ngày hoặc trong năm. Tàu Mars Reconnaissance Orbiter của NASA đã chụp được vài cồn như thế nằm giữa những cồn cát quay về hai hướng ngược nhau, dấu hiệu cho thấy cát dường như đang tích tụ ở vùng này.',
+    'fm.arch.name': 'Vòm đá',
+    'fm.arch.fact': 'Ở vùng Tartarus Colles, camera HiRISE của NASA đã chụp được một thứ có thể là cây cầu tự nhiên rộng 23 m, bắc qua một rãnh hẹp. Rãnh này có lẽ vốn là một ống dung nham mà phần mái đã sụp gần hết, chỉ còn sót lại một đoạn nhỏ.',
+    'fm.yardang.name': 'Dải gờ yardang',
+    'fm.yardang.fact': 'Yardang là những dải gờ hình thành khi cát bị gió cuốn bào mòn mặt đất. Chúng là nét đặc trưng của thành hệ Medusae Fossae, được tàu Mars Odyssey của NASA chụp lại: một khối trầm tích đang bị bào mòn, trải thành từng mảng dài hơn 5.000 km dọc xích đạo sao Hỏa.',
+    'fm.hoodoo.name': 'Cột đá hoodoo',
+    'fm.hoodoo.fact': 'Hoodoo là những cột đá cao được một lớp đá đỉnh cứng che chắn. Sao Hỏa cũng có thứ tương tự: tàu Mars Reconnaissance Orbiter của NASA thường thấy những lòng sông nhô cao hơn địa hình xung quanh, vì trầm tích bên trong chúng bền chắc hơn phần đất bao quanh.',
+    'fm.balanced.name': 'Tảng đá cân bằng',
+    'fm.balanced.fact': 'Camera HiRISE của NASA đã chụp được một tảng đá thuôn dài, cao khoảng 6 m và rộng 3,5 m, lăn khoảng 500 m xuống một sườn dốc trên sao Hỏa rồi dừng lại ở tư thế dựng đứng. Vệt lăn đứt quãng của nó gợi ý rằng nó không thể lăn thẳng.',
+    'fm.ventifact.name': 'Đá gió mài',
+    'fm.ventifact.fact': 'Những tảng đá bị gió mài sắc được gọi là ventifact. Ở vùng chân núi Sharp, tàu Curiosity đã gặp những ventifact bằng sa thạch, bề mặt sần như vảy nên được gọi là "lưng cá sấu", loại đá cứng nhất mà nó từng gặp trên sao Hỏa. Những tảng đá như thế từng làm nát bánh xe của nó trước đó trong sứ mệnh.',
+    'fm.layered.name': 'Vỉa đá phân lớp',
+    'fm.layered.fact': 'Ở hố Becquerel, các lớp đá dày trung bình 3,6 m xếp thành từng cụm khoảng 10 lớp. Tỉ lệ 10:1 này khớp với một quy luật đã biết trong sự thay đổi độ nghiêng trục quay của sao Hỏa, gợi ý rằng nhịp điệu của các lớp đá bắt nguồn từ những chu kỳ nghiêng của hành tinh.',
+    'fm.deviltracks.name': 'Vệt lốc bụi',
+    'fm.deviltracks.fact': 'Ở phía nam lòng chảo Schiaparelli, những vệt tối hình thành khi lốc bụi quét đi lớp bụi sáng mỏng phủ trên mặt đất, làm lộ ra lớp đá tối màu bên dưới. Lốc bụi trên sao Hỏa có thể lớn ngang những cơn lốc xoáy trên Trái Đất, với cột bụi cao tới 9 km.',
+    'ks.cache.name': 'Thùng tiếp tế',
+    'ks.cache.log': 'Sol 96. Đã đặt và niêm phong thùng tiếp tế: bình O₂, bộ phụ tùng và thực phẩm cho phi hành đoàn. Nắp vẫn kín; 50 sol nữa kiểm tra lại. Trung tâm điều khiển Kestrel: "Làm tốt lắm. Phi hành đoàn sẽ khởi hành sau 300 sol nữa."',
+    'ks.wreck.name': 'Xác xe tự hành trinh sát',
+    'ks.wreck.log': 'Sol 458. Đang chạy về khoang sinh hoạt gần nhất theo lệnh, nhưng giữa trưa mà trời gần như tối đen, camera hầu như không thấy gì. Trượt xuống một cồn cát và lật nghiêng: bánh số 4 nứt, tấm pin vùi trong cát, pin còn 9 %. Đã lưu bản đồ tuyến đường cho phi hành đoàn; sẽ gửi khi vệ tinh chuyển tiếp bay qua lần tới.',
+    'ks.weather.name': 'Trạm khí tượng',
+    'ks.weather.log': 'Sol 455. Lượng bụi trong không khí đã tăng gấp ba sau 5 sol, và trạm nào cũng báo như nhau: một cơn bão bụi toàn cầu đang kéo đến. Tất cả thiết bị: sạc đầy pin và chuẩn bị ngủ đông cho đến khi bão tan. Các xe trinh sát: chạy về khoang sinh hoạt gần nhất và đỗ lại.',
+    'ks.mast.name': 'Cột ăng-ten liên lạc',
+    'ks.mast.log': 'Sol 512. Bão đã tan. Vệ tinh chuyển tiếp lại bay qua hai lượt mỗi sol, nhưng nó đã cũ: cứ năm lượt thì mất một. Các xe trinh sát im lặng từ sol 458, nhưng bản đồ tuyến đường cuối cùng của chúng đã đến được đây. Đã lưu lại cho phi hành đoàn, cùng vị trí của mọi thiết bị Kestrel trong tầm phủ sóng.',
+    'ks.pod.name': 'Khoang sinh hoạt bỏ hoang',
+    'ks.pod.log': 'Sol 977. Tin nhắn cuối cùng từ Trung tâm điều khiển Kestrel trước khi vệ tinh chuyển tiếp im bặt: "Phi hành đoàn sẽ đến, nhưng không kịp gặp chúng ta. Hãy giữ ấm khoang cho họ." Bình chứa O₂ đầy, máy sưởi ở mức thấp nhất, cửa không khóa. Đang chờ.',
+    'ks.array.name': 'Dàn pin mặt trời phủ bụi',
+    'ks.array.log': 'Sol 410. Công suất chỉ còn 52 % so với khi tấm pin còn sạch; từ sol 322 đến nay chưa có cơn lốc bụi nào đi qua đây. Pin lưu trữ: 410 chu kỳ sạc, dung lượng còn 81 %. Trung tâm điều khiển Kestrel báo chuyến phóng của phi hành đoàn đã lùi sang cửa sổ phóng kế tiếp, muộn hơn 26 tháng. Tắt mọi hệ thống, chỉ giữ máy sưởi.',
+    'ks.label': 'Nhật ký Khảo sát Kestrel · truyện hư cấu',
     'sf.interact': "Tương tác",
     'sf.sprint': "Chạy",
     'sf.you': "Bạn",
@@ -4079,13 +4322,13 @@ p { margin: 0; }
     return (STR[lang] && STR[lang][key] != null) || en[key] != null;
   }
 
-  return { t, has, STR, SOURCES, REGION_SOURCES, NOTES, LANGS: ['en', 'vi'] };
+  return { t, has, STR, SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, LANGS: ['en', 'vi'] };
 });
 
 </script>
 <script>
 /*
- * SOL 500 — hand-built SVG art: UI icons, outpost structures, crew portraits and the dusk landscape.
+ * SOL 500 — hand-built SVG art: UI icons, outpost structures, points of interest, crew portraits and the dusk landscape.
  * Every function returns an SVG string built only from constants (never from player text).
  */
 (function (root) {
@@ -4252,6 +4495,155 @@ p { margin: 0; }
     return `<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
   }
 
+  // ---------- points of interest on the map (64×64, 3/4 view and light from the upper left, as the modules) ----------
+  // Each fills a square as wide as its footprint, with its bottom edge on the footprint's: a footprint wider than deep (the
+  // 3×2 wreck, the 4×2 array) leaves the top of the square to what stands up, as with the modules. A size that is not a
+  // positive number gives 64 px; an unknown id gives a known drawing.
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const svg64 = (size, inner) => {
+    const s = Number.isFinite(size) && size > 0 ? size : 64;
+    return `<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
+  };
+
+  // The Kestrel Survey (spec §3.7): robotic hardware older than the outpost, so its paint is faded and dust lies on its
+  // tops and feet. One teal accent marks the programme; a repaired machine's beacon is lit. Paint: hull, its lit top, its
+  // shade, dark.
+  const KH = '#c3b7a7', KT = '#d8cdbe', KS = '#968a7c', KD = '#3d3537', TEAL = '#4a978e', LIT = '#a9f4e4', DUST = '#a96f48', STRUT = '#7a736d';
+  const dust = (d, op) => `<path d="${d}" fill="${DUST}" opacity="${op || 0.45}"/>`;
+  const beacon = (x, y, on) => (on ? `<circle cx="${x}" cy="${y}" r="6" fill="${LIT}" opacity="0.3"/><circle cx="${x}" cy="${y}" r="2.4" fill="${LIT}"/>`
+    : `<circle cx="${x}" cy="${y}" r="2.2" fill="#4d4346"/>`);
+  // the weather station's top, from the break in its mast up: the boom with the wind cups and the vane, and the beacon
+  const weatherTop = on => `<path d="M32 27V12M21 18h22M21 18v-4M17 14h8" stroke="#8f8780" stroke-width="1.6"/><circle cx="17" cy="14" r="1.8" fill="${KH}"/>` +
+    `<circle cx="25" cy="14" r="1.8" fill="${KH}"/><path d="M43 18l5-4v8z" fill="${TEAL}"/>` + beacon(32, 10, on);
+
+  const KESTREL_ART = {
+    // a supply cache on its four landing legs; opened, its lid stands up behind and the box is empty
+    cache: done => shadow(27) +
+      `<path d="M16 46 9 53M48 46l7 7M24 48l-1 6M40 48l1 6" stroke="${STRUT}" stroke-width="2"/><path d="M6 53.5h6M52 53.5h6" stroke="${STRUT}" stroke-width="2.4" stroke-linecap="round"/>` +
+      (done ? `<path d="M15 20l2-14h30l2 14z" fill="#a89c8d"/><path d="M19 9h26" stroke="${TEAL}" stroke-width="2"/>` : '') +
+      `<rect x="12" y="29" width="40" height="20" rx="2" fill="${KH}"/><path d="M32 29v20" stroke="${KS}"/><rect x="12" y="35" width="40" height="3.5" fill="${TEAL}"/>` + dust('M12 43h40v6H12z') +
+      (done ? `<path d="M15 20h34l3 9H12z" fill="${KD}"/><path d="M15 20h34l1 3H14z" fill="#62575a"/><path d="M15 20h34" stroke="${KS}" stroke-width="1.5"/>`
+        : `<path d="M15 20h34l3 9H12z" fill="${KT}"/><path d="M20 27v4M44 27v4" stroke="${KD}" stroke-width="3"/>` + dust('M17 22h18l-1 4H16z', 0.35)),
+    // a six-wheeled scout rover that crashed nose down; salvaged, only its stripped frame is left
+    wreck: done => (done
+      ? shadow(25) + `<g transform="rotate(-8 32 44)"><rect x="10" y="35" width="42" height="11" rx="2" fill="#a39a90"/><path d="M13 38h9v5h-9zM26 38h10v5H26zM40 38h9v5h-9z" fill="${KD}"/>` +
+        `<path d="M13 29h36l3 6H10z" fill="${KD}"/><path d="M18 29l-1 6M26 29v6M34 29v6M42 29l1 6" stroke="#a39a90" stroke-width="1.5"/><path d="M17 29v-4" stroke="#9a938c" stroke-width="2"/>` +
+        `<rect x="10" y="44" width="14" height="1.5" fill="${TEAL}" opacity="0.7"/><path d="M16 46v3M30 46v3M45 46v3" stroke="${STRUT}" stroke-width="2"/></g>`
+      : shadow(28) + dust('M5 53q8-7 20-3l1 3z', 0.55) + `<g transform="rotate(-8 32 44)"><rect x="10" y="30" width="42" height="12" rx="2.5" fill="${KH}"/>` +
+        `<path d="M13 24h36l3 6H10z" fill="#55627a"/>` + dust('M13 24h36l3 6H10z', 0.5) + `<rect x="10" y="35" width="42" height="2.5" fill="${TEAL}"/>` +
+        `<path d="M16 45l7-4 7 5" stroke="${STRUT}" stroke-width="1.8" fill="none"/><g fill="${KD}" stroke="${STRUT}" stroke-width="1.5"><circle cx="16" cy="45" r="5"/><circle cx="30" cy="46" r="5"/></g>` +
+        `<path d="M46 42l2 5" stroke="${STRUT}" stroke-width="2"/><path d="M17 24v-8l7-3" stroke="#9a938c" stroke-width="2" fill="none"/><rect x="22" y="10" width="8" height="5" rx="1" fill="${STRUT}"/></g>` +
+        `<ellipse cx="54" cy="51" rx="5" ry="3" fill="${KD}" stroke="${STRUT}" stroke-width="1.4"/>`),
+    // a weather station: a box on a tripod with its own small panel; broken, the mast is snapped and its top leans over, a cup
+    // in the dust; repaired, it stands straight, the panel is clean and the beacon is lit
+    weather: done => shadow(22) +
+      `<path d="M32 40 20 54M32 40l12 14" stroke="${STRUT}" stroke-width="2"/><path d="M15 51v-6" stroke="${STRUT}" stroke-width="1.6"/><path d="M8 45l4-7h10l-4 7z" fill="${done ? PANEL : '#4c5b76'}"/>` +
+      (done ? `<path d="M10 41.5h10M15 38l-2 7" stroke="${GRID}" stroke-width="0.7" opacity="0.7"/>` : dust('M8 45l4-7h10l-4 7z', 0.6)) +
+      `<path d="M32 40V27" stroke="#8f8780" stroke-width="1.6"/><rect x="24" y="41" width="16" height="10" rx="1.5" fill="${KH}"/><path d="M25 38h14l1 3H24z" fill="${KT}"/><rect x="24" y="45" width="16" height="2.5" fill="${TEAL}"/>` +
+      (done ? weatherTop(true) : `<g transform="rotate(35 32 27)">${weatherTop(false)}</g><circle cx="50" cy="52" r="1.8" fill="${KH}"/>`),
+    // a lattice comms mast; broken, a guy wire hangs and the dish droops; repaired, the dish looks up and the beacon is lit
+    mast: done => shadow(19) +
+      `<path d="M31 16 9 53${done ? 'M33 16l22 37' : 'M33 16q7 14 4 24'}" stroke="#9b938c" stroke-width="0.8" opacity="0.8" fill="none"/>` +
+      `<path d="M21 50h22l3 4H18z" fill="${STRUT}"/><path d="M26 51 30.5 13M38 51 33.5 13" stroke="#857d76" stroke-width="2"/><path d="M26.6 46l10.6-6-9.9-5 9.3-6-8.7-5 8.1-6" stroke="#857d76" stroke-width="1.1" fill="none"/>` +
+      `<rect x="26" y="42" width="12" height="8" rx="1" fill="${KH}"/><rect x="26" y="45" width="12" height="2.5" fill="${TEAL}"/><path d="M34 24h5" stroke="#857d76" stroke-width="1.6"/>` +
+      (done ? `<ellipse cx="43" cy="20" rx="8" ry="3.6" transform="rotate(-40 43 20)" fill="${KH}"/><path d="M43 20l4-5" stroke="${KS}" stroke-width="1.2"/><path d="M50 9a7 7 0 0 1 5 5M52 5a11 11 0 0 1 7 8" stroke="${LIT}" stroke-width="1.2" fill="none" opacity="0.7"/>`
+        : `<ellipse cx="41" cy="30" rx="8" ry="3.6" transform="rotate(70 41 30)" fill="${KS}"/><ellipse cx="41.6" cy="30" rx="6" ry="2.4" transform="rotate(70 41.6 30)" fill="#7d7268"/>`) +
+      beacon(32, 11, done),
+    // an abandoned hab pod: its roof from outside; inside (the roof hidden), its room. Drawn for a 5×5 footprint: a ring of
+    // wall one tile thick, a 3×3 room, and the door in the middle of the south wall
+    pod: (done, inside) => `<ellipse cx="32" cy="58" rx="31" ry="5" fill="#000" opacity="0.32"/>` +
+      `<rect x="2" y="44" width="60" height="15" rx="4" fill="${KS}"/><rect x="2" y="49" width="60" height="2.5" fill="${TEAL}"/><rect x="26" y="45" width="12" height="14" rx="1.5" fill="${KD}"/>` +
+      `<circle cx="13" cy="54.5" r="2.2" fill="${WIN}" stroke="${KH}"/><circle cx="51" cy="54.5" r="2.2" fill="${WIN}" stroke="${KH}"/>` +
+      (inside
+        ? `<rect x="2" y="3" width="60" height="45" rx="9" fill="#b9ad9d"/><rect x="13" y="13" width="38" height="33" fill="#6d625c"/><rect x="13" y="13" width="38" height="5" fill="#4f4542"/>` +
+          `<path d="M13 31h38M26 18v28M38 18v28" stroke="#5c524d" stroke-width="0.8"/><rect x="14" y="21" width="9" height="18" rx="1.5" fill="#8c8076"/><rect x="15" y="22" width="7" height="5" rx="1" fill="#c9bfb3"/>` +
+          `<rect x="27" y="13" width="12" height="7" rx="1" fill="#3a3436"/><rect x="29" y="14.5" width="8" height="3" fill="${LIT}" opacity="0.65"/>` +
+          `<rect x="44" y="20" width="6" height="12" rx="3" fill="#86b8ea"/><circle cx="47" cy="34" r="1.3" fill="${LIT}"/><rect x="42" y="37" width="8" height="8" rx="1" fill="${KS}"/>` + dust('M26 46q6-5 12 0z', 0.5)
+        : `<rect x="2" y="3" width="60" height="45" rx="9" fill="#c9bdad"/><rect x="2" y="12" width="60" height="13" fill="${KT}"/><rect x="2" y="33" width="60" height="6" fill="#b4a898"/>` +
+          `<path d="M14 4v43M26 3v45M38 3v45M50 4v43" stroke="${KS}" stroke-width="0.8" opacity="0.7"/><rect x="40" y="14" width="12" height="8" rx="2" fill="${KS}"/><rect x="42" y="16" width="8" height="4" rx="1" fill="#837768"/>` +
+          dust('M6 22q7-4 14-1t12 0v3H6z', 0.3) + dust('M36 36q8-3 16 0v3H36z', 0.3) + `<path d="M10 12V2" stroke="${STRUT}" stroke-width="1.4"/>` + beacon(10, 2, false)),
+    // a dusty solar array of three panels; salvaged, two panels are gone and the one left is wiped clean
+    array: done => shadow(28) + [0, 1, 2].map(i => {
+      const x = 6 + i * 18, gone = done && i > 0;
+      const panel = `M${x} 44l5-13h14l-5 13z`;
+      return `<path d="M${x + 4} 44v7M${x + 12} 44v6" stroke="${STRUT}" stroke-width="1.6"/>` +
+        (gone ? `<path d="${panel}" fill="none" stroke="${STRUT}" stroke-width="1.4"/>`
+          : `<path d="${panel}" fill="${PANEL}"/><path d="M${x + 3} 37.5h14M${x + 9} 31l-5 13" stroke="${GRID}" stroke-width="0.8" opacity="0.7"/>` + (done ? '' : dust(panel, 0.75)));
+    }).join('') + `<rect x="52" y="47" width="7" height="6" rx="1" fill="${TEAL}"/>`,
+  };
+
+  // Natural formations (spec §3.7), real geology in regolith tones: lit top, face, shade and deep shade.
+  const R0 = '#c4916a', R1 = '#a06a4b', R2 = '#7a4a34', R3 = '#4f2f23';
+  const FORMATION_ART = {
+    // a thin span over a wide opening, the ground showing through it
+    arch: shadow(28) + `<path d="M4 54 5 44 3 36l4-8 3-6 6-6 8-3 10-1 10 1 8 4 4 5 1 8-2 8 3 8-1 8zM19 54l-1-10 2-10 4-8 8-5 8 1 5 6 2 10-1 8 1 8z" fill="${R1}" fill-rule="evenodd"/>` +
+      `<path d="M10 22l6-6 8-3 10-1 10 1 8 4 4 5-6-1-8-3-9-1-9 1-8 2z" fill="${R0}"/><path d="M52 17l4 5 1 8-2 8 3 8-1 8h-5l1-8-2-8 1-8-1-8z" fill="${R2}"/>` +
+      `<path d="M19 54l-1-10 2-10 4-8 8-5-2 4-5 5-2 8-1 8 1 8z" fill="${R3}"/><path d="M5 44h12M48 44h8M7 32h11M49 30h7" stroke="${R3}" stroke-width="0.8" opacity="0.5"/>`,
+    // three wind-carved ridges in a row: a blunt head into the wind (from the left), a long tail, grooves along the flanks
+    yardang: [[14, 30, 43, 6, 9], [6, 43, 54, 9, 12], [20, 54, 32, 5, 7]].map(([x, y, l, d, h]) =>
+      `<ellipse cx="${x + l / 2}" cy="${y + 0.5}" rx="${l / 2 + 1}" ry="2" fill="#000" opacity="0.3"/><path d="M${x} ${y}c0-${h - 4} 2-${h - 1} ${d}-${h}l${l - d} ${h - 2}v2z" fill="${R1}"/>` +
+      `<path d="M${x} ${y}c0-${h - 4} 2-${h - 1} ${d}-${h}l${l - d} ${h - 2}-${l - d - 1}-${h - 5}c-3 0-${d - 1} 2-${d} ${h - 5}z" fill="${R0}"/><path d="M${x + d + 2} ${y - 3}l${l - d - 6} 2" stroke="${R2}" stroke-width="0.8" opacity="0.7"/>`).join(''),
+    hoodoo: shadow(22) +
+      `<path d="M21 54c1-9-2-15 0-23s-1-11 1-17h8c2 6-1 10 0 17s-1 14 1 23z" fill="${R1}"/><path d="M26 14h4c2 6-1 10 0 17s-1 14 1 23h-5z" fill="${R2}"/><ellipse cx="26" cy="14" rx="7.5" ry="3.4" fill="${R3}"/><ellipse cx="25.5" cy="12.8" rx="6.5" ry="2.3" fill="${R0}"/>` +
+      `<path d="M38 54c1-7-1-11 0-17s-1-8 0-11h7c1 3-1 6 0 11s-1 10 1 17z" fill="${R1}"/><path d="M42 26h3c1 3-1 6 0 11s-1 10 1 17h-4z" fill="${R2}"/><ellipse cx="41.5" cy="26" rx="6" ry="2.8" fill="${R3}"/><ellipse cx="41" cy="25" rx="5" ry="1.9" fill="${R0}"/>` +
+      `<path d="M10 54c1-6-1-9 0-13s0-5 1-7h5c1 2-1 4 0 7s0 7 1 13z" fill="${R1}"/><ellipse cx="13.5" cy="34" rx="4.8" ry="2.2" fill="${R3}"/><ellipse cx="13.2" cy="33.2" rx="4" ry="1.5" fill="${R0}"/>` +
+      `<path d="M21 30h10M21 42h11M38 38h8M10 44h7" stroke="${R0}" stroke-width="1.2" opacity="0.6"/>`,
+    // the oblong boulder of its fact: it tumbled down a slope, leaving a trail of dents behind it, and came to rest standing
+    // on end, nearly twice as tall as it is wide
+    balanced: shadow(16) +
+      `<ellipse cx="18" cy="46" rx="2.6" ry="1.2" fill="${R3}" opacity="0.5"/><ellipse cx="12" cy="40" rx="2.2" ry="1" fill="${R3}" opacity="0.4"/><ellipse cx="7" cy="34.5" rx="1.8" ry="0.8" fill="${R3}" opacity="0.3"/>` +
+      `<path d="M24 54 22 41 24 27 29 19 36 16 42 21 44 34 43 46 41 54z" fill="${R1}"/><path d="M24 54 22 41 24 27 29 19 36 16 32 22 28 34 27 54z" fill="${R0}"/>` +
+      `<path d="M42 21 44 34 43 46 41 54H36L38 40 39 27z" fill="${R2}"/><path d="M30 28l3 4M33 45l2-5" stroke="${R2}" stroke-width="0.9" opacity="0.7"/><ellipse cx="47" cy="53" rx="3" ry="1.7" fill="${R2}"/>`,
+    ventifact: shadow(24) + `<path d="M10 51 14 35l12-8 14 1 10 10 2 13z" fill="#4a4140"/><path d="M14 35l12-8 6 7-12 7z" fill="#7d716c"/><path d="M26 27l14 1 10 10-18-4z" fill="#605654"/>` +
+      `<path d="M40 28l10 10 2 13-12-4z" fill="#2f2928"/><path d="M16 41l8-5M17 45l9-6M19 49l8-5" stroke="#2a2423" stroke-width="0.9"/>` +
+      `<path d="M41 55l3-8 8-2 6 5-1 5z" fill="#4a4140"/><path d="M44 47l8-2 2 4-9 1z" fill="#7d716c"/><path d="M15 36l10-7" stroke="#b3a59d" stroke-width="0.8" opacity="0.7"/>`,
+    // an outcrop of soft and hard layers: a steep face on the left, ledges stepping down to the right, a ragged cap
+    layered: shadow(30) + [[3, 61, 46, 8, '#a2603f'], [4, 57, 39, 7, '#c99f78'], [6, 52, 32, 7, R1], [8, 46, 26, 6, '#cfa883']].map(([a, b, y, h, c]) =>
+      `<path d="M${a} ${y + h}l1-${h}h${b - a - 3}l2 ${h}z" fill="${c}"/><path d="M${a + 1} ${y + 0.6}h${b - a - 3}" stroke="#fff" stroke-width="1.2" opacity="0.2"/><path d="M${b - 7} ${y}h5l2 ${h}h-7z" fill="#000" opacity="0.18"/>`).join('') +
+      `<path d="M9 26l1-5 4-1 3-2 8-1 3 2h7l4 2 3 2 1 3z" fill="${R2}"/><path d="M9 26l1-5 4-1 3-2 8-1v9z" fill="${R1}"/>` +
+      `<path d="M34 39v-7M44 54v-8" stroke="${R3}" stroke-width="0.9" opacity="0.4"/><path d="M52 54l2-3h4l2 3zM6 54l2-2h3l1 2z" fill="${R2}"/>`,
+    // dust-devil tracks: dark lanes where the devils scoured off the bright dust, each as wide all along as the devil that
+    // made it, crossing one another; flat on the ground, and each ends inside the square, so no track is cut off at its edge
+    deviltracks: `<g fill="none" stroke="#1d110d" stroke-linecap="round" opacity="0.26"><path d="M6 49C17 45 27 38 35 32C43 26 50 21 58 17" stroke-width="4"/>` +
+      `<path d="M5 31C14 29 22 24 30 22C38 20 45 15 51 8" stroke-width="2.4"/><path d="M11 12C20 21 27 31 35 40C42 48 49 53 55 58" stroke-width="1.6"/>` +
+      `<path d="M31 58C39 55 47 50 58 45" stroke-width="3"/></g>`,
+  };
+
+  // Landmark props (spec §3.6): the skylight into a lava tube, and the methane vent (its puffs: ventPuff).
+  const PROP_ART = {
+    // a collapse pit with no rim: cracks round it, the far wall lit inside, black below, a slope of rubble going in at the front
+    skylight: `<ellipse cx="32" cy="34" rx="28" ry="18" fill="#000" opacity="0.12"/><path d="M5 30l7 2M59 38l-7-2M18 52l4-4M47 15l-3 4M8 42l6-2" stroke="#1a0f0c" stroke-width="1" opacity="0.45"/>` +
+      `<ellipse cx="32" cy="34" rx="22" ry="14" fill="#0b0607"/><path d="M10 34a22 14 0 0 1 44 0c-5-5-13-8-22-8s-17 3-22 8z" fill="#4a2a1f"/><path d="M10 34a22 14 0 0 1 44 0c-4-6-12-11-22-11s-18 5-22 11z" fill="#7a4632"/>` +
+      `<path d="M10 34a22 14 0 0 0 44 0" stroke="#b07a58" stroke-width="1.2" fill="none" opacity="0.5"/><path d="M25 48l3-6 4-3 4 3 3 6z" fill="#4e2c21"/><path d="M27 46h2M33 44h2M30 41h2" stroke="#8a5538" stroke-width="1.6"/>` +
+      `<ellipse cx="9" cy="24" rx="3.5" ry="2.2" fill="${R2}"/><ellipse cx="55" cy="47" rx="3" ry="1.9" fill="${R2}"/><ellipse cx="47" cy="12" rx="2.4" ry="1.5" fill="${R2}"/>`,
+    // a low mound split by a fissure, its lips crusted pale, in a faint pale halo
+    vent: `<ellipse cx="32" cy="42" rx="27" ry="12" fill="#e3d3ab" opacity="0.14"/><path d="M8 46c4-6 14-10 24-10s20 4 24 10c-6 3-14 4-24 4S14 49 8 46z" fill="#8a5a40"/>` +
+      `<path d="M10 45c5-5 13-8 22-8s17 3 22 8c-8-3-14-4-22-4s-15 1-22 4z" fill="#a87250"/><path d="M18 43l6-2 4 1 5-2 4 1 6-2 5 1" stroke="#1a0f0c" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>` +
+      `<path d="M19 41.4l5-2 4 1 5-2 4 1 6-2" stroke="#efe4c4" stroke-width="1" fill="none" opacity="0.7"/><path d="M13 47l5-2M46 45l5 2" stroke="#1a0f0c" stroke-width="1" opacity="0.6"/>` +
+      `<ellipse cx="22" cy="46.5" rx="3" ry="1.1" fill="#efe4c4" opacity="0.45"/><ellipse cx="42" cy="46" rx="2.5" ry="1" fill="#efe4c4" opacity="0.45"/><ellipse cx="11" cy="50" rx="2.6" ry="1.6" fill="${R2}"/><ellipse cx="53" cy="49" rx="2.2" ry="1.4" fill="${R2}"/>`,
+  };
+
+  // opts: { done } opened, salvaged or repaired; { inside } the hab pod's room, drawn while you are in it (its roof hidden).
+  function kestrel(id, size, opts) {
+    const o = opts || {};
+    return svg64(size, KESTREL_ART[own(KESTREL_ART, id) ? id : 'cache'](!!o.done, !!o.inside));
+  }
+  function formation(id, size) { return svg64(size, FORMATION_ART[own(FORMATION_ART, id) ? id : 'ventifact']); }
+  function prop(id, size) { return svg64(size, PROP_ART[own(PROP_ART, id) ? id : 'vent']); }
+
+  // The methane vent's puff, drawn over prop('vent') in the same square: three wisps rise from the fissure, grow and fade,
+  // a third of a cycle apart, so phase 1 looks like phase 0 and the loop never jumps. Any phase is safe (not a number: 0).
+  function ventPuff(phase, size) {
+    const p = Number.isFinite(phase) ? phase - Math.floor(phase) : 0;
+    let o = '';
+    for (let i = 0; i < 3; i++) {
+      const q = (p + i / 3) % 1, x = 33 + q * 10, y = 40 - q * 30, r = 2.5 + q * 8, a = (q * (1 - q) * 1.6).toFixed(2);
+      o += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="#efe6dc" opacity="${a}"/>` +
+        `<circle cx="${(x - r * 0.6).toFixed(1)}" cy="${(y + r * 0.4).toFixed(1)}" r="${(r * 0.7).toFixed(1)}" fill="#efe6dc" opacity="${a}"/>`;
+    }
+    return svg64(size, o);
+  }
+
   // ---------- crew portraits (64×64) ----------
   let uid = 0;
   const GLYPH = {
@@ -4316,7 +4708,7 @@ p { margin: 0; }
       `</svg>`;
   }
 
-  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, ROLE };
+  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, ROLE, kestrel, formation, prop, ventPuff };
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -4595,7 +4987,7 @@ p { margin: 0; }
   const KEY = 'sol500.lan';
   let session = null;
   let ws = null;        // the live socket, or null
-  let handlers = null;  // { onRoom, onStatus, onPos, onFog } while connected
+  let handlers = null;  // { onRoom, onStatus, onPos, onFog, onEvent } while connected
   let retry = 0;
   let timer = null;
   let gen = 0;          // bumped by disconnect(): tells an in-flight recover() it is stale
@@ -4657,10 +5049,10 @@ p { margin: 0; }
     return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?' + q.toString();
   }
 
-  function connect(onRoom, onStatus, onPos, onFog) {
+  function connect(onRoom, onStatus, onPos, onFog, onEvent) {
     if (!session) return;
     disconnect();
-    handlers = { onRoom, onStatus, onPos, onFog };
+    handlers = { onRoom, onStatus, onPos, onFog, onEvent };
     open();
   }
 
@@ -4680,6 +5072,7 @@ p { margin: 0; }
       else if (msg.t === 'pos') { if (h.onPos) h.onPos(msg.d); }
       else if (msg.t === 'fog') { if (h.onFog) h.onFog(msg.d); }
       else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone(msg.d.kind);
+      else if (msg.t === 'event' && msg.d) { if (h.onEvent) h.onEvent(msg.d); } // the rest (a discovery) are the game's
     };
     sock.onclose = () => {
       if (ws !== sock) return; // closed on purpose
@@ -4786,33 +5179,48 @@ p { margin: 0; }
  * (−4, −2), so the HQ is at (0, 0). Nothing that blocks is ever placed within FLAT_RADIUS tiles of the HQ.
  *
  * API: seedOf(missionSeed) → uint32 · regionAt(seed, x, y) → index into REGIONS
- *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds, caves }   (32×32, row-major)
+ *      chunk(seed, cx, cy) → { cx, cy, tiles: Uint8Array(1024), regions: Uint8Array(512), finds, caves, hidden, landmarks,
+ *        structures, formations, props }   (32×32, row-major)
  *        finds: [{ n, x, y, kind, ring, region, sub? }] in world tiles; a find's id is "<cx>,<cy>:<n>"
  *        caves: [{ n, x, y, region }] in world tiles: a cave's mouth, an open tile; its wall is the tile north of it
+ *        hidden: { finds: [n], caves: [n] }: the ones under a landmark's box or a structure's footprint. They keep their
+ *          place in the lists, so every id stays stable; src/expedition.js leaves them out.
+ *        landmarks: the ones whose box touches the chunk: { id: "L<i>,<j>", kind, i, j, x, y (its centre), region,
+ *          box: [x0, y0, x1, y1] (its footprint, inclusive), sites: finds as above (a site's id is "<landmark id>:<n>"),
+ *          and its shape (delta: dir, apex · tube: a, vert, s, skylight: [x, y] · crater: r, gaps · stardune: arms) }
+ *        structures: the ones whose footprint or apron touches the chunk: { id: "S<i>,<j>", kind, i, j, x, y (its door),
+ *          region, box: its footprint [x0, y0, x1, y1] (inclusive; the ring of tiles round it, its apron, is open ground) }
+ *        formations: the chunk's formation, or none: [{ id: "F<cx>,<cy>", kind, x, y (its spot, the tile south of its
+ *          middle), region, box: its square, sites: [] or its survey (id "<formation id>:0") }]; it blocks nothing
+ *        props: decor, scenery only: [{ x, y, kind }], kind from D.DECOR for the region
  *      ringOf(x, y) → 0 inner · 1 middle · 2 outer · 3 far
  *      tileOf(chunk, lx, ly) · regionOf(chunk, lx, ly)
  *      featuresNear(seed, x0, y0, x1, y1) → { canyons, craters, mesas } touching that tile box (inclusive)
+ *      landmarkAt(seed, i, j) → the landmark of cell (i, j) of the 256-tile grid, or null · landmarksNear(seed, x0, y0, x1, y1)
+ *      structureAt(seed, i, j) → the structure of cell (i, j) of the 64-tile grid, or null · structuresNear(seed, x0, y0, x1, y1)
+ *      reachesOut(seed, x, y, box?) → can (x, y) reach the border of the 96×96 window round it on foot (§2.3)
  *      hash(seed, a, b, c) → uint32 · unit(h) → [0, 1) · noise(seed, salt, x, y, size) → [0, 1]
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.SolWorldgen = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'));
+  else root.SolWorldgen = factory(root.SolData);
+})(typeof self !== 'undefined' ? self : this, function (D) {
   'use strict';
 
   const CHUNK = 32;
+  // SEDIMENT is a river delta's fan, SCARP an ice scarp's cliff and CREST the ridge of a star dune (landmarks, M4c).
   const TILE = {
     REGOLITH: 0, SAND: 1, DUNE: 2, BOULDER: 3, CLIFF: 4, RIM: 5, CRATER_FLOOR: 6, CANYON_FLOOR: 7, CANYON_WALL: 8,
     RAMP: 9, ICE: 10, POLYGON: 11, LAVA: 12, TUBE_FLOOR: 13, TUBE_WALL: 14, SKYLIGHT: 15, STRUCT_FLOOR: 16,
-    STRUCT_WALL: 17, BASE: 18,
+    STRUCT_WALL: 17, BASE: 18, SEDIMENT: 19, SCARP: 20, CREST: 21,
   };
   const NONE = 255; // "no feature here" in the feature layer
   const BLOCKING = new Uint8Array(32);
-  for (const k of ['BOULDER', 'CLIFF', 'RIM', 'CANYON_WALL', 'TUBE_WALL', 'STRUCT_WALL']) BLOCKING[TILE[k]] = 1;
-  // Walking speed on each tile (the rover ignores it).
+  for (const k of ['BOULDER', 'CLIFF', 'RIM', 'CANYON_WALL', 'TUBE_WALL', 'STRUCT_WALL', 'SCARP']) BLOCKING[TILE[k]] = 1;
+  // Walking speed on each tile (the rover ignores it). A star dune's crest is sand too.
   const SPEED = [];
   for (let i = 0; i < 32; i++) SPEED.push(1);
-  SPEED[TILE.DUNE] = 0.7;
+  SPEED[TILE.DUNE] = SPEED[TILE.CREST] = 0.7;
 
   const REGIONS = ['plains', 'dunes', 'craters', 'canyons', 'icy', 'volcanic'];
   const R = { PLAINS: 0, DUNES: 1, CRATERS: 2, CANYONS: 3, ICY: 4, VOLCANIC: 5 };
@@ -4945,11 +5353,12 @@ p { margin: 0; }
   }
   const grow = (b, p) => [b[0] - p, b[1] - p, b[2] + p, b[3] + p];
   const touch = (a, b) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
-  function nearBase(box) {
-    const b = grow(box, CLEAR);
+  // The squared distance from the HQ's tile to the nearest tile of a box.
+  function fromHQ2(b) {
     const dx = Math.max(b[0], 0, -b[2]), dy = Math.max(b[1], 0, -b[3]);
-    return dx * dx + dy * dy <= FLAT_RADIUS * FLAT_RADIUS;
+    return dx * dx + dy * dy;
   }
+  const nearBase = box => fromHQ2(grow(box, CLEAR)) <= FLAT_RADIUS * FLAT_RADIUS;
   function cellsTouching(box, size) {
     const out = [];
     for (let j = Math.floor(box[1] / size); j <= Math.floor(box[3] / size); j++) {
@@ -5098,7 +5507,7 @@ p { margin: 0; }
   // test proves all open ground near the base is connected, so every find can be reached on foot.
   const RINGS = [20, 40, 80];                   // inner ≤ 20 < middle ≤ 40 < outer ≤ 80 < far, in tiles from the HQ
   const FIND_KINDS = ['ice', 'metal', 'pod', 'science'];
-  const FIND_DARTS = 24, FIND_EDGE = 3, FIND_GAP = 5;
+  const FIND_DARTS = 24, FIND_EDGE = 3, FIND_GAP = 5; // dart i hashes salts 500 + i, 540 + i and 580 + i: keep FIND_DARTS ≤ 40
   const FIND_DENSITY = [1.6, 0.8, 1.6, 1.6, 1.8, 1.6]; // finds a chunk aims for, by region (the Dune Sea has few)
   const RING_DENSITY = [0.3, 0.6, 1, 1];               // fewer finds close to the base
   const KIND_WEIGHTS = [                             // ice, metal, pod, science, by region
@@ -5112,6 +5521,9 @@ p { margin: 0; }
     const d2 = x * x + y * y;
     return d2 <= RINGS[0] * RINGS[0] ? 0 : d2 <= RINGS[1] * RINGS[1] ? 1 : d2 <= RINGS[2] * RINGS[2] ? 2 : 3;
   }
+  // The region of tile i (row-major) of a chunk: its regions hold two tiles to a byte, four bits each.
+  const nibble = (regions, i) => (regions[i >> 1] >> ((i & 1) * 4)) & 15;
+  const tooClose = (list, x, y, gap) => list.some(f => Math.abs(f.x - x) < gap && Math.abs(f.y - y) < gap);
 
   // Crater floors and canyon floors hold ice: the chunk that owns a crater's centre (or a canyon's middle) puts an ice
   // deposit there first. Then darts land at random spots.
@@ -5124,8 +5536,8 @@ p { margin: 0; }
     for (const [x, y] of spots) {
       if (!own(x, y) || inFlat(x, y)) continue;
       const n = (y - y0) * CHUNK + (x - x0);
-      if (!ICY_GROUND[tiles[n]]) continue;
-      out.push({ n: out.length, x, y, kind: 'ice', ring: ringOf(x, y), region: (regions[n >> 1] >> ((n & 1) * 4)) & 15 });
+      if (!ICY_GROUND[tiles[n]] || tooClose(out, x, y, FIND_GAP)) continue; // spaced features never trip the gap today
+      out.push({ n: out.length, x, y, kind: 'ice', ring: ringOf(x, y), region: nibble(regions, n) });
     }
     for (let i = 0; i < FIND_DARTS; i++) {
       const h = hash(seed, cx, cy, 500 + i);
@@ -5134,9 +5546,9 @@ p { margin: 0; }
       if (inFlat(x, y)) continue;
       const code = tiles[n];
       if (BLOCKING[code] || code === TILE.BASE) continue;
-      const r = (regions[n >> 1] >> ((n & 1) * 4)) & 15, ring = ringOf(x, y);
+      const r = nibble(regions, n), ring = ringOf(x, y);
       if (unit(hash(seed, cx, cy, 540 + i)) >= FIND_DENSITY[r] * RING_DENSITY[ring] / FIND_DARTS) continue;
-      if (out.some(f => Math.abs(f.x - x) < FIND_GAP && Math.abs(f.y - y) < FIND_GAP)) continue;
+      if (tooClose(out, x, y, FIND_GAP)) continue;
       const w = KIND_WEIGHTS[r].slice();
       if (ICY_GROUND[code]) w[0] += 6;
       let pick = unit(hash(seed, cx, cy, 580 + i)) * (w[0] + w[1] + w[2] + w[3]), k = 0;
@@ -5161,16 +5573,275 @@ p { margin: 0; }
       if (wall !== TILE.CLIFF && wall !== TILE.CANYON_WALL) continue;
       const m = n + CHUNK, below = tiles[m];
       if (BLOCKING[below] || below === TILE.BASE) continue;
-      const x = cx * CHUNK + lx, y = cy * CHUNK + ly + 1, r = (regions[m >> 1] >> ((m & 1) * 4)) & 15;
+      const x = cx * CHUNK + lx, y = cy * CHUNK + ly + 1, r = nibble(regions, m);
       if (unit(hash(seed, x, y, 650)) >= CAVE_CHANCE[r]) continue;
-      if (out.some(c => Math.abs(c.x - x) < CAVE_GAP[r] && Math.abs(c.y - y) < CAVE_GAP[r])) continue;
+      if (tooClose(out, x, y, CAVE_GAP[r])) continue;
       out.push({ n: out.length, x, y, region: r });
     }
     return out;
   }
 
+  // ---------- landmarks (spec §3.6, M4c): one per 256×256 cell, over everything else ----------
+  // A landmark's centre is jittered inside its cell and its kind is picked from the kinds of the region at the centre
+  // (D.LANDMARKS). Its footprint is a box of at most 40×40 tiles lying at least 3 tiles inside the cell, so two landmarks
+  // never touch and a chunk looks up only the cells it touches. Inside the box the landmark overrides every feature: each
+  // tile is its shape's code, or the region's own ground. The box's outer ring is always ground and every open tile of the
+  // shape connects to it, so a landmark can never cut a pocket of open ground off.
+  const LM = D.LANDMARKS, LM_LO = 22; // its centre is at least 22 tiles inside the cell (half a 40-tile box plus 2)
+  const LM_KINDS = REGIONS.map(r => Object.keys(LM.kinds).filter(k => LM.kinds[k].regions.includes(r)));
+  const near = v => Math.floor(v + 0.5); // the nearest whole tile
+  const scarpTop = (y, dx) => y - 2 + Math.floor(dx * dx / 50);
+  // Each shape: make(seed, i, j, x, y) → its box, the spots of its finds (in the order of D.LANDMARKS' sites) and what
+  // drawing it needs; code(seed, landmark, x, y) → the tile at (x, y) in its box, or NONE for the region's ground.
+  const SHAPES = {
+    // A fan of layered sediment spreading 17 tiles from its apex, up to 53° either side of its axis, with three surveys.
+    delta: {
+      make(seed, i, j, x, y) {
+        const dir = hash(seed, i, j, 1010) % 16, u = DIRS16[dir], ax = x - u[0] * 8.5, ay = y - u[1] * 8.5;
+        const spots = [dir + 14, dir, dir + 2].map(k => { const d = DIRS16[k % 16]; return [near(ax + 9 * d[0]), near(ay + 9 * d[1])]; });
+        return { dir, apex: [ax, ay], box: [x - 15, y - 15, x + 15, y + 15], spots };
+      },
+      code(seed, l, x, y) {
+        const dx = x - l.apex[0], dy = y - l.apex[1], u = DIRS16[l.dir], along = dx * u[0] + dy * u[1], d2 = dx * dx + dy * dy;
+        return along > 0 && d2 <= 17 * 17 && along * along >= 0.36 * d2 ? TILE.SEDIMENT : NONE;
+      },
+    },
+    // A lava tube: a floor 3 tiles wide and 25–35 long inside its wall, running east–west (or north–south), entered
+    // through a skylight in its south (or east) wall. Ice lies near one end and rare metal near the other.
+    tube: {
+      make(seed, i, j, x, y) {
+        const h = hash(seed, i, j, 1010), a = 12 + (h % 6), vert = (h >>> 8) % 2 === 1, s = ((h >>> 12) % (a + 1)) - (a >> 1);
+        const at = (u, v) => (vert ? [x + v, y + u] : [x + u, y + v]);
+        const box = vert ? [x - 3, y - a - 2, x + 3, y + a + 2] : [x - a - 2, y - 3, x + a + 2, y + 3];
+        return { a, vert, s, skylight: at(s, 2), box, spots: [at(1 - a, 0), at(a - 1, 0)] };
+      },
+      code(seed, l, x, y) {
+        const u = l.vert ? y - l.y : x - l.x, v = l.vert ? x - l.x : y - l.y, au = Math.abs(u), av = Math.abs(v);
+        if (au > l.a + 1 || av > 2) return NONE;
+        if (au <= l.a && av <= 1) return TILE.TUBE_FLOOR;
+        return u === l.s && v === 2 ? TILE.SKYLIGHT : TILE.TUBE_WALL;
+      },
+    },
+    // A rim 20 tiles across (D.LANDMARKS radius 10) with three gaps, a floor patched with ice and a central peak. Ice lies
+    // on the floor either side of the peak, and the peak's survey just south of it.
+    crater: {
+      make(seed, i, j, x, y) {
+        const r = LM.kinds.crater.radius, h = hash(seed, i, j, 1010), g = DIRS16[(h >>> 8) % 16];
+        const gaps = [0, 5, 10].map(k => DIRS16[(h % 16 + k) % 16]);
+        const spots = [[near(x + 6 * g[0]), near(y + 6 * g[1])], [near(x - 6 * g[0]), near(y - 6 * g[1])], [x, y + 2]];
+        return { r, gaps, box: [x - r - 2, y - r - 2, x + r + 2, y + r + 2], spots };
+      },
+      code(seed, l, x, y) {
+        const dx = x - l.x, dy = y - l.y;
+        if (dx * dx + dy * dy <= 2.25) return TILE.CLIFF; // the central peak: the 3×3 tiles round the middle
+        const t = CODE.crater(l, x, y);
+        return t === TILE.CRATER_FLOOR && noise(seed, 1020, x, y, 5) > 0.62 ? TILE.ICE : t;
+      },
+    },
+    // A vent in the open ground: its survey is the vent itself (the surface draws the vent and its puffs there).
+    methane: {
+      make: (seed, i, j, x, y) => ({ box: [x - 4, y - 4, x + 4, y + 4], spots: [[x, y]] }),
+      code: () => NONE,
+    },
+    // A cliff of clean ice 31 tiles long and 2 thick, bowed so its ends lie 4 tiles further south, with 2 rows of exposed
+    // ice at its foot (its south face, the one the surface draws) and four ice deposits along the cliff.
+    scarp: {
+      make: (seed, i, j, x, y) => ({ box: [x - 17, y - 3, x + 17, y + 6], spots: [-11, -4, 4, 11].map(dx => [x + dx, scarpTop(y, dx) + 2]) }),
+      code(seed, l, x, y) {
+        const dx = x - l.x;
+        if (dx < -15 || dx > 15) return NONE;
+        const k = y - scarpTop(l.y, dx);
+        return k === 0 || k === 1 ? TILE.SCARP : k === 2 || k === 3 ? TILE.ICE : NONE;
+      },
+    },
+    // A star dune: 3–5 arms 11–16 tiles long round a summit. The arms' ridges and the summit are its crest, where the view
+    // is wider; the dune spreads 2.5 tiles either side of the ridges and 5 round the summit.
+    stardune: {
+      make(seed, i, j, x, y) {
+        const h = hash(seed, i, j, 1010), n = 3 + (h % 3), step = Math.floor(16 / n), first = (h >>> 4) % 16, arms = [];
+        for (let k = 0; k < n; k++) arms.push([(first + k * step) % 16, 11 + (hash(seed, i, j, 1011 + k) % 6)]);
+        return { arms, box: [x - 19, y - 19, x + 19, y + 19], spots: [] };
+      },
+      code(seed, l, x, y) {
+        const dx = x - l.x, dy = y - l.y, s2 = dx * dx + dy * dy;
+        let best = s2;
+        for (const [k, len] of l.arms) {
+          const u = DIRS16[k], t = Math.max(0, Math.min(len, dx * u[0] + dy * u[1])), px = dx - u[0] * t, py = dy - u[1] * t;
+          best = Math.min(best, px * px + py * py);
+        }
+        // 0.75 tiles either side of a ridge, so even a diagonal one is a path of side-by-side tiles.
+        if (best <= 0.5625 || s2 <= 2) return TILE.CREST;
+        return best <= 6.25 || s2 <= 25 ? TILE.DUNE : NONE;
+      },
+    },
+  };
+
+  // A find held by a point of interest, written like a chunk's finds. A survey's subject is the landmark's (or formation's)
+  // kind, but the methane vent's is 'vent', the subject the surface already labels, paints and lets the Biologist smell.
+  function site(seed, n, x, y, kind, sub) {
+    const f = { n, x, y, kind, ring: ringOf(x, y), region: regionAt(seed, x, y) };
+    if (kind === 'science') f.sub = sub;
+    return f;
+  }
+  // Points of interest are shared by every chunk they touch (and every mission with the seed), so they are frozen whole.
+  function deepFreeze(o) {
+    if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const k of Object.keys(o)) deepFreeze(o[k]); }
+    return o;
+  }
+
+  // The landmark of cell (i, j) of the 256-tile grid, or null. Its id is "L<i>,<j>".
+  function landmark(seed, i, j) {
+    return memo('L' + seed + ':' + i + ':' + j, () => {
+      if (unit(hash(seed, i, j, 1001)) >= LM.chance) return null;
+      const h = hash(seed, i, j, 1002), span = LM.cell - 2 * LM_LO;
+      const x = i * LM.cell + LM_LO + (h % span), y = j * LM.cell + LM_LO + ((h >>> 16) % span);
+      const region = regionAt(seed, x, y), kinds = LM_KINDS[region], kind = kinds[hash(seed, i, j, 1003) % kinds.length];
+      const { spots, ...shape } = SHAPES[kind].make(seed, i, j, x, y);
+      if (fromHQ2(shape.box) < LM.clear * LM.clear) return null;
+      const sites = spots.map(([sx, sy], n) => site(seed, n, sx, sy, LM.kinds[kind].sites[n], kind === 'methane' ? 'vent' : kind));
+      return deepFreeze(Object.assign({ id: 'L' + i + ',' + j, kind, i, j, x, y, region }, shape, { sites }));
+    });
+  }
+  // Every landmark whose box touches the tile box [x0..x1] × [y0..y1] (inclusive).
+  function landmarksNear(seed, x0, y0, x1, y1) {
+    const box = [x0, y0, x1, y1], out = [];
+    for (const [i, j] of cellsTouching(box, LM.cell)) { const l = landmark(seed, i, j); if (l && touch(l.box, box)) out.push(l); }
+    return out;
+  }
+  // Redraws the chunk's tiles that lie in the box b: code(x, y), or the region's own ground where it gives NONE.
+  function stamp(seed, tiles, regions, x0, y0, b, code) {
+    for (let y = Math.max(b[1], y0); y <= Math.min(b[3], y0 + CHUNK - 1); y++) {
+      for (let x = Math.max(b[0], x0); x <= Math.min(b[2], x0 + CHUNK - 1); x++) {
+        const i = (y - y0) * CHUNK + x - x0, t = code(x, y);
+        tiles[i] = t !== NONE ? t : ground(seed, nibble(regions, i), x, y);
+      }
+    }
+  }
+
+  // ---------- Kestrel structures (spec §3.7, M4c): one per 64×64 cell at most, on flat ground ----------
+  // A structure's footprint (D.STRUCTURES' size, 2×2 to 5×5) is jittered inside its cell, with the 1-tile apron round it
+  // 2 tiles inside the cell, so two structures never touch; a 32-tile chunk lies inside one cell, so it looks up only that
+  // one. Its chance is its region's (the region at its door). It is placed only on flat ground: no landmark and no
+  // feature (crater, canyon, mesa) has its box touching the footprint or the apron, it is at least 20 tiles from the HQ,
+  // and its entrance passes §2.3's reachability check. It is stamped over the boulders (precedence landmark > structure >
+  // features > boulders): its footprint solid, or a hab pod's walls round a 3×3 floor, and its apron the region's ground.
+  // So it stands in a ring of open ground and can never cut ground off.
+  const ST = D.STRUCTURES, ST_KINDS = Object.keys(ST.kinds), WIN = 48; // the reachability window is 2 × WIN tiles across
+
+  // The tiles before any point of interest is stamped, a chunk at a time (terrain(), with the chunks below): the
+  // reachability check reads them, and the chunk they belong to starts from them. A few are kept, as the 4 chunks of a
+  // structure cell share them.
+  const terrainMemo = new Map();
+  function terrainTile(seed, x, y) {
+    const cx = Math.floor(x / CHUNK), cy = Math.floor(y / CHUNK);
+    return terrain(seed, cx, cy).tiles[(y - cy * CHUNK) * CHUNK + x - cx * CHUNK];
+  }
+
+  // §2.3's reachability check: can (ex, ey) reach the border of the 96×96 window round it over open ground? The terrain
+  // without the points of interest gives the same answer, as each one stands in a ring of open ground; only the footprint
+  // being placed (`box`: solid, with its open apron) is drawn in. A depth-first search that tries south first (structures
+  // face south): on open ground it walks straight out in 48 steps.
+  const OUT4 = [[0, -1], [-1, 0], [1, 0], [0, 1]]; // pushed in this order, so south is popped first
+  function reachesOut(seed, ex, ey, box) {
+    const n = 2 * WIN, seen = new Uint8Array(n * n), stack = [ex, ey], apron = box && grow(box, 1);
+    const open = (x, y) => (apron && inBox(apron, x, y) ? !inBox(box, x, y) : !BLOCKING[terrainTile(seed, x, y)]);
+    seen[WIN * n + WIN] = 1;
+    while (stack.length) {
+      const y = stack.pop(), x = stack.pop(), u = x - ex + WIN, v = y - ey + WIN;
+      if (u === 0 || v === 0 || u === n - 1 || v === n - 1) return true;
+      for (const [dx, dy] of OUT4) {
+        const k = (v + dy) * n + u + dx;
+        if (seen[k]) continue;
+        seen[k] = 1;
+        if (open(x + dx, y + dy)) stack.push(x + dx, y + dy);
+      }
+    }
+    return false;
+  }
+
+  // The structure of cell (i, j) of the 64-tile grid, or null. Its id is "S<i>,<j>"; (x, y) is its door, the open tile it
+  // is used from: a hab pod's is the gap in its south wall, the others' the tile just south of the middle of their south face.
+  function structure(seed, i, j) {
+    return memo('S' + seed + ':' + i + ':' + j, () => {
+      const kind = ST_KINDS[hash(seed, i, j, 1102) % ST_KINDS.length], w = ST.kinds[kind].size[0], d = ST.kinds[kind].size[1];
+      const h = hash(seed, i, j, 1101), bx = i * ST.cell + 3 + (h % (ST.cell - 5 - w)), by = j * ST.cell + 3 + ((h >>> 16) % (ST.cell - 5 - d));
+      const box = [bx, by, bx + w - 1, by + d - 1], apron = grow(box, 1);
+      const x = bx + (w >> 1), y = kind === 'pod' ? box[3] : box[3] + 1, region = regionAt(seed, x, y);
+      if (unit(hash(seed, i, j, 1100)) >= ST.chance[REGIONS[region]]) return null;
+      if (fromHQ2(box) < ST.clear * ST.clear || landmarksNear(seed, ...apron).length) return null;
+      const f = featuresNear(seed, ...apron);
+      if (f.canyons.length || f.craters.length || f.mesas.length) return null;
+      if (!reachesOut(seed, x, box[3] + 1, box)) return null;
+      return deepFreeze({ id: 'S' + i + ',' + j, kind, i, j, x, y, region, box });
+    });
+  }
+  // Every structure whose footprint or apron touches the tile box [x0..x1] × [y0..y1] (inclusive).
+  function structuresNear(seed, x0, y0, x1, y1) {
+    const box = [x0, y0, x1, y1], out = [];
+    for (const [i, j] of cellsTouching(box, ST.cell)) { const s = structure(seed, i, j); if (s && touch(grow(s.box, 1), box)) out.push(s); }
+    return out;
+  }
+  // A structure's tile at (x, y) in its footprint and apron: NONE on the apron, for the region's ground.
+  function structTile(s, x, y) {
+    const b = s.box;
+    if (!inBox(b, x, y)) return NONE;
+    if (s.kind !== 'pod') return TILE.STRUCT_WALL;
+    const edge = x === b[0] || x === b[2] || y === b[1] || y === b[3];
+    return edge && !(x === s.x && y === s.y) ? TILE.STRUCT_WALL : TILE.STRUCT_FLOOR;
+  }
+
+  // ---------- formations and decor (spec §3.7, M4c): scenery placed by each chunk's own seed, last ----------
+  // A chunk holds a formation with D.FORMATIONS' chance, of a kind its region has (the region at its spot). Its square
+  // (`size` tiles a side) stands just north of its spot, the tile you survey it from, and only on plain ground: the square
+  // and the spot are the region's own ground (no feature, point of interest, boulder or base), inside the chunk, outside
+  // the flat zone, with no find or cave mouth on them, and no point of interest's footprint or apron comes within a tile.
+  // Nothing in it blocks (art draws it over the ground), so it changes no tile. About 1 in 3 is also a science site, at
+  // its spot. Decor props land on open ground, never on a formation.
+  const FM = D.FORMATIONS, FM_KINDS = REGIONS.map(r => Object.keys(FM.kinds).filter(k => FM.kinds[k].regions.includes(r)));
+  const PLAIN = new Uint8Array(32), DECOR_GROUND = new Uint8Array(32);
+  for (const k of ['REGOLITH', 'SAND', 'DUNE', 'ICE', 'POLYGON', 'LAVA']) PLAIN[TILE[k]] = DECOR_GROUND[TILE[k]] = 1;
+  DECOR_GROUND[TILE.CRATER_FLOOR] = DECOR_GROUND[TILE.CANYON_FLOOR] = 1;
+  function placeFormation(seed, cx, cy, tiles, regions, finds, caves, areas) {
+    if (unit(hash(seed, cx, cy, 1200)) >= FM.chance) return null;
+    const h = hash(seed, cx, cy, 1201), lx = 2 + (h % (CHUNK - 4)), ly = 4 + ((h >>> 8) % (CHUNK - 5));
+    const x0 = cx * CHUNK, y0 = cy * CHUNK, x = x0 + lx, y = y0 + ly, region = nibble(regions, ly * CHUNK + lx);
+    const kinds = FM_KINDS[region], kind = kinds[(h >>> 16) % kinds.length], s = FM.kinds[kind].size;
+    const box = [x - (s >> 1), y - s, x - (s >> 1) + s - 1, y - 1];
+    const plain = (tx, ty) => PLAIN[tiles[(ty - y0) * CHUNK + tx - x0]] && !inFlat(tx, ty);
+    for (let ty = box[1]; ty <= box[3]; ty++) for (let tx = box[0]; tx <= box[2]; tx++) if (!plain(tx, ty)) return null;
+    const on = p => inBox(box, p.x, p.y) || (p.x === x && p.y === y);
+    if (!plain(x, y) || finds.some(on) || caves.some(on) || areas.some(a => touch(a, grow(box, 1)))) return null;
+    const sites = unit(hash(seed, cx, cy, 1202)) < FM.science ? [site(seed, 0, x, y, 'science', kind)] : [];
+    return deepFreeze({ id: 'F' + cx + ',' + cy, kind, x, y, region, box, sites });
+  }
+  function placeProps(seed, cx, cy, tiles, regions, formation) {
+    const out = [];
+    for (let i = 0; i < D.DECOR.props; i++) {
+      const h = hash(seed, cx, cy, 1210 + i), lx = h % CHUNK, ly = (h >>> 8) % CHUNK, n = ly * CHUNK + lx;
+      const x = cx * CHUNK + lx, y = cy * CHUNK + ly;
+      if (!DECOR_GROUND[tiles[n]] || (formation && inBox(formation.box, x, y))) continue;
+      const kinds = D.DECOR.kinds[REGIONS[nibble(regions, n)]];
+      out.push({ x, y, kind: kinds[(h >>> 16) % kinds.length] });
+    }
+    return out;
+  }
+
   // ---------- chunks ----------
-  function chunk(seed, cx, cy) {
+  // A chunk is shared (src/expedition.js keeps one cache for every mission with its seed, and on the server for every room),
+  // so its lists are frozen: a reader can't change them for everyone. Typed arrays can't be frozen; tiles and regions are
+  // read-only by agreement.
+  const frozen = list => { for (const o of list) Object.freeze(o); return Object.freeze(list); };
+  function terrain(seed, cx, cy) {
+    const k = seed + ':' + cx + ':' + cy;
+    let t = terrainMemo.get(k);
+    if (!t) {
+      t = buildTerrain(seed, cx, cy);
+      if (terrainMemo.size >= 64) terrainMemo.clear();
+      terrainMemo.set(k, t);
+    }
+    return t;
+  }
+  function buildTerrain(seed, cx, cy) {
     const x0 = cx * CHUNK, y0 = cy * CHUNK, w = CHUNK + 2;
     const sites = sitesFor(seed, x0 - 1, y0 - 1, x0 + CHUNK, y0 + CHUNK);
     const feats = featuresNear(seed, x0 - 1, y0 - 1, x0 + CHUNK, y0 + CHUNK);
@@ -5196,18 +5867,36 @@ p { margin: 0; }
       else t = ground(seed, r, x, y);
       tiles[i] = t;
     }
-    return { cx, cy, tiles, regions, finds: placeFinds(seed, cx, cy, tiles, regions, feats), caves: placeCaves(seed, cx, cy, tiles, regions) };
+    return { tiles, regions, feats };
+  }
+  function chunk(seed, cx, cy) {
+    const x0 = cx * CHUNK, y0 = cy * CHUNK, x1 = x0 + CHUNK - 1, y1 = y0 + CHUNK - 1, t = terrain(seed, cx, cy);
+    const tiles = t.tiles.slice(), regions = t.regions.slice(); // the kept terrain stays as it was
+    const finds = frozen(placeFinds(seed, cx, cy, tiles, regions, t.feats)), caves = frozen(placeCaves(seed, cx, cy, tiles, regions));
+    // The points of interest are stamped last, over the finished tiles. The finds and caves were placed from the tiles as
+    // they were, so every find id a saved mission holds is unchanged: the ones under a footprint are listed in `hidden`
+    // (src/expedition.js leaves them out), never moved. A cave is hidden when its mouth or its wall is under one.
+    const landmarks = Object.freeze(landmarksNear(seed, x0, y0, x1, y1)), structures = Object.freeze(structuresNear(seed, x0, y0, x1, y1));
+    for (const s of structures) stamp(seed, tiles, regions, x0, y0, grow(s.box, 1), (x, y) => structTile(s, x, y));
+    for (const l of landmarks) stamp(seed, tiles, regions, x0, y0, l.box, (x, y) => SHAPES[l.kind].code(seed, l, x, y));
+    const under = (x, y) => landmarks.some(l => inBox(l.box, x, y)) || structures.some(s => inBox(s.box, x, y));
+    const hidden = Object.freeze({
+      finds: Object.freeze(finds.filter(f => under(f.x, f.y)).map(f => f.n)),
+      caves: Object.freeze(caves.filter(k => under(k.x, k.y) || under(k.x, k.y - 1)).map(k => k.n)),
+    });
+    const areas = landmarks.map(l => l.box).concat(structures.map(s => grow(s.box, 1)));
+    const formation = placeFormation(seed, cx, cy, tiles, regions, finds, caves, areas);
+    const formations = Object.freeze(formation ? [formation] : []), props = frozen(placeProps(seed, cx, cy, tiles, regions, formation));
+    return Object.freeze({ cx, cy, tiles, regions, finds, caves, hidden, landmarks, structures, formations, props });
   }
 
   const tileOf = (c, lx, ly) => c.tiles[ly * CHUNK + lx];
-  function regionOf(c, lx, ly) {
-    const i = ly * CHUNK + lx;
-    return (c.regions[i >> 1] >> ((i & 1) * 4)) & 15;
-  }
+  const regionOf = (c, lx, ly) => nibble(c.regions, ly * CHUNK + lx);
 
   return {
     CHUNK, TILE, NONE, BLOCKING, SPEED, REGIONS, BASE_RECT, FLAT_RADIUS, DIRS16, RINGS, FIND_KINDS,
-    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear, ringOf,
+    seedOf, hash, unit, noise, regionAt, chunk, tileOf, regionOf, featuresNear, ringOf, landmarkAt: landmark, landmarksNear,
+    structureAt: structure, structuresNear, reachesOut,
   };
 });
 
@@ -5331,20 +6020,28 @@ p { margin: 0; }
  * the surface draws with and the network sends. The mission state is described at newExpedition in src/engine.js.
  *
  * API: findById(m, id) → the find plus { id, cx, cy, left } or null · findsIn(m, cx, cy) · cavesIn(m, cx, cy)
+ *      (the finds and caves under a point of interest's footprint are left out: never shown, never collected)
+ *      landmarksIn(m, cx, cy) · structuresIn(m, cx, cy) · landmarkById(m, id, pos) · structureById(m, id, pos) → or null
  *      chunkAt(m, cx, cy) → the data chunk · loadsLeft(m, find, id) · itemFor(m, find, load, role) · holdSeconds(kind, role)
  *      capacity(m, crewId) · inBaseZone(pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m) → the rover's bay
  *      setWhere(m, crewId, pos) · whereOf(m, crewId) (solo: where you stand, so a reload puts you back there)
- *      collect(m, crewId, findId, pos) · deliver(m, crewId, pos) · useCanister(m, crewId, pos, liveSuit)
+ *      collect(m, crewId, siteId, pos) (a find "<cx>,<cy>:<n>", a landmark's site "L<i>,<j>:<n>", a formation's survey
+ *        "F<cx>,<cy>:0") · deliver(m, crewId, pos) · useCanister(m, crewId, pos, liveSuit)
  *      pickUp(m, crewId, dropId, pos) · collapse(m, crewId, pos, driven) · revive(m, crewId, targetId, pos)
  *      board(m, crewId, pos) · park(m, crewId, pos, driven)
+ *      discover(m, crewId, landmarkId, pos) → { ok, landmark, science }: the first sighting of a landmark's centre
+ *      interact(m, crewId, structId, pos) → { ok, done: 'used' | 'repaired', items, left, fog }: a Kestrel structure
+ *      refill(m, crewId, podId, pos) → { ok, suit }: a full suit inside a hab pod, once per pod for each crew member a round
+ *      forecastAhead(m) → next round's weather while a repaired weather station forecasts it, or null
+ *      mastMarks(m) → [{ id, x, y, kind }]: what the repaired comms masts mark on the minimap (world tiles)
  *      roverLeft(m) → tiles the rover can still drive this round · setRoverDriven(m, crewId, tiles) (the driver's game)
  *      cacheSize() → data chunks in the shared world cache (at most 256)
  * Solar flares, shelters, dust devils and how far you can see are src/dangers.js.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'), require('./worldgen.js'), require('./engine.js'));
-  else root.SolExpedition = factory(root.SolData, root.SolWorldgen, root.SolEngine);
-})(typeof self !== 'undefined' ? self : this, function (D, W, E) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'), require('./worldgen.js'), require('./engine.js'), require('./fog.js'));
+  else root.SolExpedition = factory(root.SolData, root.SolWorldgen, root.SolEngine, root.SolFog);
+})(typeof self !== 'undefined' ? self : this, function (D, W, E, Fog) {
   'use strict';
   const T = 64;
   const X = D.EXPEDITION;
@@ -5362,23 +6059,84 @@ p { margin: 0; }
     if (cache.size > CACHE) cache.delete(cache.keys().next().value);
     return c;
   }
-  function findsIn(m, cx, cy) { return chunkAt(m, cx, cy).finds; }
-  function cavesIn(m, cx, cy) { return chunkAt(m, cx, cy).caves; }
+  // A find or a cave under a landmark's or a structure's footprint keeps its place in its chunk's list (its id is its index)
+  // but is never shown: the chunk lists it in `hidden`, and the readers here leave it out.
+  const shown = (list, hidden) => (hidden.length ? Object.freeze(list.filter(o => !hidden.includes(o.n))) : list);
+  function findsIn(m, cx, cy) { const c = chunkAt(m, cx, cy); return shown(c.finds, c.hidden.finds); }
+  function cavesIn(m, cx, cy) { const c = chunkAt(m, cx, cy); return shown(c.caves, c.hidden.caves); }
+  function landmarksIn(m, cx, cy) { return chunkAt(m, cx, cy).landmarks; }
+  function structuresIn(m, cx, cy) { return chunkAt(m, cx, cy).structures; }
 
-  // A find's id is "<cx>,<cy>:<n>", written exactly the way the world writes it, so one find has one id.
+  // Ids are written exactly the way the world writes them, so one thing has one id: the numbers in one, or null.
+  function idNums(re, id) {
+    const g = typeof id === 'string' && re.exec(id);
+    if (!g) return null;
+    const nums = g.slice(1).map(Number);
+    return g.slice(1).every((s, i) => String(nums[i]) === s) ? nums : null;
+  }
+  // Is a position (world pixels) in cell (i, j) of a grid `size` tiles wide?
+  const inCell = (pos, i, j, size) => Math.floor(pos.x / (T * size)) === i && Math.floor(pos.y / (T * size)) === j;
+
+  // A find's id is "<cx>,<cy>:<n>".
   const ID = /^(-?\d{1,7}),(-?\d{1,7}):(\d{1,2})$/;
   function findById(m, id) {
-    const g = ID.exec(String(id));
+    const g = idNums(ID, id);
     if (!g) return null;
-    const cx = Number(g[1]), cy = Number(g[2]), n = Number(g[3]);
-    if (cx + ',' + cy + ':' + n !== id) return null;
-    const f = findsIn(m, cx, cy)[n];
-    if (!f) return null;
+    const [cx, cy, n] = g;
+    const c = chunkAt(m, cx, cy), f = c.finds[n];
+    if (!f || c.hidden.finds.includes(n)) return null;
     return Object.assign({ id, cx, cy, left: loadsLeft(m, f, id) }, f);
   }
+  // A landmark's id is "L<i>,<j>" (its 256-tile cell), a structure's "S<i>,<j>" (its 64-tile cell). Each is only looked up
+  // from a position inside its cell, as a find is from its chunk: you see a landmark's centre (22 tiles inside its cell)
+  // and use a structure from its door (2 tiles inside) only from there, so an id sent from far away costs nothing. The
+  // world reads them from its own cells, without building a chunk; they are frozen, like the cache.
+  const LID = /^L(-?\d{1,7}),(-?\d{1,7})$/, SID = /^S(-?\d{1,7}),(-?\d{1,7})$/;
+  // What turns an id from outside into the world's landmark or structure: how it is spelled (its first two numbers are its
+  // cell), the grid of cells it lies on, the world's lookup (called through W each time, never held on to, so a test that
+  // swaps it to count the lookups counts them all) and the error for none.
+  const LANDMARK = { re: LID, grid: D.LANDMARKS, at: (seed, i, j) => W.landmarkAt(seed, i, j), none: () => ({ error: 'noLandmark' }) };
+  const STRUCTURE = { re: SID, grid: D.STRUCTURES, at: (seed, i, j) => W.structureAt(seed, i, j), none: () => ({ error: 'noStructure' }) };
+  // The one place it happens, for every action that takes such an id and for the two readers below: the landmark or the
+  // structure, or the { error } of the first check to fail, with the world asked last. Not spelled so, or nothing there, is
+  // K.none(); a position outside its cell is 'tooFar'.
+  function poiAt(m, id, pos, K) {
+    const g = idNums(K.re, id);
+    if (!g) return K.none();
+    if (!inCell(pos, g[0], g[1], K.grid.cell)) return { error: 'tooFar' };
+    return K.at(W.seedOf(m.seed), g[0], g[1]) || K.none();
+  }
+  // The two readers say null to any refusal, whatever the reason.
+  const found = o => (o.error ? null : o);
+  function landmarkById(m, id, pos) { return okPos(pos) ? found(poiAt(m, id, pos, LANDMARK)) : null; }
+  function structureById(m, id, pos) { return okPos(pos) ? found(poiAt(m, id, pos, STRUCTURE)) : null; }
   function loadsLeft(m, f, id) {
     const v = m.expedition.sites[id == null ? f.id : id];
     return Number.isFinite(v) ? v : D.FINDS[f.kind].loads[f.ring];
+  }
+  // What you can collect: a find, a landmark's site ("L<i>,<j>:<n>") or a formation's survey ("F<cx>,<cy>:0"), plus its id
+  // and loads left, or { error }. Each is looked up only from inside what holds it: a find's or a formation's chunk (the
+  // survey is at the formation's spot, 1.5 tiles or more inside it, no less than the reach), a landmark's cell (its sites
+  // lie in its box, 3 tiles inside).
+  const LSITE = /^L(-?\d{1,7}),(-?\d{1,7}):(\d{1,2})$/, FSITE = /^F(-?\d{1,7}),(-?\d{1,7}):0$/;
+  // A landmark's site is spelled with its number after the landmark's id, and no landmark there is no find.
+  const LANDMARK_SITE = Object.assign({}, LANDMARK, { re: LSITE, none: () => ({ error: 'noFind' }) });
+  function siteAt(m, id, pos) {
+    let g = idNums(ID, id), f = null;
+    if (g) {
+      if (!inCell(pos, g[0], g[1], W.CHUNK)) return { error: 'tooFar' };
+      return findById(m, id) || { error: 'noFind' };
+    }
+    if ((g = idNums(LSITE, id))) {
+      const l = poiAt(m, id, pos, LANDMARK_SITE);
+      if (l.error) return l;
+      f = l.sites[g[2]];
+    } else if ((g = idNums(FSITE, id))) {
+      if (!inCell(pos, g[0], g[1], W.CHUNK)) return { error: 'tooFar' };
+      const k = chunkAt(m, g[0], g[1]).formations[0];
+      f = k && k.sites[0];
+    }
+    return f ? Object.assign({ id, left: loadsLeft(m, f, id) }, f) : { error: 'noFind' };
   }
 
   // ---------- small helpers ----------
@@ -5401,8 +6159,11 @@ p { margin: 0; }
     const v = m.expedition.suits[crewId];
     return Number.isFinite(v) ? v : X.suit;
   }
-  // Seconds of holding E for a find (or 'pickup', 'revive'), with the role's skill (spec §3.3).
+  // Seconds of holding E for a find (or 'pickup', 'revive'), with the role's skill (spec §3.3), or for a structure (its
+  // own seconds in D.STRUCTURES, the Engineer's where it has them; the hab pod has none, and 'pod' is a cargo pod's).
   function holdSeconds(kind, role) {
+    const S = D.STRUCTURES.kinds[kind];
+    if (S && S.hold) return role === 'engineer' && S.engineer ? S.engineer : S.hold;
     const base = kind === 'science' ? X.hold.survey : kind === 'pickup' ? X.hold.pickup : kind === 'revive' ? X.hold.revive : X.hold.load;
     const skill = D.SKILLS[role] || {};
     return base * (skill[kind] || 1);
@@ -5430,10 +6191,14 @@ p { margin: 0; }
       const k = (f.region === CRATERS ? F.craters : 1) * (role === 'scientist' ? D.SKILLS.scientist.scienceBonus : 1);
       return Object.assign(item, { res: 'science', amount: Math.round(F.science[f.ring] * k), sub: f.sub });
     }
-    const pick = W.hash(W.seedOf(m.seed), f.x, f.y, 700 + load) % 5; // spare kits are the rarest
-    if (pick === 0) return Object.assign(item, { res: 'spares', amount: 1 });
-    if (pick <= 3) return Object.assign(item, { res: 'food', amount: F.food });
-    return Object.assign(item, { res: 'o2', amount: X.canister.o2, canister: true });
+    return Object.assign(item, supply(W.hash(W.seedOf(m.seed), f.x, f.y, 700 + load)));
+  }
+  // A load of supplies (a cargo pod's, a supply cache's) from its hash: a spare kit (the rarest), food or an O₂ canister.
+  function supply(h) {
+    const pick = h % 5;
+    if (pick === 0) return { res: 'spares', amount: 1 };
+    if (pick <= 3) return { res: 'food', amount: D.FINDS.pod.food };
+    return { res: 'o2', amount: X.canister.o2, canister: true };
   }
   function statsOf(x, crewId) {
     if (!x.stats[crewId] || typeof x.stats[crewId] !== 'object') x.stats[crewId] = { finds: {} };
@@ -5442,20 +6207,22 @@ p { margin: 0; }
   }
 
   // ---------- actions ----------
-  // Takes one load from a find next to you into your backpack.
-  function collect(m, crewId, findId, pos) {
+  // Takes one load from a find, or a landmark's or a formation's site, next to you into your backpack.
+  function collect(m, crewId, siteId, pos) {
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
-    const f = findById(m, findId);
-    if (!f) return { error: 'noFind' };
+    // A site is only in reach from inside what holds it. Checked before anything is built: an id from far away would cost a
+    // build and push other rooms' chunks out of the shared cache.
+    const f = siteAt(m, siteId, pos);
+    if (f.error) return f;
     if (!nearTile(pos, f.x, f.y)) return { error: 'tooFar' };
     if (f.left <= 0) return { error: 'empty' };
     const x = m.expedition, mine = pack(x, crewId);
     if (mine.length >= capacity(m, crewId)) return { error: 'full' };
     const item = itemFor(m, f, D.FINDS[f.kind].loads[f.ring] - f.left, a.crew.role);
     x.carried[crewId] = mine.concat([item]);
-    x.sites[findId] = f.left - 1;
+    x.sites[siteId] = f.left - 1;
     const st = statsOf(x, crewId);
     st.finds[f.kind] = (st.finds[f.kind] || 0) + 1;
     return { ok: true, item, left: f.left - 1 };
@@ -5613,9 +6380,149 @@ p { margin: 0; }
     return okPos(w) ? { x: w.x, y: w.y } : null;
   }
 
+  // ---------- points of interest (spec §3.6, §3.7, M4c) ----------
+  // The first crew member to see a landmark's centre discovers it: every screen shows its card (in co-op the server sends
+  // a `discover` event) and they bank a one-time reward, 80–150 science by the landmark (the Scientist half again). Seeing
+  // is the game's call, from its fog; the rules check the centre was within SIGHT tiles, the widest view anyone has (the
+  // rover's, on a star dune's crest) plus the slack. Weather and walking only shrink a view, so no real sighting is refused.
+  const SIGHT = D.DANGERS.view.rover + D.DANGERS.view.crest + X.reach;
+  function discover(m, crewId, landmarkId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    const l = poiAt(m, landmarkId, pos, LANDMARK), x = m.expedition;
+    if (l.error) return l;
+    if (x.landmarks[l.id]) return { error: 'known' };
+    if (!nearPx(pos, (l.x + 0.5) * T, (l.y + 0.5) * T, SIGHT)) return { error: 'tooFar' };
+    const [lo, hi] = D.LANDMARKS.science, base = lo + W.hash(W.seedOf(m.seed), l.i, l.j, 1300) % (hi - lo + 1);
+    const science = Math.round(base * (a.crew.role === 'scientist' ? D.SKILLS.scientist.scienceBonus : 1));
+    x.landmarks[l.id] = { by: crewId, round: m.turn };
+    E.bankItem(x.banked, crewId, { kind: 'landmark', res: 'science', amount: science, region: l.region }, false);
+    const st = statsOf(x, crewId);
+    st.landmarks = (st.landmarks || 0) + 1;
+    return { ok: true, landmark: l.id, science };
+  }
+
+  // Kestrel structures (spec §3.7): hold E at the door to open a supply cache, to salvage a wreck or a solar array, or to
+  // repair a weather station or a comms mast, once each (x.structures[id]). Their loads go into your backpack and what
+  // does not fit waits at the door as a drop, picked up like any other (C2). A repaired weather station reveals the fog
+  // round it, banks its science and forecasts the weather a round ahead for a few rounds (C1); a repaired mast marks what
+  // is near it on the minimap (mastMarks, C4). The game times the hold (holdSeconds). A hab pod has no hold: see refill.
+  const DONE = { cache: 'used', wreck: 'used', array: 'used', weather: 'repaired', mast: 'repaired' };
+  // What a structure holds, fixed by the mission code like a cargo pod's loads: a cache's 1–2 supplies, a wreck's 2–3
+  // metal loads and spare kit, an array's materials (a load of them weighs what a metal find's does).
+  function contents(m, s) {
+    const K = D.STRUCTURES.kinds[s.kind], seed = W.seedOf(m.seed), item = o => Object.assign({ kind: s.kind, id: s.id, region: s.region }, o);
+    const span = ([lo, hi], salt) => lo + W.hash(seed, s.i, s.j, salt) % (hi - lo + 1);
+    const loads = (n, o) => Array.from({ length: n }, (_, k) => item(typeof o === 'function' ? o(k) : o));
+    const metal = { res: 'materials', amount: D.FINDS.metal.kg };
+    if (s.kind === 'cache') return loads(span(K.loads, 1310), k => supply(W.hash(seed, s.i, s.j, 1320 + k)));
+    if (s.kind === 'wreck') return loads(span(K.metal, 1311), metal).concat(loads(K.spares, { res: 'spares', amount: 1 }));
+    if (s.kind === 'array') return loads(K.materials, metal);
+    return [];
+  }
+  // Reveals every tile whose middle is within r tiles of (cx, cy) (tile units) in x.revealed, stored as the game's fog is.
+  // Returns what changed ({ "<cx>,<cy>": base64 }) for the co-op server to share.
+  function revealAround(m, cx, cy, r) {
+    const diff = {}, C = W.CHUNK;
+    for (let ky = Math.floor((cy - r) / C); ky <= Math.floor((cy + r) / C); ky++) {
+      for (let kx = Math.floor((cx - r) / C); kx <= Math.floor((cx + r) / C); kx++) {
+        const bits = Fog.empty();
+        for (let ly = 0; ly < C; ly++) for (let lx = 0; lx < C; lx++) {
+          const dx = kx * C + lx + 0.5 - cx, dy = ky * C + ly + 0.5 - cy;
+          if (dx * dx + dy * dy <= r * r) Fog.set(bits, lx, ly);
+        }
+        if (Fog.count(bits)) diff[kx + ',' + ky] = Fog.encode(bits);
+      }
+    }
+    return Fog.mergeMap(m.expedition.revealed, diff);
+  }
+  function interact(m, crewId, structId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    const s = poiAt(m, structId, pos, STRUCTURE), x = m.expedition;
+    if (s.error) return s;
+    if (!DONE[s.kind]) return { error: 'badKind' };
+    if (x.structures[s.id]) return { error: 'done' };
+    if (!nearTile(pos, s.x, s.y)) return { error: 'tooFar' };
+    const loads = contents(m, s), mine = pack(x, crewId), room = Math.max(0, capacity(m, crewId) - mine.length);
+    const items = loads.slice(0, room), rest = loads.slice(room);
+    x.carried[crewId] = mine.concat(items);
+    if (rest.length) {
+      x.drops.push({ id: s.id, x: (s.x + 0.5) * T, y: (s.y + 0.5) * T, items: rest });
+      while (x.drops.length > X.maxDrops) x.drops.shift();
+    }
+    x.structures[s.id] = DONE[s.kind];
+    let fog = {};
+    if (s.kind === 'weather') {
+      const K = D.STRUCTURES.kinds.weather, b = s.box;
+      fog = revealAround(m, (b[0] + b[2] + 1) / 2, (b[1] + b[3] + 1) / 2, K.reveal);
+      E.bankItem(x.banked, crewId, { kind: 'weather', res: 'science', amount: K.science, region: s.region }, false);
+      x.forecastUntil = m.turn + K.forecast; // this round and the next 3 (C1)
+    }
+    const st = statsOf(x, crewId);
+    st.structures = (st.structures || 0) + 1;
+    return { ok: true, done: x.structures[s.id], items, left: rest.length, fog };
+  }
+  // An abandoned hab pod is walked into, not used: inside it your suit is filled up, once per pod for each crew member each
+  // round (x.refills[crewId] holds the pods, C3; the advance clears it). Inside = in its footprint, with the slack every
+  // action gets (its footprint lies 3 tiles inside its cell, so the cell's guard never refuses you there).
+  function refill(m, crewId, podId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    const s = poiAt(m, podId, pos, STRUCTURE), x = m.expedition;
+    if (s.error) return s;
+    if (s.kind !== 'pod') return { error: 'badKind' };
+    const b = s.box, r = X.reach, tx = pos.x / T, ty = pos.y / T;
+    if (tx < b[0] - r || tx >= b[2] + 1 + r || ty < b[1] - r || ty >= b[3] + 1 + r) return { error: 'tooFar' };
+    const had = Array.isArray(x.refills[crewId]) ? x.refills[crewId] : [];
+    if (had.includes(s.id)) return { error: 'refilled' };
+    x.refills[crewId] = had.concat([s.id]);
+    x.suits[crewId] = X.suit;
+    return { ok: true, suit: X.suit };
+  }
+  // The weather station's forecast: next round's weather while it runs (x.forecastUntil, a round), else null.
+  function forecastAhead(m) {
+    const x = m && m.expedition, next = m && m.schedule && m.schedule[m.turn + 1];
+    return x && next && m.turn <= x.forecastUntil ? next.weather : null;
+  }
+  // The comms masts' marks, read from the world, never stored (C4): for each repaired mast, the nearest landmark and every
+  // other structure whose door is within `marks` tiles of its own, once each: [{ id, x, y, kind }] in world tiles.
+  function nearestLandmark(seed, px, py) {
+    const C = D.LANDMARKS.cell, ci = Math.floor(px / C), cj = Math.floor(py / C);
+    const edge = Math.min(px - ci * C, (ci + 1) * C - px, py - cj * C, (cj + 1) * C - py);
+    let best = null, bd = Infinity;
+    // Ring r of cells round the mast's is at least (r − 1) cells plus `edge` away: stop once the best is nearer than that.
+    for (let r = 0; r < 8 && !(best && Math.sqrt(bd) <= (r - 1) * C + edge); r++) {
+      for (let j = cj - r; j <= cj + r; j++) for (let i = ci - r; i <= ci + r; i++) {
+        if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) !== r) continue;
+        const l = W.landmarkAt(seed, i, j), d = l && (l.x - px) * (l.x - px) + (l.y - py) * (l.y - py);
+        if (l && d < bd) { best = l; bd = d; }
+      }
+    }
+    return best;
+  }
+  function mastMarks(m) {
+    const x = m.expedition, seed = W.seedOf(m.seed), r = D.STRUCTURES.kinds.mast.marks, out = [], seen = new Set();
+    const mark = k => { if (!seen.has(k.id)) { seen.add(k.id); out.push({ id: k.id, x: k.x, y: k.y, kind: k.kind }); } };
+    for (const id of Object.keys(x.structures)) {
+      const g = x.structures[id] === 'repaired' && idNums(SID, id), s = g && W.structureAt(seed, g[0], g[1]);
+      if (!s || s.kind !== 'mast') continue;
+      const l = nearestLandmark(seed, s.x, s.y);
+      if (l) mark(l);
+      for (const k of W.structuresNear(seed, s.x - r, s.y - r, s.x + r, s.y + r)) {
+        if (k.id !== s.id && (k.x - s.x) * (k.x - s.x) + (k.y - s.y) * (k.y - s.y) <= r * r) mark(k);
+      }
+    }
+    return out;
+  }
+
   return {
-    findById, findsIn, cavesIn, chunkAt, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
-    setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park,
+    findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
+    setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
+    interact, refill, forecastAhead, mastMarks,
     cacheSize: () => cache.size,
   };
 });
@@ -5624,25 +6531,39 @@ p { margin: 0; }
 <script>
 /*
  * SOL 500 — dangers outside (spec §3.4): solar flares and the shelters that cover you from them, dust devils, and how far
- * you can see in a dust storm. Pure (no DOM), like src/expedition.js: the server runs the flare in co-op and ui.js runs it
- * in solo play, and every screen draws the same dust devils from the mission code and the round's clock, without syncing.
+ * you can see in a dust storm; and the one table of exploring actions (act). Pure (no DOM), like src/expedition.js: the
+ * server runs the flare in co-op and ui.js runs it in solo play, and every screen draws the same dust devils from the
+ * mission code and the round's clock, without syncing.
  *
  * The round's clock counts seconds since the round began: in solo play it is the surface's own time (it stops while the
  * console is open, like the suit) and is saved with the mission; in co-op it is the server's, sent with each room frame.
  * Positions are world pixels { x, y } (64 px a tile, the HQ tile's corner at 0, 0).
  *
  * API: viewTiles(m, inRover) → tiles you can see around you this round (dust storms shrink it)
- *      shelterAt(m, pos, slack) → 'base' | 'shelter' | 'cave' | null: what covers you from a solar flare at pos
- *      cavesNear(m, fx, fy, r) → caves whose mouth's middle is within r tiles of (fx, fy) (tile units)
+ *      viewAt(m, inRover, tile) → the same from the tile under you: a lava tube's headlamp ignores the storm, a star
+ *        dune's crest sees further
+ *      outside(m) → what waits outside this round, in the order the round's brief and the Expedition panel say it: 'flare'
+ *        (a solar flare is due), 'devils' (a dust-devil round), 'storm' (a regional or global dust storm), 'rupture' (an O₂
+ *        line rupture at the base: canisters carried home count)
+ *      coversIn(m, x0, y0, x1, y1, peek) → [{ kind: 'shelter' | 'cave', x, y } | { kind: 'pod' | 'tube', id, x, y, box }]: the
+ *        cover from a solar flare in that box (tile units): a point whose middle (x, y) is in it (DANGERS.shelter tiles from
+ *        it count), or an interior whose box touches it ((x, y) is where its ring goes). peek(cx, cy) → a data chunk or null:
+ *        the surface passes the chunks it holds (SolWorld's peek); the rules leave it out
+ *      shelterAt(m, pos, slack, peek) → 'base' | 'shelter' | 'cave' | 'pod' | 'tube' | null: what covers you from a solar
+ *        flare at pos
+ *      slackOf(m) → the slack (tiles) the flare's verdict gives a position: EXPEDITION.reach in co-op (the server judges
+ *        where it last saw you), 0 in solo play
  *      flareDue(m) → does a solar flare come this round (the schedule's spe)?
  *      flareStart(m, t) → { ok, flare } or { error }: someone stepped outside at round time t; the warning comes 30 s later
  *      flareEnd(m, spots, slack, t) → { ok, hit } or { error }: the flare hits. spots { crewId: pos } are the crew out on
  *        the map (the rest, and anyone sitting out the round after a solo collapse, are at the base); whoever has no cover
- *        gets a flare incident, counted at the advance
+ *        (with slackOf(m) as the slack) gets a flare incident, counted at the advance
  *      setClock(m, t) · clockOf(m) → the solo round clock kept with the mission (it only goes up within a round)
  *      devils(m, x0, y0, x1, y1, t) → [{ id, x, y, a, dx, dy, spin }] in that box (world px) at round time t;
  *        a: 0–1, how formed it is (it fades in and out); (dx, dy): the way it drifts
  *      devilHit(m, pos, t) → the formed devil close enough to hit you at pos, or null
+ *      act(m, crewId, type, body, pos) → the rules' answer to one exploring action ({ ok, ... } or { error }; 'badAction' for
+ *        one they do not have): the one table solo play and the co-op server both run
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'), require('./worldgen.js'), require('./engine.js'), require('./expedition.js'));
@@ -5663,34 +6584,85 @@ p { margin: 0; }
     if (w === 'regional') return Z.view.regional;
     return inRover ? Z.view.rover : Z.view.clear;
   }
+  // The same from the tile under you (spec §3.4, §3.6): inside a lava tube (its floor or under its skylight) the headlamp
+  // lights what clear weather shows, whatever the storm outside; a star dune's crest adds view.crest tiles to the weather's.
+  function viewAt(m, inRover, tile) {
+    if (tile === W.TILE.TUBE_FLOOR || tile === W.TILE.SKYLIGHT) return inRover ? Z.view.rover : Z.view.clear;
+    return viewTiles(m, inRover) + (tile === W.TILE.CREST ? Z.view.crest : 0);
+  }
+
+  // ---------- what waits outside this round ----------
+  // The surface's round brief and the console's Expedition panel both read this list, so a new danger is added here once;
+  // each says it in its own words (eva.brief.<id>, eva.cond.<id>).
+  function outside(m) {
+    const r = round(m) || {}, out = [];
+    if (flareDue(m)) out.push('flare');
+    if (r.devil) out.push('devils');
+    if (r.weather === 'regional' || r.weather === 'global') out.push('storm');
+    if (m && (m.events || []).some(e => e.type === 'o2_rupture')) out.push('rupture');
+    return out;
+  }
 
   // ---------- shelter from a solar flare ----------
-  function cavesNear(m, fx, fy, r) {
-    const out = [];
-    for (let cy = Math.floor((fy - r) / CH); cy <= Math.floor((fy + r) / CH); cy++) {
-      for (let cx = Math.floor((fx - r) / CH); cx <= Math.floor((fx + r) / CH); cx++) {
-        for (const k of X.cavesIn(m, cx, cy)) {
-          const dx = k.x + 0.5 - fx, dy = k.y + 0.5 - fy;
-          if (dx * dx + dy * dy <= r * r) out.push(k);
-        }
+  // Every cover in the box (tile units, edges included): the built storm shelter (spec §3.4), then, chunk by chunk, the caves'
+  // mouths (not those hidden under a point of interest's footprint), the abandoned hab pods and the lava tubes. shelterAt, the
+  // surface's amber rings and its cover checks all read this one list. The shelter and a cave are points, listed when their
+  // middle is in the box. A pod and a tube are interiors: the entry carries its id and its box (inclusive tiles), and is listed
+  // when that box touches the query's; its (x, y) is where its ring goes, the middle of the pod's door or of the tube's
+  // skylight. Every chunk a landmark's box (or a structure's apron) touches lists it, so each is added once, by id.
+  // peek(cx, cy) → a data chunk or null; without it the chunks are built.
+  const chunksOf = (m, peek) => peek || ((cx, cy) => X.chunkAt(m, cx, cy));
+  function coversIn(m, x0, y0, x1, y1, peek) {
+    const out = [], seen = new Set(), chunk = chunksOf(m, peek);
+    const add = (kind, x, y) => { if (x >= x0 && x <= x1 && y >= y0 && y <= y1) out.push({ kind, x, y }); };
+    const room = (kind, id, [x, y], box) => {
+      if (seen.has(id) || box[0] > x1 || box[2] + 1 < x0 || box[1] > y1 || box[3] + 1 < y0) return;
+      seen.add(id);
+      out.push({ kind, id, x: x + 0.5, y: y + 0.5, box });
+    };
+    const sh = E.activeCount(m, 'shelter') > 0 ? m.layout.find(k => k.type === 'shelter') : null;
+    if (sh) add('shelter', sh.x + W.BASE_RECT.x + 0.5, sh.y + W.BASE_RECT.y + 0.5);
+    for (let cy = Math.floor(y0 / CH); cy <= Math.floor(y1 / CH); cy++) {
+      for (let cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++) {
+        const c = chunk(cx, cy);
+        if (!c) continue;
+        for (const k of c.caves) if (!c.hidden.caves.includes(k.n)) add('cave', k.x + 0.5, k.y + 0.5);
+        for (const s of c.structures) if (s.kind === 'pod') room('pod', s.id, [s.x, s.y], s.box);
+        for (const l of c.landmarks) if (l.kind === 'tube') room('tube', l.id, l.skylight, l.box);
       }
     }
     return out;
   }
-  // The base zone, the built storm shelter (spec §3.4) or a cave's mouth. `slack` (tiles) widens each for a position sent a
-  // moment ago. Lava tubes and hab pods (M4c) join the list here.
-  function shelterAt(m, pos, slack) {
+  // The base zone, or the first cover in the list that holds you: within DANGERS.shelter tiles of a point's middle, or
+  // inside an interior. `slack` (tiles) widens each for a position sent a moment ago; `peek` is the lister's.
+  function shelterAt(m, pos, slack, peek) {
     if (!m || !okPos(pos)) return null;
-    const s = slack || 0, r = Z.shelter + s;
+    const s = slack || 0, r = Z.shelter + s, fx = pos.x / T, fy = pos.y / T;
     if (X.inBaseZone(pos, s)) return 'base';
-    const sh = E.activeCount(m, 'shelter') > 0 ? m.layout.find(k => k.type === 'shelter') : null;
-    if (sh) {
-      const dx = pos.x / T - (sh.x + W.BASE_RECT.x + 0.5), dy = pos.y / T - (sh.y + W.BASE_RECT.y + 0.5);
-      if (dx * dx + dy * dy <= r * r) return 'shelter';
+    for (const k of coversIn(m, fx - r, fy - r, fx + r, fy + r, peek)) {
+      const dx = k.x - fx, dy = k.y - fy;
+      if (k.box ? inside(m, k, fx, fy, s, peek) : dx * dx + dy * dy <= r * r) return k.kind;
     }
-    if (cavesNear(m, pos.x / T, pos.y / T, r).length) return 'cave';
     return null;
   }
+  // Inside an interior: in its box, widened by the slack. A tube's box also holds its wall and the plain ground round it, so
+  // there you must be on its floor or under its skylight: on one of those tiles, or within the slack of one.
+  function inside(m, k, fx, fy, s, peek) {
+    const b = k.box;
+    if (fx < b[0] - s || fx >= b[2] + 1 + s || fy < b[1] - s || fy >= b[3] + 1 + s) return false;
+    if (k.kind !== 'tube') return true;
+    const chunk = chunksOf(m, peek);
+    for (let ty = Math.floor(fy - s); ty <= Math.floor(fy + s); ty++) {
+      for (let tx = Math.floor(fx - s); tx <= Math.floor(fx + s); tx++) {
+        const cx = Math.floor(tx / CH), cy = Math.floor(ty / CH), c = chunk(cx, cy), t = c && W.tileOf(c, tx - cx * CH, ty - cy * CH);
+        if (t === W.TILE.TUBE_FLOOR || t === W.TILE.SKYLIGHT) return true;
+      }
+    }
+    return false;
+  }
+  // The co-op server judges where it last saw you, a moment ago, so it gives you the slack every checked action gets; solo
+  // play judges you where you are. The server, the solo verdict and the surface's banner all ask here, so they agree.
+  const slackOf = m => (m && m.coop ? D.EXPEDITION.reach : 0);
 
   // ---------- the solar flare (spec §3.4) ----------
   function flareDue(m) { const r = round(m); return !!(r && r.spe); }
@@ -5789,7 +6761,34 @@ p { margin: 0; }
     return best;
   }
 
-  return { viewTiles, shelterAt, cavesNear, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit };
+  // ---------- the exploring actions, one table ----------
+  // What each action a game asks for runs in the rules (src/expedition.js, and the flare here). body holds what only the
+  // asking game knows: the find or the drop, its live suit level, how far the rover went, the round's clock. Solo play's hook
+  // (ui.js) runs any of them on the spot; the co-op server runs those its players may send (EXPEDITION_ACTIONS in
+  // lib/rooms.js), never the flare's two, because it times the flare itself. A new action is one line here.
+  const ACTIONS = {
+    collect: (m, id, b, pos) => X.collect(m, id, b.find, pos),
+    deliver: (m, id, b, pos) => X.deliver(m, id, pos),
+    canister: (m, id, b, pos) => X.useCanister(m, id, pos, b.suit),
+    pickup: (m, id, b, pos) => X.pickUp(m, id, b.drop, pos),
+    collapse: (m, id, b, pos) => X.collapse(m, id, pos, b.driven),
+    revive: (m, id, b, pos) => X.revive(m, id, b.target, pos),
+    board: (m, id, b, pos) => X.board(m, id, pos),
+    park: (m, id, b, pos) => X.park(m, id, pos, b.driven),
+    discover: (m, id, b, pos) => X.discover(m, id, b.landmark, pos),
+    interact: (m, id, b, pos) => X.interact(m, id, b.structure, pos),
+    refill: (m, id, b, pos) => X.refill(m, id, b.pod, pos),
+    // Solo play's flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
+    // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
+    flareStart: (m, id, b) => flareStart(m, b.t),
+    flareEnd: (m, id, b, pos) => flareEnd(m, { [id]: pos }, slackOf(m), b.t),
+  };
+  function act(m, crewId, type, body, pos) {
+    const run = Object.prototype.hasOwnProperty.call(ACTIONS, type) ? ACTIONS[type] : null;
+    return run ? run(m, crewId, body || {}, pos) : { error: 'badAction' };
+  }
+
+  return { viewTiles, viewAt, outside, coversIn, shelterAt, slackOf, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit, act };
 });
 
 </script>
@@ -5862,9 +6861,11 @@ p { margin: 0; }
       const cx = chunkOf(tx), cy = chunkOf(ty);
       return W.regionOf(get(cx, cy), tx - cx * CH, ty - cy * CH);
     }
-    // The cave whose mouth is tile (tx, ty), or null (its wall is the tile north of it, in the same chunk).
+    // The cave whose mouth is tile (tx, ty), or null (its wall is the tile north of it, in the same chunk). A cave under a
+    // landmark or a structure (the chunk's `hidden`) is gone, so the painter draws no mouth there.
     function caveAt(tx, ty) {
-      for (const k of get(chunkOf(tx), chunkOf(ty)).caves) if (k.x === tx && k.y === ty) return k;
+      const c = get(chunkOf(tx), chunkOf(ty));
+      for (const k of c.caves) if (k.x === tx && k.y === ty && !c.hidden.caves.includes(k.n)) return k;
       return null;
     }
     // Base things the world doesn't know about (the HQ, the reactor, the lander, rocks on the build grid) block too.
@@ -6007,6 +7008,8 @@ p { margin: 0; }
  *
  * API: SolPaint.createPainter(world, { canvas, cap, now, scale }) → painter · SolPaint.drawFog(...) · SolPaint.decorFor(...)
  *      SolPaint.tileRGB(code, region) · SolPaint.REGION_COLORS · SolPaint.sprites
+ *      SolPaint.scenery(chunks, { at, done, tube }) → the points of interest's sprites and decals (see there)
+ *      SolPaint.tubeAt(chunks, at, under) → the lava tube you are inside, or null · SolPaint.drawDark(...): its headlamp's dark
  *      scale (default 1): the ground is painted at this many canvas pixels per world pixel, so each chunk image is scale·256 px
  *      square (the Display settings' Best level paints at 2); painter.setScale(s) changes it while playing.
  */
@@ -6036,6 +7039,17 @@ p { margin: 0; }
   CODE_RGB[TL.POLYGON] = [177, 156, 144];
   CODE_RGB[TL.LAVA] = [59, 45, 44];
   CODE_RGB[TL.BASE] = [128, 70, 45];
+  // The points of interest (M4c): a delta's pale layered sediment, an ice scarp's dusty top, a star dune's sunlit crest, a
+  // lava tube's basalt floor and walls and the sunlit floor under its skylight, a hab pod's deck, and a Kestrel structure's
+  // footprint in the programme's teal (the minimap's colour: the ground under its sprite is painted as the region's own).
+  CODE_RGB[TL.SEDIMENT] = [150, 102, 74];
+  CODE_RGB[TL.SCARP] = [176, 184, 188];
+  CODE_RGB[TL.CREST] = [122, 82, 61];
+  CODE_RGB[TL.TUBE_FLOOR] = [48, 37, 36];
+  CODE_RGB[TL.TUBE_WALL] = [74, 58, 55];
+  CODE_RGB[TL.SKYLIGHT] = [118, 82, 62];
+  CODE_RGB[TL.STRUCT_FLOOR] = [106, 100, 96];
+  CODE_RGB[TL.STRUCT_WALL] = [74, 151, 142];
   function tileRGB(code, region) {
     if (code === TL.REGOLITH || CODE_RGB[code] == null) return REGION_GROUND[region] || REGION_GROUND[0];
     return CODE_RGB[code];
@@ -6046,7 +7060,7 @@ p { margin: 0; }
   const channel = v => Math.min(255, Math.round(v));
   const css = (rgb, k) => 'rgb(' + channel(rgb[0] * k) + ',' + channel(rgb[1] * k) + ',' + channel(rgb[2] * k) + ')';
   const RAISED = new Uint8Array(32);
-  for (const k of ['CLIFF', 'RIM', 'CANYON_WALL']) RAISED[TL[k]] = 1;
+  for (const k of ['CLIFF', 'RIM', 'CANYON_WALL', 'SCARP', 'TUBE_WALL']) RAISED[TL[k]] = 1;
   // A gentle brightness drift across the ground. It comes from smooth noise, so tiles never show as a checkerboard.
   const shade = (world, tx, ty) => 0.96 + 0.08 * W.noise(world.seed, 920, tx, ty, 5);
 
@@ -6057,12 +7071,13 @@ p { margin: 0; }
     const reg = world.region(tx, ty);
     const h = W.hash(world.seed, tx, ty, 900);
     const X = tx * T, Y = ty * T;
-    // A boulder sits on its region's usual ground, drawn just like that ground (the rock goes on top in paintRaised).
-    const look = code === TL.BOULDER ? UNDER_BOULDER[reg] : code;
+    // A boulder sits on its region's usual ground, drawn just like that ground (the rock goes on top in paintRaised), and so
+    // does a Kestrel structure (the surface draws its sprite on top).
+    const look = code === TL.BOULDER || code === TL.STRUCT_WALL ? UNDER_BOULDER[reg] : code;
     g.fillStyle = css(tileRGB(look, reg), shade(world, tx, ty));
     g.fillRect(X, Y, T, T);
-    if (look === TL.DUNE) { // ripples across the wind; the ends line up with the next tile's, so they run on unbroken
-      g.strokeStyle = 'rgba(140,96,74,0.45)';
+    if (look === TL.DUNE || look === TL.CREST) { // ripples across the wind; the ends line up with the next tile's, so they run on unbroken
+      g.strokeStyle = look === TL.CREST ? 'rgba(92,60,46,0.35)' : 'rgba(140,96,74,0.45)'; // on the sunlit crest they lie in shade
       g.lineWidth = 2;
       for (let k = 0; k < 4; k++) { const y = Y + 8 + k * 16; g.beginPath(); g.moveTo(X, y); g.quadraticCurveTo(X + 32, y - 3 - ((h >>> (4 + k * 2)) & 3) * 2, X + T, y); g.stroke(); }
     } else if (look === TL.POLYGON) { // ground cracked into polygons by freezing and thawing
@@ -6074,7 +7089,7 @@ p { margin: 0; }
       g.strokeStyle = 'rgba(255,255,255,0.8)';
       g.lineWidth = 1.5;
       drawIceCracks(g, X, Y);
-    } else if (look === TL.LAVA) {
+    } else if (look === TL.LAVA || look === TL.TUBE_FLOOR) {
       g.fillStyle = 'rgba(20,14,14,0.5)';
       for (let k = 0; k < 6; k++) { const v = W.hash(world.seed, tx, ty, 901 + k); g.fillRect(X + (v % 60), Y + ((v >>> 8) % 60), 2 + ((v >>> 16) % 3), 2 + ((v >>> 20) % 3)); }
     } else if (code === TL.CANYON_FLOOR) {
@@ -6084,6 +7099,16 @@ p { margin: 0; }
     } else if (code === TL.CRATER_FLOOR) {
       g.fillStyle = 'rgba(30,10,6,0.12)';
       g.fillRect(X, Y, T, T);
+    } else if (code === TL.SEDIMENT) { // a delta's beds: pale bands that run on from tile to tile across the fan
+      g.fillStyle = 'rgba(236,196,156,0.16)';
+      g.fillRect(X, Y + 10, T, 3);
+      g.fillRect(X, Y + 30, T, 2);
+      g.fillRect(X, Y + 49, T, 3);
+    } else if (code === TL.STRUCT_FLOOR) { // a hab pod's deck: a plate a tile, split down the middle
+      g.strokeStyle = 'rgba(30,24,24,0.4)';
+      g.lineWidth = 2;
+      g.strokeRect(X + 1, Y + 1, T - 2, T - 2);
+      g.beginPath(); g.moveTo(X + T / 2, Y); g.lineTo(X + T / 2, Y + T); g.stroke();
     } else if (code === TL.BASE) { // compacted regolith with the build grid's dashed lines
       const B = W.BASE_RECT;
       g.strokeStyle = 'rgba(255,220,190,0.12)';
@@ -6103,7 +7128,7 @@ p { margin: 0; }
     }
   }
 
-  // Things that stand up (mesa cliffs, crater rims, canyon walls, boulders) go on top of the decor.
+  // Things that stand up (mesa cliffs, crater rims, canyon walls, ice scarps, lava tubes' walls, boulders) go on top of the decor.
   function paintRaised(g, world, tx, ty) {
     const code = world.tile(tx, ty);
     const X = tx * T, Y = ty * T;
@@ -6121,7 +7146,17 @@ p { margin: 0; }
           g.fillStyle = 'rgba(0,0,0,0.25)';
           g.fillRect(X, Y + T - 6, T, 6);
         }
-      } else {
+      } else if (code === TL.SCARP) { // a cliff of ice under a dusty top: a bright edge, its face clean blue ice with streaks
+        if (above) { g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(X, Y, T, 3); }
+        if (below) {
+          g.fillStyle = '#6f9fb8';
+          g.fillRect(X, Y + T - 30, T, 30);
+          g.fillStyle = 'rgba(235,250,255,0.35)';
+          for (const dx of [9, 30, 47]) g.fillRect(X + dx, Y + T - 28, 2, 20);
+          g.fillStyle = 'rgba(10,30,45,0.35)';
+          g.fillRect(X, Y + T - 6, T, 6);
+        }
+      } else { // a crater's rim, a canyon's wall, a lava tube's wall
         if (above) { g.fillStyle = code === TL.RIM ? 'rgba(255,214,170,0.22)' : 'rgba(255,214,170,0.12)'; g.fillRect(X, Y, T, 4); }
         if (below) { g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(X, Y + T - 10, T, 10); }
       }
@@ -6205,9 +7240,20 @@ p { margin: 0; }
     }
   }
 
+  // The world's decor props (src/worldgen.js, M4c: whole tiles, the kinds above plus `rock`) on the tiles of image chunk
+  // (ix, iy) and the ring round it, whose flat ones can spill in. None without the world's data chunks (a fake world).
+  function propsNear(world, ix, iy) {
+    if (!world.get) return [];
+    const x0 = ix * IMG - 1, y0 = iy * IMG - 1, x1 = x0 + IMG + 1, y1 = y0 + IMG + 1, out = [];
+    for (let cy = Math.floor(y0 / CH); cy <= Math.floor(y1 / CH); cy++) for (let cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++) {
+      for (const p of world.get(cx, cy).props) if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) out.push(p);
+    }
+    return out;
+  }
+
   function paintChunk(world, ix, iy, canvas, scale) {
     const g = canvas.getContext('2d');
-    const tx0 = ix * IMG, ty0 = iy * IMG;
+    const tx0 = ix * IMG, ty0 = iy * IMG, props = propsNear(world, ix, iy);
     g.setTransform(scale, 0, 0, scale, -ix * PX * scale, -iy * PX * scale); // draw in world pixels, `scale` canvas pixels each
     for (let ty = ty0; ty < ty0 + IMG; ty++) for (let tx = tx0; tx < tx0 + IMG; tx++) paintTile(g, world, tx, ty);
     g.save();
@@ -6215,8 +7261,18 @@ p { margin: 0; }
     g.rect(ix * PX, iy * PX, PX, PX);
     g.clip();
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const d of decorFor(world, ix + dx, iy + dy)) drawDecor(g, d);
+    for (const p of props) {
+      if (p.kind === 'rock') continue;
+      const h = W.hash(world.seed, p.x, p.y, 912);
+      drawDecor(g, { kind: p.kind, x: p.x * T + T / 2, y: p.y * T + T / 2, s: 8 + ((h >>> 20) % 28), h });
+    }
     g.restore();
     for (let ty = ty0; ty < ty0 + IMG; ty++) for (let tx = tx0; tx < tx0 + IMG; tx++) paintRaised(g, world, tx, ty);
+    for (const p of props) { // a small rock stands up, as a boulder does; it stays inside its tile
+      if (p.kind !== 'rock' || p.x < tx0 || p.x >= tx0 + IMG || p.y < ty0 || p.y >= ty0 + IMG) continue;
+      const h = W.hash(world.seed, p.x, p.y, 912);
+      drawRock(g, { wx: p.x, wy: p.y, s: 0.4 + (h % 16) / 100, ox: ((h >>> 8) % 9) - 4, oy: ((h >>> 12) % 7) - 3 });
+    }
   }
 
   // ---------- the painter: image chunks and mini images, with their caches ----------
@@ -6399,6 +7455,73 @@ p { margin: 0; }
     const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad);
     g.addColorStop(0, 'rgba(10,6,8,0)');
     g.addColorStop(1, 'rgba(10,6,8,0.5)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+
+  // ---------- the points of interest (M4c) ----------
+  // What the surface draws over the ground for the points of interest in `chunks` (the data chunks round the view), each
+  // once: a landmark is listed by every chunk its box touches, a structure by every chunk its apron touches. An item is
+  // { art, id, opts, x, y, w, h, depth }: the SolArt drawing (kestrel, formation, prop, or 'puff', the vent's puff), the
+  // box it fills in tiles, and the world-pixel y it is sorted by among the sprites, or null for a decal flat on the
+  // ground, drawn under every sprite. o: { at: [tx, ty] the tile you stand on, done(id): that structure is used or repaired,
+  // tube: the lava tube you are inside (tubeAt), or none }.
+  const inBox = (b, x, y) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
+  const feet = b => (b[3] + 1) * T - 6; // the bottom of a box's last row, where a module's feet are sorted too
+  // The lava tube you are inside: the one whose box holds the tile you stand on, when that tile (`under`) is its floor or
+  // its skylight. Its open ring and its walls are outside (the walls can't be stood on).
+  function tubeAt(chunks, at, under) {
+    if (under !== TL.TUBE_FLOOR && under !== TL.SKYLIGHT) return null;
+    for (const c of chunks) for (const l of c.landmarks) if (l.kind === 'tube' && inBox(l.box, at[0], at[1])) return l;
+    return null;
+  }
+  function scenery(chunks, o) {
+    const out = [], seen = new Set(), [ax, ay] = o.at;
+    const once = id => !seen.has(id) && !!seen.add(id);
+    for (const c of chunks) {
+      // A structure is a square as wide as its footprint, standing on the footprint's bottom edge. The hab pod is its room
+      // while you stand inside its box, sorted by its top edge so whoever is in there is drawn over it; its roof otherwise.
+      for (const s of c.structures) {
+        if (!once(s.id)) continue;
+        const b = s.box, w = b[2] - b[0] + 1, inside = s.kind === 'pod' && inBox(b, ax, ay);
+        const opts = s.kind === 'pod' ? { inside } : { done: !!o.done(s.id) };
+        out.push({ art: 'kestrel', id: s.kind, opts, x: b[0], y: b[3] + 1 - w, w, h: w, depth: inside ? b[1] * T : feet(b) });
+      }
+      // A formation fills its square; the dust-devil tracks are dark lanes on the ground.
+      for (const f of c.formations) {
+        const b = f.box, n = b[2] - b[0] + 1;
+        out.push({ art: 'formation', id: f.kind, opts: null, x: b[0], y: b[1], w: n, h: n, depth: f.kind === 'deviltracks' ? null : feet(b) });
+      }
+      // The methane vent is a low mound on its survey's tile, its puff rising from it. A lava tube's roof covers its walls and
+      // floor (its box but the open ring round it), with the skylight's pit on it, while you are outside; inside, both hide.
+      for (const l of c.landmarks) {
+        if (!once(l.id)) continue;
+        if (l.kind === 'methane') {
+          const at = { x: l.x - 0.5, y: l.y - 1, w: 2, h: 2 };
+          out.push(Object.assign({ art: 'prop', id: 'vent', opts: null, depth: null }, at));
+          out.push(Object.assign({ art: 'puff', id: 'vent', opts: null, depth: (l.y + 1) * T - 6 }, at));
+        } else if (l.kind === 'tube' && !(o.tube && o.tube.id === l.id)) {
+          const r = [l.box[0] + 1, l.box[1] + 1, l.box[2] - 1, l.box[3] - 1];
+          out.push({ art: 'roof', id: l.id, opts: null, x: r[0], y: r[1], w: r[2] - r[0] + 1, h: r[3] - r[1] + 1, depth: feet(r) });
+          out.push({ art: 'prop', id: 'skylight', opts: null, x: l.skylight[0] - 0.5, y: l.skylight[1] - 0.5, w: 2, h: 2, depth: feet(r) + 1 });
+        }
+      }
+    }
+    return out;
+  }
+  // A lava tube's roof (scenery's item: its box in tiles): a long ridge of basalt, lit along its top, its south face in shade.
+  function drawRoof(ctx, it) {
+    const X = it.x * T, Y = it.y * T, w = it.w * T, h = it.h * T;
+    ctx.fillStyle = 'rgba(0,0,0,0.28)'; roundRect(ctx, X - 2, Y + 10, w + 4, h, 18); ctx.fill(); // its shadow on the ground
+    ctx.fillStyle = '#4e3c39'; roundRect(ctx, X, Y, w, h, 16); ctx.fill();
+    ctx.fillStyle = '#35282a'; roundRect(ctx, X, Y + h - 24, w, 24, 10); ctx.fill(); // the south face
+    ctx.fillStyle = 'rgba(255,214,170,0.14)'; roundRect(ctx, X + 8, Y + 5, w - 16, 7, 3); ctx.fill(); // the lit top
+  }
+  // Inside a lava tube it is dark but for your headlamp: clear round you (px, py), nearly black from `rad` world pixels out.
+  function drawDark(ctx, x0, y0, x1, y1, px, py, rad) {
+    const g = ctx.createRadialGradient(px, py, rad * 0.3, px, py, rad);
+    g.addColorStop(0, 'rgba(5,3,4,0)');
+    g.addColorStop(1, 'rgba(5,3,4,0.94)');
     ctx.fillStyle = g;
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
@@ -6720,8 +7843,8 @@ p { margin: 0; }
   }
 
   return {
-    IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar, drawDevil },
+    IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar, drawDevil, drawRoof },
   };
 });
 
@@ -6735,12 +7858,12 @@ p { margin: 0; }
  * API: SolMap.create({ t, onOpen, onClose }) → map
  *        map.attach(world, painter)          a new mission's world
  *        map.minimap · map.el                elements for the surface overlay
- *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, ring }] }
- *                                            (world pixels; marks are finds, cave mouths, dropped loads and the parked rover)
+ *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, diamond, text, ring }] }
+ *                                            (world pixels; marks are finds, cave mouths, dropped loads, the parked rover and poiMarks)
  *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
  *        map.frame(state, deadline)          every animation frame (does nothing while closed)
  *        map.relabel()                       after a language change
- *      SolMap.debugText(stats) → string
+ *      SolMap.debugText(stats) → string · SolMap.poiMarks(seed, expedition, masts) → the points of interest's marks
  */
 (function (root) {
   'use strict';
@@ -6766,9 +7889,20 @@ p { margin: 0; }
       for (const k of st.marks || []) {
         const [x, y] = at(k.x, k.y);
         g.fillStyle = k.color;
+        if (k.text) { // a comms mast's "?", edged in dark so it reads on any ground
+          g.font = '700 10px system-ui, sans-serif';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.strokeStyle = '#120a0c';
+          g.lineWidth = 2.5;
+          g.strokeText(k.text, x, y);
+          g.fillText(k.text, x, y);
+          continue;
+        }
         if (k.square) g.fillRect(x - 2.5, y - 2.5, 5, 5);
+        else if (k.diamond) { g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + 4, y); g.lineTo(x, y + 4); g.lineTo(x - 4, y); g.closePath(); g.fill(); }
         else { g.beginPath(); g.arc(x, y, k.ring ? 2.5 : 2, 0, Math.PI * 2); g.fill(); }
-        if (k.ring) { g.strokeStyle = k.ring; g.lineWidth = 1; g.stroke(); } // a cave's mouth: dark, with a light rim
+        if (k.ring) { g.strokeStyle = k.ring; g.lineWidth = 1; g.stroke(); } // a cave's mouth: dark, with a light rim; a landmark's dark edge
       }
       const [bx, by] = at(T / 2, T / 2); // the HQ is tile (0, 0)
       g.fillStyle = '#f4e9df';
@@ -6930,6 +8064,25 @@ p { margin: 0; }
     };
   }
 
+  // The points of interest both maps mark (spec §2.6, §3.7), in world pixels: the landmarks the crew has discovered
+  // (x.landmarks, a gold diamond at its centre), the structures used or repaired (x.structures, a pale teal square on its
+  // footprint's teal), and the comms masts' "?" (`masts`: the rules' X.mastMarks(m), [{ id, x, y, kind }] in tiles) on
+  // what is not marked already. x is the mission's expedition, seed the world's.
+  const cellOf = id => id.slice(1).split(',').map(Number); // "L<i>,<j>" or "S<i>,<j>"
+  function poiMarks(seed, x, masts) {
+    const out = [], shown = new Set();
+    for (const id of Object.keys(x.landmarks || {})) {
+      const l = W.landmarkAt(seed, ...cellOf(id));
+      if (l) { shown.add(id); out.push({ x: (l.x + 0.5) * T, y: (l.y + 0.5) * T, color: '#f0c35a', diamond: true, ring: '#120a0c' }); }
+    }
+    for (const id of Object.keys(x.structures || {})) {
+      const s = W.structureAt(seed, ...cellOf(id)), b = s && s.box;
+      if (s) { shown.add(id); out.push({ x: (b[0] + b[2] + 1) / 2 * T, y: (b[1] + b[3] + 1) / 2 * T, color: '#a9f4e4', square: true }); }
+    }
+    for (const k of masts || []) if (!shown.has(k.id)) out.push({ x: (k.x + 0.5) * T, y: (k.y + 0.5) * T, color: '#a9f4e4', text: '?' });
+    return out;
+  }
+
   function debugText(s) {
     return [
       'fps ' + s.fps,
@@ -6940,7 +8093,7 @@ p { margin: 0; }
     ].join('\n');
   }
 
-  root.SolMap = { create, debugText };
+  root.SolMap = { create, debugText, poiMarks };
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -6959,20 +8112,25 @@ p { margin: 0; }
  * API: SolEva.create(env) → eva
  *        env: { t(key, params), hooks(), crewName(id), home(), drawRover(ctx, x, y), player(), now() → seconds,
  *               push(dx, dy) (a dust devil throws your astronaut that far, world px) }
+ *        hooks() is ui.js's: exp(type, payload, pos) runs the rules (above), suit(report) keeps the solo save, and
+ *        card({ type, id, kind, ... }) shows a point of interest's card (a Kestrel structure's story log, a hab pod's as you
+ *        walk in, a landmark's discovery { by, science }, a formation's fact when you survey it)
  *      eva.el · eva.alert                           the HUD node and the flare's banner, for the surface overlay
  *      eva.sync(data) → { round, fresh }            round: a new round began; fresh: first look at this mission/seat
  *                                                   (data.clock, co-op only: { t: round seconds, at: env.now() then })
  *      eva.reset()                                  a new mission or room: forget the last one's suit, battery, collapse and hold
  *      eva.canMove(player, nx, ny) → may your astronaut step to (nx, ny)? (world px)
  *      eva.step(dt, player, world, moved, focus)    every frame: suit, battery, delivering, holds, dangers, the HUD
- *      eva.focusAt(x, y, player, world) → a focus on a find, a dropped load, a collapsed crewmate or the parked rover
+ *      eva.focusAt(x, y, player, world) → a focus on a find (or a landmark's or a formation's site, as one), a dropped load, a
+ *        collapsed crewmate, the parked rover or the door
+ *        of a Kestrel structure not used yet (kind 'kestrel')
  *      eva.holdable(focus) · eva.label(focus) · eva.start(focus) · eva.stop()       E / the action button
  *      eva.hasRoom() → does your backpack take another load?
  *      eva.act(type, player, payload) → Promise of the rules' answer (board, park) · eva.canister(player) (the button, or Q)
  *      eva.drawZone(ctx, x0, y0, x1, y1, world) the base zone, and every cover in view during a flare warning
  *      eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx)
  *      eva.flareFx(player) → { warn: 0–1, flash: 0–1 }: the red edge of a flare countdown, the flash when it hits
- *      eva.view(player) → tiles you can see this round · eva.clock() → the round's clock (s) · eva.alerting()
+ *      eva.view(player) → tiles you see from where you stand (Z.viewAt) · eva.clock() → the round's clock (s) · eva.alerting()
  *      eva.suitBar(teammate) → 0–1, or null: the suit bar on a teammate's name tag (drawn by SolPaint's drawTags)
  *      eva.marks(world, px, py) → minimap markers · eva.report() → { suit (null while collapsed), driven } for positions
  *      eva.roverAtBay(player) · eva.driving() · eva.collapsed(crewId) · eva.state() (play-testing)
@@ -6986,19 +8144,38 @@ p { margin: 0; }
   const REACH = 0.9 * T;                        // how close the spot you look at must be to a find
   const COLORS = { ice: '#9fd3ea', metal: '#d9b46a', pod: '#ece5db', science: '#6fa8ff' };
   const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science' };
-  // No message when these are refused: they are retried, or harmless.
-  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd'];
+  // No message when these are refused: they are retried, or harmless (a discovery is asked for when a landmark comes into
+  // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
+  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
   const CAN_BELOW = XD.suit - XD.canister.suit;  // a canister is breathed only when all of its 45 s fit in the suit
   const VERDICT = 8;                             // seconds the flare's verdict stays on the banner
+  const INSIDE = { cave: 'eva.inCave', tube: 'eva.inTube', pod: 'eva.inPod' }; // the note while you are in cover out there
+  // What holding E does at a Kestrel structure's door (the hab pod has no hold: you walk in).
+  const VERB = { cache: 'eva.open', wreck: 'eva.salvage', array: 'eva.salvage', weather: 'eva.repair', mast: 'eva.repair' };
+  // A chunk's finds or caves less those under a point of interest's footprint (its `hidden`), as X.findsIn / X.cavesIn
+  // give them: never drawn, marked, smelled or offered.
+  const visible = (c, k) => (c.hidden[k].length ? c[k].filter(o => !c.hidden[k].includes(o.n)) : c[k]);
+  // What can be collected in a chunk, with its id: its finds ("<cx>,<cy>:<n>") and the sites lying in it of the landmarks and
+  // formations it lists ("L<i>,<j>:<n>", "F<cx>,<cy>:0"). A landmark is listed by every chunk its box touches, so each chunk
+  // takes only the sites in it, and a site comes once.
+  function sitesIn(c, cx, cy) {
+    const out = visible(c, 'finds').map(f => [cx + ',' + cy + ':' + f.n, f]);
+    for (const k of c.landmarks.concat(c.formations)) {
+      for (const f of k.sites) if (SW.chunkOf(f.x) === cx && SW.chunkOf(f.y) === cy) out.push([k.id + ':' + f.n, f]);
+    }
+    return out;
+  }
 
   function create(env) {
     const t = (k, p) => env.t(k, p);
     const wall = () => (env.now ? env.now() : 0);
     let data = null, me = null, turn = null, wasDown = false;
     let suit = XD.suit, driven = 0, hold = null, keyHeld = false;
-    let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [];
+    let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [], refillAt = -1e9, inPod = null;
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
+    let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
+    let asked = {};                                // landmark id → when its discovery was answered (Infinity while asked)
 
     const mission = () => (data && data.mission) || null;
     const exp = () => mission().expedition;
@@ -7013,6 +8190,8 @@ p { margin: 0; }
     const secs = s => (Math.round(s * 10) / 10).toString();
     const clock = () => (coopClock ? coopClock.t + (wall() - coopClock.at) : soloClock);
     function say(text, cls, s) { note = { text, cls: cls || '', until: now + (s || 3) }; }
+    // A point of interest's card over the surface (ui.js shows each once a mission): { type: 'log' | ..., id, kind }.
+    const card = c => { const h = env.hooks(); if (h && h.card) h.card(c); };
 
     // ---------- the HUD ----------
     const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -7038,9 +8217,44 @@ p { margin: 0; }
     const text = (n, k, v) => { if (shown[k] !== v) { shown[k] = v; n.textContent = v; } };
     const prop = (k, v, set) => { if (shown[k] !== v) { shown[k] = v; set(v); } };
 
-    // Are you under cover from the flare? In co-op the server judges with the slack every checked action gets (it knows
-    // where you were a moment ago), so the banner and the red edge ask the same; solo has none.
-    const covered = p => !!(p && Z.shelterAt(mission(), p, mission().coop ? XD.reach : 0));
+    // Are you under cover from the flare? The banner and the red edge ask with the slack the verdict gives (Z.slackOf: the
+    // co-op server's, none in solo play), so they agree with it. Like the in-cave note, it reads the chunks the surface
+    // holds, so asking every frame never builds one.
+    const covered = p => !!(p && Z.shelterAt(mission(), p, Z.slackOf(mission()), peek));
+    // A landmark is discovered the first time anyone sees its centre (spec §3.6): here, when that tile comes into your view
+    // as the fog's does (within viewOf(p) tiles of the tile under you; the rules allow 15.5). It is asked once while the
+    // answer is out, and again 3 s after a refusal while it is still in view and undiscovered. Its card opens on the ok; in
+    // co-op the server's event opens it on every tab as well (ui.js shows it once).
+    function sight(p) {
+      const x = exp(), tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), r = viewOf(p);
+      for (let cy = SW.chunkOf(ty) - 1; cy <= SW.chunkOf(ty) + 1; cy++) for (let cx = SW.chunkOf(tx) - 1; cx <= SW.chunkOf(tx) + 1; cx++) {
+        const c = peek && peek(cx, cy);
+        if (c) for (const l of c.landmarks) {
+          if (x.landmarks[l.id] || now - (asked[l.id] == null ? -1e9 : asked[l.id]) < 3) continue;
+          if ((l.x - tx) * (l.x - tx) + (l.y - ty) * (l.y - ty) > r * r) continue;
+          asked[l.id] = Infinity;
+          const by = me;
+          act('discover', p, { landmark: l.id }).then(res => {
+            asked[l.id] = now;
+            if (res.ok) card({ type: 'landmark', id: l.id, kind: l.kind, by, science: res.science });
+          });
+        }
+      }
+    }
+    // The hab pod you stand in (the painter's "inside": the tile under you is in its 5×5 box), from the chunks the surface
+    // holds: the chunk of that tile lists it.
+    function podAt(p) {
+      const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), c = peek && peek(SW.chunkOf(tx), SW.chunkOf(ty));
+      if (c) for (const s of c.structures) if (s.kind === 'pod' && tx >= s.box[0] && tx <= s.box[2] && ty >= s.box[1] && ty <= s.box[3]) return s;
+      return null;
+    }
+    // Tiles you see from where you stand (Z.viewAt): the weather's view, a lava tube's headlamp, a star dune's crest. The
+    // tile under you comes from the chunks the surface holds; before the first frame, or off them, it is open ground.
+    function viewOf(p) {
+      const tx = p ? Math.floor(p.x / T) : 0, ty = p ? Math.floor(p.y / T) : 0, cx = SW.chunkOf(tx), cy = SW.chunkOf(ty);
+      const c = p && peek ? peek(cx, cy) : null;
+      return Z.viewAt(mission(), !!(p && p.inRover), c ? W.tileOf(c, tx - cx * W.CHUNK, ty - cy * W.CHUNK) : null);
+    }
     // The flare as your astronaut sees it: null, or { cls, msg, left (seconds, or null) } for the banner.
     function flareView(p) {
       const m = mission(), f = m && m.expedition && m.expedition.flare;
@@ -7066,7 +8280,8 @@ p { margin: 0; }
       const atBase = !!p && X.inBaseZone(p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t('eva.full'), cls: '' };
       if (live() && suit <= XD.suit * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
-      if (live() && p && !atBase && Z.shelterAt(mission(), p, 0) === 'cave') return { text: t('eva.inCave'), cls: 'ok' };
+      const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
+      if (cover) return { text: t(cover), cls: 'ok' };
       return null;
     }
     // The canister button shows only when breathing one now is worth it: outside, on your feet, and with room for all 45 s.
@@ -7138,15 +8353,10 @@ p { margin: 0; }
       });
     }
 
-    // What is waiting outside this round, said once a round when you first look at it.
+    // What is waiting outside this round (Z.outside), said once a round when you first look at it.
     function brief(m) {
-      const r = m.schedule && m.schedule[m.turn];
-      if (!r) return;
-      const list = [];
-      if (Z.flareDue(m)) list.push(t('eva.brief.flare'));
-      if (r.devil) list.push(t('eva.brief.devils'));
-      if (r.weather === 'regional' || r.weather === 'global') list.push(t('eva.brief.storm', { n: Z.viewTiles(m, false) }));
-      if ((m.events || []).some(e => e.type === 'o2_rupture')) list.push(t('eva.brief.rupture'));
+      const params = { storm: { n: Z.viewTiles(m, false) } };
+      const list = Z.outside(m).map(k => t('eva.brief.' + k, params[k]));
       if (list.length) say(t('eva.brief', { list: list.join(', ') }), 'warn', 8);
     }
 
@@ -7186,11 +8396,13 @@ p { margin: 0; }
     // A new mission or room (SolSurface.reset): nothing of the last one's exploring carries over, so the next sync is a
     // fresh look even with the same astronaut in the same round.
     function reset() {
-      data = me = turn = hold = note = coopClock = null;
+      data = me = turn = hold = note = coopClock = peek = null;
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
       driven = soloClock = 0;
-      deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = -1e9;
+      deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = refillAt = -1e9;
+      inPod = null;
+      asked = {};
       marksCache = [];
     }
 
@@ -7207,6 +8419,7 @@ p { margin: 0; }
 
     function step(dt, p, world, moved, focus) {
       now += dt;
+      peek = world.peek;
       const m = mission();
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
@@ -7248,6 +8461,20 @@ p { margin: 0; }
           warned = true;
           say(t('eva.flare.warned', { s: ZD.flare.countdown }), 'crit', 6);
         }
+        // An abandoned hab pod (spec §3.7): walking in fills your suit, once per pod a round (x.refills, C3), and its story log
+        // opens (ui.js shows each once a mission).
+        const pod = out ? podAt(p) : null;
+        if (pod && pod.id !== inPod) card({ type: 'log', id: pod.id, kind: 'pod' });
+        inPod = pod ? pod.id : null;
+        if (pod && !(x.refills[me] || []).includes(pod.id) && now - refillAt > 2) {
+          refillAt = now;
+          act('refill', p, { pod: pod.id }).then(r => {
+            if (!r.ok) return;
+            suit = r.suit;
+            say(t('eva.refilled', { s: Math.round(r.suit) }), 'ok', 4);
+          });
+        }
+        if (out) sight(p);
         if (atBase && pack().length && !collapsed(me) && now - deliverAt > 1.5) { // the rules refuse anything while you are down
           deliverAt = now;
           const n = pack().length;
@@ -7272,22 +8499,39 @@ p { margin: 0; }
       hold = null;
       const ask = f.kind === 'find' ? act('collect', p, { find: f.id })
         : f.kind === 'drop' ? act('pickup', p, { drop: f.id })
-          : act('revive', p, { target: f.id });
+          : f.kind === 'kestrel' ? act('interact', p, { structure: f.id })
+            : act('revive', p, { target: f.id });
       ask.then(r => {
         if (!r.ok) return;
-        if (f.kind === 'find') say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
-        else if (f.kind === 'drop') say(t('eva.pickedUp'), 'ok', 2);
+        if (f.kind === 'kestrel') return used(f.struct, r);
+        if (f.kind === 'find') {
+          say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
+          // A formation's survey: its real fact and source, once per formation (spec §3.7).
+          if (f.id[0] === 'F') card({ type: 'formation', id: f.id.split(':')[0], kind: f.find.sub });
+        } else if (f.kind === 'drop') say(t('eva.pickedUp'), 'ok', 2);
         else say(t('eva.revivedThem', { name: env.crewName(f.id) }), 'ok', 3);
         if (f.kind === 'find' && keyHeld && live()) hold = { f, t: 0, dur: hold0(f) }; // keep going while E is held
       });
     }
 
+    // A Kestrel structure opened, salvaged or repaired (X.interact): its loads are in your backpack and what did not fit waits
+    // at its door as a drop (C2); a weather station's fog is in the mission's (solo) or comes as any fog does (co-op), and a
+    // mast's marks are read by the maps. Its story log opens: a structure is used once, so this is the first time.
+    function used(s, r) {
+      const said = (r.items || []).map(i => t('haul.' + i.res, { n: i.amount }));
+      if (r.left) said.push(t('eva.atDoor', { n: r.left }));
+      if (s.kind === 'weather') said.push(t('eva.repairedWeather', { n: D.STRUCTURES.kinds.weather.science }));
+      if (s.kind === 'mast') said.push(t('eva.repairedMast'));
+      say(said.join(' · '), 'ok', 5);
+      card({ type: 'log', id: s.id, kind: s.kind });
+    }
+
     // ---------- what you can work on ----------
     function hold0(f) {
       const role = crew() && crew().role;
-      return X.holdSeconds(f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : 'revive', role);
+      return X.holdSeconds(f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : 'revive', role);
     }
-    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive');
+    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive' || f.kind === 'kestrel');
 
     function focusAt(lx, ly, p, world) {
       if (!live() || collapsed(me) || benched()) return null;
@@ -7301,10 +8545,14 @@ p { margin: 0; }
       for (let cy = ccy - 1; cy <= ccy + 1; cy++) for (let cx = ccx - 1; cx <= ccx + 1; cx++) {
         const c = world.peek(cx, cy);
         if (!c) continue;
-        for (const f of c.finds) {
-          const id = cx + ',' + cy + ':' + f.n;
+        for (const [id, f] of sitesIn(c, cx, cy)) {
           if (X.loadsLeft(m, f, id) <= 0) continue;
           consider((f.x + 0.5) * T, (f.y + 0.5) * T, { kind: 'find', key: 'f:' + id, id, find: f, wx: f.x, wy: f.y, x: (f.x + 0.5) * T, y: (f.y + 0.5) * T });
+        }
+        // A Kestrel structure is used from its door, once (x.structures). Up to 4 chunks list one: the same door again changes nothing.
+        for (const s of c.structures) {
+          if (!VERB[s.kind] || x.structures[s.id]) continue;
+          consider((s.x + 0.5) * T, (s.y + 0.5) * T, { kind: 'kestrel', key: 's:' + s.id, id: s.id, struct: s, x: (s.x + 0.5) * T, y: (s.y + 0.5) * T });
         }
       }
       for (const d of x.drops) consider(d.x, d.y, { kind: 'drop', key: 'd:' + d.id, id: d.id, x: d.x, y: d.y });
@@ -7324,6 +8572,7 @@ p { margin: 0; }
         return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role)) });
       }
       if (f.kind === 'drop') return t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
+      if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role)) });
       if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
       if (f.kind === 'rover') return t('sf.boardRover');
       return '';
@@ -7340,7 +8589,7 @@ p { margin: 0; }
     // ---------- drawing ----------
     const warning = () => { const f = mission() && mission().expedition && mission().expedition.flare; return !!f && !f.over && clock() >= f.warn; };
     // The base zone: where the suit pauses and loads are delivered (5 × 5 tiles around the HQ). While a flare's warning
-    // runs, it and every other cover in view (cave mouths, the storm shelter) pulse amber.
+    // runs, it and every cover in view (Z.coversIn, from the chunks the surface holds) pulse amber.
     function drawZone(ctx, x0, y0, x1, y1, world) {
       if (!mission() || !mission().expedition) return;
       const m = mission(), r = (XD.baseZone + 0.5) * T, warn = warning(), pulse = 0.5 + 0.5 * Math.sin(now * 6);
@@ -7352,20 +8601,10 @@ p { margin: 0; }
       ctx.stroke();
       ctx.setLineDash([]);
       if (warn && world) {
-        const spots = [];
-        for (let cy = SW.chunkOf(Math.floor(y0 / T) - 1); cy <= SW.chunkOf(Math.floor(y1 / T) + 1); cy++) {
-          for (let cx = SW.chunkOf(Math.floor(x0 / T) - 1); cx <= SW.chunkOf(Math.floor(x1 / T) + 1); cx++) {
-            const c = world.peek(cx, cy);
-            if (c) for (const k of c.caves) spots.push([(k.x + 0.5) * T, (k.y + 0.5) * T]);
-          }
-        }
-        const sh = m.modules.shelter && m.modules.shelter.count > 0 ? m.layout.find(k => k.type === 'shelter') : null;
-        if (sh) spots.push([(sh.x + W.BASE_RECT.x + 0.5) * T, (sh.y + W.BASE_RECT.y + 0.5) * T]);
         ctx.strokeStyle = 'rgba(242,184,79,' + (0.5 + 0.45 * pulse).toFixed(3) + ')';
         ctx.lineWidth = 3;
-        for (const [cx, cy] of spots) {
-          if (cx < x0 - T || cx > x1 + T || cy < y0 - T || cy > y1 + T) continue;
-          ctx.beginPath(); ctx.ellipse(cx, cy + 6, 26 + 5 * pulse, 12 + 2 * pulse, 0, 0, Math.PI * 2); ctx.stroke();
+        for (const k of Z.coversIn(m, x0 / T - 1, y0 / T - 1, x1 / T + 1, y1 / T + 1, world.peek)) {
+          ctx.beginPath(); ctx.ellipse(k.x * T, k.y * T + 6, 26 + 5 * pulse, 12 + 2 * pulse, 0, 0, Math.PI * 2); ctx.stroke();
         }
       }
       ctx.restore();
@@ -7379,9 +8618,9 @@ p { margin: 0; }
       for (let cy = SW.chunkOf(ty0); cy <= SW.chunkOf(ty1); cy++) for (let cx = SW.chunkOf(tx0); cx <= SW.chunkOf(tx1); cx++) {
         const c = world.peek(cx, cy);
         if (!c) continue;
-        for (const f of c.finds) {
+        for (const [id, f] of sitesIn(c, cx, cy)) {
           if (f.x < tx0 || f.x > tx1 || f.y < ty0 || f.y > ty1) continue;
-          if (X.loadsLeft(m, f, cx + ',' + cy + ':' + f.n) <= 0) continue;
+          if (X.loadsLeft(m, f, id) <= 0) continue;
           const fx = (f.x + 0.5) * T, fy = (f.y + 0.5) * T;
           out.push({ y: fy + 12, draw: ctx => drawFind(ctx, f, fx, fy, time) });
         }
@@ -7394,7 +8633,7 @@ p { margin: 0; }
       }
       // Dust devils: every screen draws the same ones from the round's clock. Past the edge of your view they fade out, so in
       // a dust storm one can be on you before you see it.
-      const pl = env.player && env.player(), view = Z.viewTiles(m, !!(pl && pl.inRover));
+      const pl = env.player && env.player(), view = viewOf(pl);
       for (const d of Z.devils(m, x0 - T, y0 - T, x1 + T, y1 + 2 * T, clock())) {
         const dist = pl ? Math.sqrt(near2(d.x, d.y, pl.x, pl.y)) / T : 0;
         const a = d.a * Math.max(0, Math.min(1, (view + 1 - dist) / 2));
@@ -7431,12 +8670,12 @@ p { margin: 0; }
       for (let cy = SW.chunkOf(ty - 80); cy <= SW.chunkOf(ty + 79); cy++) for (let cx = SW.chunkOf(tx - 80); cx <= SW.chunkOf(tx + 79); cx++) {
         const c = world.peek(cx, cy);
         if (!c) continue;
-        for (const f of c.finds) {
-          if (X.loadsLeft(m, f, cx + ',' + cy + ':' + f.n) <= 0) continue;
+        for (const [id, f] of sitesIn(c, cx, cy)) {
+          if (X.loadsLeft(m, f, id) <= 0) continue;
           const smelt = sniff && (f.kind === 'ice' || f.sub === 'vent') && near2(f.x, f.y, tx, ty) <= sniff * sniff;
           if (smelt || world.seen(f.x, f.y)) out.push({ x: (f.x + 0.5) * T, y: (f.y + 0.5) * T, color: COLORS[f.kind] });
         }
-        for (const k of c.caves) if (world.seen(k.x, k.y)) out.push({ x: (k.x + 0.5) * T, y: (k.y + 0.5) * T, color: '#1a0d0a', ring: '#e8c9a8' });
+        for (const k of visible(c, 'caves')) if (world.seen(k.x, k.y)) out.push({ x: (k.x + 0.5) * T, y: (k.y + 0.5) * T, color: '#1a0d0a', ring: '#e8c9a8' });
       }
       for (const d of x.drops) out.push({ x: d.x, y: d.y, color: '#f46e5f' });
       if (x.rover && !x.rover.driver) out.push({ x: x.rover.x, y: x.rover.y, color: '#e9e2d8', square: true });
@@ -7447,7 +8686,7 @@ p { margin: 0; }
     return {
       el, alert, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, drawZone, sprites, drawOver,
       flareFx, suitBar, marks, clock,
-      view: p => Z.viewTiles(mission(), !!(p && p.inRover)),
+      view: viewOf,
       alerting: () => !alert.hidden,
       // While you are down your suit is not sent: a position in flight could undo a revive the server has just made.
       report: () => ({ suit: collapsed(me) ? null : Math.round(suit * 10) / 10, driven: Math.round(driven * 10) / 10 }),
@@ -7532,6 +8771,29 @@ p { margin: 0; }
     return S.images[k];
   }
   function ready(img) { return img && img.complete && img.naturalWidth > 0; }
+
+  // The points of interest in the live data chunks under the view, grown by 4 tiles for the sprites that stand up into it
+  // (src/surface-paint.js scenery). A structure is done once the rules mark it used or repaired (m.expedition.structures).
+  // S.tube is the lava tube you are inside, whose roof hides while the dark closes in round your headlamp.
+  function pointsOfInterest(x0, y0, x1, y1, m) {
+    const C = W.CHUNK * T, chunks = [], marked = (m.expedition && m.expedition.structures) || {};
+    for (let cy = Math.floor((y0 - 4 * T) / C); cy <= Math.floor((y1 + 4 * T) / C); cy++) {
+      for (let cx = Math.floor((x0 - 4 * T) / C); cx <= Math.floor((x1 + 4 * T) / C); cx++) { const c = S.world.peek(cx, cy); if (c) chunks.push(c); }
+    }
+    const at = [Math.floor(S.player.x / T), Math.floor(S.player.y / T)];
+    S.tube = P.tubeAt(chunks, at, S.world.tile(at[0], at[1]));
+    S.pois = P.scenery(chunks, { at, done: id => !!marked[id], tube: S.tube });
+    return S.pois;
+  }
+  // One point of interest's SolArt drawing, made into an image once per look and size (the vent's puff: a 3 s loop in 24
+  // steps); a lava tube's roof is drawn on the canvas.
+  function drawArt(ctx, it) {
+    if (it.art === 'roof') return P.sprites.drawRoof(ctx, it);
+    const o = it.opts || {}, step = it.art === 'puff' ? Math.floor(S.time / 3 * 24) % 24 : 0;
+    const k = it.art + '|' + it.id + '|' + (o.done ? 1 : 0) + (o.inside ? 1 : 0) + '|' + step + '|' + it.w;
+    if (!S.images[k]) S.images[k] = image(it.art === 'puff' ? A.ventPuff(step / 24, it.w * 128) : A[it.art](it.id, it.w * 128, it.opts));
+    if (ready(S.images[k])) ctx.drawImage(S.images[k], it.x * T, it.y * T, it.w * T, it.h * T);
+  }
 
   // ---------- world model ----------
   // A mission (by its code) gets its own world, painter and fog; reset() forces a fresh one for a new mission.
@@ -7982,8 +9244,16 @@ p { margin: 0; }
     if (!S.player) return { px: 0, py: 0, crew: [], marks: [] };
     return {
       px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })),
-      marks: S.eva.marks(S.world, S.player.x, S.player.y),
+      marks: S.eva.marks(S.world, S.player.x, S.player.y).concat(poiMarks()),
     };
+  }
+  // The maps' marks for the points of interest (src/surface-map.js poiMarks), made again only when what they show changes:
+  // the landmarks discovered, the structures used or repaired (a repaired mast adds "?" marks: X.mastMarks, when the rules have it).
+  function poiMarks() {
+    const m = S.data.mission, x = m.expedition || {}, X = root.SolExpedition;
+    const key = m.seed + '|' + Object.keys(x.landmarks || {}).join() + '|' + JSON.stringify(x.structures || {});
+    if (S.poiKey !== key) { S.poiKey = key; S.poiMarks = SM.poiMarks(S.world.seed, x, X && X.mastMarks ? X.mastMarks(m) : []); }
+    return S.poiMarks;
   }
 
   function drawDebugText() {
@@ -8484,6 +9754,9 @@ p { margin: 0; }
     const k = v.dpr * v.zoom;
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
     S.painter.drawGround(ctx, x0, y0, x1, y1);
+    // the points of interest: their decals lie flat on the ground, under everything; the rest are sorted with the sprites
+    const pois = pointsOfInterest(x0, y0, x1, y1, m);
+    for (const it of pois) if (it.depth == null) drawArt(ctx, it);
     S.eva.drawZone(ctx, x0, y0, x1, y1, S.world);
 
     // buried ice at the base: the only cue for where the ice drill can go
@@ -8589,11 +9862,13 @@ p { margin: 0; }
         ctx.fillStyle = A.ROLE[c.role]; ctx.fillRect(fx, fy - 22, 10, 7);
       } });
     });
+    for (const it of pois) if (it.depth != null) sprites.push({ y: it.depth, draw: () => drawArt(ctx, it) });
     for (const s of S.eva.sprites(x0, y0, x1, y1, S.world, S.time)) sprites.push(s);
     sprites.sort((a, b) => a.y - b.y);
     for (const s of sprites) s.draw(ctx); // the exploring layer's sprites take the context; the others close over it
     // the fog over what you can't see, then the name tags (with teammates' suit bars) on top of it
     P.drawFog(ctx, S.world, x0, y0, x1, y1, p.x, p.y - 12, S.eva.view(p) * T);
+    if (S.tube) P.drawDark(ctx, x0, y0, x1, y1, p.x, p.y - 12, S.eva.view(p) * T); // inside a lava tube: your headlamp's light
     drawTags(ctx, S.tags);
     S.eva.drawOver(ctx);
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
@@ -8653,7 +9928,9 @@ p { margin: 0; }
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
-      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x),
+      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
+      pois: JSON.parse(JSON.stringify(S.pois || [])), tube: S.tube ? S.tube.id : null, // the last frame's points of interest
+      marks: JSON.parse(JSON.stringify(mapState().marks)), // what the maps mark
     };
   }
 
@@ -8723,7 +10000,7 @@ p { margin: 0; }
     prevScreen: null,
     opsView: LS.get('opsView', 'surface'),
     regionsSeen: (rs => (rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }))(LS.get('regionsSeen', null)),
-    regionCard: null,
+    card: null,           // the card over the surface (a region's fact, a point of interest's): see setCard
     fog: {},
     launchSeen: null, // co-op: the launch number of the mission this tab last showed (see SolFog.isNewLaunch)
   };
@@ -9282,72 +10559,120 @@ p { margin: 0; }
     ];
   }
 
-  // ---------- regions ----------
-  // The first time you walk into a region in a mission: its name and one real fact, with the source. The region's name on
-  // the surface is a button that shows the card again. The card stays while the mouse is on it or it has keyboard focus
-  // (WCAG 2.2.1), and goes 15 s after that.
-  let regionTimer = null, regionIsNew = true;
+  // ---------- the card on the surface ----------
+  // One card at a time over the surface: a region's name and one real fact, with the source, the first time you walk into
+  // it in a mission, and a point of interest's card the first time it is met (a landmark's discovery, a formation's fact
+  // when you survey it, a Kestrel structure's story log). Facts and logs come once a mission: store.regionsSeen keeps the ids
+  // shown (regions' and points of interest's), by mission code and mode. The region's name on the surface is a button that shows
+  // its card again. The card stays while the mouse is on it or it has keyboard focus (WCAG 2.2.1), and goes 15 s after that.
+  let cardTimer = null;
   // Sets the card and changes the live stage in place. The walking loop gets here, and a render() would move the surface
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
-  function setRegionCard(id) {
-    store.regionCard = id;
-    if (!id) clearTimeout(regionTimer);
+  function setCard(c) {
+    store.card = c;
+    if (!c) clearTimeout(cardTimer);
     const stage = document.querySelector('.sf-stage');
     if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
-    const old = stage.querySelector('.region-card'), card = regionCard();
+    const old = stage.querySelector('.region-card'), card = surfaceCard();
     if (old && card) old.replaceWith(card);
     else if (card) stage.appendChild(card);
     else if (old) old.remove();
   }
 
   // The card closes 15 s from now, unless by then the mouse is on it or it has keyboard focus: it then waits another 15 s.
-  // The mouse or the focus leaving the card (see regionCard) starts the 15 s again. Touch never holds it: :hover sticks
+  // The mouse or the focus leaving the card (see surfaceCard) starts the 15 s again. Touch never holds it: :hover sticks
   // after a tap, so only a mouse (hover: hover) counts.
   const canHover = () => !!window.matchMedia && window.matchMedia('(hover: hover)').matches;
-  function armRegionTimer() {
-    clearTimeout(regionTimer);
-    if (!store.regionCard) return;
-    regionTimer = setTimeout(() => {
+  function armCardTimer() {
+    clearTimeout(cardTimer);
+    if (!store.card) return;
+    cardTimer = setTimeout(() => {
       const card = document.querySelector('.region-card');
-      if (card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement))) armRegionTimer();
-      else setRegionCard(null);
+      if (card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement))) armCardTimer();
+      else setCard(null);
     }, 15000);
   }
 
-  function showRegionCard(id) {
+  // Is this the first time the card of `id` (a region, or a point of interest) comes up in this mission and mode?
+  function firstTime(id) {
     const s = mission();
     const key = s.seed + '|' + (lanOn() ? 'coop' : 'solo');
     if (store.regionsSeen.key !== key) store.regionsSeen = { key, list: [] };
-    if (store.regionsSeen.list.includes(id)) return;
+    if (store.regionsSeen.list.includes(id)) return false;
     store.regionsSeen.list.push(id);
     LS.set('regionsSeen', store.regionsSeen);
-    regionIsNew = true;
-    setRegionCard(id);
-    armRegionTimer();
+    return true;
+  }
+
+  function showRegionCard(id) {
+    if (!firstTime(id)) return;
+    setCard({ type: 'region', id });
+    armCardTimer();
   }
 
   // The region's name on the surface was selected: read its card again, for another 15 s.
   function reopenRegionCard(id) {
-    regionIsNew = false;
-    setRegionCard(id);
-    armRegionTimer();
+    setCard({ type: 'region', id, again: true });
+    armCardTimer();
   }
 
-  function regionCard() {
-    const id = store.regionCard;
-    if (!id) return null;
-    const src = I.SOURCES[I.REGION_SOURCES[id]];
+  // A point of interest's card, asked for by the surface (src/surface-eva.js) or a crewmate's discovery (onEvent): { type:
+  // 'landmark', id, kind, by, science } (science: null when not known), { type: 'formation', id, kind } or { type: 'log', id,
+  // kind } (a Kestrel structure's story log, its id the structure's). A fact or a log is reading, shown once a mission code
+  // as a region's is; a discovery is this mission's event (the rules make it once), shown whenever it happens. The
+  // discoverer's own tab hears of it twice, its answer and the server's event, in either order: the second only adds the
+  // reward when the first had none.
+  function showCard(c) {
+    if (!c || !mission()) return;
+    const cur = store.card;
+    if (cur && cur.id === c.id) {
+      if (cur.science == null && c.science != null) setCard(Object.assign({}, cur, { science: c.science }));
+      return;
+    }
+    if (c.type !== 'landmark' && !firstTime(c.id)) return;
+    setCard(c);
+    armCardTimer();
+  }
+
+  // A server event (src/net.js): a crewmate's discovery opens its card on every tab (spec §5, C6). The event names the
+  // landmark by id; its kind is the world's.
+  function onEvent(d) {
+    const s = mission(), g = d && d.kind === 'discover' && /^L(-?\d+),(-?\d+)$/.exec(d.landmark);
+    const l = s && g && W.landmarkAt(W.seedOf(s.seed), Number(g[1]), Number(g[2]));
+    if (l) showCard({ type: 'landmark', id: l.id, kind: l.kind, by: d.by, science: Number.isFinite(d.science) ? d.science : null });
+  }
+
+  // What a card says, in the language of the moment: { cls, eyebrow, title, meta, body, src } (meta: a discovery's reward
+  // and finder; src: a real fact's source, when the sources table has it).
+  function cardText(c) {
+    if (c.type === 'region') return { cls: '', eyebrow: t(c.again ? 'region.note' : 'region.new'), title: t('region.' + c.id), body: t('region.fact.' + c.id), src: I.SOURCES[I.REGION_SOURCES[c.id]] };
+    if (c.type === 'landmark') {
+      const stem = D.LANDMARKS.kinds[c.kind].fact, meta = [c.science != null ? t('haul.science', { n: nf(c.science) }) : null, t('disc.by', { name: crewName(c.by) })];
+      const src = I.LANDMARK_SOURCES ? I.SOURCES[I.LANDMARK_SOURCES[c.kind]] : null;
+      return { cls: ' disc', eyebrow: t('disc.new'), title: t(stem + '.name'), meta: meta.filter(Boolean).join(' · '), body: t(stem + '.fact'), src };
+    }
+    if (c.type === 'formation') {
+      const stem = D.FORMATIONS.kinds[c.kind].fact, src = I.FORMATION_SOURCES ? I.SOURCES[I.FORMATION_SOURCES[c.kind]] : null;
+      return { cls: '', eyebrow: t('disc.formation'), title: t(stem + '.name'), body: t(stem + '.fact'), src };
+    }
+    const stem = D.STRUCTURES.kinds[c.kind].log; // a Kestrel structure's story log: fiction (ks.label says so), no source
+    return { cls: ' log', eyebrow: t('ks.label'), title: t(stem + '.name'), body: t(stem + '.log'), src: null };
+  }
+  function surfaceCard() {
+    if (!store.card) return null;
+    const { cls, eyebrow, title, meta, body, src } = cardText(store.card);
     const card = h('aside', {
-      class: 'region-card', role: 'status', 'aria-live': 'polite',
-      onpointerleave: e => { if (e.pointerType === 'mouse') armRegionTimer(); },
-      onfocusout: e => { if (!card.contains(e.relatedTarget)) armRegionTimer(); },
+      class: 'region-card' + cls, role: 'status', 'aria-live': 'polite',
+      onpointerleave: e => { if (e.pointerType === 'mouse') armCardTimer(); },
+      onfocusout: e => { if (!card.contains(e.relatedTarget)) armCardTimer(); },
     },
       h('div', { class: 'region-card-h' },
-        h('span', { class: 'eyebrow' }, t(regionIsNew ? 'region.new' : 'region.note')),
-        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setRegionCard(null) }, '×')),
-      h('h3', null, t('region.' + id)),
-      h('p', null, t('region.fact.' + id)),
-      h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)));
+        h('span', { class: 'eyebrow' }, eyebrow),
+        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setCard(null) }, '×')),
+      h('h3', null, title),
+      meta ? h('p', { class: 'meta' }, meta) : null,
+      h('p', null, body),
+      src ? h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null);
     return card;
   }
 
@@ -9412,24 +10737,16 @@ p { margin: 0; }
       showRegionCard(id);
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
-    // Exploring (src/expedition.js). Solo: the rules run here on your mission, which is saved. Co-op: the server runs them
-    // against where it last saw you, and everyone gets the new room. Always resolves to { ok, ... } or { error }.
+    card: c => showCard(c),
+    // Exploring (the rules' one table, Z.act). Solo: the rules run here for your pilot on your mission, which is saved, and
+    // that includes the solar flare. Co-op: the server runs them against where it last saw you, and everyone gets the new
+    // room. Always resolves to { ok, ... } or { error }.
     exp: (type, payload, pos) => {
       const s = mission();
       if (!s || !s.expedition || s.status !== 'active') return Promise.resolve({ error: 'badPhase' });
       const p = payload || {};
       if (lanOn()) return N.act(type, p).then(r => (r && (!r.error || I.has(store.lang, 'eva.err.' + r.error)) ? r : { error: 'net' }), () => ({ error: 'net' }));
-      const id = s.pilot;
-      const run = {
-        collect: () => X.collect(s, id, p.find, pos), deliver: () => X.deliver(s, id, pos), canister: () => X.useCanister(s, id, pos, p.suit),
-        pickup: () => X.pickUp(s, id, p.drop, pos), collapse: () => X.collapse(s, id, pos, p.driven), board: () => X.board(s, id, pos),
-        park: () => X.park(s, id, pos, p.driven),
-        // The solo flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
-        // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
-        flareStart: () => Z.flareStart(s, p.t),
-        flareEnd: () => Z.flareEnd(s, { [id]: pos }, 0, p.t),
-      }[type];
-      const r = run ? run() : { error: 'badAction' };
+      const r = Z.act(s, s.pilot, type, p, pos);
       if (!r.error) { saveSoloSoon(); render(); }
       return Promise.resolve(r);
     },
@@ -9454,18 +10771,18 @@ p { margin: 0; }
       amount: t('haul.' + l.res, { n: nf(l.amount) }), what: t('find.' + l.kind), region: t('region.' + W.REGIONS[l.region]), name: crewName(l.crewId),
     });
   }
-  // What is waiting outside this round (spec §3.4): a solar flare, dust devils, a dust storm, an oxygen leak at the base.
+  // What is waiting outside this round (Z.outside, spec §3.4): a solar flare, dust devils, a dust storm, an oxygen leak at the base.
   function conditions(s) {
-    const r = s.schedule[s.turn] || {}, f = s.expedition.flare, out = [];
-    if (Z.flareDue(s)) {
+    const on = Z.outside(s), f = s.expedition.flare, out = [];
+    if (on.includes('flare')) {
       if (!f) out.push(['crit', 'warn', t('eva.cond.flare', { d: D.DANGERS.flare.dose, w: D.DANGERS.flare.delay, c: D.DANGERS.flare.countdown })]);
       else if (!f.over) out.push(['crit', 'warn', t('eva.cond.flareOn')]);
       else if (f.hit.length) out.push(['warn', 'warn', t('eva.cond.flareHit', { names: f.hit.map(crewName).join(', '), d: D.DANGERS.flare.dose })]);
       else out.push(['ok', 'ok', t('eva.cond.flareSafe')]);
     }
-    if (r.devil) out.push(['warn', 'eva', t('eva.cond.devils', { n: D.DANGERS.devils.push, s: D.DANGERS.devils.suit })]);
-    if (r.weather === 'regional' || r.weather === 'global') out.push(['warn', 'warn', t('eva.cond.storm', { n: Z.viewTiles(s, false) })]);
-    if ((s.events || []).some(e => e.type === 'o2_rupture')) out.push(['', 'o2', t('eva.cond.rupture', { kg: D.EXPEDITION.canister.o2 })]);
+    if (on.includes('devils')) out.push(['warn', 'eva', t('eva.cond.devils', { n: D.DANGERS.devils.push, s: D.DANGERS.devils.suit })]);
+    if (on.includes('storm')) out.push(['warn', 'warn', t('eva.cond.storm', { n: Z.viewTiles(s, false) })]);
+    if (on.includes('rupture')) out.push(['', 'o2', t('eva.cond.rupture', { kg: D.EXPEDITION.canister.o2 })]);
     return out;
   }
   function expeditionPanel(s) {
@@ -9506,7 +10823,7 @@ p { margin: 0; }
       // The Display settings of this device: the graphics level, the FPS limit and the readout.
       gfx: { quality: store.settings.gfx, fpsCap: store.settings.fpsCap, showFps: store.settings.showFps },
     });
-    return h('div', { class: 'sf-stage' }, node, regionCard());
+    return h('div', { class: 'sf-stage' }, node, surfaceCard());
   }
 
   // Co-op: your astronaut died, or you have none: take over a free crewmate, or watch.
@@ -9578,6 +10895,8 @@ p { margin: 0; }
   function hud(s, f) {
     const season = E.seasonAt(s.sol);
     const weather = s.schedule[s.turn].weather;
+    const next = X.forecastAhead(s); // a repaired weather station's forecast (C1): next round's weather, or null
+    const wx = w => (w === 'global' ? 'crit' : w === 'regional' ? 'warn' : '');
     const remaining = (D.TURNS - s.turn) * D.TURN_SOLS;
     const track = h('div', { class: 'track', 'aria-label': t('ops.round', { n: s.turn + 1, m: D.TURNS }) },
       Array.from({ length: D.TURNS }, (_, i) => {
@@ -9607,7 +10926,9 @@ p { margin: 0; }
         track,
         h('div', { class: 'topbar-actions' },
           h('span', { class: 'chip' }, t(seasonKey(season.ls)) + ' · Ls ' + Math.round(season.ls) + '°'),
-          h('span', { class: 'chip ' + (weather === 'global' ? 'crit' : weather === 'regional' ? 'warn' : '') }, t('weather.' + weather)),
+          h('span', { class: 'wxs' }, // this round's weather, with a repaired weather station's forecast stacked under it
+            h('span', { class: 'chip ' + wx(weather) }, t('weather.' + weather)),
+            next ? h('span', { class: 'chip fc ' + wx(next), title: t('eva.forecastBy') }, t('eva.forecast', { w: t('weather.' + next) })) : null),
           lanOn() ? lanChip() : null,
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.help'), onclick: () => { store.modal = 'help'; render(); } }, ico('help')),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'aria-label': t('nav.notes'), onclick: () => { store.modal = 'notes'; render(); } }, ico('book')),
@@ -10333,7 +11654,7 @@ p { margin: 0; }
     if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos, onFog);
+    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent);
   }
 
   async function joinRoom(code, name) {
@@ -10341,7 +11662,7 @@ p { margin: 0; }
     if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos, onFog);
+    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent);
   }
 
   // Desktop app only: a friend's game on another PC opens in the normal browser (see app/join.js).
@@ -10568,7 +11889,7 @@ p { margin: 0; }
         let joinCode = null;
         try { joinCode = new URLSearchParams(location.search).get('join'); } catch (e) { /* no query */ }
         const invited = !s && !!joinCode && /^[A-Za-z]{1,6}$/.test(joinCode);
-        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog); }
+        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog, onEvent); }
         else if (invited) { store.lanForm.code = joinCode.toUpperCase(); store.modal = 'lan'; }
         render();
         if (invited) { const el = document.getElementById('lan-me'); if (el) el.focus(); }
