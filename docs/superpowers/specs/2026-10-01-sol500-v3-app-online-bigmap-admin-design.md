@@ -641,6 +641,22 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
    - §4 said `mission.forecastBonus` holds rounds left and `E.forecast` looks one extra round ahead while it's above 0. The console has no look-ahead to extend.
    - Now repairing a weather station sets `x.forecastUntil` to the round of the repair + 3 (a round number; `-1` for none). While `X.forecastAhead(m)` returns a weather, the top bar shows "Next round: {weather}" beside this round's weather chip, dashed and in that weather's colours. Nothing counts down at the advance.
    - It lives in the expedition state, which the save repair already covers: a save made before M4c loads with `forecastUntil` at `-1`.
+12. *M4d:* **Calls the user left to Claude on 2026-10-27** ("just start, make the calls yourself"):
+   - **"Take shelter" on the solar-storm card keeps its meaning at the base and doesn't protect crew on the surface.** The card decides the crew's day at the base: less work and a small dose. Anyone outside still needs cover from the map's flare (§3.4), and the card's hint says so in English and Vietnamese, so nobody thinks their astronaut outside is safe.
+   - **The sloppy-bot target (§1.4) is measured where it has room: veteran.** On cadet and commander the sloppy bot already wins 98–100 % without exploring, so it can't gain 10 points there.
+     - On veteran, exploring with M4d's beacons and goals must add 10–25 points (today it adds about 30). The balance runs choose the lever, for example a smaller veteran haul.
+     - The rover kit is an exploring kit, so its large gain stays.
+     - The hard targets stay: careless + explorer under 35 %, thoughtful + explorer over 70 %.
+   - **An S grade stays special.** On commander over 1,000 runs:
+     - about a quarter to a third of thoughtful explorers get an S;
+     - under 10 % of sloppy explorers do;
+     - a mission played without exploring keeps about the grades it got in 3.2.0, before exploring.
+     - The balance runs choose how: new grade bands, or science counting less above a cap.
+   - **The last round's backpack is banked at the final advance,** so it counts for the score and the debrief. Today it is lost.
+   - **A Science note lists every fact and story log found this mission, with its source.** A card that another card replaced is then not lost (M4c's final review), and the ISRU sources live there too.
+   - **Pings work in solo too:** P marks a spot on your own maps for 10 s. The commander's route line and speed aura count only while the commander (the 5th crew member) is outside.
+   - **Beacons aren't flare cover.** §3.4's shelter list doesn't name them: they refill and reveal (§3.8).
+   - **M4d is one milestone and one release (3.6.0),** built the way M4c was: a dry run, then the plan, then the build.
 
 ## 14. Risks
 
