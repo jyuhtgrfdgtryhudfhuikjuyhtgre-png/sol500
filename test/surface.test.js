@@ -1015,7 +1015,12 @@ test('the rover climbs over a boulder that stops you on foot', () => {
   const walker = page(mission({ seed: 'DRIVE-3' }), 'minh');
   assert.ok(run(walker) < bx * T, 'on foot you stop at it: ' + run(walker));
   assert.equal(X.board(m, 'minh', X.bay(m)).ok, true);
-  assert.ok(run(page(m, 'minh')) > (bx + 1) * T, 'the rover drives over it');
+  const pg = page(m, 'minh'), before = pg.probe().eva.driven;
+  assert.ok(run(pg) > (bx + 1) * T, 'the rover drives over it');
+  // The battery counts the tiles it drove, and the boulder's tile twice (roverDrain.rough): about a tile's worth more than the
+  // road. About: the rough rate applies to whole 150 ms windows of the battery's count, so one tile counts 0.5 to 1.5 more.
+  const extra = pg.probe().eva.driven - before - (pg.probe().player.x - (bx - 2.5) * T) / T;
+  assert.ok(extra > 0.4 && extra < 1.6, 'over the boulder the battery counted ' + extra.toFixed(2) + ' tiles more (rough: ×' + D.EXPEDITION.roverDrain.rough + ')');
 });
 
 test("a crewmate's rover turns on your screen the way it moves, and keeps its heading standing still", () => {

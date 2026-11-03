@@ -181,12 +181,16 @@ test('boulders and crater rims stop you on foot but not the rover, which finds i
     assert.equal(w.isBlocked(at[0], at[1], true), false, 'the rover');
     assert.equal(w.rough(at[0], at[1]), true, 'rough ground');
   }
-  for (const code of [W.TILE.CLIFF, W.TILE.CANYON_WALL]) {
-    const at = findTile(w, code) || findTile(SW.create('WORLD-2'), code);
-    if (!at) continue;
-    assert.equal(w.tile(at[0], at[1]) !== code || w.isBlocked(at[0], at[1], true), true, 'a wall stops the rover too: ' + code);
-    assert.equal(w.rough(at[0], at[1]) && w.tile(at[0], at[1]) === code, false);
+  // Every tile out to 140 from the base, whatever it is: only boulders and crater rims are rough, and every other wall stops
+  // the rover too. (Canyon walls, lava-tube walls and ice scarps lie further out than this; the rule is the same per tile.)
+  const seen = new Set();
+  for (let r = 0; r < 140; r++) for (let k = -r; k <= r; k++) for (const [x, y] of [[k, -r], [k, r], [-r, k], [r, k]]) {
+    const code = w.tile(x, y), rough = code === W.TILE.BOULDER || code === W.TILE.RIM;
+    seen.add(code);
+    if (w.rough(x, y) !== rough) assert.fail('rough ground is only boulders and rims: ' + code + ' at ' + x + ',' + y);
+    if (w.isBlocked(x, y, true) !== (W.BLOCKING[code] === 1 && !rough)) assert.fail('a wall stops the rover too: ' + code + ' at ' + x + ',' + y);
   }
+  for (const code of [W.TILE.CLIFF, W.TILE.STRUCT_WALL]) assert.ok(seen.has(code), 'a wall of ' + code + ' was among them');
   w.setOverlay([[0, 0]]);
   assert.equal(w.isBlocked(0, 0, true), true, 'the HQ stops the rover');
   const [bx, by] = findTile(w, W.TILE.BOULDER, true);
