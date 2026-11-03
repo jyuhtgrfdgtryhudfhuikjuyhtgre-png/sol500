@@ -1021,7 +1021,7 @@ test('the title screen tells why we go to Mars, page by page: Earth, the Moon, t
   assert.equal(pg.dialog(), null, 'closed');
 });
 
-test('the field guide labels every piece of cargo, building and gear, says what it does and gives a real fact, with sources, in both languages', () => {
+test('the field guide labels every piece of cargo, building and gear and says what it does; a real fact shows only with the source that states it; in both languages', () => {
   const D = require('../src/data.js');
   for (const lang of ['en', 'vi']) {
     const pg = page({ lang });
@@ -1029,13 +1029,22 @@ test('the field guide labels every piece of cargo, building and gear, says what 
     assert.equal(pg.dialog().attrs['aria-label'], I.t(lang, 'guide.title'));
     const ids = pg.all().filter(n => /^guide:/.test(n.attrs['data-k'] || '')).map(n => n.attrs['data-k'].slice(6));
     for (const id of Object.keys(D.MODULES).concat(['waterwall', 'spares', 'materials', 'food', 'o2', 'water', 'suit', 'pack', 'canister', 'kit'])) assert.ok(ids.includes(id), 'listed: ' + id);
+    const cited = {};
     for (const id of ids) {
-      const item = pg.byKey('guide:' + id), [name, desc, fact] = item.children[1].children;
-      assert.ok(name.textContent && desc.textContent && fact && fact.textContent, lang + ' ' + id + ': a name, what it does, a fact');
-      for (const n of [name, desc, fact]) assert.doesNotMatch(n.textContent, /^(item|mod|bld|guide)\./, lang + ' ' + id + ': no missing words');
-      assert.doesNotMatch(item.textContent, /\{\w+\}/, lang + ' ' + id + ': no unfilled {placeholder}');
+      const item = pg.byKey('guide:' + id), [name, desc] = item.children[1].children, nodes = walk(item, []), what = lang + ' ' + id;
+      const fact = nodes.find(n => n.className === 'guide-fact'), links = nodes.filter(n => n.tagName === 'A');
+      assert.ok(name.textContent && desc.textContent, what + ': a name and what it does');
+      for (const n of [name, desc, fact].filter(Boolean)) assert.doesNotMatch(n.textContent, /^(item|mod|bld|guide)\./, what + ': no missing words');
+      assert.doesNotMatch(item.textContent, /\{\w+\}/, what + ': no unfilled {placeholder}');
+      assert.equal(links.length, fact ? 1 : 0, what + ': a fact shows its source, and only a fact does');
+      if (!fact) continue;
+      cited[id] = Object.keys(I.SOURCES).find(s => I.SOURCES[s].url === links[0].attrs.href && I.SOURCES[s].label === links[0].textContent);
+      assert.ok(cited[id] && /^https:\/\//.test(links[0].attrs.href), what + ': its source is in SOURCES');
     }
-    for (const [id, src] of [['suit', 'marsFacts'], ['pack', 'percySamples'], ['shield', 'hassler'], ['rover', 'percyRover']]) assert.ok(pg.byKey('guide:' + id).textContent.includes(I.SOURCES[src].label), id + ' cites ' + src);
+    // lab's and spares' lines are mottos, not facts; no page checked says solar's 43 %, the water wall's "best shield per
+    // kilogram", baked regolith bricks or water's 7 kg a day as the game words them (src/ui.js GUIDE_SOURCES).
+    assert.deepEqual(ids.filter(id => !cited[id]), ['solar', 'waterwall', 'lab', 'spares', 'materials', 'water'], lang + ': the entries with no fact line');
+    assert.deepEqual([cited.rover, cited.suit], ['dra5', 'marsGlance'], lang + ': pressurized rovers are in DRA 5.0, the air pressure in Mars at a glance');
     click(pg.byKey('modal-close'));
     assert.equal(pg.dialog(), null);
   }

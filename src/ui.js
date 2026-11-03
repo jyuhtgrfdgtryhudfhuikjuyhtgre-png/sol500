@@ -1986,23 +1986,30 @@
   }
 
   // The field guide (the project brief's item annotations): every piece of cargo, building and gear, with its name, what it
-  // does in the game and a real fact, and the fact's source where SOURCES has one. Cargo uses the packing screen's words,
-  // buildings the build menu's, gear and the facts the build menu lacks the guide's own (guide.*).
+  // does in the game and a real fact with the source that states it. Cargo uses the packing screen's words, buildings the
+  // build menu's, gear and the facts the build menu lacks the guide's own (guide.*).
   const GUIDE = [
     ['guide.cargo', ['solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse', 'waterwall', 'lab', 'rover', 'spares', 'materials', 'food', 'o2', 'water']],
     ['guide.buildings', ['hab', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield']],
     ['guide.gear', ['suit', 'pack', 'canister', 'kit']],
   ];
-  const GUIDE_SOURCES = { hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler', suit: 'marsFacts', pack: 'percySamples', canister: 'bvad', rover: 'percyRover' };
+  // Each page checked to say the fact as the game words it. An entry with none shows no fact line: lab's and spares' are
+  // mottos, and no page checked says solar's 43 %, the water wall's "best shield per kilogram", baked regolith bricks or
+  // water's 7 kg a day.
+  const GUIDE_SOURCES = {
+    battery: 'marsGlance', reactor: 'kilopower', recycler: 'water98', oxygen: 'moxie', icedrill: 'iceMap', greenhouse: 'veggie', rover: 'dra5', food: 'bvad', o2: 'jonesKliss',
+    hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler',
+    suit: 'marsGlance', pack: 'percySamples', canister: 'jonesKliss', kit: 'relayJpl',
+  };
   const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
   function guideEntry(id) {
     // The guide's own words (guide.<id>.*) win: a borrowed string is called here without its params (bld.kit's {base}…).
-    const k = key => (I.STR.en[key] ? t(key) : null), own = part => k('guide.' + id + '.' + part);
+    const k = key => (I.STR.en[key] ? t(key) : null), own = part => k('guide.' + id + '.' + part), src = GUIDE_SOURCES[id] || null;
     return {
       name: own('name') || k('item.' + id + '.name') || k('mod.' + id),
       desc: own('desc') || k('item.' + id + '.desc') || k('bld.' + id),
-      fact: own('fact') || k('item.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null),
-      src: GUIDE_SOURCES[id] || null,
+      fact: src && (own('fact') || k('item.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
+      src,
       art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
     };
   }
