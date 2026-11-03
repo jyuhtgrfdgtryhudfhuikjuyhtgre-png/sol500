@@ -80,6 +80,14 @@ test("the user's three NASA links are in the Science notes in both languages: de
   assert.deepEqual(I.NOTES.vi.map(n => n.src), I.NOTES.en.map(n => n.src), 'the Vietnamese notes cite what the English ones do, in order');
 });
 
+test('"Driving on Mars" gives the rover\'s mass in kilograms and its weight in newtons (mass × g), in both languages', () => {
+  // The note teaches that weight changes with gravity; kilograms measure mass, which does not.
+  const PH = require('../src/physics.js'), i = I.NOTES.en.findIndex(n => n.title === 'Driving on Mars');
+  assert.deepEqual([PH.MARS_G, PH.EARTH_G].map(g => Number((PH.ROVER.mass * g).toPrecision(2))), [3800, 10000], '1,025 kg × g, to 2 figures');
+  const want = { en: ['has the mass of Perseverance, 1,025 kg', '3,800 newtons on Mars', '10,000 on Earth'], vi: ['có khối lượng bằng Perseverance, 1.025 kg', '3.800 niutơn trên sao Hỏa', '10.000 niutơn trên Trái Đất'] };
+  for (const [lang, parts] of Object.entries(want)) for (const p of parts) assert.ok(I.NOTES[lang][i].body.includes(p), lang + ': ' + p);
+});
+
 test('the Plains fact cites a page from after the landing and claims nothing that page does not say', () => {
   // https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/ (Feb. 18, 2021) says
   // "has touched down at Jezero Crater", "Some 28 miles (45 kilometers) wide" and "3.5 billion years ago the crater had its
