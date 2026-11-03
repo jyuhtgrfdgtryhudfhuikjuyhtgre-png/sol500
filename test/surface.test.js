@@ -87,7 +87,7 @@ function page(m, me, opts) {
   const on = {}, sent = [], calls = [], walks = [], queued = [];
   const { painter, seen } = stubPainter(() => clock);
   const win = {
-    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW,
+    SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW, SolPhysics: require('../src/physics.js'),
     SolPaint: Object.assign({}, P, o.paint, { createPainter: (world, popts) => { seen.scale = (popts && popts.scale) || 1; return painter; } }),
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
     location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: function () {},
@@ -958,4 +958,74 @@ test("in Vietnamese the surface's menus write a build's progress and a module's 
   pg.show(m);
   const [ex, ey] = E.buildSpots(m, 'battery', [])[0];
   assert.equal(notes(ex, ey, 0.35).pop(), vi('hud.materials') + ': 1.234 kg', "the build grid's stock");
+});
+
+// ---------- the rover drives by the physics engine (2026-11-03): steering, the boost, climbing, a crewmate's rover ----------
+const PH = require('../src/physics.js');
+function inRover(seed) {
+  const m = mission({ seed });
+  assert.equal(X.board(m, 'minh', X.bay(m)).ok, true);
+  return { m, pg: page(m, 'minh') };
+}
+// The west end of a run of n tiles in one row with nothing that blocks a walker and nothing rough, away from the base.
+function openRow(seed, n) {
+  const w = SW.create(seed), ok = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y);
+  for (let y = 5; y < 90; y++) for (let x = 6, run = 0; x < 300; x++) { run = ok(x, y) ? run + 1 : 0; if (run === n) return [x - n + 1, y]; }
+  return null;
+}
+
+test('in the rover a new direction turns it smoothly, no faster than its wheels grip, and it gathers speed gently', () => {
+  const { m, pg } = inRover('DRIVE-1');
+  const [x, y] = openRow(m.seed, 12);
+  pg.qa.teleport(x + 6, y);
+  pg.step(0.1);
+  assert.equal(pg.probe().player.heading, 0, 'a new mission\'s rover faces east');
+  pg.key('KeyS');
+  pg.step(0.1);
+  const { heading, speed } = pg.probe().player;
+  assert.ok(Math.abs(heading - PH.ROVER.turn * 0.1) < 1e-9, 'turned 0.36 rad of the way south, not snapped: ' + heading);
+  assert.ok(speed > 0 && speed <= PH.grip() * PH.PX_PER_M * 0.1, 'and speeds up no harder than grip allows: ' + speed);
+  pg.key('KeyS', false);
+});
+
+test('Shift opens up the rover 1.6 times, and the battery counts each boosted tile twice', () => {
+  const { m, pg } = inRover('DRIVE-2');
+  const [x, y] = openRow(m.seed, 48);
+  pg.qa.teleport(x + 1, y);
+  pg.key('KeyD');
+  pg.step(3);
+  const window = () => { const a = pg.probe(); pg.step(0.5); const b = pg.probe(); return (b.eva.driven - a.eva.driven) / ((b.player.x - a.player.x) / T); };
+  assert.ok(Math.abs(pg.probe().player.speed - 390) < 1e-6, 'its top speed: ' + pg.probe().player.speed);
+  const plain = window();
+  pg.key('ShiftLeft');
+  pg.step(3);
+  assert.ok(Math.abs(pg.probe().player.speed - 390 * 1.6) < 1e-6, 'boosted: ' + pg.probe().player.speed);
+  const boosted = window();
+  assert.ok(Math.abs(plain - 1) < 0.01 && Math.abs(boosted - 2) < 0.01, 'battery per tile: ' + plain + ', then ' + boosted);
+});
+
+test('the rover climbs over a boulder that stops you on foot', () => {
+  const m = mission({ seed: 'DRIVE-3' }), w = SW.create(m.seed), open = (x, y) => !W.BLOCKING[w.tile(x, y)];
+  let at = null;
+  for (let r = 6; r < 120 && !at; r++) for (let x = -r; x <= r && !at; x++) for (const y of [-r, r]) {
+    if (w.tile(x, y) === W.TILE.BOULDER && [-3, -2, -1, 1, 2, 3].every(d => open(x + d, y) && !w.rough(x + d, y))) { at = [x, y]; break; }
+  }
+  assert.ok(at, 'a lone boulder with open ground either side');
+  const [bx, by] = at, run = pg => { pg.qa.teleport(bx - 3, by); pg.step(0.1); pg.key('KeyD'); pg.step(3); pg.key('KeyD', false); return pg.probe().player.x; };
+  const walker = page(mission({ seed: 'DRIVE-3' }), 'minh');
+  assert.ok(run(walker) < bx * T, 'on foot you stop at it: ' + run(walker));
+  assert.equal(X.board(m, 'minh', X.bay(m)).ok, true);
+  assert.ok(run(page(m, 'minh')) > (bx + 1) * T, 'the rover drives over it');
+});
+
+test("a crewmate's rover turns on your screen the way it moves, and keeps its heading standing still", () => {
+  const { pg } = inRover('DRIVE-4');
+  const r = (x, y, moving) => pg.remote([{ crewId: 'diego', x, y, rover: true, moving, dir: 'down' }]);
+  r(640, 640, true);
+  r(740, 640, true);
+  assert.equal(pg.probe().remote.diego.heading, 0, 'east');
+  r(740, 740, true);
+  assert.equal(pg.probe().remote.diego.heading, Math.PI / 2, 'then south');
+  r(740, 740, false);
+  assert.equal(pg.probe().remote.diego.heading, Math.PI / 2, 'parked, it still faces south');
 });

@@ -38,7 +38,7 @@ function setup(opts) {
   const o = opts || {};
   // `o.paint` replaces SolPaint sprite painters (to see what is drawn).
   const paint = o.paint ? Object.assign({}, P, { sprites: Object.assign({}, P.sprites, o.paint) }) : P;
-  const sandbox = { SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolPaint: paint, SolWorld: SW, document: { createElement: element } };
+  const sandbox = { SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolPaint: paint, SolWorld: SW, SolPhysics: require('../src/physics.js'), document: { createElement: element } };
   vm.runInNewContext(ART, sandbox);
   vm.runInNewContext(SOURCE, sandbox);
   const m = o.mission || E.createMission({ seed: 'EVA-1', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' });
@@ -1151,4 +1151,17 @@ test("a hold's seconds are written in the player's language: the Engineer's 1.5 
   const secs = (id, lang) => { s.eva.sync({ mission: s.m, controlId: id, lang }); const l = s.eva.label(focus); return JSON.parse(l.slice(l.indexOf(' ') + 1)).s; };
   assert.equal(X.holdSeconds('metal', 'engineer'), 1.5);
   assert.deepEqual([secs('lena', 'en'), secs('lena', 'vi'), secs('minh', 'vi')], ['1.5', '1,5', '3']);
+});
+
+test("the rover's battery counts each tile boosted or driven over rocks twice (and both: four times), and the HUD shows the physics", () => {
+  const I = require('../src/i18n.js'), s = setup({ t: (k, p) => I.t('en', k, p) });
+  const p = Object.assign(outside(20, 1), { inRover: true, car: { heading: 0, speed: 390 } });
+  s.eva.step(0.1, p, s.world, 10 * T, null);
+  assert.equal(s.eva.report().driven, 10, 'ten tiles, plainly');
+  s.eva.step(0.1, Object.assign(p, { drain: 2 }), s.world, 10 * T, null);
+  assert.equal(s.eva.report().driven, 30, 'ten boosted tiles count twenty');
+  s.eva.step(0.1, Object.assign(p, { drain: 4 }), s.world, 5 * T, null);
+  assert.equal(s.eva.report().driven, 50, 'five boosted over rocks count twenty');
+  const phys = s.eva.el.children.find(n => / batt$/.test(n.className)).children[3].textContent;
+  assert.equal(phys, '22 km/h · stops in 5.5 m (on Earth: 2.1 m)', 'Mars needs 2.6 times as far to stop');
 });

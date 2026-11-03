@@ -250,6 +250,7 @@
       collapse: { health: 20, morale: 3 }, // an empty suit outside: lost at the next advance
       roverHome: 6,             // a rover left within this many tiles of the HQ goes back to its bay
       roverRange: 400,          // tiles the rover's battery drives per round (it recharges overnight)
+      roverDrain: { boost: 2, rough: 2 }, // each tile boosted, or over rocks and crater rims, counts twice (both: 4 times)
       maxDrops: 40,             // dropped loads kept in the mission (the oldest go first)
       // Relay beacons (spec §3.8): seconds of holding E to place one; tiles it stands at least from the HQ and from another
       // beacon; the most a mission places; tiles from it that refill a suit (once a round each) and that it reveals. A kit

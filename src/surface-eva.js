@@ -43,7 +43,7 @@
  */
 (function (root) {
   'use strict';
-  const D = root.SolData, E = root.SolEngine, W = root.SolWorldgen, X = root.SolExpedition, Z = root.SolDangers, P = root.SolPaint, SW = root.SolWorld, A = root.SolArt;
+  const D = root.SolData, E = root.SolEngine, W = root.SolWorldgen, X = root.SolExpedition, Z = root.SolDangers, P = root.SolPaint, SW = root.SolWorld, A = root.SolArt, PH = root.SolPhysics;
   const { drawFind, drawDrop, drawRing, drawDevil, drawBeacon, drawPing, roundRect } = P.sprites;
   const XD = D.EXPEDITION, ZD = D.DANGERS;
   const T = 64, ICY = W.REGIONS.indexOf('icy');
@@ -130,6 +130,8 @@
     const meter = () => { const row = node('div', 'sf-suit'), k = node('span', 'k'), bar = node('span', 'bar'), fill = node('i'), v = node('b'); bar.appendChild(fill); row.append(k, bar, v); return { row, k, fill, v }; };
     const suitM = meter(), battM = meter();
     battM.row.classList.add('batt');
+    const physEl = node('span', 'phys'); // while driving: the speed, and how far the rover needs to stop on Mars and on Earth
+    battM.row.appendChild(physEl);
     const packEl = node('div', 'sf-pack');
     const canBtn = node('button', 'sf-can');
     canBtn.type = 'button';
@@ -275,6 +277,8 @@
         text(battM.k, 'bk', t('eva.battery'));
         text(battM.v, 'bv', Math.floor(left) + ' ' + t(Math.floor(left) === 1 ? 'eva.tiles1' : 'eva.tiles'));
         prop('bw', (100 * left / XD.roverRange).toFixed(1) + '%', v => { battM.fill.style.width = v; });
+        const v = p.car ? p.car.speed : 0;
+        text(physEl, 'bp', t('eva.drive', { kmh: Math.round(v / PH.PX_PER_M * 3.6), m: secs(PH.stopDistance(v)), e: secs(PH.stopDistance(v, PH.EARTH_G)) }));
       }
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
       prop('pk', items.map(i => i.res + (i.canister ? '*' : '')).join(',') + '|' + cap + '|' + (shown.lang || ''), () => {
@@ -411,7 +415,8 @@
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
         const x = m.expedition, atBase = X.inBaseZone(p), out = !atBase && !collapsed(me) && !benched();
-        if (p.inRover && moved > 0) driven = Math.min(XD.roverRange, driven + moved / T);
+        // The battery counts the tiles driven, more for each one boosted or over rocks (p.drain, set as the rover moves).
+        if (p.inRover && moved > 0) driven = Math.min(XD.roverRange, driven + moved / T * (p.drain || 1));
         if (out) {
           let k = p.inRover && !hold ? XD.drain.rover : 1;   // you step out of the rover to work
           if (p.sprinting) k *= XD.drain.sprint;

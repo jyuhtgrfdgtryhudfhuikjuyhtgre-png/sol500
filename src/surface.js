@@ -25,12 +25,13 @@
  */
 (function (root) {
   'use strict';
-  const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap, EV = root.SolEva;
+  const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap, EV = root.SolEva, PH = root.SolPhysics;
   const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks } = P.sprites;
   const T = 64;
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
-  const SPEED = 150, SPRINT_X = 1.75, ROVER_X = 2.6, NPC_SPEED = 115;
+  const SPEED = 150, SPRINT_X = 1.75, NPC_SPEED = 115; // the rover's top speed is src/physics.js's ROVER.top (390 px/s)
+  const NOSE = 40; // px ahead of the rover's middle: its nose, kept out of walls so the drawn rover never drives into one
   const PUSH_TIME = 0.25; // seconds a dust devil's throw takes (a slide that stops at walls)
   const WALK_GAP = 0.15; // seconds between two walking samples (the walk hook), about co-op's position cadence (110 ms or more)
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -136,16 +137,16 @@
     };
   }
 
-  const isBlocked = (wx, wy) => S.world.isBlocked(wx, wy);
+  const isBlocked = (wx, wy, rover) => S.world.isBlocked(wx, wy, rover); // rover: it drives over rocks and crater rims
 
-  function hitsWall(x, y) {
+  function hitsWall(x, y, rover) {
     const pts = [[x - 10, y - 6], [x + 10, y - 6], [x - 10, y + 4], [x + 10, y + 4]];
-    return pts.some(([px, py]) => isBlocked(Math.floor(px / T), Math.floor(py / T)));
+    return pts.some(([px, py]) => isBlocked(Math.floor(px / T), Math.floor(py / T), rover));
   }
 
   // Breadth-first search over world tiles inside a 64×64-tile box around the walker; returns tile-centre waypoints.
-  function findPath(fromX, fromY, goalWx, goalWy, allowGoalBlocked) {
-    const steps = S.world.findPath(Math.floor(fromX / T), Math.floor(fromY / T), goalWx, goalWy, allowGoalBlocked);
+  function findPath(fromX, fromY, goalWx, goalWy, allowGoalBlocked, rover) {
+    const steps = S.world.findPath(Math.floor(fromX / T), Math.floor(fromY / T), goalWx, goalWy, allowGoalBlocked, rover);
     return steps && steps.map(([x, y]) => center(x, y));
   }
 
@@ -170,7 +171,9 @@
   function ensurePlayer() {
     if (S.player) return;
     const [x, y] = spawnPoint();
-    S.player = { x, y, dir: 'down', phase: 0, moving: false, stamina: 100, path: null, inRover: false, crewId: S.data.controlId };
+    S.player = { x, y, dir: 'down', phase: 0, moving: false, stamina: 100, path: null, inRover: false, crewId: S.data.controlId, car: null, odo: 0 };
+    S.roverHeading = 0; // where the rover faces (0 = east), driven or parked: a new mission's waits at its bay facing east
+    S.fx = { dust: [], tracks: {} }; // the rovers' dust and wheel tracks (roverFx)
   }
 
   // ---------- setup ----------
@@ -199,7 +202,7 @@
     S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }), onPing: (x, y) => ping(x, y) });
     S.eva = EV.create({
       t: (k, p) => t(k, p), hooks: () => S.hooks, crewName: id => S.data.crewName(id), player: () => S.player, home: goHome,
-      drawRover: (ctx, x, y) => { const img = moduleImage('rover', 1); if (ready(img)) ctx.drawImage(img, x - 34, y - 52, 68, 68); },
+      drawRover: (ctx, x, y) => P.sprites.drawRoverTop(ctx, x, y - 10, S.roverHeading || 0, 0, false, null), // parked, as it was left
       now: () => performance.now() / 1000,
       push: (dx, dy) => { if (S.player) S.player.push = { x: dx, y: dy, left: PUSH_TIME }; },
       team: () => team(),
@@ -356,7 +359,7 @@
       // Tap a crew member to talk to them
       const crewHit = avatars().find(a => !a.you && Math.hypot(a.x - wx, a.y - 18 - wy) < 26);
       const goalBlocked = isBlocked(tx, ty);
-      const path = findPath(S.player.x, S.player.y, tx, ty, goalBlocked);
+      const path = findPath(S.player.x, S.player.y, tx, ty, goalBlocked, S.player.inRover);
       S.lastTap = { tx, ty, goalBlocked, found: !!path };
       if (path) {
         if (goalBlocked) path.pop();
@@ -441,7 +444,7 @@
     }
     if (down) S.player.inRover = false; // a collapse parks the rover where you fell (X.collapse): you are never left in it
     S.canvas.setAttribute('aria-label', t('sf.aria'));
-    S.hint.textContent = t(S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
+    S.hintKey = null; // the next frame writes the key hint in the language of the moment, on foot or in the rover
     S.btnAct.setAttribute('aria-label', t('sf.interact'));
     S.btnRun.setAttribute('aria-label', t('sf.sprint'));
     if (data.lang !== S.lang) {
@@ -458,8 +461,12 @@
     for (const p of list || []) {
       if (!p.crewId || (S.data && p.crewId === S.data.controlId)) continue;
       const prev = S.remote[p.crewId];
+      // A rover's heading comes from how its relayed position moves (no new network field); standing still keeps it.
+      const shift = prev && prev.rover && p.rover ? Math.hypot(p.x - prev.tx, p.y - prev.ty) : 0;
+      const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : prev && p.rover ? prev.heading : null;
+      if (p.rover && heading != null) S.roverHeading = heading; // so it is parked as its driver left it
       next[p.crewId] = {
-        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover,
+        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, odo: prev ? prev.odo || 0 : 0,
         phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0, away: !!p.away,
       };
     }
@@ -514,6 +521,7 @@
     const moved = stepPlayer(dt);
     stepNpcs(dt);
     stepRemote(dt);
+    roverFx(dt);
     stepFocus();
     S.eva.step(dt, S.player, S.world, moved, S.focus);
     stream(t0);
@@ -615,7 +623,7 @@
       if (!vx && !vy && p.path && p.path.length) {
         const [tx, ty] = p.path[0];
         const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
-        if (d < 6) {
+        if (d < (p.inRover ? 30 : 6)) { // a rover sweeps through its turns: near enough is enough
           p.path.shift();
           if (!p.path.length) {
             p.path = null;
@@ -635,10 +643,38 @@
     let moving = len > 0.05;
     const sprinting = moving && (S.keys.has('Shift') || S.sprintHeld) && p.stamina > 4 && !p.inRover;
     p.stamina = clamp(p.stamina + (sprinting ? -32 : 18) * dt, 0, 100);
-    if (moving) {
+    if (p.inRover) {
+      // The rover drives by the physics engine (src/physics.js): it turns toward the way you push and speeds up, brakes and
+      // turns only as hard as its wheels grip in Mars' gravity. Shift opens up its governor; boulders and crater rims are
+      // rough ground it creeps over. The battery counts each tile boosted, or rough, twice (p.drain, src/surface-eva.js).
+      if (!p.car) p.car = { heading: S.roverHeading || 0, speed: 0 };
+      const turnedFrom = p.car.heading;
+      const rough = S.world.rough(Math.floor(p.x / T), Math.floor(p.y / T)), boost = moving && (S.keys.has('Shift') || S.sprintHeld);
+      const step = PH.drive(p.car, { x: vx, y: vy }, dt, { boost, rough }) * S.eva.speed(p) * S.qa.speed; // the commander's aura
+      const RD = D.EXPEDITION.roverDrain;
+      p.drain = (boost && p.car.speed > 1 ? RD.boost : 1) * (rough ? RD.rough : 1);
+      S.roverHeading = p.car.heading;
+      moving = p.car.speed > 4;
+      if (step > 0) {
+        const hx = Math.cos(p.car.heading), hy = Math.sin(p.car.heading), mx = p.x + hx * step, my = p.y + hy * step;
+        const stuck = hitsWall(p.x, p.y, true);
+        const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !hitsWall(x + hx * NOSE, y + hy * NOSE, true))) && S.eva.canMove(p, x, y));
+        const okX = ok(mx, p.y);
+        if (okX) p.x = mx;
+        const okY = ok(p.x, my);
+        if (okY) p.y = my;
+        if (!okX && !okY) { p.car.speed = 0; moving = false; p.path = null; } // against a wall, or the battery is flat
+        p.odo = (p.odo || 0) + step;
+      }
+      if (step > 0 || p.car.heading !== turnedFrom) { // you face the way it does once it turns or moves (E acts there)
+        const c = Math.cos(p.car.heading), s = Math.sin(p.car.heading);
+        p.dir = Math.abs(c) > Math.abs(s) ? (c > 0 ? 'right' : 'left') : (s > 0 ? 'down' : 'up');
+      }
+      if (moving) S.hintUntil = Math.min(S.hintUntil, S.time + 3);
+    } else if (moving) {
       const nx = vx / Math.max(1, len), ny = vy / Math.max(1, len);
-      const ground = p.inRover ? 1 : S.world.speed(Math.floor(p.x / T), Math.floor(p.y / T)); // dunes slow walking
-      const sp = SPEED * (sprinting ? SPRINT_X : 1) * (p.inRover ? ROVER_X : 1) * ground * S.eva.speed(p) * S.qa.speed * Math.min(1, len); // the commander's aura
+      const ground = S.world.speed(Math.floor(p.x / T), Math.floor(p.y / T)); // dunes slow walking
+      const sp = SPEED * (sprinting ? SPRINT_X : 1) * ground * S.eva.speed(p) * S.qa.speed * Math.min(1, len); // the commander's aura
       const stuck = hitsWall(p.x, p.y);
       const mx = p.x + nx * sp * dt, my = p.y + ny * sp * dt;
       // A step is allowed if nothing blocks it and the exploring rules agree (an empty suit, a flat rover battery).
@@ -746,6 +782,52 @@
     }
   }
 
+  // Dust and wheel tracks behind every rover that moves (a local effect, never sent). The dust flies up and falls back
+  // under Mars' gravity (src/physics.js); the tracks, two lines of the last TRACKS points, fade as newer ones are laid.
+  const TRACKS = 240, TRACK_GAP = 8;
+  function roverFx(dt) {
+    const fx = S.fx, list = [];
+    if (S.player.inRover && S.player.car) list.push(['me', S.player.x, S.player.y, S.player.car.heading, S.player.moving]);
+    for (const [id, r] of Object.entries(S.remote)) if (r.rover && r.heading != null) list.push([id, r.x, r.y, r.heading, r.moving]);
+    for (const [id, x, y, h, moving] of list) {
+      if (!moving) continue;
+      const c = Math.cos(h), s = Math.sin(h), at = (lx, ly) => [x + c * lx - s * ly, y - 10 + s * lx + c * ly];
+      if (fx.dust.length < 160) for (const side of [-1, 1]) {
+        const [dx, dy] = at(-58, side * 39);
+        fx.dust.push({ x: dx, y: dy, z: 0.01, vx: -c * 40 + (Math.random() - 0.5) * 50, vy: -s * 40 + (Math.random() - 0.5) * 50, vz: 0.5 + Math.random(), r: 3 + Math.random() * 3, age: 0 });
+      }
+      const trail = fx.tracks[id] = fx.tracks[id] || [], last = trail[trail.length - 1];
+      if (!last || Math.hypot(last.x - x, last.y - y) > TRACK_GAP) {
+        trail.push({ x, y, l: at(0, -39), r: at(0, 39) });
+        if (trail.length > TRACKS) trail.shift();
+      }
+    }
+    fx.dust = fx.dust.filter(d => { d.age += dt; d.r += dt * 9; return PH.dust(d, dt) && d.age < 1.6; });
+  }
+  function drawTracks(ctx) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 11;
+    for (const trail of Object.values(S.fx.tracks)) for (let band = 0; band < 6; band++) { // six shades, the oldest faintest
+      const from = Math.max(1, Math.floor(trail.length * band / 6)), to = Math.floor(trail.length * (band + 1) / 6);
+      ctx.strokeStyle = 'rgba(38,18,10,' + (0.05 + 0.03 * band).toFixed(2) + ')';
+      ctx.beginPath();
+      for (let i = from; i < to; i++) for (const side of ['l', 'r']) {
+        const a = trail[i - 1][side], b = trail[i][side];
+        if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) > 40) continue; // a jump: a teleport, a new round
+        ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawDust(ctx) {
+    for (const d of S.fx.dust) {
+      ctx.fillStyle = 'rgba(196,142,104,' + (0.34 * (1 - d.age / 1.6)).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(d.x, d.y - d.z * PH.PX_PER_M, d.r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
   function stepRemote(dt) {
     for (const r of Object.values(S.remote)) {
       const k = Math.min(1, dt * 10);
@@ -753,6 +835,7 @@
       r.x += dx * k;
       r.y += dy * k;
       if (Math.hypot(dx, dy) > 1) r.phase += dt * 6;
+      if (r.rover) r.odo = (r.odo || 0) + Math.hypot(dx, dy) * k; // its wheels roll as far as it moves
     }
   }
 
@@ -786,7 +869,7 @@
     const byId = id => m.crew.find(c => c.id === id);
     const color = role => A.ROLE[role] || '#ccc';
     const me = controlledCrew();
-    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover });
+    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover, heading: S.player.inRover && S.player.car ? S.player.car.heading : null, odo: S.player.odo || 0 });
     for (const [id, n] of Object.entries(S.npcs)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
@@ -795,7 +878,7 @@
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, bar: S.eva.suitBar(r) });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, heading: r.heading, odo: r.odo, bar: S.eva.suitBar(r) });
     }
     return out;
   }
@@ -884,6 +967,8 @@
         S.prompt.append(k, document.createTextNode(' ' + label));
       }
     }
+    const hintKey = S.player && S.player.inRover ? (S.touch ? 'sf.hintRoverTouch' : 'sf.hintRover') : (S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
+    if (S.hintKey !== hintKey) { S.hintKey = hintKey; S.hint.textContent = t(hintKey); }
     S.hint.hidden = S.time > S.hintUntil || S.eva.alerting(); // the flare's banner takes the hint's place
   }
 
@@ -905,6 +990,7 @@
     const p = S.player, m = S.data.mission;
     if (p.inRover) {
       p.inRover = false;
+      p.car = null; // parked: S.roverHeading keeps the way it faces
       refreshWorld(m);
       if (hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
       S.eva.act('park', p, { driven: S.eva.report().driven }); // with the last bit of driving, so the battery is saved right
@@ -913,6 +999,8 @@
     if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
     if (S.eva.collapsed(S.data.controlId)) return; // down (co-op): you can't get in, not even until the server says no
     p.inRover = true; // at once, so it feels immediate; in co-op the server may say someone else has it
+    p.car = { heading: S.roverHeading || 0, speed: 0 }; // it faces the way it was left
+    S.hintUntil = S.time + 12; // the rover's own key hint
     refreshWorld(m);
     S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } });
   }
@@ -1105,9 +1193,11 @@
     const k = v.dpr * v.zoom;
     ctx.setTransform(k, 0, 0, k, -v.camX * k, -v.camY * k);
     S.painter.drawGround(ctx, x0, y0, x1, y1);
+    drawTracks(ctx); // the rovers' wheel tracks lie on the ground, under everything else
     // the points of interest: their decals lie flat on the ground, under everything; the rest are sorted with the sprites
     const pois = pointsOfInterest(x0, y0, x1, y1, m);
     for (const it of pois) if (it.depth == null) drawArt(ctx, it);
+    drawDust(ctx);
     S.eva.drawZone(ctx, x0, y0, x1, y1, S.world);
 
     // buried ice at the base: the only cue for where the ice drill can go
@@ -1196,13 +1286,12 @@
       sprites.push({ y: wy * T + T / 2 + 10, draw: () => drawRock(ctx, { wx, wy, s: 1 }) });
     }
     sprites.push({ y: LANDER[1] * T + T / 2 + 22, draw: () => drawLander(ctx, LANDER[0], LANDER[1]) });
-    const roverImg = moduleImage('rover', 1);
     for (const a of avatars()) {
       if (a.x < x0 - T * 2 || a.x > x1 + T * 2 || a.y < y0 - T || a.y > y1 + T * 3) continue; // off screen
       let name = S.data.crewName(a.id);
       if (a.you) name = t('sf.you') + ' · ' + name;
       // Someone lying down is drawn after what stands at the same spot, so a fallen driver is not hidden by the parked rover.
-      sprites.push({ y: a.y + (a.down ? 24 : 0), draw: () => drawAvatar(ctx, a, name, S.time, S.tags, ready(roverImg) ? roverImg : null) });
+      sprites.push({ y: a.y + (a.down ? 24 : 0), draw: () => drawAvatar(ctx, a, name, S.time, S.tags) });
     }
     // lost crew are remembered with a small flag beside the HQ
     m.crew.filter(c => c.status === 'dead').forEach((c, i) => {
@@ -1271,11 +1360,11 @@
     const tileScreen = (gx, gy) => { const [wx, wy] = gridToWorld(gx, gy); return toScreen(wx * T + T / 2, wy * T + T / 2); };
     const tx = Math.floor(S.player.x / T), ty = Math.floor(S.player.y / T);
     return {
-      player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, stamina: S.player.stamina, path: S.player.path && S.player.path.length },
+      player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, stamina: S.player.stamina, path: S.player.path && S.player.path.length, heading: S.player.car ? S.player.car.heading : null, speed: S.player.car ? S.player.car.speed : 0 },
       lastTap: S.lastTap, focus: S.focus && S.focus.kind, menu: S.menuOpen, npcs: Object.keys(S.npcs), tileScreen, toScreen,
       npcAt: Object.fromEntries(Object.entries(S.npcs).map(([id, n]) => [id, [n.x, n.y]])),
       remote: JSON.parse(JSON.stringify(S.remote)),
-      blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true),
+      blocked: (wx, wy) => isBlocked(wx, wy), path: (gx, gy) => findPath(S.player.x, S.player.y, gx, gy, true, S.player.inRover),
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,

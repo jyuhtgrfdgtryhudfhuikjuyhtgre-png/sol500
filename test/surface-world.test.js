@@ -161,3 +161,37 @@ test('fog survives its chunk being deleted, and bad fog is ignored', () => {
   assert.deepEqual(w.mergeFog(null), []);
   assert.deepEqual(w.mergeFog('nope'), []);
 });
+
+// ---------- the rover climbs (2026-11-03): boulders and crater rims are rough ground it drives over, slowly ----------
+// The first tile of `code` found walking out from the base in rings, with the open tiles west and east of it when `open`.
+function findTile(w, code, open) {
+  const ok = (x, y) => !W.BLOCKING[w.tile(x, y)];
+  for (let r = 3; r < 160; r++) for (let x = -r; x <= r; x++) for (const y of [-r, r]) {
+    if (w.tile(x, y) === code && (!open || (ok(x - 1, y) && ok(x - 2, y) && ok(x + 1, y) && ok(x + 2, y)))) return [x, y];
+  }
+  return null;
+}
+
+test('boulders and crater rims stop you on foot but not the rover, which finds its way over them; cliffs and the base stop both', () => {
+  const w = SW.create('ROVER-W1');
+  for (const code of [W.TILE.BOULDER, W.TILE.RIM]) {
+    const at = findTile(w, code);
+    assert.ok(at, 'a tile of ' + code + ' near the base');
+    assert.equal(w.isBlocked(at[0], at[1]), true, 'on foot');
+    assert.equal(w.isBlocked(at[0], at[1], true), false, 'the rover');
+    assert.equal(w.rough(at[0], at[1]), true, 'rough ground');
+  }
+  for (const code of [W.TILE.CLIFF, W.TILE.CANYON_WALL]) {
+    const at = findTile(w, code) || findTile(SW.create('WORLD-2'), code);
+    if (!at) continue;
+    assert.equal(w.tile(at[0], at[1]) !== code || w.isBlocked(at[0], at[1], true), true, 'a wall stops the rover too: ' + code);
+    assert.equal(w.rough(at[0], at[1]) && w.tile(at[0], at[1]) === code, false);
+  }
+  w.setOverlay([[0, 0]]);
+  assert.equal(w.isBlocked(0, 0, true), true, 'the HQ stops the rover');
+  const [bx, by] = findTile(w, W.TILE.BOULDER, true);
+  const drive = w.findPath(bx - 2, by, bx + 2, by, false, true), walk = w.findPath(bx - 2, by, bx + 2, by, false);
+  assert.deepEqual(drive, [[bx - 1, by], [bx, by], [bx + 1, by], [bx + 2, by]], 'straight over the boulder');
+  assert.ok(!walk || !walk.some(([x, y]) => x === bx && y === by), 'on foot the way goes round it');
+  assert.equal(w.rough(bx - 1, by), false, 'open ground is not rough');
+});

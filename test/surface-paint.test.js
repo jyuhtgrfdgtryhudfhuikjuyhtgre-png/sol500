@@ -431,3 +431,15 @@ test("a relay beacon's light flashes once every 2 s, and stays dark while your r
   assert.deepEqual(spent.map(a => a.style), ['#5d5355'], 'spent: dark, and no flash');
   assert.ok(lit.every(a => a.y < 200), 'the light stands above its foot');
 });
+
+test("someone in the rover is drawn as the science rover from above: 2 tiles long, turned to its heading, nothing of the walker", () => {
+  const rec = () => { const r = recorder(); return { calls: r.calls, ctx: new Proxy(r.ctx, { get: (t, p) => (/^create[A-Za-z]+Gradient$/.test(p) ? () => ({ addColorStop() {} }) : t[p]), set: (t, p, v) => { t[p] = v; return true; } }) }; };
+  const { ctx, calls } = rec();
+  P.sprites.drawAvatar(ctx, { x: 300, y: 400, rover: true, heading: 0.7, odo: 12, moving: true, color: '#ff0000', you: true }, 'Minh', 0, []);
+  assert.deepEqual(calls.filter(c => c[0] === 'rotate').map(c => c[1]), [0.7, 0.7], 'its shadow and itself, turned to its heading');
+  assert.equal(Math.max(...calls.filter(c => c[0] === 'roundRect').map(c => c[3])), 128, '128 px long: 2 tiles');
+  assert.ok(!calls.some(c => c[0] === 'ellipse'), "no walker's ring or shadow under it");
+  const parked = rec();
+  P.sprites.drawAvatar(parked.ctx, { x: 0, y: 0, rover: true, dir: 'down' }, '', 0, []);
+  assert.equal(parked.calls.find(c => c[0] === 'rotate')[1], Math.PI / 2, 'no heading yet: it faces the way the driver faced');
+});

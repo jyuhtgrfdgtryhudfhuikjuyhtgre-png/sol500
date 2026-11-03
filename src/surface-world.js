@@ -21,6 +21,8 @@
   const key = (cx, cy) => cx + ',' + cy;
   const chunkOf = t => Math.floor(t / CH);
   const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const ROUGH = new Uint8Array(32);
+  ROUGH[W.TILE.BOULDER] = ROUGH[W.TILE.RIM] = 1;
 
   function create(missionSeed, opts) {
     const cap = (opts && opts.cap) || CAP;
@@ -75,12 +77,14 @@
     }
     // Base things the world doesn't know about (the HQ, the reactor, the lander, rocks on the build grid) block too.
     function setOverlay(tiles) { overlay = new Set(tiles.map(t => t[0] + ',' + t[1])); }
-    const isBlocked = (tx, ty) => overlay.has(tx + ',' + ty) || W.BLOCKING[tile(tx, ty)] === 1;
+    // The rover climbs over boulders and crater rims (rough ground: slowly, src/physics.js); every other wall stops it too.
+    const rough = (tx, ty) => ROUGH[tile(tx, ty)] === 1;
+    const isBlocked = (tx, ty, rover) => overlay.has(tx + ',' + ty) || (W.BLOCKING[tile(tx, ty)] === 1 && !(rover && rough(tx, ty)));
     const speed = (tx, ty) => W.SPEED[tile(tx, ty)];
 
     // Breadth-first search inside a 64×64-tile box around the start. Returns the tile steps (start excluded),
-    // [] when already there, or null.
-    function findPath(sx, sy, gx, gy, allowGoalBlocked) {
+    // [] when already there, or null. `rover`: the way the rover can drive, over rocks too.
+    function findPath(sx, sy, gx, gy, allowGoalBlocked, rover) {
       if (Math.abs(gx - sx) > PATH_HALF || Math.abs(gy - sy) > PATH_HALF) return null;
       const size = PATH_HALF * 2 + 1, ox = sx - PATH_HALF, oy = sy - PATH_HALF;
       const at = (x, y) => (y - oy) * size + (x - ox);
@@ -99,7 +103,7 @@
           if (nx < ox || ny < oy || nx >= ox + size || ny >= oy + size) continue;
           const m = at(nx, ny);
           if (prev[m] !== -1) continue;
-          if (!(allowGoalBlocked && m === goal) && isBlocked(nx, ny)) continue;
+          if (!(allowGoalBlocked && m === goal) && isBlocked(nx, ny, rover)) continue;
           prev[m] = n;
           q[tail++] = m;
         }
@@ -188,7 +192,7 @@
     }
 
     return {
-      seed, get, peek, dataFor, tile, region, caveAt, setOverlay, isBlocked, speed, findPath, retain, work,
+      seed, get, peek, dataFor, tile, region, caveAt, setOverlay, isBlocked, rough, speed, findPath, retain, work,
       reveal, seen, takeFog, mergeFog,
       fogBits: (cx, cy) => bits(cx, cy, false),
       fogStamp: k => stamp.get(k) || 0,

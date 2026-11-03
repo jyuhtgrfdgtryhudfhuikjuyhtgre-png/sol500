@@ -736,10 +736,75 @@
 
   // a: { x, y, dir, phase, moving, you, down, rover, working, color, bar }. Name tags are queued in `tags`
   // and laid out by drawTags once every sprite is drawn; `bar` (0–1, a teammate's suit level) rides on top of the tag.
-  function drawAvatar(ctx, a, name, time, tags, roverImg) {
+  // The rover (2026-11-03, the science rover the user picked): seen from above, 128 px (2 tiles) long, nose along its
+  // heading (radians, 0 = east), so it turns to any angle. (x, y) is its middle; odo (px driven) rolls its treads; moving
+  // lights its headlights; color is the stripe, the driver's crew colour (null when parked: the programme's orange).
+  const DIR_ANGLE = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
+  function roverWheel(ctx, x, y, odo) {
+    ctx.fillStyle = '#262122';
+    ctx.beginPath(); ctx.roundRect(x - 14, y - 7.5, 28, 15, 5); ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(x - 14, y - 7.5, 28, 15, 5); ctx.clip();
+    const off = ((odo % 6) + 6) % 6;
+    ctx.strokeStyle = 'rgba(120,110,105,.6)'; ctx.lineWidth = 2;
+    for (let k = -20; k < 20; k += 6) { ctx.beginPath(); ctx.moveTo(x + k - off, y - 7.5); ctx.lineTo(x + k - off, y + 7.5); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.beginPath(); ctx.roundRect(x - 12, y - 6.5, 24, 3, 2); ctx.fill();
+  }
+  function drawRoverTop(ctx, x, y, heading, odo, moving, color) {
+    ctx.save();
+    ctx.filter = 'blur(5px)'; // its shadow, thrown south-east by the low sun, like the rocks'
+    ctx.fillStyle = 'rgba(10,4,2,.45)';
+    ctx.translate(x + 9, y + 11); ctx.rotate(heading);
+    ctx.beginPath(); ctx.roundRect(-64, -46, 128, 92, 18); ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(heading);
+    for (const s of [-1, 1]) {
+      ctx.strokeStyle = '#8f9399'; ctx.lineWidth = 4; ctx.lineCap = 'round'; // the rocker-bogie arms
+      ctx.beginPath(); ctx.moveTo(-46, s * 37); ctx.lineTo(-20, s * 27); ctx.lineTo(0, s * 37); ctx.moveTo(-20, s * 27); ctx.lineTo(18, s * 27); ctx.lineTo(46, s * 37); ctx.stroke();
+      for (const wx of [-46, 0, 46]) roverWheel(ctx, wx, s * 39, odo);
+    }
+    ctx.fillStyle = '#55595f'; ctx.beginPath(); ctx.roundRect(-72, -13, 26, 26, 6); ctx.fill(); // the power unit, finned
+    ctx.strokeStyle = '#3a3d42'; ctx.lineWidth = 2;
+    for (let k = -10; k <= 10; k += 5) { ctx.beginPath(); ctx.moveTo(-72, k); ctx.lineTo(-46, k); ctx.stroke(); }
+    const body = ctx.createLinearGradient(-44, -28, 44, 28);
+    body.addColorStop(0, '#ffffff'); body.addColorStop(1, '#bfc3c8');
+    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(-44, -28, 92, 56, 9); ctx.fill();
+    ctx.strokeStyle = 'rgba(80,85,92,.45)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10, -28); ctx.lineTo(-10, 28); ctx.moveTo(22, -28); ctx.lineTo(22, 28); ctx.stroke();
+    ctx.fillStyle = '#c99a3c'; ctx.beginPath(); ctx.roundRect(-6, -20, 24, 16, 3); ctx.fill(); // gold foil
+    ctx.fillStyle = color || '#ff9a5c'; ctx.beginPath(); ctx.roundRect(-44, -28, 92, 5, 3); ctx.fill(); // the crew stripe
+    ctx.fillStyle = '#e9eaec'; ctx.strokeStyle = '#8f9399'; ctx.lineWidth = 1.5; // the dish
+    ctx.beginPath(); ctx.arc(-26, 14, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); for (let k = 0; k < 6; k++) { ctx.moveTo(-26, 14); ctx.lineTo(-26 + Math.cos(k) * 11, 14 + Math.sin(k) * 11); } ctx.stroke();
+    ctx.strokeStyle = '#7d8187'; ctx.lineWidth = 3.5; // the arm, folded
+    ctx.beginPath(); ctx.moveTo(40, 18); ctx.lineTo(58, 10); ctx.lineTo(56, -2); ctx.stroke();
+    ctx.fillStyle = '#55595f'; ctx.beginPath(); ctx.arc(56, -2, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#d6d8db'; ctx.beginPath(); ctx.arc(30, -14, 7, 0, Math.PI * 2); ctx.fill(); // the mast and its cameras
+    ctx.fillStyle = '#2a2e35'; ctx.beginPath(); ctx.roundRect(30, -22, 15, 16, 3); ctx.fill();
+    ctx.fillStyle = '#5fa8ff';
+    for (const yy of [-18, -10]) { ctx.beginPath(); ctx.arc(43, yy, 2.2, 0, Math.PI * 2); ctx.fill(); }
+    for (const s of [-1, 1]) { // the headlights, and their beams on the ground while it drives
+      if (moving) {
+        const beam = ctx.createRadialGradient(47, s * 16, 4, 47, s * 16, 120);
+        beam.addColorStop(0, 'rgba(255,240,200,.3)'); beam.addColorStop(1, 'rgba(255,240,200,0)');
+        ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(47, s * 16); ctx.arc(47, s * 16, 120, -0.35, 0.35); ctx.fill();
+      }
+      ctx.fillStyle = '#fff4cf'; ctx.beginPath(); ctx.arc(47, s * 16, 3.2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawAvatar(ctx, a, name, time, tags) {
     const color = a.color || '#ccc';
     const x = a.x, y = a.y;
     const tag = (tx, ty, text, c, you) => { if (text) tags.push({ x: tx, y: ty, text, color: c, you, bar: a.bar == null ? null : a.bar }); };
+    if (a.rover) { // in the rover: the rover is all that shows, its middle a little above where the driver stands
+      drawRoverTop(ctx, x, y - 10, a.heading == null ? DIR_ANGLE[a.dir] || 0 : a.heading, a.odo || 0, !!a.moving, color);
+      tag(x, y - 78, name, color, a.you);
+      return;
+    }
     ctx.save();
     if (a.you) {
       const pulse = 0.55 + 0.45 * Math.sin(time * 4);
@@ -749,17 +814,6 @@
     }
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath(); ctx.ellipse(x, y + 2, 12, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    if (a.rover) {
-      if (roverImg) {
-        ctx.save();
-        if (a.dir === 'left') { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); }
-        ctx.drawImage(roverImg, x - 34, y - 52, 68, 68);
-        ctx.restore();
-      }
-      tag(x, y - 50, name, color, a.you);
-      ctx.restore();
-      return;
-    }
     if (a.down) {
       ctx.translate(x, y - 6);
       ctx.fillStyle = '#e9e2d8';
@@ -1032,6 +1086,6 @@
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, photoOf, tileable, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
+    sprites: { drawAvatar, drawRoverTop, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
   };
 });

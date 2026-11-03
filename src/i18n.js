@@ -59,6 +59,9 @@
     osdr: { label: 'NASA Open Science Data Repository (OSDR): space biology studies', url: 'https://osdr.nasa.gov/bio/repo/search?q=&data_source=cgene,alsda,esa&data_type=study' },
     osdrCara: { label: 'NASA OSDR, OSD-678 (CARA, ISS 2014): Light has a principal role in the Arabidopsis transcriptomic response to the spaceflight environment', url: 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-678' },
     marsTrek: { label: 'NASA Mars Trek: explore Mars with real spacecraft data', url: 'https://trek.nasa.gov/mars/' },
+    // The physics of driving on Mars (src/physics.js).
+    marsGlance: { label: 'NASA JPL: Mars at a glance (InSight press kit)', url: 'https://www.jpl.nasa.gov/news/press_kits/insight/launch/facts/mars-at-a-glance/' },
+    percyRover: { label: 'NASA Science: Perseverance rover components', url: 'https://science.nasa.gov/mission/mars-2020-perseverance/rover-components/' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
@@ -699,6 +702,7 @@
     'eva.secs': '{s} s',
     'eva.paused': '{v} · paused',
     'eva.battery': 'Rover battery',
+    'eva.drive': '{kmh} km/h · stops in {m} m (on Earth: {e} m)',
     'eva.tiles': 'tiles',
     'eva.tiles1': 'tile',
     'eva.pack': 'Backpack: {n} of {m} loads',
@@ -886,6 +890,8 @@
     'sf.aria': "Outpost surface. Move with WASD or the arrow keys, press E to interact, C opens the mission console.",
     'sf.hintKeys': "WASD or arrows to move · Shift to sprint · E to interact (hold it by a find) · P to ping where you stand · M for the map · C for the console · click the ground to walk there",
     'sf.hintTouch': "Drag the stick to move · hold » to sprint · tap E to interact (hold it by a find) · tap the minimap to ping a spot, ⤢ for the map · tap the ground to walk there",
+    'sf.hintRover': 'In the rover: steer with WASD or the arrows · hold Shift to boost (the battery drains twice as fast) · drive over rocks and crater rims, slowly · E to get out',
+    'sf.hintRoverTouch': 'In the rover: drag the stick to steer · hold » to boost (the battery drains twice as fast) · drive over rocks and crater rims, slowly · tap E to get out',
     'sf.minimap': 'Minimap. Click a spot to ping it for the crew; Enter or M opens the full map.',
     // M4d eva: the minimap's open-the-map corner, now that a tap on the minimap pings, and the HQ menu's kit build.
     'sf.openMap': 'Open the full map (M)',
@@ -1763,6 +1769,7 @@
     'eva.secs': '{s} s',
     'eva.paused': '{v} · tạm dừng',
     'eva.battery': 'Pin xe tự hành',
+    'eva.drive': '{kmh} km/h · dừng sau {m} m (trên Trái Đất: {e} m)',
     'eva.tiles': 'ô',
     'eva.tiles1': 'ô',
     'eva.pack': 'Ba lô: {n} trên {m} phần',
@@ -1949,6 +1956,8 @@
     'sf.aria': "Bề mặt tiền đồn. Di chuyển bằng WASD hoặc phím mũi tên, nhấn E để tương tác, C để mở bảng điều khiển.",
     'sf.hintKeys': "WASD hoặc phím mũi tên để đi · Shift để chạy · E để tương tác (giữ phím khi đứng cạnh vật tìm được) · P để đánh dấu chỗ bạn đứng · M mở bản đồ · C mở bảng điều khiển · bấm xuống đất để đi tới đó",
     'sf.hintTouch': "Kéo cần điều khiển để đi · giữ » để chạy · chạm E để tương tác (giữ khi đứng cạnh vật tìm được) · chạm bản đồ nhỏ để đánh dấu một điểm, ⤢ để mở bản đồ · chạm xuống đất để đi tới đó",
+    'sf.hintRover': 'Trên xe tự hành: lái bằng WASD hoặc phím mũi tên · giữ Shift để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · E để xuống xe',
+    'sf.hintRoverTouch': 'Trên xe tự hành: kéo cần điều khiển để lái · giữ » để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · chạm E để xuống xe',
     'sf.minimap': 'Bản đồ nhỏ. Bấm vào một điểm để đánh dấu cho cả đội; Enter hoặc M mở bản đồ lớn.',
     // M4d eva: góc mở bản đồ lớn của bản đồ nhỏ, vì giờ chạm vào bản đồ nhỏ là đánh dấu, và nút chế tạo bộ trạm ở menu căn cứ.
     'sf.openMap': 'Mở bản đồ lớn (M)',
@@ -2214,6 +2223,7 @@
       { title: 'What is simplified', body: 'Rounds are 25 sols long. Shielding percentages, build times, breakdown rates and science points are game values, chosen so that the trade-offs behave like the real ones.', src: [] },
       { title: 'Regions of Mars', body: 'The six regions of the endless map are modelled on real places: the floor of Jezero Crater (Plains), the Bagnold Dunes (Dune Sea), the cratered southern highlands (Crater Field), Valles Marineris (Canyon Lands), the shallow ice of Arcadia Planitia (Icy Plains) and the possible cave skylights of Arsia Mons (Volcanic Flanks). You can fly over these places yourself in NASA’s Mars Trek, an online map of Mars built from real spacecraft data.', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights', 'marsTrek'] },
       { title: 'The ground you walk on', body: 'The ground in the game is painted with real NASA photos. The Plains, Crater Field, Dune Sea and Canyon Lands use pictures the Ingenuity helicopter took in Jezero Crater between 2021 and 2024. The Volcanic Flanks use Curiosity’s close-up of dark grains on a sand dune in Gale Crater, and the Icy Plains use the Phoenix lander’s photo of the polygon-cracked ground round it, on the icy plains of Mars’ far north.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
+      { title: 'Driving on Mars', body: 'Mars’ gravity is only 38 % as strong as Earth’s, so a rover presses on the ground with 38 % of its Earth weight. Grip is friction, and friction grows with that push: on Mars a rover can speed up, brake and turn only 38 % as hard as on Earth. In the game it needs about 2.6 times as far to stop, and the faster it goes, the wider it has to turn. The air pressure is less than 1/100th of Earth’s, so the air hardly slows it. The game’s rover weighs what Perseverance does, 1,025 kg, but it is far faster: Perseverance tops out at 152 metres an hour on flat, hard ground.', src: ['marsGlance', 'percyRover'] },
     ],
     vi: [
       { title: 'Bức xạ trên bề mặt', body: 'Thiết bị RAD trên Curiosity đo được khoảng 0,64 mSv mỗi sol tại hố Gale. Sao Hỏa không có từ trường toàn cầu và khí quyển mỏng, nên tia vũ trụ xuống tới mặt đất. SOL 500 dùng con số này, giảm đi nhờ lớp che chắn của bạn.', src: ['hassler'] },
@@ -2233,6 +2243,7 @@
       { title: 'Điều gì đã được đơn giản hóa', body: 'Mỗi vòng dài 25 sol. Phần trăm che chắn, thời gian xây, tỉ lệ hỏng hóc và điểm khoa học là giá trị của trò chơi, được chọn để các sự đánh đổi diễn ra giống thực tế.', src: [] },
       { title: 'Các vùng của sao Hỏa', body: 'Sáu vùng trên bản đồ vô tận được mô phỏng theo những nơi có thật: đáy hố Jezero (Đồng bằng), cồn cát Bagnold (Biển cồn cát), cao nguyên phía nam có nhiều hố va chạm (Cánh đồng hố va chạm), Valles Marineris (Vùng hẻm núi), lớp băng nông ở đồng bằng Arcadia (Đồng bằng băng) và các cửa sổ hang động có thể có trên núi Arsia Mons (Sườn núi lửa). Bạn có thể tự bay qua những nơi này trên Mars Trek của NASA, bản đồ sao Hỏa trực tuyến dựng từ dữ liệu thật của các tàu vũ trụ.', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights', 'marsTrek'] },
       { title: 'Mặt đất dưới chân bạn', body: 'Mặt đất trong trò chơi được vẽ bằng ảnh thật của NASA. Đồng bằng, Cánh đồng hố va chạm, Biển cồn cát và Vùng hẻm núi dùng ảnh do trực thăng Ingenuity chụp ở hố Jezero từ năm 2021 đến 2024. Sườn núi lửa dùng ảnh cận cảnh của Curiosity chụp những hạt cát sẫm màu trên một cồn cát ở hố Gale, còn Đồng bằng băng dùng ảnh tàu đổ bộ Phoenix chụp nền đất nứt thành các đa giác quanh nó, trên vùng đồng bằng băng giá ở cực bắc sao Hỏa.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
+      { title: 'Lái xe trên sao Hỏa', body: 'Trọng lực sao Hỏa chỉ bằng 38 % Trái Đất, nên xe tự hành ép xuống mặt đất với 38 % trọng lượng của nó trên Trái Đất. Độ bám là lực ma sát, và ma sát tăng theo lực ép đó: trên sao Hỏa, xe chỉ có thể tăng tốc, phanh và rẽ mạnh bằng 38 % so với trên Trái Đất. Trong trò chơi, xe cần quãng đường dài gấp khoảng 2,6 lần để dừng lại, và càng chạy nhanh thì càng phải rẽ rộng. Áp suất không khí chưa bằng 1/100 của Trái Đất, nên không khí gần như không làm xe chậm lại. Xe trong trò chơi nặng bằng Perseverance, 1.025 kg, nhưng nhanh hơn nhiều: Perseverance chạy tối đa 152 mét mỗi giờ trên nền đất phẳng và cứng.', src: ['marsGlance', 'percyRover'] },
     ],
   };
 
