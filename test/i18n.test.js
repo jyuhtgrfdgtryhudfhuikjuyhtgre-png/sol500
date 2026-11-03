@@ -53,6 +53,18 @@ test('every region has a name and a real fact with a checked source, in both lan
   }
 });
 
+test('the ground photos are credited: a Science note in each language cites every NASA photo the surface is painted with', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const header = fs.readFileSync(path.join(__dirname, '..', 'src', 'ground-photos.js'), 'utf8').split('*/')[0];
+  const pias = [...new Set(header.match(/PIA\d{5}/g))];
+  assert.equal(pias.length, 6, 'the six photos named in src/ground-photos.js');
+  for (const lang of ['en', 'vi']) {
+    const note = I.NOTES[lang].find(n => pias.every(p => n.src.some(id => I.SOURCES[id] && I.SOURCES[id].label.includes('(' + p + ')'))));
+    assert.ok(note, lang + ': a note cites ' + pias.join(', '));
+    for (const id of note.src) assert.match(I.SOURCES[id].url, /^https:\/\/science\.nasa\.gov\/photojournal\/[a-z0-9-]+\/$/, id);
+  }
+});
+
 test('the Plains fact cites a page from after the landing and claims nothing that page does not say', () => {
   // https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/ (Feb. 18, 2021) says
   // "has touched down at Jezero Crater", "Some 28 miles (45 kilometers) wide" and "3.5 billion years ago the crater had its

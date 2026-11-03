@@ -47,6 +47,13 @@
     gatorBack: { label: "NASA (2022): Curiosity's 360-degree panorama of gator-back rocks on Greenheugh (PIA25176)", url: 'https://science.nasa.gov/photojournal/curiositys-360-degree-panorama-of-gator-back-rocks-on-greenheugh/' },
     becquerel: { label: 'NASA (2008): Periodic layering in Becquerel Crater, Mars (PIA11443)', url: 'https://science.nasa.gov/photojournal/periodic-layering-in-becquerel-crater-mars/' },
     devilTracks: { label: 'NASA (2008): Dust-devil tracks in southern Schiaparelli Basin (PIA10226)', url: 'https://science.nasa.gov/photojournal/dust-devil-tracks-in-southern-schiaparelli-basin/' },
+    // The photos the surface's ground is painted with (src/ground-photos.js), with NASA's credit line.
+    photoJezero: { label: 'NASA/JPL-Caltech (2021): First aerial color image of Mars, by Ingenuity (PIA24593)', url: 'https://science.nasa.gov/photojournal/first-aerial-color-image-of-mars/' },
+    photoCastell: { label: "NASA/JPL-Caltech (2023): 'Castell Henllys' from above, by Ingenuity (PIA25890)", url: 'https://science.nasa.gov/photojournal/castell-henllys-from-above/' },
+    photoSand: { label: 'NASA/JPL-Caltech (2024): Ingenuity spots the shadow of its damaged rotor blade (PIA26243)', url: 'https://science.nasa.gov/photojournal/ingenuity-spots-the-shadow-of-its-damaged-rotor-blade/' },
+    photoDust: { label: "NASA/JPL-Caltech (2021): Ingenuity's view from its fifth flight (PIA24650)", url: 'https://science.nasa.gov/photojournal/ingenuitys-view-from-its-fifth-flight/' },
+    photoGrains: { label: 'NASA/JPL-Caltech/MSSS (2015): Surface close-up of a Martian sand dune, by Curiosity (PIA20171)', url: 'https://science.nasa.gov/photojournal/surface-close-up-of-a-martian-sand-dune/' },
+    photoPhoenix: { label: 'NASA/JPL-Caltech/University of Arizona/Texas A&M University (2008): Color view to northwest of Phoenix (PIA10713)', url: 'https://science.nasa.gov/photojournal/color-view-to-northwest-of-phoenix/' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
@@ -2199,6 +2206,7 @@
       { title: 'Mission length', body: 'NASA’s Design Reference Architecture 5.0 plans a conjunction-class mission with about 500 days on the surface while Earth and Mars line up again for the trip home. Cargo landers go ahead of the crew, which inspired the orbital supply drops.', src: ['dra5'] },
       { title: 'What is simplified', body: 'Rounds are 25 sols long. Shielding percentages, build times, breakdown rates and science points are game values, chosen so that the trade-offs behave like the real ones.', src: [] },
       { title: 'Regions of Mars', body: 'The six regions of the endless map are modelled on real places: the floor of Jezero Crater (Plains), the Bagnold Dunes (Dune Sea), the cratered southern highlands (Crater Field), Valles Marineris (Canyon Lands), the shallow ice of Arcadia Planitia (Icy Plains) and the possible cave skylights of Arsia Mons (Volcanic Flanks).', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights'] },
+      { title: 'The ground you walk on', body: 'The ground in the game is painted with real NASA photos. The Plains, Crater Field, Dune Sea and Canyon Lands use pictures the Ingenuity helicopter took in Jezero Crater between 2021 and 2024. The Volcanic Flanks use Curiosity’s close-up of dark grains on a sand dune in Gale Crater, and the Icy Plains use the Phoenix lander’s photo of the polygon-cracked ground round it, on the icy plains of Mars’ far north.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
     ],
     vi: [
       { title: 'Bức xạ trên bề mặt', body: 'Thiết bị RAD trên Curiosity đo được khoảng 0,64 mSv mỗi sol tại hố Gale. Sao Hỏa không có từ trường toàn cầu và khí quyển mỏng, nên tia vũ trụ xuống tới mặt đất. SOL 500 dùng con số này, giảm đi nhờ lớp che chắn của bạn.', src: ['hassler'] },
@@ -2215,6 +2223,7 @@
       { title: 'Độ dài nhiệm vụ', body: 'Kiến trúc tham chiếu 5.0 của NASA dự kiến nhiệm vụ kiểu giao hội với khoảng 500 ngày trên bề mặt, chờ Trái Đất và sao Hỏa thẳng hàng lại để trở về. Các tàu chở hàng đi trước phi hành đoàn, và đó là cảm hứng cho các chuyến hàng từ quỹ đạo.', src: ['dra5'] },
       { title: 'Điều gì đã được đơn giản hóa', body: 'Mỗi vòng dài 25 sol. Phần trăm che chắn, thời gian xây, tỉ lệ hỏng hóc và điểm khoa học là giá trị của trò chơi, được chọn để các sự đánh đổi diễn ra giống thực tế.', src: [] },
       { title: 'Các vùng của sao Hỏa', body: 'Sáu vùng trên bản đồ vô tận được mô phỏng theo những nơi có thật: đáy hố Jezero (Đồng bằng), cồn cát Bagnold (Biển cồn cát), cao nguyên phía nam có nhiều hố va chạm (Cánh đồng hố va chạm), Valles Marineris (Vùng hẻm núi), lớp băng nông ở đồng bằng Arcadia (Đồng bằng băng) và các cửa sổ hang động có thể có trên núi Arsia Mons (Sườn núi lửa).', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights'] },
+      { title: 'Mặt đất dưới chân bạn', body: 'Mặt đất trong trò chơi được vẽ bằng ảnh thật của NASA. Đồng bằng, Cánh đồng hố va chạm, Biển cồn cát và Vùng hẻm núi dùng ảnh do trực thăng Ingenuity chụp ở hố Jezero từ năm 2021 đến 2024. Sườn núi lửa dùng ảnh cận cảnh của Curiosity chụp những hạt cát sẫm màu trên một cồn cát ở hố Gale, còn Đồng bằng băng dùng ảnh tàu đổ bộ Phoenix chụp nền đất nứt thành các đa giác quanh nó, trên vùng đồng bằng băng giá ở cực bắc sao Hỏa.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
     ],
   };
 
