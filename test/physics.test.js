@@ -11,7 +11,8 @@ test("Mars' gravity is 38 % of Earth's, so the wheels grip 38 % as hard and the 
   near(PH.MARS_G / PH.EARTH_G, 0.38, 0.002, 'the gravity ratio NASA gives');
   near(PH.grip(PH.MARS_G) / PH.grip(PH.EARTH_G), 0.38, 0.002, 'the grip ratio');
   near(PH.stopDistance(390, PH.MARS_G) / PH.stopDistance(390, PH.EARTH_G), PH.EARTH_G / PH.MARS_G, 1e-9, 'stopping distances');
-  near(PH.stopDistance(390, PH.MARS_G), (390 / 64) ** 2 / (2 * 0.9 * 3.73), 1e-9, 'v² / 2a at top speed');
+  near(PH.stopDistance(390, PH.MARS_G), (390 / 64) ** 2 / (2 * PH.ROVER.grip * 3.73), 1e-9, 'v² / 2a at top speed');
+  assert.ok(PH.stopDistance(390) < 3 && PH.stopDistance(390 * 1.6) < 7.5, 'short enough to play with: under 3 tiles at top speed, 7.5 boosted');
 });
 
 test('from a standstill the rover pulls away no harder than its wheels grip: on Earth the same rover would pull away 2.6 times as hard', () => {
@@ -38,7 +39,7 @@ test('the faster it goes the slower it can turn: the wheels only take so much si
   const turned = speed => { const car = { heading: 0, speed }; PH.drive(car, { x: 0, y: 1 }, 0.05, {}); return car.heading; };
   near(turned(390), PH.grip() / (390 / 64) * 0.05, 1e-9, 'at top speed, grip / speed');
   near(turned(10), PH.ROVER.turn * 0.05, 1e-9, 'at walking pace, as fast as the wheels can swing it');
-  assert.ok(turned(390) < turned(10) / 4);
+  assert.ok(turned(390) < turned(10) / 3);
 });
 
 test('let go and it brakes to a stop within its stopping distance; on Earth it would stop 2.6 times sooner', () => {

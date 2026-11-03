@@ -1163,5 +1163,5 @@ test("the rover's battery counts each tile boosted or driven over rocks twice (a
   s.eva.step(0.1, Object.assign(p, { drain: 4 }), s.world, 5 * T, null);
   assert.equal(s.eva.report().driven, 50, 'five boosted over rocks count twenty');
   const phys = s.eva.el.children.find(n => / batt$/.test(n.className)).children[3].textContent;
-  assert.equal(phys, '22 km/h · stops in 5.5 m (on Earth: 2.1 m)', 'Mars needs 2.6 times as far to stop');
+  assert.equal(phys, '22 km/h · stops in 2.8 m (on Earth: 1.1 m)', 'Mars needs 2.6 times as far to stop');
 });
