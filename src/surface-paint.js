@@ -742,22 +742,21 @@
   const DIR_ANGLE = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
   function roverWheel(ctx, x, y, odo) {
     ctx.fillStyle = '#262122';
-    ctx.beginPath(); ctx.roundRect(x - 14, y - 7.5, 28, 15, 5); ctx.fill();
+    roundRect(ctx, x - 14, y - 7.5, 28, 15, 5); ctx.fill();
     ctx.save();
-    ctx.beginPath(); ctx.roundRect(x - 14, y - 7.5, 28, 15, 5); ctx.clip();
+    roundRect(ctx, x - 14, y - 7.5, 28, 15, 5); ctx.clip();
     const off = ((odo % 6) + 6) % 6;
     ctx.strokeStyle = 'rgba(120,110,105,.6)'; ctx.lineWidth = 2;
     for (let k = -20; k < 20; k += 6) { ctx.beginPath(); ctx.moveTo(x + k - off, y - 7.5); ctx.lineTo(x + k - off, y + 7.5); ctx.stroke(); }
     ctx.restore();
     ctx.fillStyle = 'rgba(255,255,255,.18)';
-    ctx.beginPath(); ctx.roundRect(x - 12, y - 6.5, 24, 3, 2); ctx.fill();
+    roundRect(ctx, x - 12, y - 6.5, 24, 3, 2); ctx.fill();
   }
   function drawRoverTop(ctx, x, y, heading, odo, moving, color) {
-    ctx.save();
-    ctx.filter = 'blur(5px)'; // its shadow, thrown south-east by the low sun, like the rocks'
-    ctx.fillStyle = 'rgba(10,4,2,.45)';
+    ctx.save(); // its shadow, thrown south-east by the low sun, like the rocks': a soft edge from two layers (a blur filter costs a layer a frame)
     ctx.translate(x + 9, y + 11); ctx.rotate(heading);
-    ctx.beginPath(); ctx.roundRect(-64, -46, 128, 92, 18); ctx.fill();
+    ctx.fillStyle = 'rgba(10,4,2,.2)'; roundRect(ctx, -64, -46, 128, 92, 18); ctx.fill();
+    ctx.fillStyle = 'rgba(10,4,2,.3)'; roundRect(ctx, -58, -40, 116, 80, 14); ctx.fill();
     ctx.restore();
     ctx.save();
     ctx.translate(x, y); ctx.rotate(heading);
@@ -766,16 +765,16 @@
       ctx.beginPath(); ctx.moveTo(-46, s * 37); ctx.lineTo(-20, s * 27); ctx.lineTo(0, s * 37); ctx.moveTo(-20, s * 27); ctx.lineTo(18, s * 27); ctx.lineTo(46, s * 37); ctx.stroke();
       for (const wx of [-46, 0, 46]) roverWheel(ctx, wx, s * 39, odo);
     }
-    ctx.fillStyle = '#55595f'; ctx.beginPath(); ctx.roundRect(-72, -13, 26, 26, 6); ctx.fill(); // the power unit, finned
+    ctx.fillStyle = '#55595f'; roundRect(ctx, -72, -13, 26, 26, 6); ctx.fill(); // the power unit, finned
     ctx.strokeStyle = '#3a3d42'; ctx.lineWidth = 2;
     for (let k = -10; k <= 10; k += 5) { ctx.beginPath(); ctx.moveTo(-72, k); ctx.lineTo(-46, k); ctx.stroke(); }
     const body = ctx.createLinearGradient(-44, -28, 44, 28);
     body.addColorStop(0, '#ffffff'); body.addColorStop(1, '#bfc3c8');
-    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(-44, -28, 92, 56, 9); ctx.fill();
+    ctx.fillStyle = body; roundRect(ctx, -44, -28, 92, 56, 9); ctx.fill();
     ctx.strokeStyle = 'rgba(80,85,92,.45)'; ctx.lineWidth = 1.2; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-10, -28); ctx.lineTo(-10, 28); ctx.moveTo(22, -28); ctx.lineTo(22, 28); ctx.stroke();
-    ctx.fillStyle = '#c99a3c'; ctx.beginPath(); ctx.roundRect(-6, -20, 24, 16, 3); ctx.fill(); // gold foil
-    ctx.fillStyle = color || '#ff9a5c'; ctx.beginPath(); ctx.roundRect(-44, -28, 92, 5, 3); ctx.fill(); // the crew stripe
+    ctx.fillStyle = '#c99a3c'; roundRect(ctx, -6, -20, 24, 16, 3); ctx.fill(); // gold foil
+    ctx.fillStyle = color || '#ff9a5c'; roundRect(ctx, -44, -28, 92, 5, 3); ctx.fill(); // the crew stripe
     ctx.fillStyle = '#e9eaec'; ctx.strokeStyle = '#8f9399'; ctx.lineWidth = 1.5; // the dish
     ctx.beginPath(); ctx.arc(-26, 14, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.beginPath(); for (let k = 0; k < 6; k++) { ctx.moveTo(-26, 14); ctx.lineTo(-26 + Math.cos(k) * 11, 14 + Math.sin(k) * 11); } ctx.stroke();
@@ -783,7 +782,7 @@
     ctx.beginPath(); ctx.moveTo(40, 18); ctx.lineTo(58, 10); ctx.lineTo(56, -2); ctx.stroke();
     ctx.fillStyle = '#55595f'; ctx.beginPath(); ctx.arc(56, -2, 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#d6d8db'; ctx.beginPath(); ctx.arc(30, -14, 7, 0, Math.PI * 2); ctx.fill(); // the mast and its cameras
-    ctx.fillStyle = '#2a2e35'; ctx.beginPath(); ctx.roundRect(30, -22, 15, 16, 3); ctx.fill();
+    ctx.fillStyle = '#2a2e35'; roundRect(ctx, 30, -22, 15, 16, 3); ctx.fill();
     ctx.fillStyle = '#5fa8ff';
     for (const yy of [-18, -10]) { ctx.beginPath(); ctx.arc(43, yy, 2.2, 0, Math.PI * 2); ctx.fill(); }
     for (const s of [-1, 1]) { // the headlights, and their beams on the ground while it drives
