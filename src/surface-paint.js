@@ -12,11 +12,13 @@
  *      SolPaint.tubeAt(chunks, at, under) → the lava tube you are inside, or null · SolPaint.drawDark(...): its headlamp's dark
  *      scale (default 1): the ground is painted at this many canvas pixels per world pixel, so each chunk image is scale·256 px
  *      square (the Display settings' Best level paints at 2); painter.setScale(s) changes it while playing.
+ *      SolPaint.photoOf(code, region) → the NASA photo a ground is painted with (src/ground-photos.js), or null
+ *      SolPaint.tileable(src, low, N, O, gain) → a photo made to repeat without a seam · painter.refresh(): repaint every chunk
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./worldgen.js'), require('./fog.js'));
-  else root.SolPaint = factory(root.SolWorldgen, root.SolFog);
-})(typeof self !== 'undefined' ? self : this, function (W, F) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./worldgen.js'), require('./fog.js'), null);
+  else root.SolPaint = factory(root.SolWorldgen, root.SolFog, root.SolGroundPhotos);
+})(typeof self !== 'undefined' ? self : this, function (W, F, GP) {
   'use strict';
   const T = 64, IMG = 4, PX = IMG * T, CH = W.CHUNK, CAP = 160, MINI_CAP = 512;
   const TL = W.TILE;
@@ -64,18 +66,146 @@
   // A gentle brightness drift across the ground. It comes from smooth noise, so tiles never show as a checkerboard.
   const shade = (world, tx, ty) => 0.96 + 0.08 * W.noise(world.seed, 920, tx, ty, 5);
 
+  // ---------- the ground's real NASA photos (src/ground-photos.js) ----------
+  // Each ground is painted in its own colour as before, then a real photo over it: a little of the photo's colour, and all of
+  // its light and dark as 'overlay' (so the ground keeps its colour on average), that detail twice: as cut, and turned 37° and
+  // enlarged, so the repeat does not show. repeat: the world px one copy of the photo spans; gain: how strong its detail is;
+  // tint: how much of its own colour shows. Bare ice, an ice scarp and a hab pod's deck have no photo. Until the photos are
+  // ready (and always in Node), the ground is painted without them.
+  const PHOTO = {
+    flagstone: { repeat: 300, gain: 1.7, tint: 0.30 }, // Jezero Crater's floor: the Plains and the base
+    cobbles: { repeat: 280, gain: 1.5, tint: 0.30 },   // a field of rocks: the Crater Field, rims, ramps and cliffs
+    sand: { repeat: 190, gain: 1.8, tint: 0.25 },      // windblown sand: the Dune Sea, sand and star dunes' crests
+    dust: { repeat: 360, gain: 2.6, tint: 0.25 },      // fine dust: the Canyon Lands, crater and canyon floors, delta beds
+    grains: { repeat: 140, gain: 0.9, tint: 0.20 },    // dark basalt grains: the Volcanic Flanks and lava tubes
+    phoenix: { repeat: 300, gain: 1.5, tint: 0.25 },   // the polygon ground round the Phoenix lander: the Icy Plains
+  };
+  const REGION_PHOTO = ['flagstone', 'sand', 'cobbles', 'dust', 'phoenix', 'grains'];
+  const CODE_PHOTO = [];
+  for (const [k, p] of [['SAND', 'sand'], ['DUNE', 'sand'], ['CREST', 'sand'], ['CLIFF', 'cobbles'], ['RIM', 'cobbles'], ['RAMP', 'cobbles'],
+    ['CRATER_FLOOR', 'dust'], ['CANYON_FLOOR', 'dust'], ['CANYON_WALL', 'dust'], ['SEDIMENT', 'dust'], ['SKYLIGHT', 'dust'],
+    ['POLYGON', 'phoenix'], ['LAVA', 'grains'], ['TUBE_FLOOR', 'grains'], ['TUBE_WALL', 'grains'], ['BASE', 'flagstone']]) CODE_PHOTO[TL[k]] = p;
+  function photoOf(code, region) {
+    if (code === TL.BOULDER || code === TL.STRUCT_WALL) code = UNDER_BOULDER[region]; // painted as the ground they sit on
+    if (code === TL.REGOLITH) return REGION_PHOTO[region] || REGION_PHOTO[0];
+    return CODE_PHOTO[code] || null;
+  }
+
+  // A photo made to repeat without a seam. src: its pixels (RGBA, S×S with S = N + O); low: the same picture blurred down to
+  // its lighting. The lighting is divided out (so one side is not darker than the other), then the first O columns and rows
+  // are cross-faded with the ones N further on, so the last pixel runs on into the first. Returns its colour and its detail,
+  // both N×N RGBA; the detail is grey, 128 + (brightness − the mean) × gain, a little stronger where the fade flattened it.
+  const smooth = t => t * t * (3 - 2 * t);
+  function tileable(src, low, N, O, gain) {
+    const S = N + O, mean = [0, 0, 0];
+    for (let i = 0; i < S * S; i++) for (let k = 0; k < 3; k++) mean[k] += src[i * 4 + k] / (S * S);
+    const flat = new Float32Array(S * S * 3);
+    for (let i = 0; i < S * S; i++) for (let k = 0; k < 3; k++) flat[i * 3 + k] = src[i * 4 + k] * mean[k] / Math.max(8, low[i * 4 + k]);
+    const fade = v => (v < O ? smooth(v / O) : 1); // the weight of the pixel itself; the rest comes from the one N further on
+    const cols = new Float32Array(N * S * 3);
+    for (let y = 0; y < S; y++) for (let x = 0; x < N; x++) {
+      const w = fade(x);
+      for (let k = 0; k < 3; k++) cols[(y * N + x) * 3 + k] = flat[(y * S + x) * 3 + k] * w + (w < 1 ? flat[(y * S + x + N) * 3 + k] * (1 - w) : 0);
+    }
+    const out = new Float32Array(N * N * 3);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const w = fade(y);
+      for (let k = 0; k < 3; k++) out[(y * N + x) * 3 + k] = cols[(y * N + x) * 3 + k] * w + (w < 1 ? cols[((y + N) * N + x) * 3 + k] * (1 - w) : 0);
+    }
+    const light = i => 0.3 * out[i * 3] + 0.59 * out[i * 3 + 1] + 0.11 * out[i * 3 + 2];
+    let meanL = 0;
+    for (let i = 0; i < N * N; i++) meanL += light(i) / (N * N);
+    const col = new Uint8ClampedArray(N * N * 4), lum = new Uint8ClampedArray(N * N * 4);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const i = y * N + x, boost = 1 + 0.35 * (1 - 2 * Math.min(Math.abs(fade(x) - 0.5), Math.abs(fade(y) - 0.5)));
+      for (let k = 0; k < 3; k++) col[i * 4 + k] = out[i * 3 + k];
+      lum[i * 4] = lum[i * 4 + 1] = lum[i * 4 + 2] = 128 + (light(i) - meanL) * gain * boost;
+      col[i * 4 + 3] = lum[i * 4 + 3] = 255;
+    }
+    return { col, lum };
+  }
+
+  // The photos once decoded and made seamless, { name: { col: [pattern] or null, lum: [as cut, turned] } }; null until all are.
+  // They start loading as soon as this file runs in a browser, one photo a task so no frame waits long; a photo that fails
+  // leaves its grounds plain. The painters made meanwhile are refreshed when they arrive.
+  let photos = null;
+  const photosWanted = [];
+  function photoPatterns(px, N, repeat) {
+    const c = document.createElement('canvas');
+    c.width = c.height = N;
+    const g = c.getContext('2d');
+    g.putImageData(new ImageData(px, N, N), 0, 0);
+    const a = g.createPattern(c, 'repeat'), b = g.createPattern(c, 'repeat'), k = repeat / N;
+    a.setTransform(new DOMMatrix().scaleSelf(k));
+    b.setTransform(new DOMMatrix().rotateSelf(37).scaleSelf(k * 1.73));
+    return [a, b];
+  }
+  function loadPhotos(urls) {
+    const N = 512, O = 112, S = N + O, names = Object.keys(PHOTO).filter(n => urls[n]), out = {};
+    const next = i => {
+      if (i === names.length) { photos = out; photosWanted.splice(0).forEach(fn => fn()); return; }
+      const name = names[i], p = PHOTO[name], img = new Image(), go = () => setTimeout(() => next(i + 1), 0);
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas'), tiny = document.createElement('canvas');
+          c.width = c.height = S;
+          tiny.width = tiny.height = 5;
+          const g = c.getContext('2d', { willReadFrequently: true }), tg = tiny.getContext('2d');
+          g.drawImage(img, 0, 0, S, S);
+          const src = g.getImageData(0, 0, S, S).data;
+          tg.imageSmoothingQuality = g.imageSmoothingQuality = 'high';
+          tg.drawImage(c, 0, 0, 5, 5);
+          g.drawImage(tiny, 0, 0, S, S); // the photo's lighting: shrunk to 5×5 and blown back up
+          const t = tileable(src, g.getImageData(0, 0, S, S).data, N, O, p.gain);
+          out[name] = { col: p.tint ? photoPatterns(t.col, N, p.repeat) : null, lum: photoPatterns(t.lum, N, p.repeat) };
+        } catch (e) { /* this photo's grounds stay plain */ }
+        go();
+      };
+      img.onerror = go;
+      img.src = urls[name];
+    };
+    next(0);
+  }
+  if (GP && typeof document !== 'undefined' && typeof Image === 'function') loadPhotos(GP);
+  // Lays a ground's photo over the colour already painted there.
+  function photoOver(g, name, x, y, w, h) {
+    const p = photos && name && photos[name];
+    if (!p) return;
+    if (p.col) { g.globalAlpha = PHOTO[name].tint; g.fillStyle = p.col[0]; g.fillRect(x, y, w, h); }
+    g.globalCompositeOperation = 'overlay';
+    g.globalAlpha = 1; g.fillStyle = p.lum[0]; g.fillRect(x, y, w, h);
+    g.globalAlpha = 0.45; g.fillStyle = p.lum[1]; g.fillRect(x, y, w, h);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+  }
+
   // ---------- one tile of ground ----------
+  // The ground a boulder or a Kestrel structure's footprint stands on: the most of its eight neighbours that are open ground
+  // (the first found on a tie), so it never shows as a square of another ground; its region's usual ground when it has none.
+  const NOT_AROUND = new Uint8Array(32);
+  for (const k of ['BOULDER', 'STRUCT_WALL', 'STRUCT_FLOOR', 'BASE', 'CLIFF', 'RIM', 'CANYON_WALL', 'SCARP', 'TUBE_WALL']) NOT_AROUND[TL[k]] = 1;
+  function groundRound(world, tx, ty, reg) {
+    const n = new Uint8Array(32);
+    let best = -1;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const c = dx || dy ? world.tile(tx + dx, ty + dy) : TL.BOULDER;
+      if (NOT_AROUND[c]) continue;
+      if (++n[c] > (best < 0 ? 0 : n[best])) best = c;
+    }
+    return best < 0 ? UNDER_BOULDER[reg] : best;
+  }
   function paintTile(g, world, tx, ty) {
     const code = world.tile(tx, ty);
     if (RAISED[code]) return; // painted after the decor, in paintRaised
     const reg = world.region(tx, ty);
     const h = W.hash(world.seed, tx, ty, 900);
     const X = tx * T, Y = ty * T;
-    // A boulder sits on its region's usual ground, drawn just like that ground (the rock goes on top in paintRaised), and so
-    // does a Kestrel structure (the surface draws its sprite on top).
-    const look = code === TL.BOULDER || code === TL.STRUCT_WALL ? UNDER_BOULDER[reg] : code;
+    // A boulder is drawn on the ground round it (the rock goes on top in paintRaised), and so is a Kestrel structure's
+    // footprint (the surface draws its sprite on top).
+    const look = code === TL.BOULDER || code === TL.STRUCT_WALL ? groundRound(world, tx, ty, reg) : code;
     g.fillStyle = css(tileRGB(look, reg), shade(world, tx, ty));
     g.fillRect(X, Y, T, T);
+    photoOver(g, photoOf(look, reg), X, Y, T, T);
     if (look === TL.DUNE || look === TL.CREST) { // ripples across the wind; the ends line up with the next tile's, so they run on unbroken
       g.strokeStyle = look === TL.CREST ? 'rgba(92,60,46,0.35)' : 'rgba(140,96,74,0.45)'; // on the sunlit crest they lie in shade
       g.lineWidth = 2;
@@ -133,8 +263,10 @@
     const code = world.tile(tx, ty);
     const X = tx * T, Y = ty * T;
     if (RAISED[code]) {
-      g.fillStyle = css(tileRGB(code, world.region(tx, ty)), shade(world, tx, ty));
+      const reg = world.region(tx, ty);
+      g.fillStyle = css(tileRGB(code, reg), shade(world, tx, ty));
       g.fillRect(X, Y, T, T);
+      photoOver(g, photoOf(code, reg), X, Y, T, T);
       const below = world.tile(tx, ty + 1) !== code, above = world.tile(tx, ty - 1) !== code;
       if (code === TL.CLIFF) {
         g.fillStyle = 'rgba(255,214,170,0.10)';
@@ -281,7 +413,7 @@
     const makeCanvas = o.canvas || ((w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; });
     const now = o.now || (() => performance.now());
     const cap = o.cap || CAP;
-    const images = new Map(); // "ix,iy" → { c, ix, iy, used }
+    const images = new Map(); // "ix,iy" → { c, ix, iy, used, stale } (stale: drawn until it is repainted)
     const minis = new Map();  // "cx,cy" → { c, stamp, used }
     const miniWant = new Set();
     const times = [];
@@ -298,11 +430,12 @@
         images.delete(oldestKey);
       }
     }
-    // The chunks of the view (and its margin) that have no image yet, the ones nearest the middle first.
+    // The chunks of the view (and its margin) that have no image yet or a stale one, the ones nearest the middle first.
+    const fresh = k => { const e = images.get(k); return !!e && !e.stale; };
     function wanted() {
       const [a, b, c, d] = view, mx = (a + c) / 2, my = (b + d) / 2, want = [];
       for (let iy = b; iy <= d; iy++) for (let ix = a; ix <= c; ix++) {
-        if (!images.has(ix + ',' + iy)) want.push([ix, iy, (ix - mx) * (ix - mx) + (iy - my) * (iy - my)]);
+        if (!fresh(ix + ',' + iy)) want.push([ix, iy, (ix - mx) * (ix - mx) + (iy - my) * (iy - my)]);
       }
       return want.sort((p, q) => p[2] - q[2]);
     }
@@ -322,13 +455,19 @@
       images.clear();
       queue = view ? wanted() : [];
     }
+    // The NASA photos arrived: every chunk is repainted with them, each one still drawn as it was until then.
+    function refresh() {
+      for (const e of images.values()) e.stale = true;
+      queue = view ? wanted() : [];
+    }
+    if (!photos && GP && typeof document !== 'undefined') photosWanted.push(refresh);
     // Paints queued chunks until the deadline (but at least `atLeast` of them); returns how many it painted.
     function work(deadline, atLeast) {
       let n = 0;
       while (queue.length && (n < (atLeast || 0) || now() < deadline)) {
         const [ix, iy] = queue.shift();
         const k = ix + ',' + iy;
-        if (images.has(k)) continue;
+        if (fresh(k)) continue;
         const t0 = now();
         const c = makeCanvas(PX * scale, PX * scale);
         paintChunk(world, ix, iy, c, scale);
@@ -425,7 +564,7 @@
       };
     }
     return {
-      retainView, setScale, work, drawGround, workMinis, chunkHash, stats,
+      retainView, setScale, refresh, work, drawGround, workMinis, chunkHash, stats,
       mini: (cx, cy) => mini(cx, cy, false),
       has: (ix, iy) => images.has(ix + ',' + iy),
       pending: () => queue.map(q => [q[0], q[1]]),
@@ -892,7 +1031,7 @@
   }
 
   return {
-    IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
+    IMG, PX, REGION_COLORS, tileRGB, photoOf, tileable, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
     sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
   };
 });

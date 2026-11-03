@@ -181,11 +181,35 @@ test("an ice scarp and a lava tube's wall stand up as cliffs do, painted over th
   }
 });
 
-test("a Kestrel structure's footprint is painted as its region's usual ground, for its sprite to stand on", () => {
+test("a Kestrel structure's footprint with nothing but footprint round it is painted as its region's usual ground", () => {
   const W = require('../src/worldgen.js');
   const UNDER = [W.TILE.REGOLITH, W.TILE.DUNE, W.TILE.REGOLITH, W.TILE.REGOLITH, W.TILE.POLYGON, W.TILE.LAVA];
   const ground = calls => calls.slice(0, calls.findIndex(c => c[0] === 'save')); // the tiles, before the decor
   W.REGIONS.forEach((id, r) => assert.deepEqual(ground(paintAll(W.TILE.STRUCT_WALL, r)), ground(paintAll(UNDER[r], r)), id));
+});
+
+test('a boulder or a footprint is painted as the ground round it (the most of its eight neighbours), never as a square of another ground', () => {
+  const TL = require('../src/worldgen.js').TILE;
+  // The colour tile (1, 1) is filled with in chunk (0, 0) of a fake world laid out by tile(tx, ty), in region `region`.
+  const fillAt = (tile, region) => {
+    const calls = [];
+    const ctx = new Proxy({}, {
+      get(t, p) { if (p in t) return t[p]; return (...a) => { if (p === 'fillRect') calls.push([t.fillStyle, ...a]); }; },
+      set(t, p, v) { t[p] = v; return true; },
+    });
+    const p = P.createPainter({ seed: 7, tile, region: () => region }, { canvas: (w, h) => ({ width: w, height: h, getContext: () => ctx }), now: () => 0 });
+    p.retainView(0, 0, 255, 255);
+    p.work(-Infinity, 1);
+    return calls.find(c => c[1] === 64 && c[2] === 64 && c[3] === 64)[0];
+  };
+  const at11 = (inner, outer) => (tx, ty) => (tx === 1 && ty === 1 ? inner : outer(tx, ty));
+  const sand = fillAt(() => TL.SAND, 0);
+  assert.equal(fillAt(at11(TL.BOULDER, () => TL.SAND), 0), sand, 'a boulder on a sand patch of the Plains');
+  assert.equal(fillAt(at11(TL.STRUCT_WALL, () => TL.SAND), 0), sand, 'a footprint on sand');
+  const two = (tx, ty) => (ty === 1 && tx !== 1 ? TL.SAND : TL.CRATER_FLOOR); // six crater floor, two sand
+  assert.equal(fillAt(at11(TL.BOULDER, two), 2), fillAt(() => TL.CRATER_FLOOR, 2), 'the most of its neighbours');
+  const rocks = (tx, ty) => (tx === 1 || ty === 1 ? TL.BOULDER : TL.CLIFF); // only boulders and cliffs round it
+  assert.equal(fillAt(at11(TL.BOULDER, rocks), 1), fillAt(() => TL.DUNE, 1), "none: the Dune Sea's usual ground");
 });
 
 // ---------- the graphics level: chunk images painted at a scale (the Display settings) ----------
@@ -332,6 +356,61 @@ test("the world's decor props are painted into the ground: the flat ones with th
   const pit = calls.findIndex(c => c[0] === 'ellipse' && c[1] === 96 && c[2] === 96);
   assert.ok(pit > clip && pit < restore, 'the pit, centred on its tile, with the decor');
   assert.ok(calls.slice(restore).some(c => c[0] === 'ellipse'), 'the rock, after the decor (the ground here has nothing else that stands up)');
+});
+
+// ---------- the ground's real NASA photos (src/ground-photos.js) ----------
+const W = require('../src/worldgen.js');
+const PHOTOS = require('../src/ground-photos.js');
+
+test("every ground is painted with a real NASA photo but bare ice, an ice scarp and a hab pod's deck; each region's usual ground with its own", () => {
+  const bare = new Set([W.TILE.ICE, W.TILE.SCARP, W.TILE.STRUCT_FLOOR]);
+  for (const [name, code] of Object.entries(W.TILE)) for (let r = 0; r < W.REGIONS.length; r++) {
+    const photo = P.photoOf(code, r);
+    if (bare.has(code)) assert.equal(photo, null, name);
+    else assert.match(PHOTOS[photo] || '', /^data:image\/jpeg;base64,\/9j\//, name + ' in ' + W.REGIONS[r] + ' → ' + photo);
+  }
+  const usual = W.REGIONS.map((id, r) => P.photoOf(W.TILE.BOULDER, r)); // a boulder sits on its region's usual ground
+  assert.deepEqual(usual.slice().sort(), Object.keys(PHOTOS).sort(), 'six regions, six photos: ' + usual);
+});
+
+test('a photo is made to repeat without a seam: its last column runs on into its first, and its last row into its first', () => {
+  const N = 16, O = 6, S = N + O, src = new Uint8ClampedArray(S * S * 4);
+  for (let i = 0; i < S * S; i++) src.set([40 + (i * 37) % 180, 30 + (i * 53) % 120, 20 + (i * 71) % 90, 255], i * 4);
+  const mean = [0, 1, 2].map(k => { let s = 0; for (let i = 0; i < S * S; i++) s += src[i * 4 + k]; return s / (S * S); });
+  const low = new Uint8ClampedArray(S * S * 4);
+  for (let i = 0; i < S * S; i++) low.set([...mean.map(Math.round), 255], i * 4); // even light: flattening keeps the pixels
+  const { col, lum } = P.tileable(src, low, N, O, 1.5);
+  const px = (a, w, x, y) => [0, 1, 2].map(k => a[(y * w + x) * 4 + k]);
+  const near = (a, b, what) => a.forEach((v, k) => assert.ok(Math.abs(v - b[k]) <= 2, what + ': ' + a + ' vs ' + b));
+  for (let y = O; y < N; y++) {
+    near(px(col, N, N - 1, y), px(src, S, N - 1, y), 'the last column is the photo');
+    near(px(col, N, 0, y), px(src, S, N, y), 'the first column is the photo pixel right of the last');
+  }
+  for (let x = O; x < N; x++) {
+    near(px(col, N, x, N - 1), px(src, S, x, N - 1), 'the last row is the photo');
+    near(px(col, N, x, 0), px(src, S, x, N), 'the first row is the photo pixel under the last');
+  }
+  for (let i = 0; i < N * N; i++) assert.ok(lum[i * 4] === lum[i * 4 + 1] && lum[i * 4] === lum[i * 4 + 2] && lum[i * 4 + 3] === 255, 'the detail is grey');
+});
+
+test("a photo's own lighting is taken out: a picture that is only light and shade leaves a flat detail layer", () => {
+  const N = 16, O = 6, S = N + O, src = new Uint8ClampedArray(S * S * 4);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const v = 60 + x * 6 + y * 3; src.set([v, v, v, 255], (y * S + x) * 4); }
+  const { lum } = P.tileable(src, src, N, O, 2);
+  for (let i = 0; i < N * N; i++) assert.ok(Math.abs(lum[i * 4] - 128) <= 2, 'pixel ' + i + ': ' + lum[i * 4]);
+});
+
+test('when the photos arrive the painted chunks are queued again, but stay on screen until each one is repainted', () => {
+  const { p } = painter('PAINT-R');
+  p.retainView(0, 0, 512, 256);
+  p.work(Infinity);
+  const n = p.stats().images;
+  assert.equal(p.stats().queue, 0);
+  p.refresh();
+  assert.equal(p.stats().queue, n, 'every painted chunk queued again');
+  assert.equal(p.stats().images, n, 'and still drawn meanwhile');
+  assert.equal(p.work(Infinity), n, 'each one repainted');
+  assert.equal(p.stats().queue, 0);
 });
 
 test("a relay beacon's light flashes once every 2 s, and stays dark while your refill there is used", () => {
