@@ -654,3 +654,11 @@ p { margin: 0; }
 .hero-story { margin-top: 14px; }
 .story-h { margin: 6px 0 8px; font-size: 20px; }
 .story-p { line-height: 1.6; max-width: 70ch; }
+
+/* the field guide (src/ui.js GUIDE): a picture, the name, what it does, a real fact */
+.guide-sec h3 { margin: 14px 0 6px; }
+.guide-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.guide-item { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: start; }
+.guide-item p { margin: 2px 0; }
+.guide-fact { font-style: italic; }
+.guide-art svg { width: 40px; height: 40px; }

@@ -1020,3 +1020,20 @@ test('the title screen tells why we go to Mars, page by page: Earth, the Moon, t
   click(pg.byKey('story-done'));
   assert.equal(pg.dialog(), null, 'closed');
 });
+
+test('the field guide labels every piece of cargo, building and gear, says what it does and gives a real fact, with sources', () => {
+  const pg = page();
+  click(pg.byKey('guide'));
+  assert.equal(pg.dialog().attrs['aria-label'], en('guide.title'));
+  const D = require('../src/data.js');
+  const ids = pg.all().filter(n => /^guide:/.test(n.attrs['data-k'] || '')).map(n => n.attrs['data-k'].slice(6));
+  for (const id of Object.keys(D.MODULES).concat(['waterwall', 'spares', 'materials', 'food', 'o2', 'water', 'suit', 'pack', 'canister', 'kit'])) assert.ok(ids.includes(id), 'listed: ' + id);
+  for (const id of ids) {
+    const item = pg.byKey('guide:' + id), [name, desc, fact] = item.children[1].children;
+    assert.ok(name.textContent && desc.textContent && fact && fact.textContent, id + ': a name, what it does, a fact');
+    assert.ok(!/^(item|mod|bld|guide)\./.test(name.textContent + desc.textContent + fact.textContent), id + ': no missing words');
+  }
+  for (const [id, src] of [['suit', 'marsFacts'], ['pack', 'percySamples'], ['shield', 'hassler'], ['rover', 'percyRover']]) assert.ok(pg.byKey('guide:' + id).textContent.includes(I.SOURCES[src].label), id + ' cites ' + src);
+  click(pg.byKey('modal-close'));
+  assert.equal(pg.dialog(), null);
+});

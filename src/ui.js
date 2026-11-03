@@ -370,7 +370,8 @@
           h('p', { class: 'hero-sub' }, t('app.sub')),
           h('p', { class: 'hero-tag' }, t('app.tagline')),
           h('button', { class: 'btn btn-primary hero-story', type: 'button', 'data-k': 'story', onclick: () => { store.modal = 'story'; store.storyPage = 0; render(); } },
-            ico('rocket', 18), t('story.open')))),
+            ico('rocket', 18), t('story.open')),
+          h('button', { class: 'btn hero-story', type: 'button', 'data-k': 'guide', onclick: () => { store.modal = 'guide'; render(); } }, ico('science', 18), t('guide.open')))),
       h('div', { class: 'title-grid' },
         panel(t('title.start'), h('div', { class: 'setup' },
           h('div', { class: 'setup-row' },
@@ -1984,8 +1985,40 @@
         foot ? h('div', { class: 'modal-f' }, foot) : null));
   }
 
+  // The field guide (the project brief's item annotations): every piece of cargo, building and gear, with its name, what it
+  // does in the game and a real fact, and the fact's source where SOURCES has one. Cargo uses the packing screen's words,
+  // buildings the build menu's, gear and the facts the build menu lacks the guide's own (guide.*).
+  const GUIDE = [
+    ['guide.cargo', ['solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse', 'waterwall', 'lab', 'rover', 'spares', 'materials', 'food', 'o2', 'water']],
+    ['guide.buildings', ['hab', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield']],
+    ['guide.gear', ['suit', 'pack', 'canister', 'kit']],
+  ];
+  const GUIDE_SOURCES = { hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler', suit: 'marsFacts', pack: 'percySamples', canister: 'bvad', rover: 'percyRover' };
+  const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
+  function guideEntry(id) {
+    const k = key => (I.STR.en[key] ? t(key) : null);
+    return {
+      name: k('item.' + id + '.name') || k('mod.' + id) || k('guide.' + id + '.name'),
+      desc: k('item.' + id + '.desc') || k('bld.' + id) || k('guide.' + id + '.desc'),
+      fact: k('item.' + id + '.fact') || k('guide.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null),
+      src: GUIDE_SOURCES[id] || null,
+      art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
+    };
+  }
+
   function renderModal() {
     const m = store.modal;
+    if (m === 'guide') {
+      return modal(t('guide.title'), [
+        h('p', { class: 'muted' }, t('guide.lead')),
+        GUIDE.map(([head, ids]) => h('section', { class: 'guide-sec' }, h('h3', null, t(head)), h('ul', { class: 'guide-list' }, ids.map(id => {
+          const e = guideEntry(id), src = e.src && I.SOURCES[e.src];
+          return h('li', { class: 'guide-item', 'data-k': 'guide:' + id }, h('span', { class: 'guide-art', html: e.art }),
+            h('div', null, h('b', null, e.name), h('p', { class: 'muted' }, e.desc), e.fact ? h('p', { class: 'guide-fact' }, e.fact) : null,
+              src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
+        })))),
+      ], null, true);
+    }
     if (m === 'story') { // the "Why Mars?" story from the title screen, a page at a time, each with its NASA sources (I.STORY)
       const pages = I.STORY[store.lang] || I.STORY.en, n = Math.max(0, Math.min(store.storyPage || 0, pages.length - 1)), p = pages[n];
       const turn = d => { store.storyPage = n + d; render(); };
@@ -1993,7 +2026,7 @@
         h('span', { class: 'eyebrow' }, t('story.step', { n: n + 1, m: pages.length })),
         h('h3', { class: 'story-h' }, p.title),
         h('p', { class: 'story-p' }, p.body),
-        h('div', { class: 'src' }, t('region.source') + ': ', p.src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label))),
+        h('div', { class: 'src' }, t('region.source') + ': ', p.src.map((id, i) => [i ? ' · ' : null, h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label)])),
       ], [
         n > 0 ? h('button', { class: 'btn', type: 'button', 'data-k': 'story-back', onclick: () => turn(-1) }, t('story.back')) : null,
         n < pages.length - 1
@@ -2009,6 +2042,7 @@
       const s = mission(), isru = { title: t('lesson.isruMars.title'), body: t('lesson.isruMars.body'), src: ISRU_SOURCES }; // the debrief's lesson, with its sources
       return modal(t('notes.title'), [
         h('p', { class: 'muted' }, t('notes.lead')),
+        h('p', null, h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'notes-guide', onclick: () => { store.modal = 'guide'; render(); } }, ico('science', 14), t('guide.open'))),
         h('div', { class: 'notes-list' }, s ? foundNote(s) : null, I.NOTES[store.lang].concat([isru]).map(n => h('article', { class: 'note' },
           h('h3', null, n.title), h('p', null, n.body),
           n.src.length ? h('div', { class: 'src' }, n.src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label))) : null))),
