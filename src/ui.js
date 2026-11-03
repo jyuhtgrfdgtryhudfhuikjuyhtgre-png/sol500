@@ -1996,11 +1996,12 @@
   const GUIDE_SOURCES = { hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler', suit: 'marsFacts', pack: 'percySamples', canister: 'bvad', rover: 'percyRover' };
   const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
   function guideEntry(id) {
-    const k = key => (I.STR.en[key] ? t(key) : null);
+    // The guide's own words (guide.<id>.*) win: a borrowed string is called here without its params (bld.kit's {base}…).
+    const k = key => (I.STR.en[key] ? t(key) : null), own = part => k('guide.' + id + '.' + part);
     return {
-      name: k('item.' + id + '.name') || k('mod.' + id) || k('guide.' + id + '.name'),
-      desc: k('item.' + id + '.desc') || k('bld.' + id) || k('guide.' + id + '.desc'),
-      fact: k('item.' + id + '.fact') || k('guide.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null),
+      name: own('name') || k('item.' + id + '.name') || k('mod.' + id),
+      desc: own('desc') || k('item.' + id + '.desc') || k('bld.' + id),
+      fact: own('fact') || k('item.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null),
       src: GUIDE_SOURCES[id] || null,
       art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
     };
