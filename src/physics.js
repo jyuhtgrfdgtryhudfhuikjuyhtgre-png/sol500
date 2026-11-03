@@ -4,7 +4,8 @@
  *
  * Mars' gravity is 38 % of Earth's (NASA JPL, "Mars at a glance"). Grip is friction, and friction is a share (GRIP) of how
  * hard the wheels press on the ground, its weight: so on Mars a rover can speed up, brake and turn only 38 % as hard as on
- * Earth, and it needs 2.6 times as far to stop. The air is under 1/100th as thick as Earth's, so there is no air drag.
+ * Earth, and it needs 2.6 times as far to stop. The air's pressure is under 1/100th of Earth's (its density about 1/60th),
+ * so air drag is left out. The grip is shared: what the wheels use to push or brake is not there to turn with.
  * The rover's mass is Perseverance's (1,025 kg); its motor and its top speed are game values, far above Perseverance's
  * 152 m an hour, so that exploring stays fun (src/i18n.js, the "Driving on Mars" note, says so).
  *
@@ -43,22 +44,30 @@
     const R = ROVER, g = (o && o.g) || MARS_G, m = R.mass, boost = !!(o && o.boost), rough = !!(o && o.rough);
     const v = car.speed / PX_PER_M, top = R.top * (boost ? R.boost : 1) * (rough ? R.roughTop : 1);
     const n = Math.hypot(input.x, input.y), Fgrip = grip(g) * m;
-    let throttle = 0, brake = 1;
+    let throttle = 0, brake = 1, d = 0;
     if (n > 0.05) {
-      const d = wrap(Math.atan2(input.y, input.x) - car.heading);
-      // Turning pushes the rover sideways: the wheels hold at most grip(g), so the faster it goes, the slower it can turn.
-      const w = Math.min(R.turn, grip(g) / Math.max(v, 0.5));
-      car.heading = wrap(car.heading + clamp(d, -w * dt, w * dt));
+      d = wrap(Math.atan2(input.y, input.x) - car.heading);
       const c = Math.cos(d);
       throttle = Math.min(1, n) * Math.max(0, c); // ease off while turning
-      brake = c < 0.5 ? (0.5 - c) * Math.min(1, v / R.top) : 0; // and brake into a sharp turn, the harder the faster it goes
+      brake = c < 0.5 ? Math.min(1, (0.5 - c) * Math.min(1, v / R.top)) : 0; // and brake into a sharp turn, the harder the faster it goes
     }
     // Newton's second law along the heading: the motor's push (no more than the wheels' grip, and no more than its power
     // allows at this speed) against rolling resistance and the brakes.
     const Fmotor = throttle > 0 && v <= top ? Math.min(Fgrip, R.power / Math.max(v, 0.5)) * throttle : 0; // at the governor it holds
-    const Fresist = v > 0 ? (rough ? R.rollRough : R.roll) * m * g + brake * Fgrip : 0;
+    const Fbrake = v > 0 ? brake * Fgrip : 0;
+    let side = 0; // the sideways push the turn takes, m/s²
+    if (d) {
+      // Turning pushes the rover sideways, and the wheels hold at most grip(g) in all (a friction circle): the grip the motor
+      // or the brakes use along the heading is not there for the turn. So the faster it goes, the slower it can turn.
+      const along = Math.abs(Fmotor - Fbrake) / m, left = Math.sqrt(Math.max(0, grip(g) * grip(g) - along * along));
+      const w = Math.min(R.turn, left / Math.max(v, 0.5)), turn = clamp(d, -w * dt, w * dt);
+      car.heading = wrap(car.heading + turn);
+      side = dt > 0 ? v * Math.abs(turn) / dt : 0;
+    }
+    const Fresist = v > 0 ? (rough ? R.rollRough : R.roll) * m * g + Fbrake : 0;
     let next = Math.max(0, v + (Fmotor - Fresist) / m * dt);
-    if (v > top) next = Math.max(top, Math.min(next, v - Fgrip / m * dt)); // over the governor: it brakes down to it
+    // Over the governor it brakes down to it, with the grip the turn leaves.
+    if (v > top) next = Math.max(top, Math.min(next, v - Math.sqrt(Math.max(0, grip(g) * grip(g) - side * side)) * dt));
     else next = Math.min(next, top);
     car.speed = next * PX_PER_M;
     return car.speed * dt;

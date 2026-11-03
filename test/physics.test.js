@@ -37,7 +37,8 @@ test("its motors' governor holds it at top speed; the boost opens it up 1.6 time
 
 test('the faster it goes the slower it can turn: the wheels only take so much sideways push', () => {
   const turned = speed => { const car = { heading: 0, speed }; PH.drive(car, { x: 0, y: 1 }, 0.05, {}); return car.heading; };
-  near(turned(390), PH.grip() / (390 / 64) * 0.05, 1e-9, 'at top speed, grip / speed');
+  // At top speed a square turn brakes with half the grip (brake 0.5), and the turn gets the rest: √(1 − 0.5²) of it.
+  near(turned(390), Math.sqrt(1 - 0.25) * PH.grip() / (390 / 64) * 0.05, 1e-9, 'at top speed, the grip the brakes leave / speed');
   near(turned(10), PH.ROVER.turn * 0.05, 1e-9, 'at walking pace, as fast as the wheels can swing it');
   assert.ok(turned(390) < turned(10) / 3);
 });
@@ -56,4 +57,14 @@ test('a dust grain flung up flies for 2·vz/g: on Mars 2.6 times as long as on E
   const flight = g => { const d = { x: 0, y: 0, z: 1e-9, vx: 0, vy: 0, vz: 2 }; let t = 0; while (PH.dust(d, 0.001, g)) t += 0.001; return t; };
   near(flight(PH.MARS_G), 2 * 2 / PH.MARS_G, 0.005, 'Mars');
   near(flight(PH.MARS_G) / flight(PH.EARTH_G), PH.EARTH_G / PH.MARS_G, 0.02, 'against Earth');
+});
+
+test('the wheels hold at most their grip in all: pushing or braking along the heading and turning share it (a friction circle)', () => {
+  const most = PH.grip() + PH.ROVER.rollRough * PH.MARS_G + 1e-9, dt = 1 / 240; // rolling resistance isn't the wheels' grip
+  for (const speed of [0, 30, 120, 260, 390, 624]) for (let a = -Math.PI; a < Math.PI; a += Math.PI / 12) for (const o of [{}, { boost: true }, { rough: true }]) {
+    const car = { heading: 0, speed };
+    PH.drive(car, { x: Math.cos(a), y: Math.sin(a) }, dt, o);
+    const along = (car.speed - speed) / PH.PX_PER_M / dt, side = speed / PH.PX_PER_M * Math.abs(car.heading) / dt;
+    assert.ok(Math.hypot(along, side) <= most, speed + ' px/s, pushed ' + (a * 180 / Math.PI).toFixed(0) + '°, ' + JSON.stringify(o) + ': ' + Math.hypot(along, side).toFixed(2) + ' m/s² against ' + most.toFixed(2));
+  }
 });
