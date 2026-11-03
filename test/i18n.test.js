@@ -65,6 +65,21 @@ test('the ground photos are credited: a Science note in each language cites ever
   }
 });
 
+test("the user's three NASA links are in the Science notes in both languages: designer plants, the OSDR space biology repository and a study from it, and Mars Trek", () => {
+  const want = {
+    designerPlants: /^https:\/\/www\.nasa\.gov\/news-release\/nasa-designer-plants-on-mars\/$/,
+    osdr: /^https:\/\/osdr\.nasa\.gov\/bio\/repo\/search\?q=&data_source=cgene,alsda,esa&data_type=study$/,
+    osdrCara: /^https:\/\/osdr\.nasa\.gov\/bio\/repo\/data\/studies\/OSD-678$/,
+    marsTrek: /^https:\/\/trek\.nasa\.gov\/mars\/$/,
+  };
+  for (const [id, re] of Object.entries(want)) {
+    assert.ok(I.SOURCES[id] && I.SOURCES[id].label, id);
+    assert.match(I.SOURCES[id].url, re, id + ': the page itself, with no tracking parameters');
+    for (const lang of ['en', 'vi']) assert.ok(I.NOTES[lang].some(n => n.src.includes(id)), lang + ': a note cites ' + id);
+  }
+  assert.deepEqual(I.NOTES.vi.map(n => n.src), I.NOTES.en.map(n => n.src), 'the Vietnamese notes cite what the English ones do, in order');
+});
+
 test('the Plains fact cites a page from after the landing and claims nothing that page does not say', () => {
   // https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/ (Feb. 18, 2021) says
   // "has touched down at Jezero Crater", "Some 28 miles (45 kilometers) wide" and "3.5 billion years ago the crater had its
