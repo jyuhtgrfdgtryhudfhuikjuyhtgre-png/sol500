@@ -7668,7 +7668,9 @@ p { margin: 0; }
   const ROVER = {
     mass: 1025,       // kg, Perseverance's
     power: 15000,     // W at the wheels (a game value)
-    grip: 0.9,        // the share of its weight cleated wheels can push or turn with on regolith
+    grip: 1.8,        // the share of its weight its cleated wheels can push, brake or turn with (a game value: real wheels on
+                      // regolith manage about half that, but then the rover took 14 tiles to stop from a boost; the user
+                      // asked for shorter stops on 2026-11-03. Gravity still scales it: Mars always needs 2.6 times Earth's)
     roll: 0.05,       // rolling resistance on firm ground, a share of its weight
     rollRough: 0.25,  // over rocks and crater rims
     top: 390 / 64,    // m/s, the motors' governor (the game's rover speed: 390 px/s)
