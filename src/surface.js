@@ -150,6 +150,14 @@
     return steps && steps.map(([x, y]) => center(x, y));
   }
 
+  // On a route, a rover lets go once it needs all the road left to stop, so it stops at the end of it, not past it. Letting
+  // go brakes with the wheels' full grip plus rolling resistance, a little more than PH.stopDistance counts: it stops short.
+  function brakesNow(p, d) {
+    let left = d;
+    for (let i = 1; i < p.path.length; i++) left += Math.hypot(p.path[i][0] - p.path[i - 1][0], p.path[i][1] - p.path[i - 1][1]);
+    return PH.stopDistance(p.car.speed) * PH.PX_PER_M * S.eva.speed(p) * S.qa.speed >= left - 8;
+  }
+
   function spotNear(gx, gy, rnd) {
     const [wx, wy] = gx == null ? [0, 0] : gridToWorld(gx, gy);
     const options = [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1]].map(([dx, dy]) => [wx + dx, wy + dy]).filter(([x, y]) => !isBlocked(x, y));
@@ -634,7 +642,7 @@
             }
             if (p.autoFocus) { S.pendingAuto = p.autoFocus; p.autoFocus = null; }
           }
-        } else { vx = dx / d; vy = dy / d; }
+        } else if (!(p.inRover && p.car && brakesNow(p, d))) { vx = dx / d; vy = dy / d; }
       }
     } else {
       p.path = null;
@@ -659,12 +667,14 @@
         const hx = Math.cos(p.car.heading), hy = Math.sin(p.car.heading), mx = p.x + hx * step, my = p.y + hy * step;
         const stuck = hitsWall(p.x, p.y, true);
         const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !hitsWall(x + hx * NOSE, y + hy * NOSE, true))) && S.eva.canMove(p, x, y));
-        const okX = ok(mx, p.y);
+        // A move along an axis the rover isn't heading on is no move, so it can't count as allowed: head-on into a wall,
+        // both are refused and the rover stops dead, with no speed left to show, send or turn with.
+        const okX = Math.abs(hx) > 1e-6 && ok(mx, p.y);
         if (okX) p.x = mx;
-        const okY = ok(p.x, my);
+        const okY = Math.abs(hy) > 1e-6 && ok(p.x, my);
         if (okY) p.y = my;
         if (!okX && !okY) { p.car.speed = 0; moving = false; p.path = null; } // against a wall, or the battery is flat
-        p.odo = (p.odo || 0) + step;
+        p.odo = (p.odo || 0) + Math.hypot(p.x - ox, p.y - oy); // the wheels turn as far as it really went
       }
       if (step > 0 || p.car.heading !== turnedFrom) { // you face the way it does once it turns or moves (E acts there)
         const c = Math.cos(p.car.heading), s = Math.sin(p.car.heading);

@@ -1029,3 +1029,73 @@ test("a crewmate's rover turns on your screen the way it moves, and keeps its he
   r(740, 740, false);
   assert.equal(pg.probe().remote.diego.heading, Math.PI / 2, 'parked, it still faces south');
 });
+
+// A run of n open, smooth tiles in one row (the rows either side too) that ends at a tile the rover can't cross: [x0, y, wallX].
+function rowToWall(seed, n) {
+  const w = SW.create(seed), open = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y);
+  for (let y = 8; y < 200; y++) for (let x = 8, run = 0; x < 400; x++) {
+    if (open(x, y) && open(x, y - 1) && open(x, y + 1)) run++;
+    else { if (run >= n && w.isBlocked(x, y, true)) return [x - run, y, x]; run = 0; }
+  }
+  return null;
+}
+
+test('a rover driven into a wall stops dead: no speed is left for the HUD, the crew or its turns', () => {
+  const { m, pg } = inRover('WALL-1');
+  const [, y, wx] = rowToWall(m.seed, 14);
+  pg.qa.teleport(wx - 12, y);
+  pg.step(0.2);
+  pg.key('KeyD');
+  pg.step(4);
+  const p = pg.probe().player;
+  assert.ok(p.x < wx * T, 'it stops short of the wall: ' + p.x);
+  assert.equal(p.speed, 0, 'and stands still, not at ' + p.speed + ' px/s');
+  pg.key('KeyD', false);
+});
+
+test('click-to-drive to a spot by a wall ends there, not pushing at the wall for ever', () => {
+  const { m, pg } = inRover('WALL-1');
+  const [, y, wx] = rowToWall(m.seed, 14);
+  pg.qa.teleport(wx - 10, y);
+  pg.step(0.2);
+  const [clientX, clientY] = pg.probe().toScreen(wx * T - 10, (y + 0.5) * T); // 10 px short of the wall: the nose stops it 40 px off
+  for (const fn of pg.canvas.listeners.pointerdown) fn({ clientX, clientY, pointerId: 1 });
+  pg.step(8);
+  const p = pg.probe().player;
+  assert.ok(!p.path, 'the route is over: ' + p.path);
+  assert.equal(p.speed, 0);
+});
+
+test('click-to-drive brakes for the spot tapped: the rover stops there, at 20 or 60 fps, plain or boosted', () => {
+  for (const [hz, boost] of [[20, false], [60, false], [60, true]]) {
+    const { m, pg } = inRover('DRIVE-5');
+    const [x, y] = openRow(m.seed, 16);
+    pg.qa.teleport(x + 1, y);
+    pg.frames(hz, 0.2);
+    if (boost) pg.key('ShiftLeft');
+    pg.tap(x + 11, y);
+    pg.frames(hz, 8);
+    const p = pg.probe().player, off = (p.x - (x + 11.5) * T) / T;
+    assert.ok(!p.path && p.speed === 0, hz + ' fps: arrived and stopped');
+    assert.ok(off <= 0.25 && off > -0.75, hz + ' fps' + (boost ? ', boosted' : '') + ': rests ' + off.toFixed(2) + ' tiles from the spot');
+    if (boost) pg.key('ShiftLeft', false);
+  }
+});
+
+test('a find tapped from the rover is in front of it when it stops, so E collects it', () => {
+  const m = mission({ seed: 'FIND-1' }), w = SW.create(m.seed);
+  const clear = (x, y) => !w.isBlocked(x, y) && !w.rough(x, y) && !w.isBlocked(x, y - 1) && !w.isBlocked(x, y + 1);
+  let f = null;
+  for (let cy = -3; cy <= 2 && !f; cy++) for (let cx = -3; cx <= 2 && !f; cx++) for (const g of X.findsIn(m, cx, cy)) {
+    if (Math.hypot(g.x, g.y) > 14 && [-8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4].every(d => clear(g.x + d, g.y))) { f = g; break; }
+  }
+  assert.ok(f, 'a find with open ground to its west');
+  assert.equal(X.board(m, 'minh', X.bay(m)).ok, true);
+  const pg = page(m, 'minh');
+  pg.qa.teleport(f.x - 7, f.y);
+  pg.frames(60, 0.3);
+  pg.tap(f.x, f.y);
+  pg.frames(60, 8);
+  assert.ok(pg.probe().player.x < (f.x + 0.5) * T, 'the rover stops short of it, not past it: ' + pg.probe().player.x);
+  assert.equal(pg.probe().focus, 'find', 'and the find is what E acts on, not getting out');
+});
