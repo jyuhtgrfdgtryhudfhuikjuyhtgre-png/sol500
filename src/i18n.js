@@ -62,6 +62,13 @@
     // The physics of driving on Mars (src/physics.js).
     marsGlance: { label: 'NASA JPL: Mars at a glance (InSight press kit)', url: 'https://www.jpl.nasa.gov/news/press_kits/insight/launch/facts/mars-at-a-glance/' },
     percyRover: { label: 'NASA Science: Perseverance rover components', url: 'https://science.nasa.gov/mission/mars-2020-perseverance/rover-components/' },
+    // The "Why Mars?" story (STORY): Earth's future, the Moon, the rovers, the astronaut's hazards and values.
+    climateEvidence: { label: 'NASA Science: Evidence of climate change', url: 'https://science.nasa.gov/climate-change/evidence/' },
+    apollo11: { label: 'NASA: Apollo 11 (July 20, 1969)', url: 'https://www.nasa.gov/mission/apollo-11/' },
+    artemis: { label: 'NASA: Artemis, back to the Moon and on to Mars', url: 'https://www.nasa.gov/humans-in-space/artemis/' },
+    hazards: { label: 'NASA Human Research Program: The five hazards of human spaceflight', url: 'https://www.nasa.gov/hrp/hazards/' },
+    nasaAbout: { label: 'NASA: About NASA (its mission)', url: 'https://www.nasa.gov/about/' },
+    nasaValues: { label: 'NASA Careers: Life at NASA (its core values)', url: 'https://www.nasa.gov/careers/life-at-nasa/' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
@@ -110,6 +117,12 @@
     'display.fps': '{n} FPS',
 
     'title.start': 'Plan a mission',
+    'story.open': 'Why Mars? The story',
+    'story.title': 'Why we go to Mars',
+    'story.step': '{n} of {m}',
+    'story.back': 'Back',
+    'story.next': 'Next',
+    'story.done': 'Start planning',
     'title.training': 'Training mission',
     'title.trainingHint': 'No random events or breakdowns. Learn the systems first.',
     'title.resume': 'Resume · sol {sol}',
@@ -1178,6 +1191,12 @@
     'display.fps': '{n} FPS',
 
     'title.start': 'Lên kế hoạch nhiệm vụ',
+    'story.open': 'Vì sao lên sao Hỏa? Câu chuyện',
+    'story.title': 'Vì sao chúng ta lên sao Hỏa',
+    'story.step': '{n} / {m}',
+    'story.back': 'Quay lại',
+    'story.next': 'Tiếp',
+    'story.done': 'Bắt đầu lên kế hoạch',
     'title.training': 'Nhiệm vụ huấn luyện',
     'title.trainingHint': 'Không có sự kiện ngẫu nhiên hay hỏng hóc. Làm quen với các hệ thống trước.',
     'title.resume': 'Tiếp tục · sol {sol}',
@@ -2204,6 +2223,27 @@
     'admin.p.subject': 'Thay đổi',
   };
 
+  // The "Why Mars?" story, page by page (the title screen's button): Earth's future, the Moon, the rovers, the astronaut's
+  // hazards and values, the mission. Every number is from its NASA source; the game lines say how SOL 500 uses it.
+  const STORY = {
+    en: [
+      { title: 'Earth is changing', body: 'NASA measures that Earth’s average surface temperature has risen about 1 °C since the late 19th century. The global sea level rose about 20 cm in the last century, and the surface of the ocean has become about 30 % more acidic since the Industrial Revolution. Learning to live on another world teaches us how precious this one is, and how to look after the air, water and food we all share.', src: ['climateEvidence'] },
+      { title: 'A giant leap: the Moon', body: 'On 20 July 1969, Apollo 11’s Neil Armstrong and Buzz Aldrin landed on the Moon and stayed 22 hours on its surface, with Michael Collins on their crew. Today NASA’s Artemis program is going back. Artemis I was an uncrewed test flight in November 2022, and in April 2026 Artemis II carried four astronauts on a nearly 10-day trip around the Moon. NASA plans a Moon Base near the Moon’s South Pole for an enduring human presence, a foundation for the first crewed missions to Mars.', src: ['apollo11', 'artemis'] },
+      { title: 'Robots lead the way to Mars', body: 'Opportunity landed on Mars on 24 January 2004. It was designed to last just 90 Martian days, but it worked 60 times longer and drove more than 45 km, until a planet-wide dust storm silenced it in June 2018. Perseverance touched down in Jezero Crater in 2021, and its little helicopter, Ingenuity, made 72 flights. Every one of these missions is a step toward the first people on Mars.', src: ['opportunity', 'jezero', 'photoSand'] },
+      { title: 'The astronaut’s challenge', body: 'NASA names five hazards of human spaceflight: space radiation, isolation and confinement, the distance from Earth, gravity fields, and hostile, closed environments. In SOL 500 you face all five: the radiation dose of every crew member, morale through months of isolation, supplies that take months to arrive, Mars’ weaker gravity, and a habitat whose air, water and power you must keep running.', src: ['hazards'] },
+      { title: 'What an astronaut stands for', body: 'NASA explores the unknown in air and space, innovates for the benefit of humanity, and inspires the world through discovery. Its people share five core values: safety, integrity, inclusion, teamwork and excellence. Your crew will need every one of them: keep each other safe, be honest about what is going wrong, welcome every skill, work as one team, and do your very best science.', src: ['nasaAbout', 'nasaValues'] },
+      { title: 'Your mission: 500 sols', body: 'You lead the first crew to live on Mars, for about 500 sols (Martian days), while Earth and Mars line up again for the trip home, as NASA’s Design Reference Architecture plans. Pack your cargo, build the outpost, ride out dust storms and solar flares, explore, and bring back the samples that tell Mars’ story. Good luck, crew.', src: ['dra5'] },
+    ],
+    vi: [
+      { title: 'Trái Đất đang thay đổi', body: 'NASA đo được nhiệt độ trung bình bề mặt Trái Đất đã tăng khoảng 1 °C kể từ cuối thế kỷ 19. Mực nước biển toàn cầu đã dâng khoảng 20 cm trong thế kỷ trước, và lớp nước bề mặt đại dương đã có tính axit cao hơn khoảng 30 % kể từ Cách mạng Công nghiệp. Học cách sống trên một thế giới khác giúp ta hiểu thế giới này quý giá đến nhường nào, và biết cách giữ gìn không khí, nước và thực phẩm mà tất cả chúng ta cùng chia sẻ.', src: ['climateEvidence'] },
+      { title: 'Bước nhảy vọt: Mặt Trăng', body: 'Ngày 20 tháng 7 năm 1969, Neil Armstrong và Buzz Aldrin của tàu Apollo 11 đáp xuống Mặt Trăng và ở lại bề mặt 22 giờ, cùng Michael Collins trong phi hành đoàn. Ngày nay chương trình Artemis của NASA đang quay trở lại. Artemis I là chuyến bay thử không người lái vào tháng 11 năm 2022, và tháng 4 năm 2026, Artemis II đưa bốn phi hành gia bay vòng quanh Mặt Trăng trong gần 10 ngày. NASA dự định xây một Căn cứ Mặt Trăng gần Cực Nam của Mặt Trăng để con người hiện diện lâu dài, làm nền móng cho những chuyến bay có người đầu tiên tới sao Hỏa.', src: ['apollo11', 'artemis'] },
+      { title: 'Robot dẫn đường tới sao Hỏa', body: 'Opportunity đáp xuống sao Hỏa ngày 24 tháng 1 năm 2004. Nó được thiết kế để hoạt động chỉ 90 ngày sao Hỏa, nhưng đã làm việc lâu gấp 60 lần và đi được hơn 45 km, cho đến khi một cơn bão bụi phủ khắp hành tinh làm nó im lặng vào tháng 6 năm 2018. Perseverance đáp xuống hố Jezero năm 2021, và chiếc trực thăng nhỏ Ingenuity của nó đã bay 72 lần. Mỗi sứ mệnh ấy là một bước tiến tới những con người đầu tiên trên sao Hỏa.', src: ['opportunity', 'jezero', 'photoSand'] },
+      { title: 'Thử thách của phi hành gia', body: 'NASA nêu ra năm mối nguy của chuyến bay vũ trụ có người: bức xạ vũ trụ, sự cô lập và gò bó, khoảng cách xa Trái Đất, trường trọng lực, và môi trường khắc nghiệt, khép kín. Trong SOL 500, bạn đối mặt với cả năm: liều bức xạ của từng thành viên, tinh thần qua nhiều tháng cô lập, hàng tiếp tế mất nhiều tháng mới tới, trọng lực yếu hơn của sao Hỏa, và một căn cứ mà bạn phải giữ cho không khí, nước và điện luôn hoạt động.', src: ['hazards'] },
+      { title: 'Phi hành gia đại diện cho điều gì', body: 'NASA khám phá những điều chưa biết trên bầu trời và trong vũ trụ, đổi mới vì lợi ích của nhân loại, và truyền cảm hứng cho thế giới qua những khám phá. Những người làm việc ở NASA chia sẻ năm giá trị cốt lõi: an toàn, chính trực, hòa nhập, làm việc nhóm và xuất sắc. Phi hành đoàn của bạn sẽ cần tất cả: giữ an toàn cho nhau, trung thực về những gì đang trục trặc, trân trọng mọi kỹ năng, làm việc như một đội, và làm khoa học tốt nhất có thể.', src: ['nasaAbout', 'nasaValues'] },
+      { title: 'Sứ mệnh của bạn: 500 sol', body: 'Bạn dẫn dắt phi hành đoàn đầu tiên sống trên sao Hỏa trong khoảng 500 sol (ngày sao Hỏa), chờ Trái Đất và sao Hỏa thẳng hàng trở lại để về nhà, như Kiến trúc tham chiếu của NASA dự kiến. Hãy đóng gói hàng hóa, xây dựng căn cứ, vượt qua bão bụi và bão Mặt Trời, khám phá, và mang về những mẫu vật kể câu chuyện của sao Hỏa. Chúc phi hành đoàn may mắn.', src: ['dra5'] },
+    ],
+  };
+
   const NOTES = {
     en: [
       { title: 'Radiation on the surface', body: 'Curiosity’s RAD instrument measured about 0.64 mSv per sol at Gale Crater. Mars has no global magnetic field and a thin atmosphere, so cosmic rays reach the ground. SOL 500 uses that rate, reduced by your shielding.', src: ['hassler'] },
@@ -2262,5 +2302,5 @@
     return (STR[lang] && STR[lang][key] != null) || en[key] != null;
   }
 
-  return { t, has, STR, SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, LANGS: ['en', 'vi'] };
+  return { t, has, STR, SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, STORY, LANGS: ['en', 'vi'] };
 });

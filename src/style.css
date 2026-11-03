@@ -649,3 +649,8 @@ p { margin: 0; }
   .sf-layout { grid-template-columns: minmax(0, 1fr); }
   .sf-root { height: min(66vh, 640px); min-height: 380px; }
 }
+
+/* the title screen's "Why Mars?" story (src/ui.js, I.STORY) */
+.hero-story { margin-top: 14px; }
+.story-h { margin: 6px 0 8px; font-size: 20px; }
+.story-p { line-height: 1.6; max-width: 70ch; }

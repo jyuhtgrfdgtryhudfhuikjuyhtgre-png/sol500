@@ -368,7 +368,9 @@
         h('div', { class: 'hero-copy' },
           h('h1', { class: 'wordmark', 'aria-label': 'SOL 500' }, h('span', { class: 'sol' }, 'SOL'), h('span', { class: 'five' }, '500')),
           h('p', { class: 'hero-sub' }, t('app.sub')),
-          h('p', { class: 'hero-tag' }, t('app.tagline')))),
+          h('p', { class: 'hero-tag' }, t('app.tagline')),
+          h('button', { class: 'btn btn-primary hero-story', type: 'button', 'data-k': 'story', onclick: () => { store.modal = 'story'; store.storyPage = 0; render(); } },
+            ico('rocket', 18), t('story.open')))),
       h('div', { class: 'title-grid' },
         panel(t('title.start'), h('div', { class: 'setup' },
           h('div', { class: 'setup-row' },
@@ -1984,6 +1986,21 @@
 
   function renderModal() {
     const m = store.modal;
+    if (m === 'story') { // the "Why Mars?" story from the title screen, a page at a time, each with its NASA sources (I.STORY)
+      const pages = I.STORY[store.lang] || I.STORY.en, n = Math.max(0, Math.min(store.storyPage || 0, pages.length - 1)), p = pages[n];
+      const turn = d => { store.storyPage = n + d; render(); };
+      return modal(t('story.title'), [
+        h('span', { class: 'eyebrow' }, t('story.step', { n: n + 1, m: pages.length })),
+        h('h3', { class: 'story-h' }, p.title),
+        h('p', { class: 'story-p' }, p.body),
+        h('div', { class: 'src' }, t('region.source') + ': ', p.src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label))),
+      ], [
+        n > 0 ? h('button', { class: 'btn', type: 'button', 'data-k': 'story-back', onclick: () => turn(-1) }, t('story.back')) : null,
+        n < pages.length - 1
+          ? h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'story-next', onclick: () => turn(1) }, t('story.next'))
+          : h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'story-done', onclick: () => { store.modal = null; render(); } }, t('story.done')),
+      ], true);
+    }
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
         [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));

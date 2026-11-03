@@ -194,3 +194,12 @@ test("the surface's new HUD notes fit its 210 px column, their placeholders fill
     }
   }
 });
+
+test('the "Why Mars?" story has the same pages and sources in both languages, every source a NASA page', () => {
+  assert.equal(I.STORY.en.length, 6);
+  assert.deepEqual(I.STORY.vi.map(p => p.src), I.STORY.en.map(p => p.src));
+  for (const lang of ['en', 'vi']) for (const p of I.STORY[lang]) {
+    assert.ok(p.title && p.body.length > 100, lang + ': ' + p.title);
+    for (const id of p.src) assert.match(I.SOURCES[id].url, /^https:\/\/([a-z0-9-]+\.)*nasa\.gov\//, id); // nasa.gov, science., jpl., ntrs.
+  }
+});

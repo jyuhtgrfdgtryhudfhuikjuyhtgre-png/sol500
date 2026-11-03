@@ -1001,3 +1001,22 @@ test("the Science note of a mission the explorer bot really played lists the lan
     assert.deepEqual(foundItems(notesOf(pg)).map(titleOf), want, seed);
   }
 });
+
+test('the title screen tells why we go to Mars, page by page: Earth, the Moon, the rovers, the astronaut, the mission, with NASA sources', () => {
+  const pg = page();
+  click(pg.byKey('story'));
+  assert.equal(pg.dialog().attrs['aria-label'], en('story.title'));
+  const titles = [];
+  for (let i = 0; i < I.STORY.en.length; i++) {
+    const p = I.STORY.en[i], text = pg.dialog().textContent;
+    titles.push(p.title);
+    assert.ok(text.includes(p.title) && text.includes(p.body), 'page ' + (i + 1));
+    assert.ok(text.includes(en('story.step', { n: i + 1, m: I.STORY.en.length })), 'its number');
+    for (const id of p.src) assert.ok(text.includes(I.SOURCES[id].label), 'cites ' + id);
+    assert.equal(!!pg.byKey('story-back'), i > 0, 'Back from page 2 on');
+    if (i < I.STORY.en.length - 1) click(pg.byKey('story-next'));
+  }
+  assert.ok(['Apollo 11', 'Artemis', 'Opportunity', 'Perseverance', 'climate'].every(w => I.STORY.en.some(p => (p.title + p.body + p.src.map(id => I.SOURCES[id].label).join()).includes(w))), 'the brief\'s milestones');
+  click(pg.byKey('story-done'));
+  assert.equal(pg.dialog(), null, 'closed');
+});
