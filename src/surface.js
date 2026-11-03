@@ -448,7 +448,7 @@
       // A reload (or a new seat) mid-round: back where you stood (the solo save, or where the server last saw you), not a free
       // walk home. After a solo collapse you are already home, where you sit out the round.
       if (back && !S.eva.state().benched) place(back);
-      if (S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
+      if (S.eva.driving()) { S.player.inRover = true; S.player.car = null; } // back in the seat you left (a reload while driving), from rest
     }
     if (down) S.player.inRover = false; // a collapse parks the rover where you fell (X.collapse): you are never left in it
     S.canvas.setAttribute('aria-label', t('sf.aria'));
@@ -469,9 +469,10 @@
     for (const p of list || []) {
       if (!p.crewId || (S.data && p.crewId === S.data.controlId)) continue;
       const prev = S.remote[p.crewId];
-      // A rover's heading comes from how its relayed position moves (no new network field); standing still keeps it.
+      // A rover's heading comes from how its relayed position moves (no new network field); standing still keeps it, and a
+      // crewmate who has just got in is drawn the way the rover was parked.
       const shift = prev && prev.rover && p.rover ? Math.hypot(p.x - prev.tx, p.y - prev.ty) : 0;
-      const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : prev && p.rover ? prev.heading : null;
+      const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : p.rover ? (prev && prev.heading != null ? prev.heading : S.roverHeading) : null;
       if (p.rover && heading != null) S.roverHeading = heading; // so it is parked as its driver left it
       next[p.crewId] = {
         x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, odo: prev ? prev.odo || 0 : 0,
@@ -796,13 +797,14 @@
   // under Mars' gravity (src/physics.js); the tracks, two lines of the last TRACKS points, fade as newer ones are laid.
   const TRACKS = 240, TRACK_GAP = 8;
   function roverFx(dt) {
-    const fx = S.fx, list = [];
+    const fx = S.fx, list = [], due = fx.due || (fx.due = {});
     if (S.player.inRover && S.player.car) list.push(['me', S.player.x, S.player.y, S.player.car.heading, S.player.moving]);
     for (const [id, r] of Object.entries(S.remote)) if (r.rover && r.heading != null) list.push([id, r.x, r.y, r.heading, r.moving]);
     for (const [id, x, y, h, moving] of list) {
       if (!moving) continue;
       const c = Math.cos(h), s = Math.sin(h), at = (lx, ly) => [x + c * lx - s * ly, y - 10 + s * lx + c * ly];
-      if (fx.dust.length < 160) for (const side of [-1, 1]) {
+      // A grain from each back wheel 60 times a second, whatever the frame rate (the same dust on a 30 Hz and a 144 Hz screen).
+      for (due[id] = Math.min((due[id] || 0) + dt * 60, 4); due[id] >= 1 && fx.dust.length < 160; due[id]--) for (const side of [-1, 1]) {
         const [dx, dy] = at(-58, side * 39);
         fx.dust.push({ x: dx, y: dy, z: 0.01, vx: -c * 40 + (Math.random() - 0.5) * 50, vy: -s * 40 + (Math.random() - 0.5) * 50, vz: 0.5 + Math.random(), r: 3 + Math.random() * 3, age: 0 });
       }
@@ -1378,7 +1380,7 @@
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
-      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
+      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, roverDust: S.fx ? S.fx.dust.length : 0, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
       pois: JSON.parse(JSON.stringify(S.pois || [])), tube: S.tube ? S.tube.id : null, // the last frame's points of interest
       marks: JSON.parse(JSON.stringify(mapState().marks)), // what the maps mark
       lines: JSON.parse(JSON.stringify(mapState().lines)), team: JSON.parse(JSON.stringify(team())), // the maps' lines; who counts for the aura

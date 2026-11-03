@@ -1099,3 +1099,28 @@ test('a find tapped from the rover is in front of it when it stops, so E collect
   assert.ok(pg.probe().player.x < (f.x + 0.5) * T, 'the rover stops short of it, not past it: ' + pg.probe().player.x);
   assert.equal(pg.probe().focus, 'find', 'and the find is what E acts on, not getting out');
 });
+
+test("a crewmate who boards the rover is drawn the way it was parked, not turned to where they were walking", () => {
+  const { pg } = inRover('DRIVE-6');
+  pg.step(0.1);
+  const parked = pg.probe().player.heading;
+  pg.remote([{ crewId: 'diego', x: 640, y: 600, rover: false, moving: true, dir: 'down' }]);
+  pg.remote([{ crewId: 'diego', x: 640, y: 640, rover: true, moving: false, dir: 'down' }]);
+  assert.equal(pg.probe().remote.diego.heading, parked, 'the rover still faces ' + parked);
+});
+
+test("the rover's dust is as thick at 30 fps as at 144: it is thrown up by the second, not by the frame", () => {
+  const count = hz => {
+    const { m, pg } = inRover('DRIVE-7');
+    const [x, y] = openRow(m.seed, 40);
+    pg.qa.teleport(x + 1, y);
+    pg.frames(hz, 0.2);
+    pg.key('KeyD');
+    pg.frames(hz, 3);
+    const n = pg.probe().roverDust;
+    pg.key('KeyD', false);
+    return n;
+  };
+  const slow = count(30), fast = count(144);
+  assert.ok(slow > 20 && Math.abs(fast / slow - 1) < 0.3, '30 fps: ' + slow + ' grains, 144 fps: ' + fast);
+});
