@@ -242,6 +242,8 @@
   //   kits: the beacon kits waiting at the base. A kit someone carries is the item { kind: 'kit', res: 'kit', amount: 1 }
   //   (kitItem): it takes a backpack slot, is never banked, and is back with `kits` at the advance. refills { crewId: [id] }
   //   (since M4c): the hab pods ("S<i>,<j>") and beacons ("B<i>") that filled that suit this round; the advance clears it.
+  // M4d's rebalance adds science: the science banked from the map this mission (finds, sites, landmarks, structures, goal
+  //   rewards), which counts less in the score than the base's (scoreMission, D.SCORE.map); a save from before has 0.
   const isKit = it => !!it && it.kind === 'kit';
   const kitItem = () => ({ kind: 'kit', res: 'kit', amount: 1 });
   const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
@@ -253,7 +255,7 @@
   function newExpedition() {
     return {
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
-      carried: {}, drops: [], banked: freshBank(), goals: [], goalsDone: [], bestFind: null, incidents: [], stats: {},
+      carried: {}, drops: [], banked: freshBank(), science: 0, goals: [], goalsDone: [], bestFind: null, incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
       flare: null, clock: 0, where: {}, forecastUntil: -1,
     };
@@ -1030,6 +1032,7 @@
     for (const k of BANK_RES) got[k] = Math.max(0, Number(x.banked[k]) || 0);
     for (const k of ['water', 'materials', 'spares', 'food', 'o2']) s.resources[k] += got[k];
     s.science += got.science;
+    x.science += got.science;
     s.morale = clamp(s.morale + got.morale, 0, 100);
     const incidents = (x.incidents || []).map(i => ({ crewId: i.crewId, kind: i.kind }));
     for (const id of Object.keys(x.collapsed || {})) incidents.push({ crewId: id, kind: 'collapse' });
@@ -1222,9 +1225,12 @@
     const survivors = s.crew.filter(c => c.status !== 'dead');
     const over = survivors.filter(c => c.dose > D.DOSE_LIMIT);
     const independence = independenceOf(s);
+    // The map's science counts a share of itself, up to a cap (D.SCORE.map), beside the base's in full.
+    const map = Math.min(s.science, Math.max(0, Number((s.expedition || {}).science) || 0));
+    const science = s.science - map + Math.min(D.SCORE.map.cap, map * D.SCORE.map.share);
     const parts = {
       // A lost crew leaves samples and instruments behind: only transmitted results count.
-      science: Math.round(success ? s.science : s.science * D.SCORE.abortScience),
+      science: Math.round(success ? science : science * D.SCORE.abortScience),
       health: Math.round(mean(survivors.map(c => c.health))),
       radiation: Math.round(mean(survivors.map(c => Math.max(0, D.DOSE_LIMIT - c.dose))) * D.SCORE.radiation),
       crew: Math.round(survivors.length * D.SCORE.survivor -

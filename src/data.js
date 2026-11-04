@@ -227,6 +227,11 @@
       unusedDrop: 25,
       abortScience: 0.5,
       grades: [['S', 1400], ['A', 1200], ['B', 1000], ['C', 800]],
+      // The science banked from the map (finds, sites, landmarks, structures, goals: expedition.science) counts `share` of
+      // itself, up to `cap` points; the base's science counts in full. Without it nearly every thoughtful explorer got an S
+      // (spec §13.12: about a quarter to a third on commander, under 10 % of sloppy explorers, and the grades of a mission
+      // played without exploring as in 3.2.0). Measured with tools/balance.js.
+      map: { share: 0.1, cap: 55 },
     },
 
     // Exploring (spec §3). Seconds are real time on the surface; distances are world tiles (the HQ is tile 0, 0).
@@ -237,7 +242,10 @@
       reach: 1.5,               // tiles of slack on every action checked against a position
       pack: 3, packRover: 8,    // loads you can carry on foot and in the rover
       hold: { load: 3, survey: 5, pickup: 3, revive: 4 }, // seconds of holding E
-      canister: { suit: 45, o2: 30 }, // an O₂ canister: +45 s of suit now, or +30 kg of base O₂ if carried home
+      // An O₂ canister: +45 s of suit now, or +10 kg of base O₂ if carried home. It was 30 kg until M4d's rebalance: on
+      // veteran the canisters were most of what exploring adds for a sloppy player (+30 points of success, spec §13.12 wants
+      // 10-25), and at 10 kg it adds about 22 (tools/balance.js).
+      canister: { suit: 45, o2: 10 },
       reviveSuit: 30,           // a revived crew member stands up with this much suit
       collapse: { health: 20, morale: 3 }, // an empty suit outside: lost at the next advance
       roverHome: 6,             // a rover left within this many tiles of the HQ goes back to its bay

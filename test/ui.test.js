@@ -156,7 +156,7 @@ test('the Expedition panel lists what waits outside, in order: the solar flare a
   };
   pg.play(m);
   assert.deepEqual(rows(), [
-    en('eva.cond.flare', { d: 15, w: 30, c: 60 }), en('eva.cond.devils', { n: 2, s: 10 }), en('eva.cond.storm', { n: 5 }), en('eva.cond.rupture', { kg: 30 }),
+    en('eva.cond.flare', { d: 15, w: 30, c: 60 }), en('eva.cond.devils', { n: 2, s: 10 }), en('eva.cond.storm', { n: 5 }), en('eva.cond.rupture', { kg: require('../src/data.js').EXPEDITION.canister.o2 }),
   ]);
   m.expedition.flare = { warn: 35, end: 95, over: false, hit: [] };
   assert.equal(rows()[0], en('eva.cond.flareOn'));
@@ -861,6 +861,7 @@ test("the Science note of a mission the explorer bot really played lists the lan
     assert.ok(Object.values(x.stats).some(st => st.pods > 0), seed + ': the bot refilled in hab pods');
     // What the game itself says it found, each kind once, in the order the lists keep them.
     const want = uniq([].concat(
+      x.regions.map(id => 'region.' + id),
       Object.keys(x.landmarks).map(id => Dat.LANDMARKS.kinds[Wg.landmarkAt(w, ...ids(id, /^L(-?\d+),(-?\d+)$/)).kind].fact + '.name'),
       Object.keys(x.sites).filter(id => id[0] === 'F').map(id => Dat.FORMATIONS.kinds[Wg.chunk(w, ...ids(id, /^F(-?\d+),(-?\d+):0$/)).formations[0].kind].fact + '.name'),
       Object.keys(x.structures).map(id => Dat.STRUCTURES.kinds[Wg.structureAt(w, ...ids(id, /^S(-?\d+),(-?\d+)$/)).kind].log + '.name'),

@@ -635,6 +635,23 @@ test('a lost mission keeps only half of its science and no completion bonus', ()
   assert.equal(sc.grade, 'D');
 });
 
+test("science from the map counts a share of itself, up to a cap, beside the base's science in full: an S grade stays special (spec §13.12)", () => {
+  const M = D.SCORE.map, st = calm();
+  assert.ok(M.share > 0 && M.share < 1 && M.cap > 0, JSON.stringify(M));
+  st.status = 'success';
+  const part = (science, map) => { st.science = science; st.expedition.science = map; return E.scoreMission(st).parts.science; };
+  assert.equal(part(800, 0), 800, "the base's science counts in full");
+  assert.equal(part(800, 200), Math.round(600 + Math.min(M.cap, 200 * M.share)));
+  assert.equal(part(3000, 2400), 600 + M.cap, 'past the cap, more of it adds nothing');
+  assert.equal(part(800, 5000), Math.round(Math.min(M.cap, 800 * M.share)), 'never more of it than the science (a hand-edited save)');
+  assert.equal(part(800, -50), 800, 'nor less than none');
+  st.status = 'lost';
+  assert.equal(part(800, 200), Math.round((600 + Math.min(M.cap, 200 * M.share)) * D.SCORE.abortScience), 'a lost mission keeps its share, as before');
+  delete st.expedition;
+  st.science = 800;
+  assert.equal(E.scoreMission(st).parts.science, 800 * D.SCORE.abortScience, 'with no exploring state it is all the base\'s');
+});
+
 test('going over the dose budget costs far more score than staying under it', () => {
   const st = calm();
   st.status = 'success';
@@ -660,8 +677,9 @@ test("a new mission has an empty exploring state and, in solo play, the player's
   assert.deepEqual(s.expedition.regions, []);
   assert.deepEqual(Object.keys(s.expedition).sort(),
     ['banked', 'beacons', 'benched', 'bestFind', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'forecastUntil', 'goals', 'goalsDone', 'incidents', 'kits', 'landmarks',
-      'refills', 'regions', 'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
+      'refills', 'regions', 'revealed', 'rover', 'roverDriven', 'science', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
   assert.equal(s.expedition.bestFind, null, 'no find yet (M4d: the debrief\'s most valuable find)');
+  assert.equal(s.expedition.science, 0, 'no science from the map yet');
   assert.equal(s.expedition.flare, null, 'no solar flare yet');
   assert.equal(s.expedition.forecastUntil, -1, 'no weather station forecast yet');
   assert.equal(s.expedition.clock, 0, "the round's clock starts at 0");
@@ -819,7 +837,9 @@ test("the last round's backpack is banked at the final advance, so it counts for
   assert.equal(b.state.status, 'success');
   assert.equal(Math.round(b.state.resources.water - a.state.resources.water), 40);
   assert.equal(Math.round(b.state.science - a.state.science), 35);
-  assert.equal(E.scoreMission(b.state).parts.science - E.scoreMission(a.state).parts.science, 35, 'it counts for the score');
+  assert.equal(b.state.expedition.science - a.state.expedition.science, 35, "it is the map's science");
+  const M = D.SCORE.map, share = Math.round(a.state.science + Math.min(M.cap, 35 * M.share)) - Math.round(a.state.science);
+  assert.ok(share > 0 && E.scoreMission(b.state).parts.science - E.scoreMission(a.state).parts.science === share, 'it counts for the score, as map science does');
   assert.deepEqual(b.report.expedition.lines, [
     { crewId: 'lena', kind: 'ice', res: 'water', region: 4, amount: 40, loads: 1, late: true },
     { crewId: 'lena', kind: 'science', res: 'science', region: 0, amount: 35, loads: 1, late: true },
@@ -836,6 +856,24 @@ test("the last round's backpack is banked at the final advance, so it counts for
   const c = E.resolveTurn(coop, E.defaultPlan(coop));
   assert.deepEqual(c.report.expedition.lines.map(l => l.crewId), ['minh'], 'a co-op astronaut still collapsed outside banks nothing');
   assert.deepEqual(c.state.expedition.drops, [{ id: (D.TURNS - 1) + ':diego', x: 900, y: -640, items: [ICE] }]);
+});
+
+test("the science banked from the map, a goal's too, is tallied for the score as it is banked; a save from before M4d's rebalance has none", () => {
+  const s = calm();
+  E.bankItem(s.expedition.banked, 'lena', SURVEY, false);
+  s.expedition.goals = [{ id: 'G0:0', kind: 'chunks', params: { count: 4 }, need: 4, base: 0, progress: 4, done: true, reward: { science: 15 } }];
+  assert.equal(E.forecast(s, E.defaultPlan(s)).expedition.got.science, 50);
+  assert.equal(s.expedition.science, 0, 'the forecast changes nothing');
+  const r = E.resolveTurn(s, E.defaultPlan(s));
+  assert.equal(r.state.expedition.science, 50);
+  const next = E.resolveTurn(r.state, E.defaultPlan(r.state)).state;
+  assert.equal(next.expedition.science, 50, 'nothing new banked, nothing added');
+  const old = calm();
+  delete old.expedition.science;
+  assert.equal(E.upgradeMission(old, {}).expedition.science, 0, "an old save's science all counts as the base's");
+  const bad = calm();
+  bad.expedition.science = 'lots';
+  assert.equal(E.upgradeMission(bad, {}).expedition.science, 0);
 });
 
 test('a collapse outside costs that astronaut 20 health and the crew 3 morale at the advance, once', () => {
@@ -1079,14 +1117,14 @@ test("a saved relay beacon state is repaired: a beacon that isn't { x, y, by, ro
   assert.equal(next.banked.water, 40, 'and the ice is banked');
 });
 
-test('an O₂ canister carried home offsets an oxygen leak: the decision card is unchanged and the 30 kg count first', () => {
+test('an O₂ canister carried home offsets an oxygen leak: the decision card is unchanged and its kg count first', () => {
   const plain = calm(), s = calm();
   for (const m of [plain, s]) m.events = [{ type: 'o2_rupture', options: ['hide', 'salvage'], emergency: true }];
   E.bankItem(s.expedition.banked, 'minh', { kind: 'pod', res: 'o2', amount: D.EXPEDITION.canister.o2, canister: true, id: '1,1:0', region: 0 }, false);
   const plan = st => Object.assign(E.defaultPlan(st), { choices: { o2_rupture: 'hide' } });
   const a = E.resolveTurn(plain, plan(plain)), b = E.resolveTurn(s, plan(s));
   assert.equal(a.report.choices.o2_rupture, 'hide');
-  assert.ok(Math.abs(b.state.resources.o2 - a.state.resources.o2 - D.EXPEDITION.canister.o2) < 1e-9, '+30 kg of O₂ on top of the leak');
+  assert.ok(Math.abs(b.state.resources.o2 - a.state.resources.o2 - D.EXPEDITION.canister.o2) < 1e-9, '+' + D.EXPEDITION.canister.o2 + ' kg of O₂ on top of the leak');
   assert.equal(b.report.consumption.o2Event, a.report.consumption.o2Event, 'the leak itself is the same');
 });
 
