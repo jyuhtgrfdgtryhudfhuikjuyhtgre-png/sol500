@@ -8,7 +8,7 @@
   const KEY = 'sol500.lan';
   let session = null;
   let ws = null;        // the live socket, or null
-  let handlers = null;  // { onRoom, onStatus, onPos, onFog, onEvent } while connected
+  let handlers = null;  // { onRoom, onStatus, onPos, onFog, onEvent, onPing } while connected
   let retry = 0;
   let timer = null;
   let gen = 0;          // bumped by disconnect(): tells an in-flight recover() it is stale
@@ -70,10 +70,10 @@
     return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws?' + q.toString();
   }
 
-  function connect(onRoom, onStatus, onPos, onFog, onEvent) {
+  function connect(onRoom, onStatus, onPos, onFog, onEvent, onPing) {
     if (!session) return;
     disconnect();
-    handlers = { onRoom, onStatus, onPos, onFog, onEvent };
+    handlers = { onRoom, onStatus, onPos, onFog, onEvent, onPing };
     open();
   }
 
@@ -92,6 +92,7 @@
       if (msg.t === 'room') h.onRoom(msg.d);
       else if (msg.t === 'pos') { if (h.onPos) h.onPos(msg.d); }
       else if (msg.t === 'fog') { if (h.onFog) h.onFog(msg.d); }
+      else if (msg.t === 'ping') { if (h.onPing && msg.d) h.onPing(msg.d); } // { x, y, by }: a spot a crewmate pointed out
       else if (msg.t === 'event' && msg.d && (msg.d.kind === 'kicked' || msg.d.kind === 'closed')) gone(msg.d.kind);
       else if (msg.t === 'event' && msg.d) { if (h.onEvent) h.onEvent(msg.d); } // the rest (a discovery) are the game's
     };
@@ -172,6 +173,14 @@
     return true;
   }
 
+  // A ping (spec §3.5) goes over the socket too: the spot on the map, in world pixels. The server checks it, names the sender and
+  // sends it on to the whole room (onPing). Returns false when the socket isn't open.
+  function sendPing(x, y) {
+    if (!ws || ws.readyState !== 1) return false;
+    ws.send(JSON.stringify({ t: 'ping', d: { x, y } }));
+    return true;
+  }
+
   // Play-testing hook: drops the socket the way a Wi-Fi blip would, so reconnection can be checked in a real browser.
   function dropForTest() { if (ws) ws.close(); }
 
@@ -183,5 +192,5 @@
     return post('/api/history/solo', { mission: m, player: player || '' });
   }
 
-  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, sendReveal, dropForTest, recordSolo, session: () => session };
+  root.SolNet = { info, create, join, restore, clear, connect, disconnect, act, sendPos, sendReveal, sendPing, dropForTest, recordSolo, session: () => session };
 })(typeof self !== 'undefined' ? self : this);

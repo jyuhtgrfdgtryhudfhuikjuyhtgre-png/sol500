@@ -232,6 +232,7 @@
   //   the next one's weather (−1: none) · stats[crewId].landmarks, .structures (counts).
   // M4d adds the expedition goals (src/goals.js): goals [{ id, kind, params, need, base, progress, done, reward }] (this
   //   round's; see src/goals.js) · goalsDone [{ id, kind, round, params }] (every goal paid out this mission).
+  // M4d adds stats[crewId].distance: tiles walked, from position samples (addDistance in src/expedition.js); only there once walked.
   // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
   // M4d adds the relay beacons (spec §3.8): beacons [{ x, y, by, round }] (world tiles; beacon i's id is "B<i>") ·
   //   kits: the beacon kits waiting at the base. A kit someone carries is the item { kind: 'kit', res: 'kit', amount: 1 }
@@ -254,6 +255,16 @@
     };
   }
 
+  // stats[crewId] is a map (finds, structures, landmarks, distance in tiles walked): one that is not a map is dropped, and a
+  // distance that is not a number of tiles (not finite, or below 0) goes from the one that has it. Nothing is added.
+  function repairStats(stats) {
+    for (const id of Object.keys(stats)) {
+      const s = stats[id];
+      if (!s || typeof s !== 'object' || Array.isArray(s)) delete stats[id];
+      else if (!(Number.isFinite(s.distance) && s.distance >= 0)) delete s.distance;
+    }
+  }
+
   // Missing or malformed fields (an old save, a hand-edited one) are replaced with fresh ones, so the rules never
   // meet the wrong type. Returns the repaired expedition (a new one if it wasn't an object at all).
   function repairExpedition(x) {
@@ -269,6 +280,7 @@
       else ok = typeof have === typeof want && Number.isFinite(have);
       if (!ok) x[k] = want;
     }
+    repairStats(x.stats);
     for (const k of BANK_RES) if (!Number.isFinite(x.banked[k])) x.banked[k] = 0;
     if (!Array.isArray(x.banked.lines)) x.banked.lines = [];
     // A flare whose times are not numbers never ends: drop it (the next step outside starts a new one).
@@ -631,7 +643,7 @@
     if (ch.water_leak === 'patch') s.resources.spares -= 1;
 
     // Earth support request
-    if (plan.request && D.DEPOT.amounts[plan.request] && canRequest(state)) {
+    if (plan.request && own(D.DEPOT.amounts, plan.request) && canRequest(state)) {
       const lead = activeCount(s, 'comms') > 0 ? D.DEPOT.commsLeadTurns : D.DEPOT.leadTurns;
       s.depot.drops -= 1;
       s.depot.incoming.push({ kind: plan.request, eta: s.turn + 1 + lead });

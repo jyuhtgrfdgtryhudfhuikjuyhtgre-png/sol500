@@ -368,8 +368,8 @@ test("a build or a scrap named like a property every object has ('__proto__', 't
   const plain = E.resolveTurn(st, plan).state;
   for (const type of ['__proto__', 'toString', 'constructor', 'hasOwnProperty']) {
     assert.deepEqual(E.canBuild(st, type, []), { ok: false, reason: 'unknown' }, type);
-    const { state, report } = E.resolveTurn(st, Object.assign({}, plan, { builds: [{ type }], scrap: [type] }));
-    assert.deepEqual([report.started, report.scrapped], [[], []], type);
+    const { state, report } = E.resolveTurn(st, Object.assign({}, plan, { builds: [{ type }], scrap: [type], request: type }));
+    assert.deepEqual([report.started, report.scrapped, report.requested], [[], [], null], type);
     assert.deepEqual(state.resources, plain.resources, type + ': no NaN materials and no free spare');
   }
   assert.equal(({}).count, undefined, 'Object.prototype is untouched');

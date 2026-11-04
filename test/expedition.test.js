@@ -141,6 +141,48 @@ test('the role skills shorten holding E', () => {
   assert.equal(X.holdSeconds('pickup', 'engineer'), 3);
 });
 
+// Spec §3.3, seconds of holding E for every role and every kind of work. The base times are D.EXPEDITION.hold (a find 3 s, a
+// survey 5 s, a dropped load 3 s, a revive 4 s) and the structures' own (§3.7); a role's skill halves its own kinds and
+// nothing else. X.holdSeconds is the one place that works them out: the surface and the explorer bot both ask it.
+const ROLES = ['commander', 'engineer', 'scientist', 'biologist', 'medic'];
+const HOLDS = { //   commander engineer scientist biologist medic
+  ice:     [3, 3, 3, 1.5, 3],  // the Biologist collects ice in half the time
+  metal:   [3, 1.5, 3, 3, 3],  // the Engineer mines metal in half the time ...
+  pod:     [3, 1.5, 3, 3, 3],  // ... and salvages a cargo pod
+  science: [5, 5, 2.5, 5, 5],  // the Scientist surveys in half the time (a site, a landmark's site, a formation's survey)
+  pickup:  [3, 3, 3, 3, 3],
+  revive:  [4, 4, 4, 4, 2],    // the Medic revives in half the time
+  cache:   [3, 3, 3, 3, 3],
+  wreck:   [6, 3, 6, 6, 6],    // the Engineer salvages a wreck, and repairs a weather station or a comms mast, in half the time
+  weather: [6, 3, 6, 6, 6],
+  mast:    [6, 3, 6, 6, 6],
+  array:   [5, 5, 5, 5, 5],    // a solar array is no cargo pod or wreck: §3.7 gives it no Engineer time
+};
+// The relay beacon (§3.8) is placed in 4 s by everyone. Its block, D.EXPEDITION.beacon, comes with the beacons branch: once that
+// is merged this is always on, and the guard below then asks for no row but this one.
+if (D.EXPEDITION.beacon) HOLDS.beacon = [4, 4, 4, 4, 4];
+
+test('every role holds E for the time §3.3 gives it, for every kind of work', () => {
+  for (const kind of Object.keys(HOLDS)) {
+    ROLES.forEach((role, i) => assert.equal(X.holdSeconds(kind, role), HOLDS[kind][i], kind + ', ' + role));
+  }
+});
+
+test('a kind with a block of its own in D.EXPEDITION that has a hold takes it, whatever the role (the relay beacon is placed in 4 s)', () => {
+  D.EXPEDITION.lantern = { hold: 2.5 };
+  try {
+    for (const role of ROLES) assert.equal(X.holdSeconds('lantern', role), 2.5, role);
+  } finally { delete D.EXPEDITION.lantern; }
+  for (const role of ROLES) assert.equal(X.holdSeconds('lantern', role), D.EXPEDITION.hold.load, 'no block, no hold: a plain load, as before');
+});
+
+test('the table covers every role and every kind there is to hold E for, so a new one cannot slip past it', () => {
+  assert.deepEqual(ROLES.slice().sort(), D.CREW.map(c => c.role).sort());
+  const own = Object.keys(D.EXPEDITION).filter(k => D.EXPEDITION[k] && D.EXPEDITION[k].hold > 0); // a block of its own with a hold
+  const held = [...Object.keys(D.FINDS), 'pickup', 'revive', ...own, ...Object.keys(D.STRUCTURES.kinds).filter(k => D.STRUCTURES.kinds[k].hold)];
+  assert.deepEqual(Object.keys(HOLDS).sort(), held.sort(), 'a kind with a hold needs a row in HOLDS');
+});
+
 test('delivering at the base banks your whole backpack; it only works in the base zone', () => {
   const m = solo(), f = first(m, 'metal');
   X.collect(m, 'minh', f.id, at(f.x, f.y));
@@ -813,6 +855,192 @@ test('a landmark or a structure is looked up through W each time, once, so the c
       assert.equal(looked, 1, name + ' asks the world once');
     }
   } finally { W.landmarkAt = real.L; W.structureAt = real.S; }
+});
+
+// ---------- the team on the map (M4d: spec §3.3, §3.5, §3.10, §13.12) ----------
+const five = (size, pilot) => E.createMission({ seed: 'EXP-1', loadout: E.referenceKit('commander', size || 5), crewSize: size || 5, events: false, pilot: pilot || 'minh' });
+// Where each crew member stands, { crewId: [tileX, tileY] }, as { crewId: { x, y } } in world pixels (centres of tiles).
+const spots = o => Object.fromEntries(Object.entries(o).map(([id, [tx, ty]]) => [id, at(tx, ty)]));
+
+test("the commander's aura: crew within 5 tiles of him move 10 % faster while he is out on the map", () => {
+  const m = five(), out = spots({ kai: [30, 0], minh: [33, 4], lena: [30, 6], diego: [24, 3], amara: [30, -5] });
+  const before = snap(m);
+  assert.equal(X.speedFactor(m, 'minh', out), 1.1, '3 across and 4 up is 5 tiles: in reach');
+  assert.equal(X.speedFactor(m, 'amara', out), 1.1, 'straight up, 5 tiles');
+  assert.equal(X.speedFactor(m, 'lena', out), 1, '6 tiles: out of reach');
+  assert.equal(X.speedFactor(m, 'diego', out), 1, '6 across and 3 up');
+  assert.equal(X.speedFactor(m, 'kai', out), 1.1, "he leads from the front: his own pace is the group's, so it never outruns his reach");
+  assert.equal(X.speedFactor(m, 'minh', Object.assign({}, out, { minh: { x: out.kai.x + 5.01 * T, y: out.kai.y } })), 1, 'a hair beyond 5 tiles');
+  assert.equal(snap(m), before, 'asking changes nothing');
+});
+
+test("the aura is the commander's alone, and only while he is out: not at the base, not absent, not down, not collapsed", () => {
+  // The factor for Minh, who stands one tile east of the commander at tile `kai` (or alone at (32, 0) when there is none).
+  const ask = (m, kai) => X.speedFactor(m, 'minh', spots(kai ? { kai, minh: [kai[0] + 1, kai[1]] } : { minh: [32, 0] }));
+  const m = five();
+  assert.equal(ask(m, [3, 0]), 1.1, 'one step past the base zone is out');
+  assert.equal(ask(m, [2, 0]), 1, 'the base zone is tiles −2 to 2');
+  assert.equal(ask(m, [0, 1]), 1, 'at the base, even with the crew round him');
+  assert.equal(ask(m, null), 1, 'no commander seat in a room: nobody leads');
+  assert.equal(ask(five(4), [30, 0]), 1, 'a crew of four has no commander');
+  assert.equal(X.speedFactor(m, 'minh', spots({ kai: [30, 0], lena: [31, 0] })), 1, 'no position for the one asking');
+  for (const status of ['down', 'dead']) {
+    const k = five();
+    k.crew.find(c => c.id === 'kai').status = status;
+    assert.equal(ask(k, [30, 0]), 1, 'a commander who is ' + status);
+  }
+  const c = five();
+  c.expedition.collapsed.kai = { x: 1920, y: 32 };
+  assert.equal(ask(c, [30, 0]), 1, 'collapsed, waiting for a revive');
+  const b = five();
+  b.expedition.benched.push('kai');
+  assert.equal(ask(b, [30, 0]), 1, 'benched: back at the base for the round');
+});
+
+test('the aura reads only what it can trust: junk positions, junk ids and no positions at all give 1', () => {
+  const m = five(), ok = spots({ kai: [30, 0], minh: [31, 0] });
+  for (const junk of [null, undefined, 7, 'kai', [], {}]) assert.equal(X.speedFactor(m, 'minh', junk), 1, String(junk));
+  for (const bad of [{ x: NaN, y: 0 }, { x: '1920', y: 32 }, { x: Infinity, y: 0 }, null, 4]) {
+    assert.equal(X.speedFactor(m, 'minh', Object.assign({}, ok, { kai: bad })), 1, 'a commander at ' + JSON.stringify(bad));
+    assert.equal(X.speedFactor(m, 'minh', Object.assign({}, ok, { minh: bad })), 1, 'a crew member at ' + JSON.stringify(bad));
+  }
+  for (const id of ['nobody', '__proto__', 'constructor', '', null, undefined]) assert.equal(X.speedFactor(m, id, ok), 1, String(id));
+  assert.equal(X.speedFactor(null, 'minh', ok), 1);
+  assert.equal(X.speedFactor({ crew: [] }, 'minh', ok), 1);
+});
+
+test('positions may be the list the network sends (records with a crewId) as well as the map the server keeps', () => {
+  const m = five(), list = [{ crewId: 'kai', dir: 'up', moving: true }, { crewId: 'minh', dir: 'left', moving: false }, { crewId: 'lena' }];
+  Object.assign(list[0], at(30, 0));
+  Object.assign(list[1], at(32, 0));
+  list[2].x = 4;
+  assert.equal(X.speedFactor(m, 'minh', list), 1.1);
+  assert.equal(X.speedFactor(m, 'lena', list), 1, 'a record with no y is no position');
+  assert.deepEqual(X.commanderOut(m, list), { id: 'kai', x: list[0].x, y: list[0].y });
+  assert.equal(X.speedFactor(m, 'minh', Object.fromEntries(list.map(p => [p.crewId, p]))), 1.1, 'the same records, keyed');
+  assert.equal(X.speedFactor(m, 'minh', [null, 3, 'kai', { crewId: 'kai' }]), 1);
+});
+
+test('commanderOut says who leads and where he stands, for the route line his pings draw too', () => {
+  const m = five();
+  assert.deepEqual(X.commanderOut(m, spots({ kai: [30, 0] })), { id: 'kai', x: at(30, 0).x, y: at(30, 0).y });
+  assert.equal(X.commanderOut(m, spots({ kai: [0, 0] })), null, 'at the base');
+  assert.equal(X.commanderOut(m, spots({ lena: [30, 0] })), null, 'he has no position');
+  assert.equal(X.commanderOut(five(4), spots({ kai: [30, 0] })), null, 'no commander in a crew of four');
+  assert.equal(X.commanderOut(null, spots({ kai: [30, 0] })), null);
+});
+
+// Walking distance (spec §3.10, R5): tiles walked between two position samples, in x.stats[crewId].distance.
+const walk = (m, id, a, b, dt) => X.addDistance(m, id, at(...a), at(...b), dt);
+
+test('walking adds the tiles between two positions to the crew member\'s distance, and it keeps adding up', () => {
+  const m = solo();
+  assert.equal(walk(m, 'minh', [10, 0], [13, 4]), 5, '3 across and 4 up');
+  assert.equal(m.expedition.stats.minh.distance, 5);
+  assert.equal(walk(m, 'minh', [13, 4], [13, 6]), 2);
+  assert.equal(m.expedition.stats.minh.distance, 7);
+  assert.equal(walk(m, 'minh', [13, 6], [12, 6], 1), 1, 'with the seconds it took');
+  assert.deepEqual(m.expedition.stats.minh, { finds: {}, distance: 8 }, 'beside the finds, which it leaves alone');
+  const f = first(m, 'ice');
+  X.collect(m, 'minh', f.id, at(f.x, f.y));
+  assert.deepEqual(m.expedition.stats.minh, { finds: { ice: 1 }, distance: 8 });
+  assert.equal(walk(m, 'lena', [0, 1], [0, 3]), 2, 'each crew member has their own');
+  assert.equal(m.expedition.stats.lena.distance, 2);
+  assert.equal(m.expedition.stats.minh.distance, 8);
+});
+
+test("standing still adds nothing, and doesn't even start a stats entry", () => {
+  const m = solo(), before = snap(m);
+  assert.equal(walk(m, 'minh', [10, 0], [10, 0], 1), 0);
+  assert.equal(snap(m), before);
+  assert.deepEqual(m.expedition.stats, {});
+});
+
+test('a jump is not a walk: a step of more than 10 tiles (a reload, a teleport, a solo collapse sending you home) adds nothing', () => {
+  const m = solo();
+  assert.equal(walk(m, 'minh', [0, 0], [10, 0]), 10, 'ten tiles in one step still counts');
+  assert.equal(walk(m, 'minh', [0, 0], [10, 1]), 0, 'a little over ten does not');
+  assert.equal(walk(m, 'minh', [150, 0], [0, 0]), 0, 'a collapse sends a benched astronaut home');
+  assert.equal(walk(m, 'minh', [0, 0], [-1e6, 1e6]), 0);
+  assert.equal(m.expedition.stats.minh.distance, 10);
+});
+
+test('what a step adds is capped by how far anyone can go in the time it took: 7 tiles a second, the rover with the aura is 6.7', () => {
+  const m = solo();
+  assert.ok(Math.abs(walk(m, 'minh', [0, 0], [3, 0], 0.1) - 0.7) < 1e-9, '3 tiles in a tenth of a second is 0.7');
+  assert.equal(walk(m, 'minh', [0, 0], [3, 0], 0), 0, 'in no time at all, nowhere');
+  assert.equal(walk(m, 'minh', [0, 0], [3, 0], -2), 0, 'a clock that ran backwards is no time either');
+  assert.equal(walk(m, 'minh', [0, 0], [3, 0], 1), 3, 'a second is plenty for 3 tiles');
+  assert.equal(walk(m, 'minh', [0, 0], [3, 0], NaN), 3, 'no usable time: only the jump rule is left');
+  assert.equal(walk(m, 'minh', [0, 0], [3, 0]), 3, 'no time given: the same');
+  assert.equal(walk(m, 'minh', [0, 0], [3, 0], '1'), 3, 'a number or nothing');
+});
+
+test('a hostile stream of steps adds no more than real time allows, however many it sends', () => {
+  const m = solo();
+  let x = 0;
+  for (let i = 0; i < 10000; i++) { // 10,000 steps of 9.9 tiles, 1 ms apart: 10 s of real time
+    walk(m, 'minh', [x, 0], [x + 9.9, 0], 0.001);
+    x = (x + 9.9) % 1000;
+  }
+  const d = m.expedition.stats.minh.distance;
+  assert.ok(d <= 7 * 10 + 1e-6, 'at most 70 tiles in 10 s, got ' + d);
+  assert.ok(d > 69, 'and it still counted what was possible, got ' + d);
+});
+
+test('only an astronaut on foot who can act is walking: not in the rover, not collapsed, benched or dead, not once the mission is over', () => {
+  const m = solo(), a = at(10, 0), b = at(12, 0);
+  assert.equal(X.addDistance(m, 'minh', Object.assign({ rover: true }, a), b, 1), 0, 'getting into the rover');
+  assert.equal(X.addDistance(m, 'minh', a, Object.assign({ rover: true }, b), 1), 0, 'or out of it');
+  assert.equal(X.addDistance(m, 'minh', Object.assign({ rover: false }, a), Object.assign({ rover: false }, b), 1), 2, 'on foot');
+  const states = {
+    collapsed: x => { x.expedition.collapsed.minh = { x: 0, y: 0 }; },
+    benched: x => { x.expedition.benched.push('minh'); },
+    down: x => { x.crew.find(c => c.id === 'minh').status = 'down'; },
+    dead: x => { x.crew.find(c => c.id === 'minh').status = 'dead'; },
+    over: x => { x.status = 'lost'; },
+  };
+  for (const [name, set] of Object.entries(states)) {
+    const k = solo();
+    set(k);
+    const now = snap(k);
+    assert.equal(walk(k, 'minh', [10, 0], [12, 0], 1), 0, name);
+    assert.equal(snap(k), now, name + ' changes nothing');
+  }
+  assert.equal(walk(m, 'nobody', [10, 0], [12, 0], 1), 0, 'no such crew member');
+  assert.equal(m.expedition.stats.nobody, undefined);
+});
+
+test('a step that is not two positions adds nothing and changes nothing', () => {
+  const m = solo(), before = snap(m);
+  for (const bad of [null, undefined, 4, 'x', {}, { x: NaN, y: 0 }, { x: 0, y: Infinity }, { x: '64', y: 0 }]) {
+    assert.equal(X.addDistance(m, 'minh', bad, at(1, 0), 1), 0, 'from ' + JSON.stringify(bad));
+    assert.equal(X.addDistance(m, 'minh', at(1, 0), bad, 1), 0, 'to ' + JSON.stringify(bad));
+  }
+  assert.equal(X.addDistance(null, 'minh', at(0, 0), at(1, 0), 1), 0);
+  assert.equal(snap(m), before);
+});
+
+test('a save with a bad distance loads with it dropped, the good stats stay, and walking goes on from there', () => {
+  const m = solo('EXP-1');
+  m.expedition.stats = {
+    minh: { finds: { ice: 2 }, distance: 12.5 },
+    lena: { finds: {}, distance: 'far' },
+    diego: { distance: -3 },
+    amara: { distance: null },
+    kai: 7,
+    bao: JSON.parse('{"distance":1e999}'), // a number too big for a double reads back as Infinity
+    mei: [4],
+  };
+  const x = E.upgradeMission(m, {}).expedition;
+  assert.deepEqual(x.stats, { minh: { finds: { ice: 2 }, distance: 12.5 }, lena: { finds: {} }, diego: {}, amara: {}, bao: {} });
+  assert.equal(walk(m, 'minh', [0, 0], [3, 4], 1), 5);
+  assert.equal(x.stats.minh.distance, 17.5);
+  assert.equal(walk(m, 'lena', [0, 0], [3, 4], 1), 5, 'a dropped distance starts again from nothing');
+  assert.deepEqual(x.stats.lena, { finds: {}, distance: 5 });
+  const old = solo('EXP-1');
+  delete old.expedition.stats;
+  assert.deepEqual(E.upgradeMission(JSON.parse(JSON.stringify(old)), {}).expedition.stats, {}, 'and a save with no stats at all gets an empty set');
 });
 
 test("a mission saved by 3.4.0 loads with the points of interest's state: no forecast running, its stats kept, and the new actions work on it", () => {

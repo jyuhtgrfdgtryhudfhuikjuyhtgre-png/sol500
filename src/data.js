@@ -348,12 +348,24 @@
         volcanic: ['vesicles', 'pebbles', 'blotch', 'crack', 'rock'],
       },
     },
-    // Role skills on the map (spec §3.3): factors on how long you hold E, and the scientist's extra science.
+    // Role skills on the map (spec §3.3): factors on how long you hold E (by kind of work; the Engineer's structures are
+    // the seconds in STRUCTURES), the scientist's extra science, how far the biologist's minimap sees, and the commander's
+    // aura: while he is out on the map, crew within `auraRange` tiles of him (himself too) move `auraSpeed` times as fast.
     SKILLS: {
       scientist: { science: 0.5, scienceBonus: 1.5 },
       engineer: { metal: 0.5, pod: 0.5 },
       biologist: { ice: 0.5, sight: 16 },
       medic: { revive: 0.5 },
+      commander: { auraRange: 5, auraSpeed: 1.1 },
+    },
+    // The team on the map (spec §3.5, §3.10, M4d). Walking distance is counted from position samples: a step of more than `jump`
+    // tiles is a reload or a teleport, not a walk, and nobody goes faster than `speed` tiles a second (the rover, 150 px/s × 2.6,
+    // with the commander's aura on top is 6.7). A ping (spec §3.5) fades after `life` seconds on every map; the server takes one a
+    // seat every `gap` seconds and only one within `range` tiles of the HQ (nobody gets farther: a parked rover driven on one way
+    // for all 20 rounds is 20 × 400 = 8,000 tiles out).
+    TEAM: {
+      walk: { jump: 10, speed: 7 },
+      ping: { life: 10, gap: 1, range: 10000 },
     },
 
     ACHIEVEMENTS: ['first_sol', 'sol500', 'full_crew', 'revived', 'storm_survivor', 'closed_loop',

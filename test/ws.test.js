@@ -271,3 +271,28 @@ test('fog revealed over the socket reaches the other players', async () => {
     gws.close();
   } finally { srv.close(); }
 });
+
+test('a ping sent over the socket reaches every player as { x, y, by }, the sender named by the server, and one inside the second is dropped', async () => {
+  const { srv, base } = await start();
+  try {
+    const host = await post(base, '/api/room/create', { name: 'Host' });
+    const guest = await post(base, '/api/room/join', { code: host.code, name: 'Guest' });
+    await act(base, host, 'claim', { crewId: 'lena' });
+    await act(base, guest, 'claim', { crewId: 'minh' });
+    await act(base, host, 'launch');
+    const hws = openWs(base, host), gws = openWs(base, guest);
+    await next(hws, isRoom);
+    await next(gws, isRoom);
+    // Not pings: no spot, not numbers, a number too big for a double (it reads back as Infinity).
+    for (const junk of ['{"t":"ping"}', '{"t":"ping","d":"x"}', '{"t":"ping","d":{"x":"a","y":1}}', '{"t":"ping","d":{"x":1e999,"y":1}}']) gws.send(junk);
+    gws.send(JSON.stringify({ t: 'ping', d: { x: 640, y: -320, by: 'lena' } }));
+    gws.send(JSON.stringify({ t: 'ping', d: { x: 1, y: 1 } }));
+    const ping = await next(hws, m => m.t === 'ping');
+    assert.deepEqual(ping.d, { x: 640, y: -320, by: 'minh' });
+    assert.deepEqual((await next(gws, m => m.t === 'ping')).d, { x: 640, y: -320, by: 'minh' }, 'the sender hears it too');
+    await new Promise(r => setTimeout(r, 150));
+    assert.equal(hws.inbox.filter(m => m.t === 'ping').length, 1, 'the second one, inside the second, went nowhere');
+    hws.close();
+    gws.close();
+  } finally { srv.close(); }
+});

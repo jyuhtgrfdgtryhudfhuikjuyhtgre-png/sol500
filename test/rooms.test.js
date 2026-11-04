@@ -736,6 +736,152 @@ test("co-op: a structure is used through the server from its door, and a weather
   assert.equal(say(R, room, guest, 'interact', { structure: 'S3,0' }).body.error, 'done');
 });
 
+// ---------- the team on the map (M4d): walking distance and pings ----------
+const distOf = (room, id) => ((room.mission.expedition.stats[id] || {}).distance) || 0;
+
+test("co-op: the server measures each astronaut's walking distance from the positions it relays, on its own clock", t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, guest } = inMission();
+  R.position(room, guest, at(10, 0));
+  assert.equal(distOf(room, 'minh'), 0, 'the first position has nothing before it');
+  t.mock.timers.tick(1000);
+  R.position(room, guest, at(13, 0));
+  t.mock.timers.tick(1000);
+  R.position(room, guest, at(13, 4));
+  assert.equal(distOf(room, 'minh'), 7, '3 tiles, then 4');
+  assert.equal(room.mission.expedition.stats.lena, undefined, 'the others have no entry for it');
+});
+
+test('co-op: walking at the usual pace, a position every 110 ms, is counted in full', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, guest } = inMission();
+  for (let i = 0; i <= 100; i++) { // half a tile every 110 ms is 4.5 tiles a second: sprinting with the commander's aura
+    R.position(room, guest, at(10 + i * 0.5, 0));
+    t.mock.timers.tick(110);
+  }
+  assert.ok(Math.abs(distOf(room, 'minh') - 50) < 1e-9, 'got ' + distOf(room, 'minh'));
+});
+
+test('co-op: a hostile client cannot inflate its distance: a jump counts for nothing, and a flood of steps adds no more than the time allows', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, guest } = inMission();
+  R.position(room, guest, at(0, 0));
+  for (let i = 0; i < 100; i++) { // far apart, back and forth, a second between
+    t.mock.timers.tick(1000);
+    R.position(room, guest, i % 2 ? at(0, 0) : { x: 6e7, y: -6e7 });
+  }
+  R.position(room, guest, { x: 'far', y: null }); // not numbers: the origin, a jump from where it was
+  assert.equal(distOf(room, 'minh'), 0, 'a jump counts for nothing, however far or often');
+  let x = 0;
+  R.position(room, guest, at(0, 0));
+  for (let i = 0; i < 5000; i++) { // 9.9 tiles a step, a millisecond apart: 5 s of real time
+    t.mock.timers.tick(1);
+    x = (x + 9.9) % 900;
+    R.position(room, guest, at(x, 0));
+  }
+  const d = distOf(room, 'minh');
+  assert.ok(d <= 7 * 5 + 1e-6, 'at most 35 tiles in 5 s, got ' + d);
+  assert.ok(d > 30, 'and the possible part still counted, got ' + d);
+});
+
+test('co-op: the rover, a collapse and a new round add no distance, and a new round starts from where it finds you', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, host, guest } = inMission();
+  R.position(room, guest, at(10, 0));
+  t.mock.timers.tick(1000);
+  R.position(room, guest, Object.assign(at(12, 0), { rover: true })); // in the rover from here
+  t.mock.timers.tick(1000);
+  R.position(room, guest, Object.assign(at(15, 0), { rover: true }));
+  t.mock.timers.tick(1000);
+  R.position(room, guest, Object.assign(at(16, 0), { rover: false })); // out of it again
+  assert.equal(distOf(room, 'minh'), 0, 'driving is the rover\'s odometer, not a walk');
+  t.mock.timers.tick(1000);
+  R.position(room, guest, at(16, 1));
+  assert.equal(distOf(room, 'minh'), 1, 'on foot again');
+  assert.equal(say(R, room, guest, 'collapse').status, 200);
+  t.mock.timers.tick(1000);
+  R.position(room, guest, at(16, 3));
+  assert.equal(distOf(room, 'minh'), 1, 'a collapsed astronaut is not walking');
+  say(R, room, host, 'advance');
+  t.mock.timers.tick(1000);
+  R.position(room, guest, at(0, 1));
+  assert.equal(distOf(room, 'minh'), 1, 'the new round has no earlier position: no jump home, and the old distance is kept');
+  t.mock.timers.tick(1000);
+  R.position(room, guest, at(2, 1));
+  assert.equal(distOf(room, 'minh'), 3);
+});
+
+const pings = (c, mark) => c.got.slice(mark || 0).filter(m => m.type === 'ping').map(m => m.data);
+
+test('a ping is relayed to everyone in the room, the sender too, and kept nowhere', () => {
+  const { R, room, guest, hc, gc } = inMission();
+  const mission = JSON.stringify(room.mission), version = room.version, hm = hc.got.length, gm = gc.got.length;
+  assert.equal(R.ping(room, guest, { x: 1000, y: -500 }), null);
+  for (const c of [hc, gc]) assert.deepEqual(pings(c, c === hc ? hm : gm), [{ x: 1000, y: -500, by: 'minh' }]);
+  assert.equal(hc.got.length, hm + 1, 'one frame, and no room frame with it');
+  assert.equal(JSON.stringify(room.mission), mission, 'not in the mission (spec §4)');
+  assert.equal(room.version, version, 'not a room change either');
+  assert.ok(!JSON.stringify(R.publicRoom(room)).includes('ping'));
+});
+
+test("a ping's sender is the seat it came from: the server sets `by`, whatever the client says, and nothing else rides along", () => {
+  const { R, room, host, guest, hc } = inMission();
+  const mark = hc.got.length;
+  R.ping(room, guest, { x: 64, y: 128, by: 'lena', from: 'lena', crewId: 'kai', extra: 'x'.repeat(5000) });
+  R.ping(room, host, { x: 7.6, y: -7.4, by: 'minh' });
+  assert.deepEqual(pings(hc, mark), [{ x: 64, y: 128, by: 'minh' }, { x: 8, y: -7, by: 'lena' }], 'whole pixels, like positions');
+});
+
+test('a ping must be two finite numbers within 10,000 tiles of the HQ (20 rounds of one-way rover trips are 8,000), in any direction; anything else is refused and sent nowhere', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, guest, hc } = inMission();
+  const lim = D.TEAM.ping.range * 64, mark = hc.got.length;
+  assert.equal(lim, 640000);
+  assert.ok(D.TEAM.ping.range >= D.TURNS * D.EXPEDITION.roverRange, 'farther than anyone can drive, parking the rover out each round and driving on');
+  for (const bad of [null, undefined, 4, 'x', [], {}, { x: 1 }, { y: 1 }, { x: '1', y: 2 }, { x: 1, y: null }, { x: NaN, y: 0 }, { x: 0, y: Infinity },
+    { x: JSON.parse('1e999'), y: 0 }, { x: lim + 1, y: 0 }, { x: 0, y: -lim - 1 }, { x: 6.4e7, y: 6.4e7 }, { x: 1e300, y: 0 }, { x: true, y: false }]) {
+    assert.equal(R.ping(room, guest, bad), 'badPing', JSON.stringify(bad));
+  }
+  assert.deepEqual(pings(hc, mark), []);
+  assert.equal(R.ping(room, guest, { x: lim, y: -lim }), null, 'the edge itself is in');
+  t.mock.timers.tick(1000);
+  assert.equal(R.ping(room, guest, { x: -lim, y: 0 }), null, 'west of the HQ as well as east');
+  assert.equal(pings(hc, mark).length, 2);
+});
+
+test('a seat gets one ping a second: a faster one is dropped without a word, and the next comes through once the second is up', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const { R, room, host, guest, hc } = inMission();
+  const mark = hc.got.length;
+  assert.equal(R.ping(room, guest, { x: 1, y: 1 }), null);
+  t.mock.timers.tick(999);
+  assert.equal(R.ping(room, guest, { x: 2, y: 2 }), 'tooFast');
+  assert.equal(R.ping(room, host, { x: 3, y: 3 }), null, "the limit is the seat's, not the room's");
+  t.mock.timers.tick(1);
+  assert.equal(R.ping(room, guest, { x: 4, y: 4 }), null, 'exactly a second later');
+  assert.equal(R.ping(room, guest, { x: 5, y: 5 }), 'tooFast', 'and the clock starts again');
+  t.mock.timers.tick(250);
+  assert.equal(R.ping(room, guest, { x: 6, y: 6 }), 'tooFast', 'a refused ping does not push the next one back');
+  t.mock.timers.tick(750);
+  assert.equal(R.ping(room, guest, { x: 7, y: 7 }), null);
+  assert.deepEqual(pings(hc, mark).map(p => [p.x, p.by]), [[1, 'minh'], [3, 'lena'], [4, 'minh'], [7, 'minh']]);
+});
+
+test('only a seated astronaut in a mission can ping', t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1e12 });
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  const { player: guest } = R.join(room.code, 'Guest');
+  say(R, room, host, 'claim', { crewId: 'lena' });
+  assert.equal(R.ping(room, host, { x: 1, y: 1 }), 'badPhase', 'in the lobby');
+  say(R, room, host, 'launch');
+  assert.equal(R.ping(room, guest, { x: 1, y: 1 }), 'noCrew', 'no astronaut, no ping');
+  assert.equal(R.ping(room, host, { x: 1, y: 1 }), null);
+  say(R, room, host, 'restart');
+  t.mock.timers.tick(1000);
+  assert.equal(R.ping(room, host, { x: 1, y: 1 }), 'badPhase', 'and not after the mission');
+});
+
 test('co-op: a hab pod refills a suit through the server from inside it, once a round for each crew member', () => {
   const { R, room, host, guest, hc } = inMission('EXP-1');
   R.position(room, guest, Object.assign(at(32, -53 + 3), { suit: 50 }));
@@ -790,4 +936,15 @@ test("co-op: a relay beacon is placed through the server where it last saw you, 
   R.position(room, host, Object.assign(at(14, 1), { suit: 30 }));
   assert.deepEqual(say(R, room, host, 'refill', { beacon: 'B0' }).body, { ok: true, suit: D.EXPEDITION.suit }, 'a beacon refill names the beacon');
   assert.equal(say(R, room, host, 'refill', { beacon: 'B0' }).body.error, 'refilled', 'once a round');
+});
+
+test("a co-op plan can't queue, scrap or request a type named like a property every object has, nor a non-string one", () => {
+  const { R, room, guest } = inMission();
+  for (const bad of ['__proto__', 'toString', 'constructor', ['solar'], { toString: () => 'solar' }]) {
+    say(R, room, guest, 'plan', { patch: { builds: [{ type: bad, x: 1, y: 1 }], scrap: [bad], request: bad } });
+    assert.deepEqual(room.plan.builds, [], String(bad));
+    assert.deepEqual(room.plan.scrap, [], String(bad));
+    assert.equal(room.plan.request, null, String(bad));
+  }
+  assert.equal({}.count, undefined, 'nothing reached Object.prototype');
 });

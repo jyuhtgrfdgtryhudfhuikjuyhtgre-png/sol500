@@ -13,6 +13,10 @@
  *      chunkAt(m, cx, cy) → the data chunk · loadsLeft(m, find, id) · itemFor(m, find, load, role) · holdSeconds(kind, role)
  *      capacity(m, crewId) · inBaseZone(pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m) → the rover's bay
  *      setWhere(m, crewId, pos) · whereOf(m, crewId) (solo: where you stand, so a reload puts you back there)
+ *      commanderOut(m, positions) → { id, x, y } while the commander is out on the map, else null (his aura and route line)
+ *      speedFactor(m, crewId, positions) → 1.1 within 5 tiles of the commander while he is out, else 1 (positions: the server's
+ *        { crewId: { x, y } } map, or the network's [{ crewId, x, y }] list; it holds crewId's own spot too)
+ *      addDistance(m, crewId, from, to, dt) → tiles walked between two position samples, added to stats[crewId].distance
  *      collect(m, crewId, siteId, pos) (a find "<cx>,<cy>:<n>", a landmark's site "L<i>,<j>:<n>", a formation's survey
  *        "F<cx>,<cy>:0") · deliver(m, crewId, pos) · useCanister(m, crewId, pos, liveSuit)
  *      pickUp(m, crewId, dropId, pos) · collapse(m, crewId, pos, driven) · revive(m, crewId, targetId, pos)
@@ -154,10 +158,14 @@
     return Number.isFinite(v) ? v : X.suit;
   }
   // Seconds of holding E for a find (or 'pickup', 'revive'), with the role's skill (spec §3.3), or for a structure (its
-  // own seconds in D.STRUCTURES, the Engineer's where it has them; the hab pod has none, and 'pod' is a cargo pod's).
+  // own seconds in D.STRUCTURES, the Engineer's where it has them; the hab pod has none, and 'pod' is a cargo pod's), or for
+  // any other kind with a block of its own in D.EXPEDITION that has a `hold` (the relay beacon's 4 s, spec §3.8): that, for
+  // every role.
   function holdSeconds(kind, role) {
     const S = D.STRUCTURES.kinds[kind];
     if (S && S.hold) return role === 'engineer' && S.engineer ? S.engineer : S.hold;
+    const own = X[kind];
+    if (own && own.hold > 0) return own.hold;
     const base = kind === 'science' ? X.hold.survey : kind === 'pickup' ? X.hold.pickup : kind === 'revive' ? X.hold.revive : X.hold.load;
     const skill = D.SKILLS[role] || {};
     return base * (skill[kind] || 1);
@@ -198,6 +206,45 @@
     if (!x.stats[crewId] || typeof x.stats[crewId] !== 'object') x.stats[crewId] = { finds: {} };
     if (!x.stats[crewId].finds) x.stats[crewId].finds = {};
     return x.stats[crewId];
+  }
+
+  // ---------- the team on the map (spec §3.3, §3.5, §3.10, M4d) ----------
+  // Where a crew member stands in `positions` (world pixels), or null for anything that is not a position. `positions` is the map
+  // the server keeps ({ crewId: { x, y } }, room.positions) or the list the network sends ([{ crewId, x, y }, ...]).
+  const spotIn = (positions, id) => {
+    const p = Array.isArray(positions) ? positions.find(q => !!q && q.crewId === id) : positions && positions[id];
+    return okPos(p) ? p : null;
+  };
+  // The commander when he is out on the map: alive, on his feet and past the base zone, as { id, x, y }, else null. His aura and
+  // the route line his pings draw count only then (§13.12).
+  function commanderOut(m, positions) {
+    const c = m && m.crew && m.crew.find(k => k.role === 'commander'), x = m && m.expedition, spot = c && spotIn(positions, c.id);
+    if (!spot || !x || c.status !== 'active' || x.collapsed[c.id] || x.benched.includes(c.id) || inBaseZone(spot, 0)) return null;
+    return { id: c.id, x: spot.x, y: spot.y };
+  }
+  // How much faster a crew member moves: D.SKILLS.commander.auraSpeed (1.1) within auraRange (5 tiles) of the commander while he
+  // is out, else 1. He counts too, so the group he leads never outruns his reach. `positions` holds the crew member's own spot.
+  function speedFactor(m, crewId, positions) {
+    const lead = commanderOut(m, positions), me = lead && spotIn(positions, crewId);
+    return me && nearPx(me, lead.x, lead.y, D.SKILLS.commander.auraRange) ? D.SKILLS.commander.auraSpeed : 1;
+  }
+
+  // Walking distance (spec §3.10): the tiles walked between two position samples (world pixels, the crew member's own game's, or
+  // the server's last two), added to x.stats[crewId].distance and returned. `dt` is the seconds between them on the caller's
+  // clock. A step of more than TEAM.walk.jump tiles is a jump (a reload, a teleport, a solo collapse sending you home): it counts
+  // for nothing. The rest is capped by what the time allows (TEAM.walk.speed tiles a second), so a stream of steps never adds more
+  // than real time does; without a usable `dt` only the jump rule is left. Only an astronaut who can act and is on foot walks:
+  // a sample in the rover counts for nothing (the rover has its own odometer, roverDriven).
+  function addDistance(m, crewId, from, to, dt) {
+    if (able(m, crewId).error || !okPos(from) || !okPos(to) || from.rover || to.rover) return 0;
+    const walk = D.TEAM.walk;
+    let tiles = Math.hypot(to.x - from.x, to.y - from.y) / T;
+    if (tiles > walk.jump) return 0;
+    if (typeof dt === 'number' && Number.isFinite(dt)) tiles = Math.min(tiles, walk.speed * Math.max(0, dt));
+    if (!(tiles > 0)) return 0;
+    const st = statsOf(m.expedition, crewId);
+    st.distance = (st.distance > 0 && Number.isFinite(st.distance) ? st.distance : 0) + tiles;
+    return tiles;
   }
 
   // ---------- actions ----------
@@ -606,7 +653,7 @@
   }
 
   return {
-    findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
+    findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, commanderOut, speedFactor, addDistance, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
     interact, refill, forecastAhead, mastMarks, takeKit, returnKit, beaconSpot, placeBeacon, routeHome,
     cacheSize: () => cache.size,
