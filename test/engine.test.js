@@ -659,8 +659,9 @@ test("a new mission has an empty exploring state and, in solo play, the player's
   assert.deepEqual(s.expedition.revealed, {});
   assert.deepEqual(s.expedition.regions, []);
   assert.deepEqual(Object.keys(s.expedition).sort(),
-    ['banked', 'beacons', 'benched', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'forecastUntil', 'goals', 'goalsDone', 'incidents', 'kits', 'landmarks',
+    ['banked', 'beacons', 'benched', 'bestFind', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'forecastUntil', 'goals', 'goalsDone', 'incidents', 'kits', 'landmarks',
       'refills', 'regions', 'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
+  assert.equal(s.expedition.bestFind, null, 'no find yet (M4d: the debrief\'s most valuable find)');
   assert.equal(s.expedition.flare, null, 'no solar flare yet');
   assert.equal(s.expedition.forecastUntil, -1, 'no weather station forecast yet');
   assert.equal(s.expedition.clock, 0, "the round's clock starts at 0");
@@ -1087,4 +1088,94 @@ test('an O₂ canister carried home offsets an oxygen leak: the decision card is
   assert.equal(a.report.choices.o2_rupture, 'hide');
   assert.ok(Math.abs(b.state.resources.o2 - a.state.resources.o2 - D.EXPEDITION.canister.o2) < 1e-9, '+30 kg of O₂ on top of the leak');
   assert.equal(b.report.consumption.o2Event, a.report.consumption.o2Event, 'the leak itself is the same');
+});
+
+// ---------- what the debrief's Expedition section keeps for the whole mission (M4d hud) ----------
+
+test("the advance counts, for each astronaut who could have been out, the solar flares that caught them in the open and those they were safe from", () => {
+  const s = calm();
+  s.schedule[s.turn].spe = true;
+  s.expedition.incidents = [{ crewId: 'minh', kind: 'flare' }];
+  s.crew[2].status = 'dead'; // not exposed: not counted
+  const a = E.resolveTurn(s, E.defaultPlan(s)).state, st = id => a.expedition.stats[id];
+  assert.equal(st('minh').flareHit, 1);
+  assert.equal(st('minh').flareCover, undefined);
+  assert.deepEqual([st('lena').flareCover, st('lena').flareHit], [1, undefined], 'at the base or under cover: not hit');
+  assert.equal(a.expedition.stats[s.crew[2].id], undefined, 'a dead astronaut is not counted');
+  assert.deepEqual(st('lena').finds, {}, 'the entry is made as the rules make one');
+  a.schedule[a.turn].spe = true;
+  a.expedition.incidents = [{ crewId: 'minh', kind: 'flare' }, { crewId: 'lena', kind: 'flare' }];
+  const b = E.resolveTurn(a, E.defaultPlan(a)).state;
+  assert.deepEqual([b.expedition.stats.minh.flareHit, b.expedition.stats.lena.flareHit, b.expedition.stats.lena.flareCover], [2, 1, 1], 'they add up over the mission');
+  const quiet = E.resolveTurn(b, E.defaultPlan(b)).state;
+  assert.equal(quiet.expedition.stats.minh.flareHit, 2, 'a round with no flare counts nothing');
+});
+
+test("a flare round with a flare that never hit anyone counts everyone safe; a round whose flare is not due counts nobody", () => {
+  const s = calm();
+  s.schedule[s.turn].spe = true;
+  s.expedition.flare = { warn: 30, end: 90, over: true, hit: [] };
+  const a = E.resolveTurn(s, E.defaultPlan(s)).state;
+  assert.deepEqual(s.crew.map(c => a.expedition.stats[c.id].flareCover), [1, 1, 1, 1]);
+  const t = calm();
+  t.schedule[t.turn].spe = false;
+  t.expedition.incidents = [{ crewId: 'minh', kind: 'flare' }]; // an incident with no flare due still costs the dose, but is no flare round
+  assert.deepEqual(E.resolveTurn(t, E.defaultPlan(t)).state.expedition.stats, {});
+});
+
+test("the advance keeps the single best science find of the mission, the one worth the most score points", () => {
+  const s = calm();
+  const bank = (m, crewId, item, late) => E.bankItem(m.expedition.banked, crewId, item, late);
+  bank(s, 'lena', SURVEY, false);
+  bank(s, 'minh', { kind: 'landmark', res: 'science', amount: 120, region: 1 }, false);
+  bank(s, 'minh', ICE, false);
+  bank(s, 'minh', { kind: 'weather', res: 'science', amount: 20, region: 3 }, false);
+  const a = E.resolveTurn(s, E.defaultPlan(s)).state;
+  assert.deepEqual(a.expedition.bestFind, { crewId: 'minh', kind: 'landmark', res: 'science', amount: 120, region: 1 });
+  assert.deepEqual(a.expedition.banked.lines, [], 'the next round starts with an empty bank, and no best of its own');
+  assert.equal(a.expedition.banked.best, undefined);
+  bank(a, 'lena', { kind: 'science', res: 'science', amount: 80, region: 5, sub: 'delta' }, false);
+  const b = E.resolveTurn(a, E.defaultPlan(a)).state;
+  assert.equal(b.expedition.bestFind.amount, 120, 'a smaller find later does not replace it');
+  bank(b, 'lena', { kind: 'landmark', res: 'science', amount: 135, region: 0 }, false);
+  const c = E.resolveTurn(b, E.defaultPlan(b)).state;
+  assert.deepEqual(c.expedition.bestFind, { crewId: 'lena', kind: 'landmark', res: 'science', amount: 135, region: 0 }, 'a better one does');
+  const none = calm();
+  bank(none, 'minh', ICE, false);
+  assert.equal(E.resolveTurn(none, E.defaultPlan(none)).state.expedition.bestFind, null, 'ice and metal are no score: no best find');
+});
+
+test("a goal's science is a reward, not a find; a find carried over to the next round and the last round's backpack count when they are banked", () => {
+  const s = calm();
+  s.expedition.goals = [goal('G0:0', 'landmark', { science: 500 }, true)];
+  assert.equal(E.resolveTurn(s, E.defaultPlan(s)).state.expedition.bestFind, null, 'the reward is not a find');
+  const t = calm();
+  t.expedition.carried = { lena: [Object.assign({}, SURVEY, { amount: 60 })] }; // never delivered: banked, late, at the advance after
+  const a = E.resolveTurn(t, E.defaultPlan(t)).state;
+  assert.equal(a.expedition.bestFind, null, 'not banked yet');
+  const b = E.resolveTurn(a, E.defaultPlan(a)).state;
+  assert.deepEqual(b.expedition.bestFind, { crewId: 'lena', kind: 'science', res: 'science', amount: 60, region: 0 });
+  const last = Object.assign(calm(), { turn: D.TURNS - 1, sol: (D.TURNS - 1) * D.TURN_SOLS });
+  last.expedition.carried = { minh: [Object.assign({}, SURVEY, { amount: 80 })] };
+  assert.equal(E.resolveTurn(last, E.defaultPlan(last)).state.expedition.bestFind.amount, 80, 'the final advance banks it first');
+});
+
+test("a saved best find, flare count or pod visit count with the wrong shape is dropped, so the debrief and the notes never meet one", () => {
+  const good = { crewId: 'minh', kind: 'landmark', res: 'science', amount: 120, region: 1 };
+  const keep = calm();
+  Object.assign(keep.expedition, { bestFind: good, stats: { minh: { finds: {}, flareHit: 2, flareCover: 3, distance: 5, pods: 4 } } });
+  const k = E.upgradeMission(keep, {}).expedition;
+  assert.deepEqual(k.bestFind, good);
+  assert.deepEqual(k.stats.minh, { finds: {}, flareHit: 2, flareCover: 3, distance: 5, pods: 4 });
+  for (const bad of ['x', 7, [], {}, { crewId: 5, amount: 9 }, { crewId: 'minh', amount: 'lots' }, { crewId: 'minh', amount: -3 }, { crewId: 'minh', kind: 'landmark', amount: 9, region: 1.5 }]) {
+    const s = calm();
+    s.expedition.bestFind = bad;
+    assert.equal(E.upgradeMission(s, {}).expedition.bestFind, null, JSON.stringify(bad));
+  }
+  const old = calm();
+  delete old.expedition.bestFind;
+  assert.equal(E.upgradeMission(old, {}).expedition.bestFind, null, 'a save from before has none');
+  const odd = calm();
+  odd.expedition.stats = { minh: { finds: {}, flareHit: -1, flareCover: 'two', distance: NaN, pods: -2 }, lena: { finds: {}, pods: 'many' } };
+  assert.deepEqual(E.upgradeMission(odd, {}).expedition.stats, { minh: { finds: {} }, lena: { finds: {} } });
 });

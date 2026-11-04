@@ -814,6 +814,26 @@ test('a hab pod refills your suit from inside it, once per pod for each crew mem
   assert.equal(X.refill(state, 'minh', p.id, floor).ok, true, 'and the next round it refills again');
 });
 
+test("a hab pod visit is kept for the whole mission in stats[id].pods, for the Science notes: one for each refill at a pod, none at a beacon or for a refused one (M4d hud)", () => {
+  const m = solo('EXP-1'), p = X.structureById(m, 'S0,-1', at(32, -53)), x = m.expedition;
+  const floor = at((p.box[0] + p.box[2]) / 2, (p.box[1] + p.box[3]) / 2);
+  x.beacons.push({ x: 12, y: 0, by: 'lena', round: 0 });
+  assert.equal(X.refill(m, 'minh', 'B0', at(12, 0)).ok, true);
+  assert.equal(x.stats.minh, undefined, 'a beacon is no hab pod: not a visit');
+  assert.equal(X.refill(m, 'minh', p.id, at(p.x, p.box[3] + 2)).error, 'tooFar');
+  assert.equal(x.stats.minh, undefined, 'a refill the rules refused is not a visit');
+  assert.equal(X.refill(m, 'minh', p.id, floor).ok, true);
+  assert.equal(x.stats.minh.pods, 1);
+  assert.equal(X.refill(m, 'minh', p.id, floor).error, 'refilled');
+  assert.equal(x.stats.minh.pods, 1, 'once a pod a round');
+  assert.equal(X.refill(m, 'diego', p.id, floor).ok, true);
+  assert.equal(x.stats.diego.pods, 1, "each astronaut's own");
+  const { state } = E.resolveTurn(m, E.defaultPlan(m));
+  assert.equal(state.expedition.stats.minh.pods, 1, 'the advance keeps it');
+  assert.equal(X.refill(state, 'minh', p.id, floor).ok, true);
+  assert.equal(state.expedition.stats.minh.pods, 2, 'and the next round it counts again');
+});
+
 test('a hab pod refills only from inside its footprint, with the 1.5 tiles of slack every action gets; nothing else refills', () => {
   const m = solo('EXP-1'), p = X.structureById(m, 'S0,-1', at(32, -53)), b = p.box, before = snap(m);
   assert.equal(X.refill(m, 'minh', p.id, at(p.x, b[3] + 2)).error, 'tooFar', 'two steps out of its door');

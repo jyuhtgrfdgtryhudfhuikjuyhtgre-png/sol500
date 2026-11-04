@@ -233,6 +233,10 @@
   // M4d adds the expedition goals (src/goals.js): goals [{ id, kind, params, need, base, progress, done, reward }] (this
   //   round's; see src/goals.js) · goalsDone [{ id, kind, round, params }] (every goal paid out this mission).
   // M4d adds stats[crewId].distance: tiles walked, from position samples (addDistance in src/expedition.js); only there once walked.
+  // M4d adds what the debrief's Expedition section keeps for the whole mission (spec §3.10): bestFind (null, or the one find
+  //   worth the most science so far: { crewId, kind, res: 'science', amount, region }, folded in at each advance from the bank's
+  //   best) · stats[crewId].flareHit and .flareCover (rounds with a solar flare: caught in the open / not; only there once counted)
+  //   · stats[crewId].pods (hab pod refills, one a pod a round: no other record says a pod was visited; the Science notes read it).
   // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
   // M4d adds the relay beacons (spec §3.8): beacons [{ x, y, by, round }] (world tiles; beacon i's id is "B<i>") ·
   //   kits: the beacon kits waiting at the base. A kit someone carries is the item { kind: 'kit', res: 'kit', amount: 1 }
@@ -249,19 +253,20 @@
   function newExpedition() {
     return {
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
-      carried: {}, drops: [], banked: freshBank(), goals: [], goalsDone: [], incidents: [], stats: {},
+      carried: {}, drops: [], banked: freshBank(), goals: [], goalsDone: [], bestFind: null, incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
       flare: null, clock: 0, where: {}, forecastUntil: -1,
     };
   }
 
-  // stats[crewId] is a map (finds, structures, landmarks, distance in tiles walked): one that is not a map is dropped, and a
-  // distance that is not a number of tiles (not finite, or below 0) goes from the one that has it. Nothing is added.
+  // stats[crewId] is a map (finds, structures, landmarks, distance in tiles walked, flareHit and flareCover in rounds, pods
+  // visited): one that is not a map is dropped, and a distance or count that is not a number (not finite, or below 0) goes from
+  // the one that has it. Nothing is added.
   function repairStats(stats) {
     for (const id of Object.keys(stats)) {
       const s = stats[id];
       if (!s || typeof s !== 'object' || Array.isArray(s)) delete stats[id];
-      else if (!(Number.isFinite(s.distance) && s.distance >= 0)) delete s.distance;
+      else for (const k of ['distance', 'flareHit', 'flareCover', 'pods']) if (!(Number.isFinite(s[k]) && s[k] >= 0)) delete s[k];
     }
   }
 
@@ -299,11 +304,15 @@
     x.goals = x.goals.filter(g => isMap(g) && typeof g.id === 'string' && kind(g.kind) && isMap(g.params) && isMap(g.reward) &&
       typeof g.done === 'boolean' && [g.need, g.base, g.progress].every(Number.isFinite));
     x.goalsDone = x.goalsDone.filter(g => isMap(g) && typeof g.id === 'string' && kind(g.kind) && Number.isFinite(g.round) && isMap(g.params));
+    // The best find (M4d, the debrief) is one find worth some science, from a crew member and a region, or there is none.
+    const b = x.bestFind;
+    if (b && !(isMap(b) && typeof b.crewId === 'string' && typeof b.kind === 'string' && b.res === 'science' && Number.isFinite(b.amount) && b.amount > 0 && Number.isInteger(b.region))) x.bestFind = null;
     return x;
   }
 
   // Adds one item to a bank. Report lines are summed per crew member, find kind, resource and region; `late` marks
-  // items banked from a backpack at the start of the next round (spec §3.1).
+  // items banked from a backpack at the start of the next round (spec §3.1). The bank also keeps the best single item worth
+  // science (what the score counts) as bank.best, which the advance folds into expedition.bestFind for the debrief.
   function bankItem(bank, crewId, item, late) {
     if (!item || !BANK_RES.includes(item.res) || item.res === 'morale') return;
     const amount = Math.max(0, Number(item.amount) || 0);
@@ -311,6 +320,7 @@
     const line = bank.lines.find(l => l.crewId === crewId && l.kind === item.kind && l.res === item.res && l.region === item.region && l.late === !!late);
     if (line) { line.amount += amount; line.loads += 1; }
     else bank.lines.push({ crewId, kind: item.kind, res: item.res, region: item.region, amount, loads: 1, late: !!late });
+    if (item.res === 'science' && amount > (bank.best ? bank.best.amount : 0)) bank.best = { crewId, kind: item.kind, res: 'science', amount, region: item.region };
   }
 
   function buildState(loadout, seed, eventsOn, level, size) {
@@ -1023,6 +1033,19 @@
     s.morale = clamp(s.morale + got.morale, 0, 100);
     const incidents = (x.incidents || []).map(i => ({ crewId: i.crewId, kind: i.kind }));
     for (const id of Object.keys(x.collapsed || {})) incidents.push({ crewId: id, kind: 'collapse' });
+    // For the debrief (spec §3.10): the best science find of the mission so far, and, in a round with a solar flare, whom it
+    // caught in the open and who was not caught (at the base or under cover), for each astronaut who could have been out.
+    const top = x.banked.best;
+    if (top && Number.isFinite(top.amount) && top.amount > (x.bestFind ? x.bestFind.amount : 0)) {
+      x.bestFind = { crewId: top.crewId, kind: top.kind, res: 'science', amount: top.amount, region: Number.isInteger(top.region) ? top.region : 0 };
+    }
+    if (s.schedule && s.schedule[s.turn] && s.schedule[s.turn].spe) {
+      for (const c of s.crew) {
+        if (c.status !== 'active') continue;
+        const st = x.stats[c.id] || (x.stats[c.id] = { finds: {} }), k = incidents.some(i => i.kind === 'flare' && i.crewId === c.id) ? 'flareHit' : 'flareCover';
+        st[k] = (Number.isFinite(st[k]) ? st[k] : 0) + 1;
+      }
+    }
     for (const inc of incidents) {
       const c = s.crew.find(k => k.id === inc.crewId);
       if (!c || c.status !== 'active') continue;

@@ -612,6 +612,7 @@
   // when you survey it, a Kestrel structure's story log). Facts and logs come once a mission: store.regionsSeen keeps the ids
   // shown (regions' and points of interest's), by mission code and mode. The region's name on the surface is a button that shows
   // its card again. The card stays while the mouse is on it or it has keyboard focus (WCAG 2.2.1), and goes 15 s after that.
+  // A card that comes while another opened less than 8 s ago is still up waits its turn (see arrive).
   let cardTimer = null;
   // Sets the card and changes the live stage in place. The walking loop gets here, and a render() would move the surface
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
@@ -630,20 +631,49 @@
   // The mouse or the focus leaving the card (see surfaceCard) starts the 15 s again. Touch never holds it: :hover sticks
   // after a tap, so only a mouse (hover: hover) counts.
   const canHover = () => !!window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  function reading() {
+    const card = document.querySelector('.region-card');
+    return !!card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement));
+  }
   function armCardTimer() {
     clearTimeout(cardTimer);
     if (!store.card) return;
-    cardTimer = setTimeout(() => {
-      const card = document.querySelector('.region-card');
-      if (card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement))) armCardTimer();
-      else setCard(null);
-    }, 15000);
+    cardTimer = setTimeout(() => { if (reading()) armCardTimer(); else closeCard(); }, 15000);
+  }
+
+  // A card that comes while another opened less than 8 s ago is still up waits, in order, so a hab pod's log or a formation's
+  // fact is not cut short by a landmark's discovery or a new region (the M4c final review's lost card). The first waiting card
+  // opens when the 8 s are over, or at once when the card up is closed; the player reading a card, as for the 15 s, keeps it.
+  // The card the player asks for (the region's name) opens at once. A card that waited for a mission that is over is dropped.
+  const CARD_HOLD = 8000;
+  let holdTimer = null, held = []; // held: [{ c, key }]
+  const missionKey = () => { const s = mission(); return s ? s.seed + '|' + (lanOn() ? 'coop' : 'solo') : ''; };
+  function openCard(c) {
+    setCard(c);
+    armCardTimer();
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(nextCard, CARD_HOLD);
+  }
+  function nextCard() {
+    holdTimer = null;
+    if (held.length && reading()) { holdTimer = setTimeout(nextCard, CARD_HOLD); return; }
+    const key = missionKey();
+    held = held.filter(e => e.key === key);
+    if (held.length) openCard(held.shift().c);
+  }
+  function closeCard() {
+    setCard(null);
+    clearTimeout(holdTimer);
+    nextCard();
+  }
+  function arrive(c) {
+    if (holdTimer) held.push({ c, key: missionKey() });
+    else openCard(c);
   }
 
   // Is this the first time the card of `id` (a region, or a point of interest) comes up in this mission and mode?
   function firstTime(id) {
-    const s = mission();
-    const key = s.seed + '|' + (lanOn() ? 'coop' : 'solo');
+    const key = missionKey();
     if (store.regionsSeen.key !== key) store.regionsSeen = { key, list: [] };
     if (store.regionsSeen.list.includes(id)) return false;
     store.regionsSeen.list.push(id);
@@ -652,15 +682,12 @@
   }
 
   function showRegionCard(id) {
-    if (!firstTime(id)) return;
-    setCard({ type: 'region', id });
-    armCardTimer();
+    if (firstTime(id)) arrive({ type: 'region', id });
   }
 
   // The region's name on the surface was selected: read its card again, for another 15 s.
   function reopenRegionCard(id) {
-    setCard({ type: 'region', id, again: true });
-    armCardTimer();
+    openCard({ type: 'region', id, again: true });
   }
 
   // A point of interest's card, asked for by the surface (src/surface-eva.js) or a crewmate's discovery (onEvent): { type:
@@ -668,7 +695,7 @@
   // kind } (a Kestrel structure's story log, its id the structure's). A fact or a log is reading, shown once a mission code
   // as a region's is; a discovery is this mission's event (the rules make it once), shown whenever it happens. The
   // discoverer's own tab hears of it twice, its answer and the server's event, in either order: the second only adds the
-  // reward when the first had none.
+  // reward when the first had none (to the card up, or to the one that waits its turn).
   function showCard(c) {
     if (!c || !mission()) return;
     const cur = store.card;
@@ -676,9 +703,13 @@
       if (cur.science == null && c.science != null) setCard(Object.assign({}, cur, { science: c.science }));
       return;
     }
+    const waits = held.find(e => e.c.id === c.id);
+    if (waits) {
+      if (waits.c.science == null && c.science != null) waits.c = Object.assign({}, waits.c, { science: c.science });
+      return;
+    }
     if (c.type !== 'landmark' && !firstTime(c.id)) return;
-    setCard(c);
-    armCardTimer();
+    arrive(c);
   }
 
   // A server event (src/net.js): a crewmate's discovery opens its card on every tab (spec §5, C6). The event names the
@@ -694,7 +725,7 @@
   function cardText(c) {
     if (c.type === 'region') return { cls: '', eyebrow: t(c.again ? 'region.note' : 'region.new'), title: t('region.' + c.id), body: t('region.fact.' + c.id), src: I.SOURCES[I.REGION_SOURCES[c.id]] };
     if (c.type === 'landmark') {
-      const stem = D.LANDMARKS.kinds[c.kind].fact, meta = [c.science != null ? t('haul.science', { n: nf(c.science) }) : null, t('disc.by', { name: crewName(c.by) })];
+      const stem = D.LANDMARKS.kinds[c.kind].fact, meta = [c.science != null ? t('haul.science', { n: nf(c.science) }) : null, c.by ? t('disc.by', { name: crewName(c.by) }) : null];
       const src = I.LANDMARK_SOURCES ? I.SOURCES[I.LANDMARK_SOURCES[c.kind]] : null;
       return { cls: ' disc', eyebrow: t('disc.new'), title: t(stem + '.name'), meta: meta.filter(Boolean).join(' · '), body: t(stem + '.fact'), src };
     }
@@ -715,12 +746,54 @@
     },
       h('div', { class: 'region-card-h' },
         h('span', { class: 'eyebrow' }, eyebrow),
-        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: () => setCard(null) }, '×')),
+        h('button', { class: 'sf-x', type: 'button', 'data-k': 'region-close', 'aria-label': t('common.close'), onclick: closeCard }, '×')),
       h('h3', null, title),
       meta ? h('p', { class: 'meta' }, meta) : null,
       h('p', null, body),
       src ? h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null);
     return card;
+  }
+
+  // ---------- the Science note: what the mission found ----------
+  // Every fact and story log the mission found, as the cards that showed them (spec §13.12): the regions visited, the landmarks
+  // discovered, the formations surveyed, the Kestrel structures used and the hab pods visited (stats[].pods: no other record
+  // says a pod was visited), each fact or log once however many of its kind were found, the first finder named. It reads the
+  // mission's own record and not this device's cards, so a card another card replaced is not lost, and in co-op it is the whole
+  // team's. What a save somebody edited by hand holds that this world does not have (an id with nothing at it, a count that is
+  // no number) is skipped.
+  function foundCards(s) {
+    const x = s.expedition, out = [], seen = new Set();
+    if (!x || typeof x !== 'object') return out;
+    const seed = W.seedOf(s.seed), isMap = v => !!v && typeof v === 'object' && !Array.isArray(v), keys = v => (isMap(v) ? Object.keys(v) : []);
+    const add = c => { const k = c.type + ':' + (c.kind || c.id); if (!seen.has(k)) { seen.add(k); out.push(c); } };
+    const cell = (re, id) => { const g = re.exec(id); return g ? [Number(g[1]), Number(g[2])] : null; }; // an id spelled as the world spells it
+    for (const id of Array.isArray(x.regions) ? x.regions : []) if (W.REGIONS.includes(id)) add({ type: 'region', id, again: true });
+    for (const id of keys(x.landmarks)) {
+      const g = cell(/^L(-?\d{1,7}),(-?\d{1,7})$/, id), l = g && W.landmarkAt(seed, g[0], g[1]), v = x.landmarks[id];
+      if (l && l.id === id) add({ type: 'landmark', id, kind: l.kind, by: isMap(v) && s.crew.some(c => c.id === v.by) ? v.by : null });
+    }
+    for (const id of keys(x.sites)) { // a formation's survey is the one site with an "F" id
+      const g = cell(/^F(-?\d{1,7}),(-?\d{1,7}):0$/, id), f = g && X.chunkAt(s, g[0], g[1]).formations[0];
+      if (f && f.sites.length && id === f.id + ':0') add({ type: 'formation', id: f.id, kind: f.kind });
+    }
+    for (const id of keys(x.structures)) {
+      const g = x.structures[id] && cell(/^S(-?\d{1,7}),(-?\d{1,7})$/, id), st = g && W.structureAt(seed, g[0], g[1]);
+      if (st && st.id === id) add({ type: 'log', id, kind: st.kind });
+    }
+    if (keys(x.stats).some(id => isMap(x.stats[id]) && Number.isFinite(x.stats[id].pods) && x.stats[id].pods > 0)) add({ type: 'log', id: 'pod', kind: 'pod' });
+    return out;
+  }
+
+  // The note: each entry is the card's own words (eyebrow, title, fact or log, source), so the notes and the cards cannot differ.
+  function foundNote(s) {
+    const cards = foundCards(s);
+    return h('article', { class: 'note found' }, h('h3', null, t('notes.found')),
+      cards.length ? h('ul', { class: 'found-list' }, cards.map(c => {
+        const { cls, eyebrow, title, meta, body, src } = cardText(c);
+        return h('li', { class: cls.trim() || null },
+          h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null, h('p', null, body),
+          src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null);
+      })) : h('p', null, t('notes.foundNone')));
   }
 
   // ---------- operations ----------
@@ -785,6 +858,10 @@
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
     card: c => showCard(c),
+    // This round's goals for the surface's HUD column (spec §3.9): [{ text, done, frac }], frac 0-1; empty when there are none.
+    goals: () => goalsOf(mission()).map(g => ({
+      text: g.need > 1 ? t('goal.withProgress', { goal: goalText(g), p: nf(g.progress), n: nf(g.need) }) : goalText(g), done: g.done === true, frac: goalFrac(g),
+    })),
     // Exploring (the rules' one table, Z.act). Solo: the rules run here for your pilot on your mission, which is saved, and
     // that includes the solar flare. Co-op: the server runs them against where it last saw you, and everyone gets the new
     // room. Always resolves to { ok, ... } or { error }.
@@ -818,6 +895,44 @@
       amount: t('haul.' + l.res, { n: nf(l.amount) }), what: t('find.' + l.kind), region: t('region.' + W.REGIONS[l.region]), name: crewName(l.crewId),
     });
   }
+  // This round's goals (src/goals.js, spec §3.9), with their progress brought up to date. Solo play judges them here, as the
+  // server does for a co-op room; a co-op tab only reads what the server sent with the room (its frames carry the current
+  // progress, and a tab has no fog of its own to judge a "new areas" goal with).
+  function goalsOf(s) {
+    const x = s && s.expedition;
+    if (!x || s.status !== 'active' || !Array.isArray(x.goals)) return [];
+    if (!lanOn()) G.update(s);
+    return x.goals;
+  }
+  // The round's goal, or the copy the report keeps ({ id, kind, params, reward }: no `need`, which is the params' count).
+  const goalText = g => t('goal.' + g.kind, { tiles: g.params && g.params.tiles, n: g.need != null ? g.need : g.params && (g.params.loads || g.params.count) });
+  const goalFrac = g => (g.done ? 1 : clamp(g.need > 0 ? g.progress / g.need : 0, 0, 1));
+  // "+20 science, +2 morale": what a goal pays, nothing for a zero. The kinds of reward are the five D.GOALS pays in.
+  function rewardText(rw) {
+    const parts = [];
+    for (const [k, key] of [['science', 'haul.science'], ['materials', 'haul.materials'], ['water', 'haul.water'], ['morale', 'goal.morale'], ['kits', 'goal.kits']]) {
+      if (rw && rw[k] > 0) parts.push(t(key, { n: nf(rw[k]) }));
+    }
+    return parts.join(', ');
+  }
+  // A haul pays a share of what its loads give, which nobody knows until they are in.
+  function goalReward(g) {
+    const list = rewardText(g.reward);
+    if (list) return t('goal.reward', { list });
+    return g.kind === 'haul' ? t('goal.rewardHaul', { pct: Math.round(D.GOALS.kinds.haul.bonus * 100) }) : '';
+  }
+  function goalRow(g) {
+    return h('li', { class: 'goal' + (g.done ? ' done' : '') },
+      ico(g.done ? 'ok' : 'flag', 14),
+      h('div', null,
+        h('div', { class: 'goal-h' },
+          h('span', null, goalText(g)),
+          g.need > 1 ? h('span', { class: 'faint num' }, t('goal.progress', { p: nf(g.progress), n: nf(g.need) })) : null),
+        g.need > 1 ? bar(goalFrac(g), g.done ? 'ok' : 'accent') : null,
+        h('span', { class: 'hint' }, goalReward(g)),
+        g.done ? h('span', { class: 'hint ok' }, t('goal.done')) : null));
+  }
+
   // What is waiting outside this round (Z.outside, spec §3.4): a solar flare, dust devils, a dust storm, an oxygen leak at the base.
   function conditions(s) {
     const on = Z.outside(s), f = s.expedition.flare, out = [];
@@ -837,7 +952,11 @@
     if (!x || !x.banked) return null;
     const lines = x.banked.lines || [];
     const carrying = Object.keys(x.carried).filter(id => Array.isArray(x.carried[id]) && x.carried[id].length);
-    const body = [], cond = conditions(s);
+    const body = [], cond = conditions(s), goals = goalsOf(s);
+    if (goals.length) {
+      body.push(h('span', { class: 'eyebrow' }, t('goal.title')));
+      body.push(h('ul', { class: 'replist goals' }, goals.map(goalRow)));
+    }
     if (cond.length) {
       body.push(h('span', { class: 'eyebrow' }, t('eva.cond.title')));
       body.push(h('ul', { class: 'replist' }, cond.map(([cls, icon, text]) => h('li', { class: cls }, ico(icon, 14), h('span', null, text)))));
@@ -1156,6 +1275,24 @@
     ]);
   }
 
+  // The relay beacon kit (spec §3.8) is built through construction like a module but takes no tile, so it is not in BUILD_ORDER:
+  // it has this button of its own, queued at once as the shield layer is. The tooltip says what a beacon does, then how the real
+  // Mars Relay Network works (sources.md B: the game's beacons are fictional), and keeps saying so while the button is off.
+  function kitButton(s, pending) {
+    const chk = E.canBuild(s, 'kit', pending), spec = D.BUILDS.kit, B = D.EXPEDITION.beacon;
+    const why = chk.reason === 'max' ? t('bld.why.maxKit', { max: B.max }) : t('bld.why.' + chk.reason);
+    return h('button', {
+      type: 'button', class: 'bld', 'data-k': 'bld:kit', disabled: !chk.ok, title: [chk.ok ? t('bld.kit', B) : why, t('bld.kitReal')].join('\n'),
+      onclick: () => patchPlan({ builds: pending.concat([{ type: 'kit' }]) }),
+    }, h('span', { html: A.module('kit', 36) }),
+    h('span', null, h('span', { class: 't' }, t('mod.kit')), h('br'), h('span', { class: 'c' }, t('bld.cost', { kg: nf(spec.materials), w: nf(spec.work, spec.work % 1 ? 1 : 0) }))));
+  }
+  // Beacons placed, kits waiting at the base and kits out in backpacks: the three places a beacon can be before it stands.
+  function kitStatus(x) {
+    const out = Object.values(x.carried || {}).reduce((n, items) => n + (Array.isArray(items) ? items.filter(E.isKit).length : 0), 0);
+    return t('bld.kitStatus', { placed: x.beacons.length, max: D.EXPEDITION.beacon.max, kits: x.kits, out });
+  }
+
   function buildPanel(s, p, f) {
     const pending = p.builds || [];
     const builders = f.points.construction > 0;
@@ -1173,13 +1310,14 @@
         },
       }, h('span', { html: A.module(type === 'shield' ? 'shelter' : type, 36) }),
       h('span', null, h('span', { class: 't' }, t('mod.' + type)), h('br'), h('span', { class: 'c' }, t('bld.cost', { kg: nf(spec.materials), w: nf(spec.work, spec.work % 1 ? 1 : 0) }))));
-    }));
+    }).concat([kitButton(s, pending)]));
     const sel = store.buildType;
     return panel(t('panel.build'), [
       h('p', { class: 'hint' }, t('bld.pick'), ' ', h('b', { class: 'num', style: 'color:var(--fg)' }, nf(s.resources.materials) + ' kg'), ' · ', t('hud.materials').toLowerCase()),
       busy && !builders ? h('p', { class: 'chip warn' }, ico('warn', 14), t('bld.needBuilders')) : null,
       sel ? h('p', { class: 'muted', style: 'font-size:var(--fs-sm)' }, t('bld.' + sel)) : null,
       palette,
+      s.expedition ? h('p', { class: 'hint' }, kitStatus(s.expedition)) : null,
       pending.length ? h('div', { class: 'queue' }, h('span', { class: 'eyebrow' }, t('bld.queue')),
         pending.map((b, i) => h('div', { class: 'qrow' },
           h('span', { html: A.module(b.type === 'shield' ? 'shelter' : b.type, 26) }),
@@ -1411,6 +1549,55 @@
   const STOCK_COLORS = { o2: '#199e70', water: '#3987e5', food: '#d95926' };
   const CHART_ROLE = { engineer: '#d95926', biologist: '#199e70', scientist: '#3987e5', medic: '#d55181', commander: '#c98500' };
 
+  // What the crew explored, read from the mission's expedition state, for the debrief's Expedition section (spec §3.10) and the
+  // ISRU lesson: { crew: [{ id, walked (tiles), finds: [[kind, loads]], loads, hit, cover }], counts, best }, or null when the
+  // mission did not explore. Standing in the HQ's own region, the one region every mission starts in, is not exploring. A
+  // save somebody edited by hand may hold anything: whatever is not a number or a known kind of find is skipped.
+  function exploreOf(s) {
+    const x = s.expedition;
+    if (!x || typeof x !== 'object') return null;
+    const num = v => (Number.isFinite(v) && v > 0 ? v : 0), isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
+    const size = v => (Array.isArray(v) ? v.length : isMap(v) ? Object.keys(v).length : 0);
+    const stats = isMap(x.stats) ? x.stats : {};
+    const crew = s.crew.map(c => {
+      const st = isMap(stats[c.id]) ? stats[c.id] : {}, found = isMap(st.finds) ? st.finds : {};
+      const finds = Object.keys(found).filter(k => I.has(store.lang, 'find.' + k) && num(found[k])).map(k => [k, num(found[k])]);
+      return { id: c.id, walked: num(st.distance), finds, loads: finds.reduce((n, f) => n + f[1], 0), hit: num(st.flareHit), cover: num(st.flareCover) };
+    });
+    const counts = { regions: size(x.regions), landmarks: size(x.landmarks), structures: size(x.structures), beacons: size(x.beacons), goals: size(x.goalsDone) };
+    const b = x.bestFind, best = isMap(b) && num(b.amount) && I.has(store.lang, 'find.' + b.kind) ? b : null;
+    const did = crew.some(c => c.walked >= 1 || c.loads > 0) || counts.regions > 1 || counts.landmarks + counts.structures + counts.beacons + counts.goals > 0;
+    return did ? { crew, counts, best } : null;
+  }
+
+  // The debrief's Expedition section: who walked how far and found what, the most valuable find, what was visited, found, used,
+  // placed and completed, and whom the solar flares caught. What is empty is left out.
+  function expeditionSection(s) {
+    const f = exploreOf(s);
+    if (!f) return null;
+    const rows = f.crew.filter(c => c.walked >= 1 || c.loads > 0);
+    const names = (list, key) => list.map(c => crewName(c.id) + ' ×' + nf(c[key])).join(', ');
+    const hit = f.crew.filter(c => c.hit > 0), cover = f.crew.filter(c => c.cover > 0);
+    const flares = Math.max(0, ...f.crew.map(c => c.hit + c.cover));
+    const counts = ['regions', 'landmarks', 'structures', 'beacons', 'goals'].filter(k => f.counts[k] > 0);
+    return panel(t('deb.expedition'), h('div', { class: 'exp' },
+      rows.length ? h('table', { class: 'score-table exp-table' },
+        h('thead', null, h('tr', null, h('th', null, t('deb.crew')), h('th', null, t('deb.exp.walked')), h('th', null, t('deb.exp.found')))),
+        h('tbody', null, rows.map(c => h('tr', null,
+          h('td', null, crewName(c.id)), h('td', null, nf(c.walked) + ' ' + t('eva.tiles')),
+          h('td', null, c.loads ? nf(c.loads) + ' (' + c.finds.map(([k, n]) => t('find.' + k) + ' ×' + nf(n)).join(' · ') + ')' : '–'))))) : null,
+      f.best ? h('p', null, h('b', null, t('deb.exp.best') + ': '), haulText(f.best)) : null,
+      counts.length ? h('div', { class: 'exp-counts' }, counts.map(k => h('span', { class: 'chip' }, t('deb.exp.' + k, { n: nf(f.counts[k]) })))) : null,
+      flares > 0 ? h('div', { class: 'exp-flares' },
+        h('p', null, t('deb.exp.flares', { n: nf(flares) })),
+        hit.length ? h('p', null, t('deb.exp.flareHit', { d: D.DANGERS.flare.dose, list: names(hit, 'hit') })) : null,
+        cover.length ? h('p', null, t('deb.exp.flareCover', { list: names(cover, 'cover') })) : null) : null));
+  }
+
+  // The ISRU lesson's sources, in the order its sentences use them: what ISRU is (S5), MOXIE (S1, S2), water ice underground (S6),
+  // and the chemistry of splitting water (S7 is lunar ice and S8 a research-fellowship project, so for the chemistry only).
+  const ISRU_SOURCES = ['isru', 'moxie', 'moxieInstruments', 'iceMap', 'lroIce', 'protonCeramics'];
+
   function lessonsFor(s) {
     const out = [];
     const push = (k, src) => { if (!out.some(x => x[0] === k)) out.push([k, src]); };
@@ -1429,7 +1616,11 @@
     if (E.independenceOf(s) >= 0.5) push('isru', ['moxie', 'water98']);
     if (!lost) push('margin', ['dra5']);
     if (out.length < 2) push('radiation', ['hassler', 'ochmo']);
-    return out.slice(0, 4);
+    // A mission that explored learns what ISRU is, from NASA's pages (spec §3.10, sources.md A). It always gets a place: the
+    // last of the four if they are full.
+    const four = out.slice(0, 4);
+    if (exploreOf(s)) four.splice(Math.min(four.length, 3), four.length > 3 ? 1 : 0, ['isruMars', ISRU_SOURCES]);
+    return four;
   }
 
   function viewDebrief() {
@@ -1479,6 +1670,7 @@
         h('div', null, h('b', null, crewName(c.id)), h('br'),
           h('span', { class: c.status === 'dead' ? 'crit' : 'muted' }, c.status === 'dead' ? t('crew.dead') : nf(c.health) + ' HP'),
           h('span', { class: 'faint' }, ' · ' + nf(c.dose) + ' mSv')))))),
+      expeditionSection(s),
       h('div', { class: 'deb-grid' },
         h('div', { class: 'col' },
           panel(t('deb.score'), h('table', { class: 'score-table' },
@@ -1748,9 +1940,10 @@
         [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
     }
     if (m === 'notes') {
+      const s = mission(), isru = { title: t('lesson.isruMars.title'), body: t('lesson.isruMars.body'), src: ISRU_SOURCES }; // the debrief's lesson, with its sources
       return modal(t('notes.title'), [
         h('p', { class: 'muted' }, t('notes.lead')),
-        h('div', { class: 'notes-list' }, I.NOTES[store.lang].map(n => h('article', { class: 'note' },
+        h('div', { class: 'notes-list' }, s ? foundNote(s) : null, I.NOTES[store.lang].concat([isru]).map(n => h('article', { class: 'note' },
           h('h3', null, n.title), h('p', null, n.body),
           n.src.length ? h('div', { class: 'src' }, n.src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label))) : null))),
       ], null, true);
@@ -1826,11 +2019,16 @@
     if (r.pilot) li('users', r.pilot.to ? 'warn' : 'crit', pilotText(r.pilot));
     if (r.expedition) {
       for (const l of r.expedition.lines) li(RES_ICON[l.res], 'ok', haulText(l));
+      // A goal's reward is already in the totals above (a haul's and a region's science, say), so the line only names it.
+      for (const g of r.expedition.goals || []) li('flag', 'ok', t('rep.goal', { goal: goalText(g), reward: rewardText(g.reward) }));
       for (const inc of r.expedition.incidents) {
         if (inc.kind === 'flare') li('warn', 'warn', t('rep.flare', { name: crewName(inc.crewId), d: D.DANGERS.flare.dose }));
         else li('crit', 'warn', t('rep.collapse', { name: crewName(inc.crewId), h: D.EXPEDITION.collapse.health, m: D.EXPEDITION.collapse.morale }));
       }
     }
+    // Beacon kits are news when one was finished this round or a goal paid one: say how many wait at the base to be carried out.
+    const kitsAt = s && s.expedition ? s.expedition.kits : 0;
+    if (kitsAt > 0 && (r.completed.includes('kit') || ((r.expedition && r.expedition.goals) || []).some(g => g.reward && g.reward.kits > 0))) li('construction', 'ok', t('rep.kits', { n: kitsAt }));
     if (r.requested) li('rocket', 'muted', t('rep.requested', { kind: t('earth.' + r.requested) }));
     if (r.hypoxia > 0) li('crit', 'crit', t('w.o2_out'));
     if (r.dehydration > 0) li('crit', 'crit', t('w.water_out'));

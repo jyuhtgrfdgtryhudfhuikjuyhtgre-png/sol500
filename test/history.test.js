@@ -34,6 +34,40 @@ test('a finished mission becomes a history record scored by the engine', () => {
   assert.equal(summarize(m, { mode: 'party' }).mode, 'solo', 'unknown modes count as solo');
 });
 
+test('a record carries what the crew found, how far each walked and what they explored, all read from the expedition state (M4d)', () => {
+  const m = finishedMission('HIST-X');
+  Object.assign(m.expedition, {
+    regions: ['plains', 'icy'], landmarks: { 'L0,1': { by: 'lena', round: 3 } }, structures: { 'S0,0': 'repaired', 'S-1,0': 'used' },
+    beacons: [{ x: 14, y: 3, by: 'lena', round: 4 }],
+    goalsDone: [{ id: 'G0:0', kind: 'haul', round: 0, params: {} }, { id: 'G1:0', kind: 'chunks', round: 1, params: {} }],
+    stats: { lena: { finds: { ice: 3, science: 2 }, distance: 412.6, landmarks: 1 }, minh: { finds: { metal: 1 } } },
+  });
+  const r = summarize(m, {});
+  assert.deepEqual(r.finds, { lena: { ice: 3, science: 2 }, minh: { metal: 1 } }, 'loads by kind, for each astronaut who found any');
+  assert.deepEqual(r.distance, { lena: 413 }, 'tiles, rounded (the game has no metre scale)');
+  assert.deepEqual(r.explore, { regions: 2, landmarks: 1, structures: 2, beacons: 1, goals: 2 });
+  const total = Object.values(r.finds).reduce((a, f) => a + Object.values(f).reduce((x, y) => x + y, 0), 0);
+  assert.equal(total, 6, "the admin's Finds total sums these nested numbers");
+});
+
+test('a mission posted by a browser cannot put junk into the record: only its own crew, the game\'s kinds and whole positive numbers get in', () => {
+  const m = finishedMission('HIST-Y');
+  m.expedition.stats = {
+    stranger: { finds: { ice: 9 }, distance: 50 },
+    lena: { finds: { ice: -2, gold: 7, science: 'many', metal: 2.6, pod: Infinity }, distance: NaN },
+    minh: 'far', diego: { finds: [1, 2], distance: 1e12 },
+  };
+  Object.assign(m.expedition, { regions: ['plains'], landmarks: ['x'], structures: null, beacons: 7, goalsDone: { a: 1 } });
+  const r = summarize(m, {});
+  assert.deepEqual(r.finds, { lena: { metal: 3 } });
+  assert.ok(r.distance.diego <= 1e6 && Object.keys(r.distance).join() === 'diego', 'a huge distance is capped, a NaN one is dropped');
+  assert.deepEqual(r.explore, { regions: 1, landmarks: 0, structures: 0, beacons: 0, goals: 0 }, 'a list is counted only if it is a list, a map only if it is a map');
+  for (const expedition of [undefined, null, 'x', [], 5]) {
+    const old = Object.assign({}, m, { expedition });
+    assert.deepEqual([summarize(old, {}).finds, summarize(old, {}).distance, summarize(old, {}).explore], [{}, {}, { regions: 0, landmarks: 0, structures: 0, beacons: 0, goals: 0 }], String(expedition));
+  }
+});
+
 test('records are kept newest first, capped, and survive a restart', t => {
   const dir = tmp(t);
   const h = createHistory({ dataDir: dir, cap: 3 });

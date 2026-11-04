@@ -24,7 +24,7 @@
  *      discover(m, crewId, landmarkId, pos) → { ok, landmark, science }: the first sighting of a landmark's centre
  *      interact(m, crewId, structId, pos) → { ok, done: 'used' | 'repaired', items, left, fog }: a Kestrel structure
  *      refill(m, crewId, id, pos) → { ok, suit }: a full suit inside a hab pod ("S<i>,<j>") or by a relay beacon ("B<i>"),
- *        once at each for each crew member a round
+ *        once at each for each crew member a round; a pod also counts a visit in stats[crewId].pods (the Science notes)
  *      forecastAhead(m) → next round's weather while a repaired weather station forecasts it, or null
  *      mastMarks(m) → [{ id, x, y, kind }]: what the repaired comms masts mark on the minimap (world tiles)
  *      takeKit(m, crewId, pos) · returnKit(m, crewId, pos) → { ok, kits }: a relay beacon kit from the base into your
@@ -532,6 +532,7 @@
     const had = Array.isArray(x.refills[crewId]) ? x.refills[crewId] : [];
     if (had.includes(id)) return { error: 'refilled' };
     x.refills[crewId] = had.concat([id]);
+    if (!g) { const st = statsOf(x, crewId); st.pods = (st.pods || 0) + 1; } // a hab pod visited: the Science notes list its log (M4d)
     x.suits[crewId] = X.suit;
     return { ok: true, suit: X.suit };
   }

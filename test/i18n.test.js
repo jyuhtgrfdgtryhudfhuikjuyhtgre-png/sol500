@@ -103,3 +103,20 @@ test("the weather station's forecast chip has its strings in both languages, nam
     assert.ok(I.STR[lang]['eva.forecastBy'], lang);
   }
 });
+
+// ---------- M4d hud: the ISRU lesson and its sources ----------
+
+test('the ISRU lesson and its sources are in both languages; the sources are NASA pages with a label and a date or a name', () => {
+  for (const lang of ['en', 'vi']) {
+    assert.ok(I.STR[lang]['lesson.isruMars.title'] && I.STR[lang]['lesson.isruMars.body'], lang);
+    // the numbers sources.md A copied from NASA, in both languages: 122 g, 16 runs, 2021, 2023, 12 g an hour, 98 %
+    for (const n of ['122', '16', '2021', '2023', '12', '98']) assert.ok(I.STR[lang]['lesson.isruMars.body'].includes(n), lang + ' ' + n);
+  }
+  assert.notEqual(I.STR.vi['lesson.isruMars.body'], I.STR.en['lesson.isruMars.body']);
+  for (const id of ['isru', 'moxie', 'moxieInstruments', 'iceMap', 'lroIce', 'protonCeramics']) {
+    const s = I.SOURCES[id];
+    assert.ok(s && /\S/.test(s.label) && /^https:\/\/(www\.nasa\.gov|science\.nasa\.gov|www\.jpl\.nasa\.gov)\//.test(s.url), id);
+  }
+  assert.match(I.SOURCES.lroIce.label, /chemistry only/, 'the lunar page is only for the water-splitting chemistry (sources.md L2)');
+  assert.match(I.SOURCES.protonCeramics.label, /research-fellowship project/, 'and a student project is not a NASA plan');
+});

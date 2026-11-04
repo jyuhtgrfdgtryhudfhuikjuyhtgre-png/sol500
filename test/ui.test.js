@@ -3,6 +3,7 @@
 // and the save every 2 s), the dangers in the Expedition panel and the round report's flare line. ui.js is a browser script
 // whose only export is SolUI { store, render }, so it runs in a vm sandbox with the globals the page gives it, and a stub
 // SolSurface keeps the hooks the surface is mounted with and the data of its last update. The looks are checked in the browser.
+// The charts of the debrief draw into the same fake elements (createElementNS), so the debrief renders too.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -23,6 +24,10 @@ class El {
   appendChild(c) { this.children.push(c); return c; }
   append(...cs) { cs.forEach(c => this.appendChild(c)); }
   replaceChildren(...cs) { this.children = []; this.append(...cs); }
+  createTHead() { return this.appendChild(new El('thead')); } // the charts' data tables
+  createTBody() { return this.appendChild(new El('tbody')); }
+  insertRow() { return this.appendChild(new El('tr')); }
+  insertCell() { return this.appendChild(new El('td')); }
   setAttribute(k, v) { this.attrs[k] = String(v); }
   getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
   addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
@@ -42,7 +47,7 @@ function page(stored, globals) {
   for (const [k, v] of Object.entries(stored || {})) ls['sol500.' + k] = JSON.stringify(v);
   const win = {
     document: {
-      createElement: tag => new El(tag), createTextNode: text => ({ textContent: text }), getElementById: id => (id === 'app' ? app : null),
+      createElement: tag => new El(tag), createElementNS: (ns, tag) => new El(tag), createTextNode: text => ({ textContent: text }), getElementById: id => (id === 'app' ? app : null),
       addEventListener() {}, head: new El('head'), documentElement: new El('html'), activeElement: null, querySelector: () => null,
     },
     localStorage: { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: k => { delete ls[k]; } },
@@ -58,7 +63,7 @@ function page(stored, globals) {
   const UI = win.SolUI, E = win.SolEngine;
   const all = () => walk(app, []);
   return {
-    UI, E, X: win.SolExpedition, G: win.SolGoals, I: win.SolI18n, ls, surface, all,
+    win, UI, E, X: win.SolExpedition, G: win.SolGoals, I: win.SolI18n, ls, surface, all,
     byKey: k => all().find(n => n.attrs['data-k'] === k),
     dialog: () => all().find(n => n.attrs.role === 'dialog') || null,
     flush() { while (timers.length) timers.shift()(); },
@@ -298,6 +303,122 @@ test('a landmark discovered in a new mission under a code played before opens it
   assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'L0,1', "the discovery is this mission's");
 });
 
+// ---------- the lost card: a card that comes while a log or fact opened less than 8 s ago is still up waits (M4d hud) ----------
+// The M4c final review: a hab pod's log was gone when a crewmate discovered a landmark, a formation's fact when a new region came
+// into view. The page's timers run on a fake clock here (the page's own ignore the delay), so 7.999 s and 8 s can be told apart.
+function clockOf() {
+  let now = 0, n = 0;
+  const pending = new Map();
+  return {
+    globals: { setTimeout: (fn, ms) => { pending.set(++n, { at: now + ms, fn }); return n; }, clearTimeout: id => { pending.delete(id); } },
+    advance(ms) {
+      const end = now + ms;
+      for (;;) { // the earliest timer due by then, first set first
+        let next = null;
+        for (const [id, e] of pending) if (e.at <= end && (!next || e.at < next[1].at)) next = [id, e];
+        if (!next) break;
+        pending.delete(next[0]);
+        now = next[1].at;
+        next[1].fn();
+      }
+      now = end;
+    },
+  };
+}
+const DELTA = (science, by) => ({ type: 'landmark', id: 'L0,1', kind: 'delta', by: by || 'diego', science });
+const POD = { type: 'log', id: 'S4,-1', kind: 'pod' }, VENT = { type: 'formation', id: 'F1,0', kind: 'ventifact' };
+
+test("a card that arrives while a log or fact opened less than 8 s ago is still up waits, and opens when the 8 s are over; after that the next one opens at once", () => {
+  const clock = clockOf(), pg = page(null, clock.globals);
+  pg.play(pg.mission({ seed: 'PAINT-QA-1' }));
+  const hooks = pg.surface.hooks, up = () => (pg.UI.store.card ? pg.UI.store.card.id : null);
+  hooks.card(POD);
+  assert.equal(up(), 'S4,-1', 'nothing up: it opens');
+  clock.advance(7999);
+  hooks.card(DELTA(null));
+  assert.equal(up(), 'S4,-1', "a discovery 7.999 s after the log: the log is not cut short");
+  clock.advance(1);
+  assert.equal(up(), 'L0,1', 'and at 8 s it opens');
+  clock.advance(8000);
+  hooks.card(VENT);
+  assert.equal(up(), 'F1,0', "the discovery has had its 8 s: a card that comes now opens at once");
+  clock.advance(15000);
+  assert.equal(up(), null, 'and a card nobody replaces goes after 15 s, as before');
+});
+
+test("held cards open in the order they came, each after the one before had its 8 s; a new region's card is held too, and a discovery heard twice while it waits is one card with its reward", () => {
+  const clock = clockOf(), pg = page(null, clock.globals), m = pg.mission({ seed: 'PAINT-QA-1' });
+  pg.play(m);
+  const hooks = pg.surface.hooks, up = () => (pg.UI.store.card ? pg.UI.store.card.id : null);
+  hooks.card(POD);
+  clock.advance(2000);
+  hooks.card(DELTA(null));
+  hooks.enterRegion('icy');
+  hooks.card(DELTA(120));
+  hooks.card(VENT);
+  hooks.card(POD);
+  hooks.enterRegion('icy');
+  assert.deepEqual([up(), plain(pg.UI.store.regionsSeen.list)], ['S4,-1', ['S4,-1', 'icy', 'F1,0']], 'the log is up; the others wait, each marked read when it came, the log and the region only once');
+  assert.deepEqual(plain(m.expedition.regions), ['icy'], 'a region you walked into is recorded at once, whatever the card does');
+  clock.advance(6000);
+  assert.equal(up(), 'L0,1', 'first the discovery');
+  assert.equal(pg.UI.store.card.science, 120, 'with the reward the second copy brought');
+  clock.advance(8000);
+  assert.deepEqual([up(), pg.UI.store.card.type], ['icy', 'region']);
+  clock.advance(8000);
+  assert.equal(up(), 'F1,0');
+  clock.advance(15000);
+  assert.equal(up(), null);
+});
+
+test("closing the card up opens the one that waits at once; a card the player asks for again replaces the one up, and starts its own 8 s", () => {
+  const clock = clockOf(), pg = page(null, clock.globals);
+  pg.play(pg.mission({ seed: 'PAINT-QA-1' }));
+  const hooks = pg.surface.hooks, up = () => (pg.UI.store.card ? pg.UI.store.card.id : null);
+  const close = () => { pg.UI.render(); click(pg.byKey('region-close')); }; // the card's × button, as drawn now
+  hooks.card(POD);
+  hooks.card(DELTA(null));
+  hooks.card(VENT);
+  clock.advance(3000);
+  close();
+  assert.equal(up(), 'L0,1', 'the log was put away at 3 s: the discovery comes now, not at 8 s');
+  close();
+  assert.equal(up(), 'F1,0', 'and so on');
+  close();
+  assert.equal(up(), null, 'nothing waits: nothing opens');
+  hooks.card({ type: 'log', id: 'S0,0', kind: 'weather' });
+  assert.equal(up(), 'S0,0', 'and nothing keeps a new card from opening');
+  clock.advance(1000);
+  hooks.reopenRegion('plains');
+  assert.deepEqual([up(), pg.UI.store.card.again], ['plains', true], 'the region name was selected: the card it asked for replaces the log at once');
+  clock.advance(8000);
+  hooks.reopenRegion('dunes');
+  hooks.card(DELTA(null));
+  assert.equal(up(), 'dunes', 'a card the player asked for is a card of its own to read: a discovery waits for it');
+  clock.advance(8000);
+  assert.equal(up(), 'L0,1');
+});
+
+test("a card is not replaced while the player is reading it, the mouse on it or the focus in it; and what waited for a mission that is over is dropped", () => {
+  const clock = clockOf(), pg = page(null, clock.globals);
+  pg.play(pg.mission({ seed: 'PAINT-QA-1' }));
+  const hooks = pg.surface.hooks, up = () => (pg.UI.store.card ? pg.UI.store.card.id : null);
+  let hover = true;
+  pg.win.matchMedia = () => ({ matches: true });
+  pg.win.document.querySelector = sel => (sel === '.region-card' ? { matches: q => q === ':hover' && hover, contains: () => false } : null);
+  hooks.card(POD);
+  hooks.card(DELTA(null));
+  clock.advance(30000);
+  assert.equal(up(), 'S4,-1', 'the mouse is on the log: it stays, and so does the one that waits');
+  hover = false;
+  clock.advance(8000);
+  assert.equal(up(), 'L0,1', 'the mouse moved off: the discovery opens when the next 8 s are over');
+  hooks.card(VENT);
+  Object.assign(pg.UI.store, { mission: null, screen: 'title' }); // the mission is over before the 8 s are
+  clock.advance(8000);
+  assert.notEqual(up(), 'F1,0', "a card of a mission that is over does not open in the next");
+});
+
 // ---------- expedition goals (src/goals.js, M4d) ----------
 
 test("solo: a new mission starts with round 1's goal; the advance judges the goals from the mission, pays the done ones and picks the next round's", () => {
@@ -320,4 +441,389 @@ test("solo: a new mission starts with round 1's goal; the advance judges the goa
   assert.deepEqual(plain(s.expedition.goals.map(g => g.id)), ['G1:0'], "round 2's goal");
   pg.flush();
   assert.deepEqual(JSON.parse(pg.ls['sol500.save']).mission.expedition.goals.map(g => g.id), ['G1:0'], 'and the save has it');
+});
+
+// ---------- goals in the HUD and the console (M4d hud) ----------
+const expPanel = pg => pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('eva.title'));
+const goalRows = pg => { pg.UI.render(); return walk(expPanel(pg), []).filter(n => n.tagName === 'LI' && /(^| )goal( |$)/.test(n.className)); };
+const withGoals = (pg, m, kinds) => { m.expedition.goals = kinds.map((k, i) => Object.assign(pg.G.make(m, k), { id: 'G0:' + i })); return m; };
+
+test("the surface's goals hook lists this round's goals as { text, done, frac }; solo play brings their progress up to date first", () => {
+  const pg = page(), m = withGoals(pg, pg.mission({ seed: 'UI-GOALHUD' }), ['chunks', 'landmark']);
+  pg.play(m);
+  const goals = () => plain(pg.surface.hooks.goals());
+  assert.deepEqual(goals(), [
+    { text: en('goal.withProgress', { goal: en('goal.chunks', { n: 4 }), p: 0, n: 4 }), done: false, frac: 0 },
+    { text: en('goal.landmark'), done: false, frac: 0 },
+  ]);
+  m.expedition.landmarks['L1,0'] = { by: 'minh', round: 0 }; // discovered since the pick: nobody has judged the goal yet
+  assert.deepEqual(goals()[1], { text: en('goal.landmark'), done: true, frac: 1 }, 'the hook asks the rules for the progress');
+  m.status = 'lost';
+  assert.deepEqual(goals(), [], 'no goals once the mission is over');
+});
+
+test("co-op: the goals come from the room's frame as the server judged them; a tab never runs the progress itself", () => {
+  const pg = page(), m = withGoals(pg, pg.mission({ seed: 'UI-GOALCOOP', coop: true }), ['chunks']);
+  m.expedition.goals[0].progress = 3; // the server saw three new chunks; this tab's own fog map is empty and would say 0
+  pg.play(pg.mission({ seed: 'UI-GOALCOOP' })); // the surface mounts, and its hooks are the ones to ask
+  Object.assign(pg.UI.store, { lan: { code: 'ABCD' }, room: { mission: m, players: [], settings: { names: {} } } });
+  assert.deepEqual(plain(pg.surface.hooks.goals()), [{ text: en('goal.withProgress', { goal: en('goal.chunks', { n: 4 }), p: 3, n: 4 }), done: false, frac: 0.75 }]);
+  assert.equal(m.expedition.goals[0].progress, 3, 'and the number is left as the server sent it');
+});
+
+test("the Expedition panel lists this round's goals with their progress and reward, and ticks the done ones", () => {
+  const pg = page(), m = withGoals(pg, pg.mission({ seed: 'UI-GOALPANEL' }), ['chunks', 'landmark', 'haul']);
+  pg.play(m);
+  let rows = goalRows(pg);
+  assert.equal(rows.length, 3);
+  assert.ok(expPanel(pg).textContent.includes(en('goal.title')));
+  assert.ok(rows[0].textContent.includes(en('goal.chunks', { n: 4 })) && rows[0].textContent.includes(en('goal.progress', { p: 0, n: 4 })), rows[0].textContent);
+  assert.ok(rows[0].textContent.includes(en('goal.reward', { list: en('haul.science', { n: 15 }) })), 'what it pays');
+  assert.ok(rows[1].textContent.includes(en('goal.reward', { list: en('haul.science', { n: 25 }) })));
+  assert.ok(rows[2].textContent.includes(en('goal.haul', { n: 4 })) && rows[2].textContent.includes(en('goal.rewardHaul', { pct: 25 })), 'a haul pays a share of what its loads give: nothing hauled yet');
+  assert.ok(rows.every(r => !/(^| )done( |$)/.test(r.className)));
+  m.expedition.landmarks['L1,0'] = { by: 'minh', round: 0 };
+  m.expedition.banked.lines.push({ crewId: 'minh', kind: 'ice', res: 'water', region: 0, amount: 160, loads: 4, late: false }); // 4 loads of ice delivered this round
+  rows = goalRows(pg);
+  assert.match(rows[1].className, /(^| )done( |$)/, 'a landmark found');
+  assert.ok(rows[1].textContent.includes(en('goal.done')));
+  assert.match(rows[2].className, /(^| )done( |$)/, 'four loads hauled');
+  assert.ok(rows[2].textContent.includes(en('goal.reward', { list: en('haul.water', { n: 40 }) })), 'a quarter of the 160 kg');
+  assert.doesNotMatch(rows[0].className, /(^| )done( |$)/);
+});
+
+test('a goal is told in plain words for every kind, in both languages, with its numbers', () => {
+  const kinds = Object.keys(require('../src/data.js').GOALS.kinds);
+  for (const lang of ['en', 'vi']) {
+    for (const k of kinds) assert.ok(I.STR[lang]['goal.' + k], lang + ' goal.' + k);
+  }
+  assert.match(I.STR.vi['goal.survey'], /\{tiles\}/);
+  assert.match(I.STR.vi['goal.beacon'], /\{tiles\}/);
+  assert.match(I.STR.vi['goal.chunks'], /\{n\}/);
+  assert.match(I.STR.vi['goal.haul'], /\{n\}/);
+});
+
+// ---------- the round report: goals, beacon kits, the last backpack (M4d hud) ----------
+const reportLines = (pg, report) => {
+  Object.assign(pg.UI.store, { report, modal: 'report' });
+  pg.UI.render();
+  return walk(pg.dialog(), []).filter(n => n.tagName === 'LI').map(n => n.textContent);
+};
+
+test('the round report lists each goal that paid out with its reward, and says when beacon kits wait at the base', () => {
+  const pg = page(), m = withGoals(pg, pg.mission({ seed: 'UI-REPGOAL' }), ['landmark', 'beacon']);
+  m.expedition.landmarks['L1,0'] = { by: 'minh', round: 0 };
+  m.expedition.beacons.push({ x: 40, y: 0, by: 'minh', round: 0 }); // 40 tiles out: past the 35 that round 1's beacon goal asks
+  const { state, report } = pg.G.advance(m, pg.E.defaultPlan(m));
+  pg.play(state);
+  const lines = reportLines(pg, report);
+  assert.ok(lines.includes(en('rep.goal', { goal: en('goal.landmark'), reward: en('haul.science', { n: 25 }) })), lines.join(' | '));
+  assert.ok(lines.includes(en('rep.goal', { goal: en('goal.beacon', { tiles: 35 }), reward: en('goal.kits', { n: 1 }) })));
+  assert.ok(lines.includes(en('rep.kits', { n: 1 })), 'the goal paid a kit: it waits at the base');
+});
+
+test('the round report names a beacon kit that was started and finished, and the kits waiting; a round with no kit and no goal has no such line', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-REPKIT' }), plan = pg.E.defaultPlan(m);
+  plan.jobs.lena = 'construction'; // the engineer's 1.5 points finish a kit in the round
+  plan.builds = [{ type: 'kit' }];
+  let { state, report } = pg.G.advance(m, plan);
+  pg.play(state);
+  let lines = reportLines(pg, report);
+  assert.ok(lines.includes(en('rep.started', { list: en('mod.kit') })), lines.join(' | '));
+  assert.ok(lines.includes(en('rep.completed', { list: en('mod.kit') })));
+  assert.ok(lines.includes(en('rep.kits', { n: 1 })));
+  ({ state, report } = pg.G.advance(state, pg.E.nextPlan(state, plan)));
+  pg.play(state);
+  lines = reportLines(pg, report);
+  assert.ok(!lines.some(l => l === en('rep.kits', { n: 1 })), 'nothing new this round');
+});
+
+test("the last round's backpack is banked at the final advance, and the report lists it in the banked lines' words", () => {
+  const pg = page(), m = Object.assign(pg.mission({ seed: 'UI-LAST' }), { turn: 19, sol: 475 });
+  m.expedition.carried = { lena: [{ kind: 'ice', id: 'x', region: 4, res: 'water', amount: 40 }, pg.E.kitItem()] };
+  const { state, report } = pg.G.advance(m, pg.E.defaultPlan(m));
+  assert.equal(state.status, 'success');
+  pg.play(state);
+  const lines = reportLines(pg, report);
+  assert.ok(lines.includes(en('rep.haulLate', { amount: en('haul.water', { n: 40 }), what: en('find.ice'), region: en('region.icy'), name: en('name.lena') })), lines.join(' | '));
+  assert.ok(!lines.some(l => l === en('rep.kits', { n: 1 })), 'a kit carried home at the end is no news');
+});
+
+// ---------- the build panel's relay beacon kit (M4d hud) ----------
+const consoleOf = (pg, m) => { Object.assign(pg.UI.store, { mission: m, plan: pg.E.defaultPlan(m), screen: 'ops', opsView: 'console', modal: null }); pg.UI.render(); };
+
+test("the build panel has a button of its own for the relay beacon kit: its cost, what a beacon does, the Mars Relay Network line, and how many are placed, waiting and out", () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-KIT' }), B = require('../src/data.js').EXPEDITION.beacon;
+  Object.assign(m.expedition, { beacons: [{ x: 20, y: 0, by: 'lena', round: 0 }], kits: 2, carried: { minh: [pg.E.kitItem()] } });
+  consoleOf(pg, m);
+  const btn = pg.byKey('bld:kit');
+  assert.ok(btn, 'the kit has a button (it is not in BUILD_ORDER, so the palette does not make one)');
+  assert.ok(btn.textContent.includes(en('mod.kit')) && btn.textContent.includes(en('bld.cost', { kg: 50, w: 1.5 })), btn.textContent);
+  assert.equal(btn.attrs.disabled, undefined, 'there are materials and room for one more');
+  assert.equal(btn.attrs.title, [en('bld.kit', B), en('bld.kitReal')].join('\n'), 'what a beacon does, then the real network (sources.md B), word for word');
+  assert.equal(en('bld.kitReal'), 'Real Mars rovers send most of their data to Earth through orbiters overhead, called the Mars Relay Network; the ground beacons in this game are fictional.');
+  const panel = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('panel.build'));
+  assert.ok(panel.textContent.includes(en('bld.kitStatus', { placed: 1, max: 6, kits: 2, out: 1 })), '1 of 6 placed, 2 at the base, 1 in a backpack');
+  click(btn);
+  assert.deepEqual(plain(pg.UI.store.plan.builds).map(b => b.type), ['kit'], 'it is queued as the shield is, with no tile to pick');
+  assert.equal(pg.UI.store.buildType, null);
+  const queue = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('panel.build')).textContent;
+  assert.ok(queue.includes(en('bld.queue')) && queue.includes(en('mod.kit') + ' −50 kg'), 'in the queue under its name and cost');
+});
+
+test('the kit button is off, with the reason and still the network line, when materials are short or all six beacons are accounted for', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-KIT2' });
+  m.resources.materials = 10;
+  consoleOf(pg, m);
+  assert.equal(pg.byKey('bld:kit').attrs.disabled, '', 'not enough materials');
+  assert.equal(pg.byKey('bld:kit').attrs.title, [en('bld.why.materials'), en('bld.kitReal')].join('\n'));
+  m.resources.materials = 900;
+  m.expedition.kits = 6;
+  consoleOf(pg, m);
+  assert.equal(pg.byKey('bld:kit').attrs.disabled, '', 'all six');
+  assert.equal(pg.byKey('bld:kit').attrs.title, [en('bld.why.maxKit', { max: 6 }), en('bld.kitReal')].join('\n'));
+});
+
+test('a kit under construction shows in the projects list by its name', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-KIT3' });
+  m.projects.push({ type: 'kit', x: null, y: null, progress: 0.5, work: 1.5 });
+  consoleOf(pg, m);
+  const text = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('panel.build')).textContent;
+  assert.ok(text.includes(en('bld.projects')) && text.includes(en('mod.kit')) && text.includes(en('bld.progress', { p: '0.5', w: '1.5' })), text);
+});
+
+test('the kit and its lines have strings in both languages, and the English one repeats the research agent\'s line exactly', () => {
+  for (const lang of ['en', 'vi']) {
+    for (const k of ['mod.kit', 'bld.kit', 'bld.kitReal', 'bld.kitStatus', 'bld.why.maxKit', 'rep.goal', 'rep.kits']) assert.ok(I.STR[lang][k], lang + ' ' + k);
+    assert.match(I.STR[lang]['bld.kitStatus'], /\{placed\}.*\{max\}.*\{kits\}.*\{out\}/, lang);
+  }
+  assert.notEqual(I.STR.vi['bld.kitReal'], I.STR.en['bld.kitReal'], 'translated');
+});
+
+// ---------- the debrief's Expedition section (M4d hud) ----------
+const { finishedMission } = require('./helpers/missions.js');
+const debrief = (pg, m) => { Object.assign(pg.UI.store, { mission: m, plan: null, screen: 'debrief', modal: null, report: null }); pg.UI.render(); return pg; };
+const expSection = pg => pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('deb.expedition')) || null;
+const explored = () => {
+  const m = finishedMission('DEB-X');
+  Object.assign(m.expedition, {
+    regions: ['plains', 'icy', 'dunes'], landmarks: { 'L0,1': { by: 'lena', round: 2 } }, structures: { 'S0,0': 'repaired', 'S-1,0': 'used' },
+    beacons: [{ x: 14, y: 0, by: 'minh', round: 1 }, { x: 30, y: 5, by: 'lena', round: 3 }],
+    goalsDone: [{ id: 'G0:0', kind: 'haul', round: 0, params: { loads: 4 } }],
+    stats: {
+      lena: { finds: { ice: 3, science: 2 }, distance: 412.6, flareCover: 2 },
+      minh: { finds: { metal: 1 }, distance: 88.2, flareHit: 1, flareCover: 1 },
+    },
+    bestFind: { crewId: 'lena', kind: 'landmark', res: 'science', amount: 132, region: 0 },
+  });
+  return m;
+};
+
+test('a mission that never explored has no Expedition section in its debrief', () => {
+  const pg = debrief(page(), finishedMission('DEB-0'));
+  assert.equal(expSection(pg), null);
+  assert.ok(pg.all().some(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('deb.crew')), 'the rest of the debrief is there');
+  const around = finishedMission('DEB-1');
+  around.expedition.regions = ['plains']; // standing in the HQ\'s own region is not exploring
+  assert.equal(expSection(debrief(page(), around)), null);
+});
+
+test("the debrief's Expedition section shows distance and finds for each astronaut, the most valuable find, the counts and who a flare caught", () => {
+  const pg = debrief(page(), explored());
+  const sec = expSection(pg), text = sec.textContent;
+  const rows = walk(sec, []).filter(n => n.tagName === 'TR').map(tr => tr.children.map(td => td.textContent));
+  assert.deepEqual(rows[0], [en('deb.crew'), en('deb.exp.walked'), en('deb.exp.found')], 'the header');
+  assert.deepEqual(rows[1], [en('name.lena'), '413 ' + en('eva.tiles'), '5 (' + en('find.ice') + ' ×3 · ' + en('find.science') + ' ×2)']);
+  assert.deepEqual(rows[2], [en('name.minh'), '88 ' + en('eva.tiles'), '1 (' + en('find.metal') + ' ×1)']);
+  assert.equal(rows.length, 3, 'crew who did nothing outside have no row');
+  assert.ok(text.includes(en('deb.exp.best') + ': ' + en('rep.haul', { amount: en('haul.science', { n: 132 }), what: en('find.landmark'), region: en('region.plains'), name: en('name.lena') })), text);
+  for (const [k, n] of [['regions', 3], ['landmarks', 1], ['structures', 2], ['beacons', 2], ['goals', 1]]) assert.ok(text.includes(en('deb.exp.' + k, { n })), k);
+  assert.ok(text.includes(en('deb.exp.flares', { n: 2 })));
+  assert.ok(text.includes(en('deb.exp.flareHit', { d: 15, list: en('name.minh') + ' ×1' })), 'whom the flare caught');
+  assert.ok(text.includes(en('deb.exp.flareCover', { list: en('name.lena') + ' ×2, ' + en('name.minh') + ' ×1' })), 'who was not');
+});
+
+test('the Expedition section leaves out what is empty: no table without a walk, no best find, no flare lines, no zero counts', () => {
+  const m = finishedMission('DEB-2');
+  m.expedition.landmarks = { 'L0,1': { by: 'lena', round: 2 } };
+  m.expedition.stats = {}; // the default plan's 20 rounds counted the flares everyone was safe from; clear them
+  const sec = expSection(debrief(page(), m));
+  assert.ok(sec, 'one landmark is exploring');
+  assert.deepEqual(walk(sec, []).filter(n => n.tagName === 'TABLE'), []);
+  assert.equal(sec.textContent, en('deb.expedition') + en('deb.exp.landmarks', { n: 1 }), 'the title and the one count');
+  const flat = finishedMission('DEB-3');
+  flat.expedition.stats = { lena: { finds: {}, distance: 40.4, flareCover: 3 } };
+  const t = expSection(debrief(page(), flat)).textContent;
+  assert.ok(t.includes(en('deb.exp.flares', { n: 3 })) && t.includes(en('deb.exp.flareCover', { list: en('name.lena') + ' ×3' })));
+  assert.ok(!t.includes(en('deb.exp.flareHit', { d: 15, list: '' }).split(':')[0]), 'nobody was caught: no such line');
+});
+
+test("a debrief survives an expedition state a hand-edited save left odd: junk stats, finds and best find are skipped, not drawn", () => {
+  const m = finishedMission('DEB-4');
+  m.expedition.stats = { lena: { finds: { gold: 5, ice: 'x', metal: 2 }, distance: 'far', flareHit: -1 }, minh: 'x', diego: { finds: [1] } };
+  m.expedition.bestFind = { crewId: 'lena', kind: 'landmark', res: 'science', amount: 'lots', region: 0 };
+  m.expedition.regions = 'plains';
+  const sec = expSection(debrief(page(), m));
+  assert.ok(sec.textContent.includes('2 (' + en('find.metal') + ' ×2)'));
+  assert.ok(!sec.textContent.includes('gold') && !sec.textContent.includes(en('deb.exp.best')));
+});
+
+test('the Expedition section has its strings in both languages', () => {
+  for (const lang of ['en', 'vi']) {
+    for (const k of ['expedition', 'exp.walked', 'exp.found', 'exp.best', 'exp.regions', 'exp.landmarks', 'exp.structures', 'exp.beacons', 'exp.goals', 'exp.flares', 'exp.flareHit', 'exp.flareCover']) assert.ok(I.STR[lang]['deb.' + k], lang + ' deb.' + k);
+    for (const k of ['exp.regions', 'exp.landmarks', 'exp.structures', 'exp.beacons', 'exp.goals', 'exp.flares']) assert.match(I.STR[lang]['deb.' + k], /\{n\}/, lang + ' ' + k);
+    assert.match(I.STR[lang]['deb.exp.flareHit'], /\{d\}.*\{list\}|\{list\}.*\{d\}/, lang);
+  }
+});
+
+// ---------- the ISRU lesson (M4d hud; the text is .superpowers/sdd/m4d/sources.md A, word for word) ----------
+const ISRU = [
+  'ISRU, or in-situ resource utilization, means making what astronauts need from local materials instead of bringing large quantities from Earth.',
+  "MOXIE, an experiment on NASA's Perseverance rover, made 122 grams of oxygen from the carbon dioxide in Mars's thin air in 16 runs between 2021 and 2023.",
+  'At its best it made 12 grams of oxygen an hour, at 98% purity or better.',
+  "Water ice lies underground across Mars's mid-latitudes; crews could harvest it for drinking water, or split it into hydrogen and oxygen for rocket fuel and breathable air.",
+  'In the game, the ice and metal you haul home are ISRU too: supplies found on Mars, not launched from Earth.',
+];
+const lessonCards = pg => pg.all().filter(n => n.tagName === 'ARTICLE' && /(^| )lesson( |$)/.test(n.className));
+const isruCard = pg => lessonCards(pg).find(n => n.children[0].textContent === en('lesson.isruMars.title')) || null;
+
+test("a mission that explored learns the ISRU lesson in its debrief: NASA's five sentences as researched, with the sources they rest on", () => {
+  assert.equal(en('lesson.isruMars.body'), ISRU.join(' '), 'word for word');
+  assert.equal(ISRU.join(' ').split(/\s+/).length, 111, 'the 111 words the research agent counted');
+  const card = isruCard(debrief(page(), explored()));
+  assert.ok(card, 'the lesson is there');
+  assert.equal(card.children[1].textContent, ISRU.join(' '));
+  assert.deepEqual(walk(card, []).filter(n => n.tagName === 'A').map(a => a.attrs.href), [
+    'https://www.nasa.gov/overview-in-situ-resource-utilization/',
+    'https://www.nasa.gov/missions/mars-2020-perseverance/perseverance-rover/nasas-oxygen-generating-experiment-moxie-completes-mars-mission/',
+    'https://science.nasa.gov/mission/mars-2020-perseverance/science-instruments/',
+    'https://www.jpl.nasa.gov/news/nasas-treasure-map-for-water-ice-on-mars',
+    'https://science.nasa.gov/solar-system/moon/nasas-lro-lunar-ice-deposits-are-widespread/',
+    'https://www.nasa.gov/directorates/stmd/space-tech-research-grants/producing-methane-and-oxygen-on-mars-using-proton-conducting-ceramics/',
+  ]);
+  assert.equal(isruCard(debrief(page(), finishedMission('DEB-5'))), null, 'a mission that never explored does not get it');
+});
+
+test('a debrief that already has four lessons gives the ISRU one the last place', () => {
+  const m = explored();
+  Object.assign(m, { status: 'lost', endCause: { reason: 'hypoxia', sol: 120 } });
+  m.log[0].weather = 'global';
+  m.log[0].solarShare = 0.9; // the solar storm lesson
+  m.crew[0].dose = 600;      // radiation
+  const titles = lessonCards(debrief(page(), m)).map(n => n.children[0].textContent);
+  assert.equal(titles.length, 4);
+  assert.ok(titles.includes(en('lesson.storm_solar.title')) && titles.includes(en('lesson.o2.title')), titles.join(' | '));
+  assert.equal(titles[3], en('lesson.isruMars.title'));
+});
+
+// ---------- the Science note: every fact and story log found this mission, with its source (M4d hud) ----------
+// Seed PAINT-QA-1: deltas (landmarks L0,1 and L0,2), a ventifact with a science site (F1,0), a weather station (S0,0), supply
+// caches (S-1,0 and S1,3) and abandoned hab pods (S4,-1, S-3,-5) lie near the HQ; there is no landmark at L1,1, no structure at
+// S5,5, no formation in chunk (9,9), and the formation in chunk (2,0) (F2,0) has no survey.
+const notesOf = (pg) => { Object.assign(pg.UI.store, { modal: 'notes' }); pg.UI.render(); return pg.dialog(); };
+const foundNote = d => walk(d, []).find(n => n.tagName === 'ARTICLE' && /(^| )found( |$)/.test(n.className)) || null;
+const foundItems = d => walk(foundNote(d), []).filter(n => n.tagName === 'LI');
+const titleOf = li => walk(li, []).find(n => n.tagName === 'B').textContent;
+const linksOf = n => walk(n, []).filter(a => a.tagName === 'A').map(a => [a.attrs.href, a.textContent]);
+
+test("the Science note lists every fact and story log the mission found with its source: regions, landmarks, formations surveyed, structures used, then the hab pods visited", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  Object.assign(m.expedition, {
+    regions: ['plains', 'icy'], landmarks: { 'L0,1': { by: 'minh', round: 2 } }, sites: { 'F1,0:0': 0, '4,4:0': 1 },
+    structures: { 'S0,0': 'repaired', 'S-1,0': 'used' }, stats: { lena: { finds: {}, pods: 1 } },
+  });
+  pg.play(m);
+  const d = notesOf(pg), items = foundItems(d);
+  const src = key => pg.I.SOURCES[key], link = key => [[src(key).url, src(key).label]];
+  assert.equal(foundNote(d).children[0].textContent, en('notes.found'));
+  assert.deepEqual(items.map(titleOf), [
+    en('region.plains'), en('region.icy'), en('lm.delta.name'), en('fm.ventifact.name'), en('ks.weather.name'), en('ks.cache.name'), en('ks.pod.name'),
+  ], 'in the order the mission found them, hab pods last; a find that is no formation (4,4:0) is no entry');
+  assert.deepEqual(linksOf(items[0]), link('jezero'), 'a region fact: its real place');
+  assert.deepEqual(linksOf(items[1]), link(pg.I.REGION_SOURCES.icy));
+  assert.deepEqual(linksOf(items[2]), link(pg.I.LANDMARK_SOURCES.delta));
+  assert.deepEqual(linksOf(items[3]), link(pg.I.FORMATION_SOURCES.ventifact));
+  for (const i of [4, 5, 6]) {
+    assert.deepEqual(linksOf(items[i]), [], 'a Kestrel log is fiction: no source');
+    assert.ok(items[i].textContent.includes(en('ks.label')), 'and it says so');
+  }
+  assert.ok(items[0].textContent.includes(en('region.fact.plains')) && items[0].textContent.includes(en('region.note')), 'the fact, under a heading that says it is a note');
+  assert.ok(items[2].textContent.includes(en('lm.delta.fact')) && items[2].textContent.includes(en('disc.by', { name: en('name.minh') })), 'the fact, and who found the landmark');
+  assert.ok(items[3].textContent.includes(en('fm.ventifact.fact')));
+  assert.ok(items[6].textContent.includes(en('ks.pod.log')), 'the log itself, to read again');
+  pg.UI.store.lang = 'vi';
+  pg.UI.render();
+  assert.equal(foundNote(pg.dialog()).children[0].textContent, I.t('vi', 'notes.found'), 'and in Vietnamese');
+  assert.ok(foundItems(pg.dialog())[6].textContent.includes(I.t('vi', 'ks.pod.log')));
+});
+
+test("a fact or log found twice is listed once: two deltas (the first finder named), two supply caches, a region entered twice", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  Object.assign(m.expedition, {
+    regions: ['icy', 'plains', 'icy'], landmarks: { 'L0,2': { by: 'lena', round: 1 }, 'L0,1': { by: 'minh', round: 2 } },
+    structures: { 'S1,3': 'used', 'S-1,0': 'used' }, stats: { minh: { finds: {}, pods: 2 }, lena: { finds: {}, pods: 1 } },
+  });
+  pg.play(m);
+  const items = foundItems(notesOf(pg));
+  assert.deepEqual(items.map(titleOf), [en('region.icy'), en('region.plains'), en('lm.delta.name'), en('ks.cache.name'), en('ks.pod.name')]);
+  assert.ok(items[2].textContent.includes(en('disc.by', { name: en('name.lena') })) && !items[2].textContent.includes(en('name.minh')));
+});
+
+test("the Science note says when nothing has been found, is not there without a mission, and the notes after it end with the ISRU note and its sources", () => {
+  const pg = page();
+  assert.equal(foundNote(notesOf(pg)), null, 'no mission: only the notes that are always there');
+  pg.play(pg.mission({ seed: 'PAINT-QA-1' }));
+  const d = notesOf(pg), notes = walk(d, []).filter(n => n.tagName === 'ARTICLE');
+  assert.ok(foundNote(d).textContent.includes(en('notes.foundNone')));
+  assert.deepEqual(foundItems(d), []);
+  assert.equal(notes.length, 1 + pg.I.NOTES.en.length + 1, 'the found note, the notes that were always there, the ISRU note');
+  const isru = notes.at(-1);
+  assert.equal(isru.children[0].textContent, en('lesson.isruMars.title'));
+  assert.ok(isru.textContent.includes(en('lesson.isruMars.body')));
+  assert.deepEqual(linksOf(isru), ['isru', 'moxie', 'moxieInstruments', 'iceMap', 'lroIce', 'protonCeramics'].map(k => [pg.I.SOURCES[k].url, pg.I.SOURCES[k].label]), 'the lesson\'s own sources');
+  pg.UI.store.lang = 'vi';
+  pg.UI.render();
+  assert.ok(foundNote(pg.dialog()).textContent.includes(I.t('vi', 'notes.foundNone')));
+  assert.equal(walk(pg.dialog(), []).filter(n => n.tagName === 'ARTICLE').at(-1).children[0].textContent, I.t('vi', 'lesson.isruMars.title'));
+});
+
+test("a mission somebody edited by hand is skipped, not drawn: ids that are no region, landmark, formation or structure of this world, odd spellings, counts that are no numbers", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  Object.assign(m.expedition, {
+    regions: ['plains', 'nowhere', 3, null, {}],
+    landmarks: { 'L1,1': { by: 'minh', round: 0 }, 'L0,1x': 1, 'L-0,0': { by: 'minh', round: 0 }, 'L99999999,0': 1, junk: 1, 'L0,1': { by: 'nobody', round: 1 } },
+    sites: { 'F9,9:0': 0, 'Fx:0': 1, 'F2,0:0': 0, 'F01,0:0': 0, 'F1,0:1': 0, '__proto__:0': 0 },
+    structures: { 'S5,5': 'used', 'S9999999999,0': 'used', 'S01,1': 'used', 'S-1,0': '', 'S0,0': 'repaired' },
+    stats: { minh: { finds: {}, pods: 'many' }, lena: 7, diego: { finds: {}, pods: -3 }, kai: { pods: NaN }, yuki: [] },
+  });
+  pg.play(m);
+  const items = foundItems(notesOf(pg));
+  assert.deepEqual(items.map(titleOf), [en('region.plains'), en('lm.delta.name'), en('ks.weather.name')]);
+  assert.ok(!items[1].textContent.includes(en('disc.by', { name: '' }).trim()), 'a finder who is no crew member is not named');
+  m.expedition.stats = 5;
+  m.expedition.structures = [];
+  m.expedition.landmarks = 'L0,1';
+  m.expedition.regions = 'plains';
+  m.expedition.sites = null;
+  assert.deepEqual(foundItems(notesOf(pg)), [], 'and a record that is no list or map at all');
+});
+
+test("the Science note of a mission the explorer bot really played lists the landmark, formations and structures it used and the hab pods it visited, from the shapes the rules write", () => {
+  const Eng = require('../src/engine.js'), Dat = require('../src/data.js'), Wg = require('../src/worldgen.js'), { haulRound } = require('../tools/explorer.js');
+  const ids = (key, re) => key.match(re).slice(1).map(Number), uniq = a => [...new Set(a)];
+  for (const seed of ['FARM-1', 'FARM-3']) {
+    let s = Eng.createMission({ seed, loadout: Dat.REFERENCE_KITS.commander, events: false, pilot: 'diego' });
+    while (s.status === 'active') { haulRound(s, s.pilot, true); s = Eng.resolveTurn(s, Eng.defaultPlan(s)).state; }
+    const x = s.expedition, w = Wg.seedOf(seed);
+    assert.ok(Object.values(x.stats).some(st => st.pods > 0), seed + ': the bot refilled in hab pods');
+    // What the game itself says it found, each kind once, in the order the lists keep them.
+    const want = uniq([].concat(
+      Object.keys(x.landmarks).map(id => Dat.LANDMARKS.kinds[Wg.landmarkAt(w, ...ids(id, /^L(-?\d+),(-?\d+)$/)).kind].fact + '.name'),
+      Object.keys(x.sites).filter(id => id[0] === 'F').map(id => Dat.FORMATIONS.kinds[Wg.chunk(w, ...ids(id, /^F(-?\d+),(-?\d+):0$/)).formations[0].kind].fact + '.name'),
+      Object.keys(x.structures).map(id => Dat.STRUCTURES.kinds[Wg.structureAt(w, ...ids(id, /^S(-?\d+),(-?\d+)$/)).kind].log + '.name'),
+      ['ks.pod.name'])).map(k => en(k));
+    const pg = page();
+    pg.play(s);
+    assert.deepEqual(foundItems(notesOf(pg)).map(titleOf), want, seed);
+  }
 });
