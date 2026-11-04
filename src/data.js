@@ -121,6 +121,7 @@
       lab: { materials: 500, work: 2 },
       comms: { materials: 300, work: 1 },
       shelter: { materials: 300, work: 1.5 },
+      kit: { materials: 50, work: 1.5 }, // a relay beacon kit (spec §3.8): no tile, it waits at the base (expedition.kits)
     },
     BUILD_ORDER: ['shield', 'solar', 'battery', 'greenhouse', 'oxygen', 'recycler', 'icedrill',
       'habitat', 'medbay', 'workshop', 'shelter', 'comms', 'lab'],
@@ -242,6 +243,10 @@
       roverHome: 6,             // a rover left within this many tiles of the HQ goes back to its bay
       roverRange: 400,          // tiles the rover's battery drives per round (it recharges overnight)
       maxDrops: 40,             // dropped loads kept in the mission (the oldest go first)
+      // Relay beacons (spec §3.8): seconds of holding E to place one; tiles it stands at least from the HQ and from another
+      // beacon; the most a mission places; tiles from it that refill a suit (once a round each) and that it reveals. A kit
+      // is built like a module (BUILDS.kit) and takes one backpack slot.
+      beacon: { hold: 4, base: 12, apart: 10, max: 6, refill: 2, reveal: 12 },
     },
     // Dangers outside (spec §3.4, M4b). Seconds run on the round's clock: your surface's real time in solo play (it stops
     // while the console is open, like the suit), the server's clock in co-op. Distances are world tiles.
@@ -284,7 +289,8 @@
     // Kestrel Survey structures (fictional): one per 64×64 cell with a chance by region, at least 20 tiles from the HQ,
     // `size` tiles wide and deep. `hold` is the seconds of holding E (the Engineer's own in `engineer`); the pod has
     // none, you walk in. Rewards: a cache's loads, a wreck's metal loads and spare kit, the weather station's fog reveal
-    // (tiles), science and forecast rounds, the mast's marks (tiles), the pod's suit refills a round, the array's loads.
+    // (tiles), science and forecast rounds, the mast's marks (tiles), the array's loads. A pod refills a suit once a round
+    // for each crew member, as a relay beacon does (src/expedition.js, refill).
     STRUCTURES: {
       cell: 64, clear: 20,
       chance: { plains: 0.45, dunes: 0.25, craters: 0.35, canyons: 0.3, icy: 0.35, volcanic: 0.3 },
@@ -293,7 +299,7 @@
         wreck: { size: [3, 2], hold: 6, engineer: 3, metal: [2, 3], spares: 1, log: 'ks.wreck' },
         weather: { size: [2, 2], hold: 6, engineer: 3, reveal: 24, science: 20, forecast: 3, log: 'ks.weather' },
         mast: { size: [2, 2], hold: 6, engineer: 3, marks: 96, log: 'ks.mast' },
-        pod: { size: [5, 5], refills: 1, log: 'ks.pod' },
+        pod: { size: [5, 5], log: 'ks.pod' },
         array: { size: [4, 2], hold: 5, materials: 2, log: 'ks.array' },
       },
     },

@@ -834,3 +834,158 @@ test("a mission saved by 3.4.0 loads with the points of interest's state: no for
     assert.equal(E.upgradeMission(s, {}).expedition.forecastUntil, -1, 'a hand-edited forecast is none: ' + String(junk));
   }
 });
+
+// ---------- relay beacons (spec §3.8, M4d) ----------
+const KIT_ITEM = { kind: 'kit', res: 'kit', amount: 1 };
+
+test('a beacon kit is taken from the base into a backpack slot, and put back the same way', () => {
+  const m = solo(), x = m.expedition, ice = { kind: 'ice', res: 'water', amount: 40 };
+  assert.deepEqual(X.takeKit(m, 'minh', HOME), { error: 'noKit' }, 'none built yet');
+  x.kits = 2;
+  const before = snap(m);
+  assert.deepEqual(X.takeKit(m, 'minh', at(5, 0)), { error: 'notAtBase' });
+  assert.deepEqual(X.takeKit(m, 'minh', null), { error: 'notAtBase' });
+  assert.deepEqual(X.takeKit(m, 'nobody', HOME), { error: 'noCrew' });
+  assert.equal(snap(m), before, 'a refused action changes nothing');
+  assert.deepEqual(X.takeKit(m, 'minh', at(3, 0)), { ok: true, kits: 1 }, 'in the base zone, with the slack every action gets');
+  assert.deepEqual(x.carried.minh, [KIT_ITEM]);
+  x.carried.minh.push(ice, ice);
+  assert.deepEqual(X.takeKit(m, 'minh', HOME), { error: 'full' }, 'it takes a slot: 3 on foot');
+  assert.equal(x.kits, 1);
+  assert.deepEqual(X.returnKit(m, 'minh', at(5, 0)), { error: 'notAtBase' });
+  assert.deepEqual(X.returnKit(m, 'minh', HOME), { ok: true, kits: 2 });
+  assert.deepEqual(x.carried.minh, [ice, ice], 'the loads stay');
+  assert.deepEqual(X.returnKit(m, 'minh', HOME), { error: 'noKit' }, 'none carried');
+});
+
+test('delivering banks the finds and keeps the kit, so it goes out again: a kit is never banked as a resource', () => {
+  const m = solo(), f = first(m, 'metal'), x = m.expedition;
+  x.kits = 1;
+  X.takeKit(m, 'minh', HOME);
+  X.collect(m, 'minh', f.id, at(f.x, f.y));
+  const r = X.deliver(m, 'minh', HOME);
+  assert.deepEqual(r.items.map(it => it.kind), ['metal']);
+  assert.deepEqual(x.carried.minh, [KIT_ITEM]);
+  assert.equal(x.banked.materials, 40);
+  assert.deepEqual(x.banked.lines.map(l => l.kind), ['metal']);
+  assert.deepEqual(X.deliver(m, 'minh', HOME), { error: 'empty' }, 'a kit alone is nothing to deliver');
+  assert.equal(x.kits, 0);
+});
+
+// A crew member with a kit in their backpack, as takeKit leaves them; and whether the fog shows a tile.
+const withKit = (m, id) => { m.expedition.carried[id] = (m.expedition.carried[id] || []).concat([E.kitItem()]); return m; };
+function seen(x, tx, ty) {
+  const cx = Math.floor(tx / 32), cy = Math.floor(ty / 32), k = cx + ',' + cy, bits = x.revealed[k] && F.decode(x.revealed[k]);
+  return !!bits && F.has(bits, tx - cx * 32, ty - cy * 32) === 1;
+}
+
+test('a relay beacon goes on the tile you stand on and uses up your kit; it reveals the fog within 12 tiles, for good', () => {
+  const m = withKit(solo('EXP-1'), 'minh'), x = m.expedition;
+  m.schedule[m.turn].weather = 'global'; // a dust storm cuts how far you see, never what a beacon reveals
+  const r = X.placeBeacon(m, 'minh', at(12, 0));
+  assert.equal(r.ok, true);
+  assert.equal(r.beacon, 'B0');
+  assert.deepEqual(x.beacons, [{ x: 12, y: 0, by: 'minh', round: m.turn }]);
+  assert.deepEqual(x.carried.minh, [], 'the kit is used up');
+  assert.deepEqual(r.fog, x.revealed, "what it revealed, for the co-op server to share as it does a weather station's");
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    assert.ok(seen(x, 12 + 12 * dx, 12 * dy), '12 tiles out, ' + [dx, dy]);
+    assert.ok(!seen(x, 12 + 13 * dx, 13 * dy), 'not 13, ' + [dx, dy]);
+  }
+  withKit(m, 'diego');
+  assert.equal(X.placeBeacon(m, 'diego', at(12, 10)).beacon, 'B1', 'each id is its place in the order they were placed');
+  assert.deepEqual(x.beacons[1], { x: 12, y: 10, by: 'diego', round: m.turn });
+});
+
+test('a beacon stands 12 tiles or more from the HQ and 10 from any other, 6 a mission, from a kit you carry: beaconSpot says why not, how far is still to go and which beacon is in the way, changing nothing', () => {
+  const m = solo('EXP-1'), x = m.expedition;
+  assert.deepEqual(X.beaconSpot(m, 'minh', at(12, 0)), { error: 'noKit' });
+  withKit(m, 'minh');
+  x.beacons.push({ x: 12, y: 0, by: 'lena', round: 0 }, { x: 20, y: 8, by: 'lena', round: 0 });
+  const before = snap(m);
+  assert.deepEqual(X.beaconSpot(m, 'minh', at(11, 0)), { error: 'nearBase', need: 1 });
+  const diag = X.beaconSpot(m, 'minh', at(8, 8));
+  assert.equal(diag.error, 'nearBase');
+  assert.ok(Math.abs(diag.need - (12 - Math.sqrt(128))) < 1e-12, String(diag.need));
+  assert.deepEqual(X.beaconSpot(m, 'minh', at(-12, 0)), { ok: true, x: -12, y: 0 }, 'exactly 12 tiles out, on the tile under you');
+  const near = X.beaconSpot(m, 'minh', at(14, 7));
+  assert.deepEqual([near.error, near.beacon], ['nearBeacon', 'B1'], 'the nearer of the two in the way');
+  assert.ok(Math.abs(near.need - (10 - Math.sqrt(37))) < 1e-12, String(near.need));
+  assert.deepEqual(X.beaconSpot(m, 'minh', at(12, -10)), { ok: true, x: 12, y: -10 }, 'exactly 10 tiles from B0');
+  assert.deepEqual(X.beaconSpot(m, 'minh', null), { error: 'badPos' });
+  assert.deepEqual(X.placeBeacon(m, 'minh', at(14, 7)), near, 'placeBeacon refuses with the same answer');
+  assert.equal(snap(m), before, 'asking changes nothing');
+  for (let i = 2; i < D.EXPEDITION.beacon.max; i++) x.beacons.push({ x: 100 * i, y: 0, by: 'lena', round: 0 });
+  assert.deepEqual(X.placeBeacon(m, 'minh', at(12, -10)), { error: 'limit' }, '6 a mission');
+  x.beacons.length = 2;
+  const c = withKit(coop('EXP-1'), 'minh');
+  c.expedition.collapsed.minh = { x: 800, y: 0 };
+  assert.deepEqual(X.placeBeacon(c, 'minh', at(12, 0)), { error: 'collapsed' });
+  m.crew.find(k => k.id === 'minh').status = 'dead';
+  assert.deepEqual(X.placeBeacon(m, 'minh', at(12, -10)), { error: 'notActive' });
+  assert.deepEqual(m.expedition.carried.minh, [KIT_ITEM], 'the kit stays in the backpack each time');
+});
+
+test("a beacon needs open ground: no wall or boulder, no structure's footprint (a hab pod's floor and door too), not on or beside a landmark's prop", () => {
+  const m = withKit(solo('EXP-1'), 'minh'), before = snap(m);
+  for (const [tx, ty, what] of [[14, -3, 'a boulder'], [199, 10, "a weather station's wall"], [32, -55, "a hab pod's floor"], [32, -53, "a hab pod's door"],
+    [-81, 104, 'the methane vent'], [-80, 105, 'beside the vent'], [828, 139, "a lava tube's skylight"], [828, 140, 'beside it, outside'], [828, 138, 'beside it, inside']]) {
+    assert.deepEqual(X.placeBeacon(m, 'minh', at(tx, ty)), { error: 'blocked' }, what);
+  }
+  assert.equal(snap(m), before, 'a refused action changes nothing');
+  for (const [tx, ty, what] of [[32, -52, "a step out of the pod's door"], [200, 12, "the weather station's door"], [-79, 104, 'two tiles from the vent'], [826, 137, "the lava tube's floor"]]) {
+    assert.deepEqual(X.beaconSpot(m, 'minh', at(tx, ty)), { ok: true, x: tx, y: ty }, what);
+  }
+});
+
+test('a beacon refills your suit within 2 tiles, once a round for each crew member, sharing the round\'s refills with the hab pods', () => {
+  const m = solo('EXP-1'), x = m.expedition;
+  x.beacons.push({ x: 12, y: 0, by: 'lena', round: 0 });
+  x.suits.minh = 40;
+  assert.deepEqual(X.refill(m, 'minh', 'B0', at(15, 0)), { ok: true, suit: D.EXPEDITION.suit }, '3 tiles off: 2, and the slack every action gets');
+  assert.equal(x.suits.minh, D.EXPEDITION.suit);
+  assert.deepEqual(x.refills, { minh: ['B0'] });
+  const before = snap(m);
+  assert.deepEqual(X.refill(m, 'minh', 'B0', at(12, 0)), { error: 'refilled' }, 'once a round');
+  assert.equal(snap(m), before);
+  assert.equal(X.refill(m, 'minh', 'S0,-1', at(32, -55)).ok, true, 'a hab pod is another refill the same round');
+  assert.deepEqual(x.refills, { minh: ['B0', 'S0,-1'] });
+  assert.equal(X.refill(m, 'diego', 'B0', at(12, 1)).ok, true, 'each crew member has their own');
+  const { state } = E.resolveTurn(m, E.defaultPlan(m));
+  assert.deepEqual(state.expedition.refills, {}, 'the advance clears them');
+  assert.equal(X.refill(state, 'minh', 'B0', at(12, 0)).ok, true, 'and the next round it refills again');
+});
+
+test('a beacon refill is refused from further than 3.5 tiles, at a beacon not placed and for an odd spelling, changing nothing', () => {
+  const m = solo('EXP-1'), x = m.expedition, off = d => ({ x: (12.5 + d) * T, y: 0.5 * T });
+  x.beacons.push({ x: 12, y: 0, by: 'lena', round: 0 });
+  const before = snap(m);
+  assert.deepEqual(X.refill(m, 'minh', 'B0', off(3.6)), { error: 'tooFar' });
+  assert.deepEqual(X.refill(m, 'minh', 'B1', at(12, 0)), { error: 'noBeacon' });
+  for (const id of ['B01', 'b0', 'B-1', 'B0:0', 'B']) assert.deepEqual(X.refill(m, 'minh', id, at(12, 0)), { error: 'noStructure' }, id);
+  assert.deepEqual(X.refill(m, 'minh', 'B0', null), { error: 'badPos' });
+  assert.equal(snap(m), before);
+  assert.equal(X.refill(m, 'minh', 'B0', off(3.4)).ok, true);
+});
+
+test('the route home links each beacon to the nearest of the HQ and the beacons placed before it, so a new beacon never moves the others', () => {
+  const m = solo('EXP-1'), x = m.expedition, place = (bx, by) => x.beacons.push({ x: bx, y: by, by: 'lena', round: 0 });
+  assert.deepEqual(X.routeHome(m), []);
+  place(15, 0); // 15 tiles from the HQ
+  place(27, 0); // 12 from B0
+  place(-14, 0); // 14 from the HQ, 29 from B0
+  const three = X.routeHome(m);
+  place(27, 12); // 12 from B1, 17 from B0
+  assert.deepEqual(X.routeHome(m), [
+    { from: 'B0', to: 'base', x0: 15, y0: 0, x1: 0, y1: 0 },
+    { from: 'B1', to: 'B0', x0: 27, y0: 0, x1: 15, y1: 0 },
+    { from: 'B2', to: 'base', x0: -14, y0: 0, x1: 0, y1: 0 },
+    { from: 'B3', to: 'B1', x0: 27, y0: 12, x1: 27, y1: 0 },
+  ]);
+  assert.deepEqual(X.routeHome(m).slice(0, 3), three, 'the links before it are unchanged');
+  x.beacons.length = 0;
+  place(14, 0); place(0, 14); place(14, 14); place(7, -12);
+  const before = snap(m);
+  assert.deepEqual(X.routeHome(m).map(k => k.from + '>' + k.to), ['B0>base', 'B1>base', 'B2>B0', 'B3>base'], 'a tie goes to the HQ, then to the oldest beacon');
+  assert.equal(snap(m), before, 'worked out each time, never stored');
+});

@@ -400,3 +400,12 @@ test('one table runs every exploring action a game asks for, solo or on the serv
     assert.deepEqual(Z.act(m, 'minh', type, {}, at(0, 1)), { error: 'badAction' }, String(type));
   }
 });
+
+test('a relay beacon is no cover from a solar flare: it refills and reveals, nothing more (spec §13.12)', () => {
+  const m = solo('DNG-1', { spe: true });
+  m.expedition.beacons.push({ x: 12, y: 0, by: 'minh', round: 0 });
+  assert.equal(Z.shelterAt(m, at(12, 0), D.EXPEDITION.reach), null);
+  assert.deepEqual(Z.coversIn(m, 9, -3, 15, 3), [], 'no ring for the surface to draw');
+  Z.flareStart(m, 5);
+  assert.deepEqual(Z.flareEnd(m, { minh: at(12, 0) }, 0, 95).hit, ['minh'], 'standing by it, you are caught in the open');
+});

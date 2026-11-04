@@ -246,7 +246,10 @@
     park: (m, id, b, pos) => X.park(m, id, pos, b.driven),
     discover: (m, id, b, pos) => X.discover(m, id, b.landmark, pos),
     interact: (m, id, b, pos) => X.interact(m, id, b.structure, pos),
-    refill: (m, id, b, pos) => X.refill(m, id, b.pod, pos),
+    refill: (m, id, b, pos) => X.refill(m, id, b.beacon || b.pod, pos), // a relay beacon's id ("B<i>") or a hab pod's
+    takeKit: (m, id, b, pos) => X.takeKit(m, id, pos),
+    returnKit: (m, id, b, pos) => X.returnKit(m, id, pos),
+    placeBeacon: (m, id, b, pos) => X.placeBeacon(m, id, pos),
     // Solo play's flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
     // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
     flareStart: (m, id, b) => flareStart(m, b.t),

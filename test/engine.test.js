@@ -327,6 +327,54 @@ test('construction work with nothing to build turns regolith into materials', ()
   assert.ok(next.resources.materials > st.resources.materials);
 });
 
+// Relay beacon kits (spec §3.8, M4d): built through construction, they wait at the base in the expedition.
+const KIT_ITEM = { kind: 'kit', res: 'kit', amount: 1 };
+
+test('a relay beacon kit is a build of 50 kg and 1.5 work points; finished, it waits at the base and the report lists it', () => {
+  assert.deepEqual(D.BUILDS.kit, { materials: 50, work: 1.5 });
+  const st = calm();
+  const plan = allJobs(st, 'science');
+  plan.jobs.lena = 'construction'; // the engineer's 1.5 points finish it in the round
+  plan.builds = [{ type: 'kit' }];
+  assert.deepEqual(E.canBuild(st, 'kit', []), { ok: true }, 'it needs no spot on the build grid');
+  const f = E.forecast(st, plan);
+  assert.equal(f.delta.materials, -D.BUILDS.kit.materials + f.regolith);
+  const { state: next, report } = E.resolveTurn(st, plan);
+  assert.deepEqual([report.started, report.completed], [['kit'], ['kit']], 'started and completed, as any build');
+  assert.equal(next.expedition.kits, 1);
+  assert.deepEqual(next.projects, []);
+  assert.deepEqual(next.layout, st.layout, 'nothing stands on the build grid');
+  assert.equal(next.totals.built, 1, 'a construction project like any other');
+});
+
+test('kits stop at the 6 beacons a mission places: those placed, at the base, in a backpack, being built and queued all count', () => {
+  const st = calm();
+  st.resources.materials = 2000;
+  Object.assign(st.expedition, { beacons: [{ x: 20, y: 0, by: 'lena', round: 0 }], kits: 2, carried: { minh: [KIT_ITEM], diego: 'junk' } });
+  st.projects.push({ type: 'kit', x: null, y: null, progress: 0, work: 1.5 });
+  assert.deepEqual(E.canBuild(st, 'kit', []), { ok: true }, '1 placed, 2 at the base, 1 carried, 1 being built: room for one more');
+  assert.deepEqual(E.canBuild(st, 'kit', [{ type: 'kit' }]), { ok: false, reason: 'max' }, 'and one queued fills it');
+  const plan = allJobs(st, 'construction');
+  plan.builds = [{ type: 'kit' }, { type: 'kit' }];
+  assert.deepEqual(E.forecast(st, plan).started, ['kit'], 'only the first of two starts');
+  const poor = calm({ materials: 0 });
+  poor.resources.materials = 49;
+  assert.deepEqual(E.canBuild(poor, 'kit', []), { ok: false, reason: 'materials' });
+});
+
+test("a build or a scrap named like a property every object has ('__proto__', 'toString') is unknown: nothing starts or is scrapped, and nothing reaches Object.prototype", () => {
+  const st = calm(), plan = allJobs(st, 'maintenance'); // a co-op player's plan may name any type
+  plan.jobs.lena = 'construction';
+  const plain = E.resolveTurn(st, plan).state;
+  for (const type of ['__proto__', 'toString', 'constructor', 'hasOwnProperty']) {
+    assert.deepEqual(E.canBuild(st, type, []), { ok: false, reason: 'unknown' }, type);
+    const { state, report } = E.resolveTurn(st, Object.assign({}, plan, { builds: [{ type }], scrap: [type] }));
+    assert.deepEqual([report.started, report.scrapped], [[], []], type);
+    assert.deepEqual(state.resources, plain.resources, type + ': no NaN materials and no free spare');
+  }
+  assert.equal(({}).count, undefined, 'Object.prototype is untouched');
+});
+
 // ---------- repairs ----------
 
 test('repairs need a maintenance crew and use one spare kit each', () => {
@@ -798,6 +846,19 @@ test('in co-op an astronaut still collapsed at the advance counts as a collapse 
   assert.deepEqual(b.state.expedition.collapsed, {});
 });
 
+test('a beacon kit still carried at the advance is back at the base, never banked; one a collapsed astronaut held waits where they fell', () => {
+  const s = E.createMission({ seed: 'COOP-K', loadout: kit(), events: false, coop: true });
+  Object.assign(s.expedition, { kits: 1, collapsed: { diego: { x: 900, y: -640 } }, carried: { minh: [KIT_ITEM, METAL, KIT_ITEM], diego: [KIT_ITEM] } });
+  const { state, report } = E.resolveTurn(s, E.defaultPlan(s));
+  const x = state.expedition;
+  assert.equal(x.kits, 3, "minh's two are back at the base");
+  assert.deepEqual(x.carried, {});
+  assert.equal(x.banked.materials, 40, 'the metal is banked as usual');
+  assert.deepEqual(x.banked.lines.map(l => l.kind), ['metal'], 'the kits are not');
+  assert.deepEqual(x.drops, [{ id: '0:diego', x: 900, y: -640, items: [KIT_ITEM] }]);
+  assert.deepEqual(report.expedition.lines, [], 'nothing was delivered this round');
+});
+
 test('everyone starts the next round at the base with a full suit; a driven rover comes home, a parked one stays', () => {
   const s = calm();
   Object.assign(s.expedition, { suits: { lena: 12 }, benched: ['minh'], rover: { driver: 'lena' }, roverDriven: 123, refills: { minh: 1 } });
@@ -909,6 +970,27 @@ test('a saved incident that is not { crewId, kind } is dropped, so the advance s
   assert.deepEqual(up.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }]);
   const r = E.resolveTurn(up, E.defaultPlan(up));
   assert.deepEqual(r.report.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }]);
+});
+
+test("a saved relay beacon state is repaired: a beacon that isn't { x, y, by, round } on a tile is dropped, kits are a whole number, refills are lists of ids, a carried kit is a kit item", () => {
+  const s = calm(), B = { x: 12, y: 0, by: 'minh', round: 0 }, ice = { kind: 'ice', res: 'water', amount: 40 };
+  Object.assign(s.expedition, {
+    beacons: [null, 'B0', B, { x: '20', y: 0, by: 'minh', round: 0 }, { x: 20.5, y: 0, by: 'minh', round: 0 }, { x: 20, y: 0, round: 0 }, { x: 20, y: 0, by: 'lena' }],
+    kits: 1.5,
+    refills: { minh: ['B0', 3, null, 'S0,-1'], lena: 1, diego: 'B0' },
+    carried: { minh: [{ kind: 'kit' }, ice, { kind: 'kit', res: 'materials', amount: 500 }], lena: 'junk' },
+  });
+  const up = E.upgradeMission(s, {}), x = up.expedition;
+  assert.deepEqual(x.beacons, [B]);
+  assert.equal(x.kits, 1, 'a whole kit');
+  assert.deepEqual(x.refills, { minh: ['B0', 'S0,-1'], lena: [], diego: [] });
+  assert.deepEqual(x.carried.minh, [KIT_ITEM, ice, KIT_ITEM], 'a kit is never 500 kg of materials');
+  const neg = calm();
+  neg.expedition.kits = -2;
+  assert.equal(E.upgradeMission(neg, {}).expedition.kits, 0, 'never fewer than none');
+  const next = E.resolveTurn(up, E.defaultPlan(up)).state.expedition;
+  assert.equal(next.kits, 3, "the advance still runs: minh's two kits are back at the base");
+  assert.equal(next.banked.water, 40, 'and the ice is banked');
 });
 
 test('an O₂ canister carried home offsets an oxygen leak: the decision card is unchanged and the 30 kg count first', () => {

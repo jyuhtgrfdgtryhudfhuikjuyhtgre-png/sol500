@@ -724,3 +724,46 @@ test('co-op: a hab pod refills a suit through the server from inside it, once a 
   R.position(room, host, at(31, -55));
   assert.equal(say(R, room, host, 'refill', { pod: 'S0,-1' }).status, 200, 'a crewmate has their own');
 });
+
+// ---------- co-op relay beacons (M4d) ----------
+// EXP-1's tile (12, 0) is open ground 12 tiles east of the HQ: a beacon may stand there.
+
+test('co-op: a beacon kit is taken out and put back through the server, in the base zone, and every tab sees where it is', () => {
+  const { R, room, guest, hc } = inMission('EXP-1');
+  room.mission.expedition.kits = 1;
+  R.position(room, guest, at(5, 0));
+  assert.equal(say(R, room, guest, 'takeKit').body.error, 'notAtBase', 'past the base zone and its slack');
+  R.position(room, guest, at(0, 1));
+  const mark = hc.got.length;
+  assert.deepEqual(say(R, room, guest, 'takeKit').body, { ok: true, kits: 0 });
+  const x = frames(hc, mark).at(-1).data.mission.expedition;
+  assert.deepEqual([x.kits, x.carried.minh], [0, [E.kitItem()]]);
+  assert.equal(say(R, room, guest, 'takeKit').body.error, 'noKit');
+  assert.deepEqual(say(R, room, guest, 'returnKit').body, { ok: true, kits: 1 });
+  assert.deepEqual(room.mission.expedition.carried.minh, []);
+});
+
+test("co-op: a relay beacon is placed through the server where it last saw you, its fog reaches every tab, and a crewmate's suit is refilled by it", async () => {
+  const { R, room, host, guest, hc, gc } = inMission('EXP-1');
+  room.mission.expedition.kits = 1;
+  R.position(room, guest, at(0, 1));
+  say(R, room, guest, 'takeKit');
+  R.position(room, guest, at(11, 0));
+  assert.equal(say(R, room, guest, 'placeBeacon').body.error, 'nearBase', '11 tiles from the HQ');
+  R.position(room, guest, at(12, 0));
+  const mark = hc.got.length, r = say(R, room, guest, 'placeBeacon');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.beacon, 'B0');
+  assert.deepEqual(frames(hc, mark).at(-1).data.mission.expedition.beacons, [{ x: 12, y: 0, by: 'minh', round: room.mission.turn }], 'everyone sees it');
+  assert.deepEqual(Object.keys(r.body.fog).sort(), ['0,-1', '0,0'], 'it revealed the fog within 12 tiles');
+  await wait(650);
+  for (const c of [hc, gc]) {
+    const fog = c.got.slice(mark).filter(m => m.type === 'fog');
+    assert.equal(fog.length, 1);
+    assert.deepEqual(fog[0].data, r.body.fog);
+  }
+  assert.equal(say(R, room, guest, 'placeBeacon').body.error, 'noKit', 'the kit is used up');
+  R.position(room, host, Object.assign(at(14, 1), { suit: 30 }));
+  assert.deepEqual(say(R, room, host, 'refill', { beacon: 'B0' }).body, { ok: true, suit: D.EXPEDITION.suit }, 'a beacon refill names the beacon');
+  assert.equal(say(R, room, host, 'refill', { beacon: 'B0' }).body.error, 'refilled', 'once a round');
+});

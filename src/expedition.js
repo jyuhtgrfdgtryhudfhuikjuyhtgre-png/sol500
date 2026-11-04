@@ -19,9 +19,15 @@
  *      board(m, crewId, pos) · park(m, crewId, pos, driven)
  *      discover(m, crewId, landmarkId, pos) → { ok, landmark, science }: the first sighting of a landmark's centre
  *      interact(m, crewId, structId, pos) → { ok, done: 'used' | 'repaired', items, left, fog }: a Kestrel structure
- *      refill(m, crewId, podId, pos) → { ok, suit }: a full suit inside a hab pod, once per pod for each crew member a round
+ *      refill(m, crewId, id, pos) → { ok, suit }: a full suit inside a hab pod ("S<i>,<j>") or by a relay beacon ("B<i>"),
+ *        once at each for each crew member a round
  *      forecastAhead(m) → next round's weather while a repaired weather station forecasts it, or null
  *      mastMarks(m) → [{ id, x, y, kind }]: what the repaired comms masts mark on the minimap (world tiles)
+ *      takeKit(m, crewId, pos) · returnKit(m, crewId, pos) → { ok, kits }: a relay beacon kit from the base into your
+ *        backpack, or back (kits: those left at the base)
+ *      beaconSpot(m, crewId, pos) → { ok, x, y } (the tile) or { error, need?, beacon? }: may a beacon go where you stand?
+ *        No changes · placeBeacon(m, crewId, pos) → { ok, beacon: "B<i>", fog }: places one there from your kit
+ *      routeHome(m) → [{ from, to, x0, y0, x1, y1 }]: the dashed route home, a link a beacon (world tiles)
  *      roverLeft(m) → tiles the rover can still drive this round · setRoverDriven(m, crewId, tiles) (the driver's game)
  *      cacheSize() → data chunks in the shared world cache (at most 256)
  * Solar flares, shelters, dust devils and how far you can see are src/dangers.js.
@@ -216,16 +222,17 @@
     return { ok: true, item, left: f.left - 1 };
   }
 
-  // Everything in your backpack goes into the round's bank; it counts when the round advances.
+  // Everything in your backpack goes into the round's bank; it counts when the round advances. A beacon kit stays in the
+  // backpack: you are taking it out (returnKit puts it back with the base's kits).
   function deliver(m, crewId, pos) {
     const a = able(m, crewId);
     if (a.error) return a;
     if (!inBaseZone(pos, X.reach)) return { error: 'notAtBase' };
-    const x = m.expedition, mine = pack(x, crewId);
-    if (!mine.length) return { error: 'empty' };
-    for (const it of mine) E.bankItem(x.banked, crewId, it, false);
-    x.carried[crewId] = [];
-    return { ok: true, items: mine };
+    const x = m.expedition, mine = pack(x, crewId), items = mine.filter(it => !E.isKit(it));
+    if (!items.length) return { error: 'empty' };
+    for (const it of items) E.bankItem(x.banked, crewId, it, false);
+    x.carried[crewId] = mine.filter(E.isKit);
+    return { ok: true, items };
   }
 
   // Breathes an O₂ canister from your backpack now: +45 s of suit. Only outside the base zone, and only when your suit has
@@ -453,21 +460,31 @@
     st.structures = (st.structures || 0) + 1;
     return { ok: true, done: x.structures[s.id], items, left: rest.length, fog };
   }
-  // An abandoned hab pod is walked into, not used: inside it your suit is filled up, once per pod for each crew member each
-  // round (x.refills[crewId] holds the pods, C3; the advance clears it). Inside = in its footprint, with the slack every
-  // action gets (its footprint lies 3 tiles inside its cell, so the cell's guard never refuses you there).
-  function refill(m, crewId, podId, pos) {
+  // An abandoned hab pod is walked into, not used, and a relay beacon (spec §3.8) is stood by: there your suit is filled
+  // up, once at each for each crew member each round (x.refills[crewId] holds the pods' and beacons' ids, C3; the advance
+  // clears it). Inside a pod = in its footprint, with the slack every action gets (its footprint lies 3 tiles inside its
+  // cell, so the cell's guard never refuses you there); by a beacon = within its `refill` tiles, plus the slack. A beacon's
+  // id is "B<i>", its place in x.beacons.
+  const BID = /^B(\d{1,2})$/;
+  function refill(m, crewId, id, pos) {
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
-    const s = poiAt(m, podId, pos, STRUCTURE), x = m.expedition;
-    if (s.error) return s;
-    if (s.kind !== 'pod') return { error: 'badKind' };
-    const b = s.box, r = X.reach, tx = pos.x / T, ty = pos.y / T;
-    if (tx < b[0] - r || tx >= b[2] + 1 + r || ty < b[1] - r || ty >= b[3] + 1 + r) return { error: 'tooFar' };
+    const x = m.expedition, g = idNums(BID, id);
+    if (g) {
+      const k = x.beacons[g[0]];
+      if (!k) return { error: 'noBeacon' };
+      if (!nearPx(pos, (k.x + 0.5) * T, (k.y + 0.5) * T, X.beacon.refill + X.reach)) return { error: 'tooFar' };
+    } else {
+      const s = poiAt(m, id, pos, STRUCTURE);
+      if (s.error) return s;
+      if (s.kind !== 'pod') return { error: 'badKind' };
+      const b = s.box, r = X.reach, tx = pos.x / T, ty = pos.y / T;
+      if (tx < b[0] - r || tx >= b[2] + 1 + r || ty < b[1] - r || ty >= b[3] + 1 + r) return { error: 'tooFar' };
+    }
     const had = Array.isArray(x.refills[crewId]) ? x.refills[crewId] : [];
-    if (had.includes(s.id)) return { error: 'refilled' };
-    x.refills[crewId] = had.concat([s.id]);
+    if (had.includes(id)) return { error: 'refilled' };
+    x.refills[crewId] = had.concat([id]);
     x.suits[crewId] = X.suit;
     return { ok: true, suit: X.suit };
   }
@@ -507,10 +524,91 @@
     return out;
   }
 
+  // ---------- relay beacons (spec §3.8, M4d) ----------
+  // A finished beacon kit waits at the base (x.kits). In the base zone you take one into your backpack, where it takes a
+  // slot like a load, and put it back the same way. Delivering leaves it in the backpack; the advance brings any still
+  // carried back to the base (src/engine.js). Both return the kits left at the base.
+  function takeKit(m, crewId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!inBaseZone(pos, X.reach)) return { error: 'notAtBase' };
+    const x = m.expedition, mine = pack(x, crewId);
+    if (!(x.kits > 0)) return { error: 'noKit' };
+    if (mine.length >= capacity(m, crewId)) return { error: 'full' };
+    x.kits -= 1;
+    x.carried[crewId] = mine.concat([E.kitItem()]);
+    return { ok: true, kits: x.kits };
+  }
+  function returnKit(m, crewId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!inBaseZone(pos, X.reach)) return { error: 'notAtBase' };
+    const x = m.expedition, mine = pack(x, crewId), i = mine.findIndex(E.isKit);
+    if (i < 0) return { error: 'noKit' };
+    x.carried[crewId] = mine.slice(0, i).concat(mine.slice(i + 1));
+    x.kits += 1;
+    return { ok: true, kits: x.kits };
+  }
+
+  // Where a beacon may go: the tile under you, open ground `base` tiles or more from the HQ and `apart` from every other
+  // beacon, with a kit in your backpack and fewer than `max` placed this mission. It changes nothing: placeBeacon asks it
+  // first, and the surface asks it before the hold, to word its prompt. → { ok: true, x, y } (the tile) or { error };
+  // 'nearBase' and 'nearBeacon' carry `need`, the tiles still to go, and 'nearBeacon' `beacon`, the id of the nearest.
+  function beaconSpot(m, crewId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!okPos(pos)) return { error: 'badPos' };
+    const x = m.expedition, B = X.beacon;
+    if (!pack(x, crewId).some(E.isKit)) return { error: 'noKit' };
+    if (x.beacons.length >= B.max) return { error: 'limit' };
+    const tx = Math.floor(pos.x / T), ty = Math.floor(pos.y / T), home = tx * tx + ty * ty;
+    if (home < B.base * B.base) return { error: 'nearBase', need: B.base - Math.sqrt(home) };
+    let near = -1, d2 = Infinity;
+    x.beacons.forEach((b, i) => { const d = (b.x - tx) * (b.x - tx) + (b.y - ty) * (b.y - ty); if (d < d2) { near = i; d2 = d; } });
+    if (d2 < B.apart * B.apart) return { error: 'nearBeacon', beacon: 'B' + near, need: B.apart - Math.sqrt(d2) };
+    if (!openGround(m, tx, ty)) return { error: 'blocked' };
+    return { ok: true, x: tx, y: ty };
+  }
+  // Open ground: a tile collision lets you onto (no wall, cliff or boulder: W.BLOCKING), outside every structure's footprint
+  // (a hab pod's floor and door are no walls) and not on or beside a landmark's prop, the lava tube's skylight or the
+  // methane vent, which the surface draws over the tiles round it.
+  const propOf = l => (l.kind === 'tube' ? l.skylight : l.kind === 'methane' ? [l.x, l.y] : null);
+  function openGround(m, tx, ty) {
+    const C = W.CHUNK, cx = Math.floor(tx / C), cy = Math.floor(ty / C), c = chunkAt(m, cx, cy), t = W.tileOf(c, tx - cx * C, ty - cy * C);
+    if (W.BLOCKING[t] || t === W.TILE.STRUCT_FLOOR) return false;
+    return !c.landmarks.some(l => { const p = propOf(l); return !!p && Math.abs(p[0] - tx) <= 1 && Math.abs(p[1] - ty) <= 1; });
+  }
+  // Places a relay beacon where beaconSpot allows, from the kit in your backpack: { x, y, by, round } joins x.beacons (its
+  // id is "B<i>", its place in the list) and it reveals the fog within `reveal` tiles once, for good: fog is shared and
+  // never grows back, and no dust storm cuts it (spec §3.4). → { ok, beacon: its id, fog: what changed, as interact's }.
+  function placeBeacon(m, crewId, pos) {
+    const s = beaconSpot(m, crewId, pos);
+    if (s.error) return s;
+    const x = m.expedition, mine = pack(x, crewId), k = mine.findIndex(E.isKit);
+    x.carried[crewId] = mine.slice(0, k).concat(mine.slice(k + 1));
+    x.beacons.push({ x: s.x, y: s.y, by: crewId, round: m.turn });
+    return { ok: true, beacon: 'B' + (x.beacons.length - 1), fog: revealAround(m, s.x + 0.5, s.y + 0.5, X.beacon.reveal) };
+  }
+  // The dashed route home: each beacon links to the nearest of the HQ and the beacons placed before it (a tie goes to the
+  // HQ, then to the oldest), so a new beacon never moves the others' links and every chain ends at the base. Worked out
+  // from x.beacons each time, never stored. → [{ from, to, x0, y0, x1, y1 }], one a beacon in the order they were placed:
+  // from its id to 'base' or a beacon's id, from its tile to that one's, in world tiles (the HQ is tile 0, 0).
+  function routeHome(m) {
+    const bs = m.expedition.beacons;
+    return bs.map((b, i) => {
+      let to = 'base', x1 = 0, y1 = 0, best = b.x * b.x + b.y * b.y;
+      for (let j = 0; j < i; j++) {
+        const o = bs[j], d = (o.x - b.x) * (o.x - b.x) + (o.y - b.y) * (o.y - b.y);
+        if (d < best) { best = d; to = 'B' + j; x1 = o.x; y1 = o.y; }
+      }
+      return { from: 'B' + i, to, x0: b.x, y0: b.y, x1, y1 };
+    });
+  }
+
   return {
     findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
-    interact, refill, forecastAhead, mastMarks,
+    interact, refill, forecastAhead, mastMarks, takeKit, returnKit, beaconSpot, placeBeacon, routeHome,
     cacheSize: () => cache.size,
   };
 });

@@ -37,7 +37,6 @@ test("the points of interest follow the spec's tables: kinds, regions, sizes, ho
   assert.deepEqual([S.kinds.wreck.metal, S.kinds.wreck.spares], [[2, 3], 1]);
   assert.deepEqual([S.kinds.weather.reveal, S.kinds.weather.science, S.kinds.weather.forecast], [24, 20, 3]);
   assert.equal(S.kinds.mast.marks, 96);
-  assert.equal(S.kinds.pod.refills, 1);
   assert.equal(S.kinds.array.materials, 2);
   // About 1 in 3 formations is a science site; every region has landmarks and formations of its own.
   assert.equal(F.science, 1 / 3);

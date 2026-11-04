@@ -231,6 +231,12 @@
   //   structures { structId: 'used' | 'repaired' } · forecastUntil: the last round a repaired weather station forecasts
   //   the next one's weather (−1: none) · stats[crewId].landmarks, .structures (counts).
   // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
+  // M4d adds the relay beacons (spec §3.8): beacons [{ x, y, by, round }] (world tiles; beacon i's id is "B<i>") ·
+  //   kits: the beacon kits waiting at the base. A kit someone carries is the item { kind: 'kit', res: 'kit', amount: 1 }
+  //   (kitItem): it takes a backpack slot, is never banked, and is back with `kits` at the advance. refills { crewId: [id] }
+  //   (since M4c): the hab pods ("S<i>,<j>") and beacons ("B<i>") that filled that suit this round; the advance clears it.
+  const isKit = it => !!it && it.kind === 'kit';
+  const kitItem = () => ({ kind: 'kit', res: 'kit', amount: 1 });
   const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
   function freshBank() {
     const b = { lines: [] };
@@ -268,6 +274,12 @@
     if (x.flare && !Array.isArray(x.flare.hit)) x.flare.hit = [];
     // An incident that is not { crewId, kind } (a hand-edited save) would stop the advance: drop it.
     x.incidents = x.incidents.filter(i => !!i && typeof i === 'object' && typeof i.crewId === 'string' && typeof i.kind === 'string');
+    // Relay beacons (M4d): a beacon that isn't { x, y, by, round } on a tile is dropped (the ids after it move up one), the
+    // kits at the base are a whole number, a round's refills are lists of ids, and a carried kit is a plain kit item.
+    x.beacons = x.beacons.filter(b => !!b && typeof b === 'object' && Number.isInteger(b.x) && Number.isInteger(b.y) && typeof b.by === 'string' && Number.isInteger(b.round));
+    x.kits = Math.max(0, Math.floor(x.kits));
+    for (const id of Object.keys(x.refills)) x.refills[id] = Array.isArray(x.refills[id]) ? x.refills[id].filter(k => typeof k === 'string') : [];
+    for (const items of Object.values(x.carried)) if (Array.isArray(items)) items.forEach((it, i) => { if (isKit(it)) items[i] = kitItem(); });
     return x;
   }
 
@@ -416,15 +428,24 @@
     return s.status === 'active' && s.depot.drops > 0 && !s.schedule[s.turn].conjunction;
   }
 
+  // Relay beacon kits are built for the 6 beacons a mission places, at most: those placed, the kits waiting at the base
+  // and those in a backpack count (spec §3.8). A kit dropped where someone collapsed doesn't: it may never come back.
+  function kitsMade(s) {
+    const x = s.expedition, carried = Object.values(x.carried).reduce((n, items) => n + (Array.isArray(items) ? items.filter(isKit).length : 0), 0);
+    return x.beacons.length + x.kits + carried;
+  }
+
+  // A build or a module is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   function canBuild(s, type, pending) {
-    const spec = D.BUILDS[type];
-    if (!spec) return { ok: false, reason: 'unknown' };
-    const pend = pending || [];
+    if (!own(D.BUILDS, type)) return { ok: false, reason: 'unknown' };
+    const spec = D.BUILDS[type], pend = pending || [];
     const planned = s.projects.filter(p => p.type === type).length + pend.filter(b => b.type === type).length;
-    if (s.modules[type].count + planned >= D.MODULES[type].max) return { ok: false, reason: 'max' };
-    const spent = pend.reduce((sum, b) => sum + (D.BUILDS[b.type] ? D.BUILDS[b.type].materials : 0), 0);
+    const room = type === 'kit' ? D.EXPEDITION.beacon.max - kitsMade(s) : D.MODULES[type].max - s.modules[type].count;
+    if (planned >= room) return { ok: false, reason: 'max' };
+    const spent = pend.reduce((sum, b) => sum + (own(D.BUILDS, b.type) ? D.BUILDS[b.type].materials : 0), 0);
     if (s.resources.materials - spent < spec.materials) return { ok: false, reason: 'materials' };
-    if (type !== 'shield' && buildSpots(s, type, pend).length === 0) return { ok: false, reason: 'space' };
+    if (D.PLACED.includes(type) && buildSpots(s, type, pend).length === 0) return { ok: false, reason: 'space' };
     return { ok: true };
   }
 
@@ -615,7 +636,7 @@
     const scrapped = [];
     if (pts.maintenance > 0) {
       for (const type of plan.scrap || []) {
-        const m = s.modules[type];
+        const m = own(s.modules, type) ? s.modules[type] : null;
         if (!m || type === 'hab' || type === 'shield' || m.count <= 0) continue;
         m.count--;
         if (m.broken > 0) m.broken--;
@@ -656,9 +677,10 @@
     for (const b of plan.builds || []) {
       const spec = D.BUILDS[b.type];
       if (!spec || !canBuild(s, b.type).ok) continue;
-      if (b.type !== 'shield' && !buildSpots(s, b.type).some(([x, y]) => x === b.x && y === b.y)) continue;
+      const placed = D.PLACED.includes(b.type); // a shield layer and a relay beacon kit take no tile
+      if (placed && !buildSpots(s, b.type).some(([x, y]) => x === b.x && y === b.y)) continue;
       s.resources.materials -= spec.materials;
-      s.projects.push({ type: b.type, x: b.type === 'shield' ? null : b.x, y: b.type === 'shield' ? null : b.y, progress: 0, work: spec.work });
+      s.projects.push({ type: b.type, x: placed ? b.x : null, y: placed ? b.y : null, progress: 0, work: spec.work });
       report.started.push(b.type);
     }
 
@@ -877,7 +899,8 @@
     }
     s.projects = s.projects.filter(p => {
       if (p.progress < p.work - 1e-9) return true;
-      s.modules[p.type].count += 1;
+      if (p.type === 'kit') s.expedition.kits += 1; // a relay beacon kit waits at the base for someone to take it out
+      else s.modules[p.type].count += 1;
       if (p.x != null) s.layout.push({ type: p.type, x: p.x, y: p.y });
       if (p.type === 'greenhouse') s.crops.push(0);
       s.totals.built += 1;
@@ -981,8 +1004,9 @@
   }
 
   // After a round: the bank and the incidents are spent; what is still in a backpack is banked for the next round (a
-  // one-round delay), except that a co-op astronaut still collapsed outside leaves their load where they fell. Everyone
-  // starts the next round at the base with a full suit, and the rover comes home with whoever was driving it.
+  // one-round delay) and a beacon kit is back with the base's kits, except that a co-op astronaut still collapsed outside
+  // leaves their load (kits too) where they fell. Everyone starts the next round at the base with a full suit, and the
+  // rover comes home with whoever was driving it.
   function rollExpedition(s, endedTurn) {
     const x = s.expedition;
     if (!x) return;
@@ -992,7 +1016,7 @@
       if (!Array.isArray(items) || !items.length) continue;
       const spot = (x.collapsed || {})[crewId];
       if (spot) x.drops.push({ id: endedTurn + ':' + crewId, x: spot.x, y: spot.y, items });
-      else for (const it of items) bankItem(next, crewId, it, true);
+      else for (const it of items) if (isKit(it)) x.kits += 1; else bankItem(next, crewId, it, true); // a kit is back at the base
     }
     while (x.drops.length > D.EXPEDITION.maxDrops) x.drops.shift();
     x.banked = next;
@@ -1252,6 +1276,6 @@
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
-    newExpedition, upgradeMission, repairExpedition, bankItem,
+    newExpedition, upgradeMission, repairExpedition, bankItem, isKit, kitItem,
   };
 });
