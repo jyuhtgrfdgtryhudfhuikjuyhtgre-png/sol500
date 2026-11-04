@@ -261,14 +261,19 @@
     };
   }
 
-  // stats[crewId] is a map (finds, structures, landmarks, distance in tiles walked, flareHit and flareCover in rounds, pods
-  // visited): one that is not a map is dropped, and a distance or count that is not a number (not finite, or below 0) goes from
-  // the one that has it. Nothing is added.
+  const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
+  // stats[crewId] is a map (finds { kind: loads }, structures and landmarks used, distance in tiles walked, flareHit and
+  // flareCover in rounds, pods visited): one that is not a map is dropped, finds that are no map become {} (X.collect counts
+  // into it), and a distance or count that is not a number (not finite, or below 0) goes from the one that has it, a find's
+  // count from finds. Nothing is added.
   function repairStats(stats) {
+    const count = v => Number.isFinite(v) && v >= 0;
     for (const id of Object.keys(stats)) {
       const s = stats[id];
-      if (!s || typeof s !== 'object' || Array.isArray(s)) delete stats[id];
-      else for (const k of ['distance', 'flareHit', 'flareCover', 'pods']) if (!(Number.isFinite(s[k]) && s[k] >= 0)) delete s[k];
+      if (!isMap(s)) { delete stats[id]; continue; }
+      for (const k of ['distance', 'flareHit', 'flareCover', 'pods', 'structures', 'landmarks']) if (!count(s[k])) delete s[k];
+      if (s.finds !== undefined && !isMap(s.finds)) s.finds = {};
+      else if (s.finds) for (const k of Object.keys(s.finds)) if (!count(s.finds[k])) delete s.finds[k];
     }
   }
 
@@ -277,7 +282,6 @@
   function repairExpedition(x) {
     const fresh = newExpedition();
     if (!x || typeof x !== 'object' || Array.isArray(x)) return fresh;
-    const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
     for (const k of Object.keys(fresh)) {
       const want = fresh[k], have = x[k];
       let ok;
@@ -1067,9 +1071,17 @@
     const x = s.expedition, paid = [], amount = v => (Number.isFinite(v) && v > 0 ? v : 0);
     for (const g of x.goals || []) {
       if (g.done !== true) continue;
-      for (const k of BANK_RES) x.banked[k] += amount(g.reward[k]);
-      x.kits += amount(g.reward.kits);
-      paid.push({ id: g.id, kind: g.kind, params: Object.assign({}, g.params), reward: Object.assign({}, g.reward) });
+      // A beacon kit only into the room left under the limit, kits being built counted (as canBuild does): one the limit
+      // cuts comes as the materials to build it, and the report shows what was paid (R34).
+      const reward = Object.assign({}, g.reward), kits = amount(reward.kits);
+      const room = Math.max(0, D.EXPEDITION.beacon.max - kitsMade(s) - s.projects.filter(p => p.type === 'kit').length);
+      if (kits > room) {
+        reward.materials = amount(reward.materials) + (kits - room) * D.BUILDS.kit.materials;
+        if (room > 0) reward.kits = room; else delete reward.kits;
+      }
+      for (const k of BANK_RES) x.banked[k] += amount(reward[k]);
+      x.kits += amount(reward.kits);
+      paid.push({ id: g.id, kind: g.kind, params: Object.assign({}, g.params), reward });
       x.goalsDone.push({ id: g.id, kind: g.kind, round: s.turn, params: Object.assign({}, g.params) });
     }
     return paid;
@@ -1227,7 +1239,8 @@
     const independence = independenceOf(s);
     // The map's science counts a share of itself, up to a cap (D.SCORE.map), beside the base's in full.
     const map = Math.min(s.science, Math.max(0, Number((s.expedition || {}).science) || 0));
-    const science = s.science - map + Math.min(D.SCORE.map.cap, map * D.SCORE.map.share);
+    const counted = Math.min(D.SCORE.map.cap, map * D.SCORE.map.share);
+    const science = s.science - map + counted;
     const parts = {
       // A lost crew leaves samples and instruments behind: only transmitted results count.
       science: Math.round(success ? science : science * D.SCORE.abortScience),
@@ -1246,7 +1259,8 @@
         if (total >= min) { grade = g; break; }
       }
     }
-    return { total, parts, grade, independence };
+    // map: the map's science and what of it the science part counts, before a lost mission's halving (the debrief says so).
+    return { total, parts, grade, independence, map: { found: map, counted } };
   }
 
   function achievements(s) {

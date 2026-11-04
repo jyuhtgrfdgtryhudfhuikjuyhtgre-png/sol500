@@ -283,7 +283,7 @@
   }
 
   // Breathes an O₂ canister from your backpack now: +45 s of suit. Only outside the base zone, and only when your suit has
-  // room for all of it, so a canister is never wasted (carried home it is worth 30 kg of the base's O₂). `live` is the suit
+  // room for all of it, so a canister is never wasted (carried home it is worth 10 kg of the base's O₂). `live` is the suit
   // level your own game has now: the one it last reported can be up to 2 s old.
   function useCanister(m, crewId, pos, live) {
     const a = able(m, crewId);
@@ -637,17 +637,19 @@
     x.beacons.push({ x: s.x, y: s.y, by: crewId, round: m.turn });
     return { ok: true, beacon: 'B' + (x.beacons.length - 1), fog: revealAround(m, s.x + 0.5, s.y + 0.5, X.beacon.reveal) };
   }
-  // The dashed route home: each beacon links to the nearest of the HQ and the beacons placed before it (a tie goes to the
-  // HQ, then to the oldest), so a new beacon never moves the others' links and every chain ends at the base. Worked out
-  // from x.beacons each time, never stored. → [{ from, to, x0, y0, x1, y1 }], one a beacon in the order they were placed:
-  // from its id to 'base' or a beacon's id, from its tile to that one's, in world tiles (the HQ is tile 0, 0).
+  // The dashed route home: each beacon links to the nearest of the HQ and the beacons placed before it that are nearer the
+  // HQ than itself (a tie goes to the HQ, then to the oldest), so every link leads closer to home (R35), a new beacon never
+  // moves the others' links, and every chain ends at the base. Worked out from x.beacons each time, never stored.
+  // → [{ from, to, x0, y0, x1, y1 }], one a beacon in the order they were placed: from its id to 'base' or a beacon's id,
+  // from its tile to that one's, in world tiles (the HQ is tile 0, 0).
   function routeHome(m) {
     const bs = m.expedition.beacons;
     return bs.map((b, i) => {
-      let to = 'base', x1 = 0, y1 = 0, best = b.x * b.x + b.y * b.y;
+      const home = b.x * b.x + b.y * b.y;
+      let to = 'base', x1 = 0, y1 = 0, best = home;
       for (let j = 0; j < i; j++) {
         const o = bs[j], d = (o.x - b.x) * (o.x - b.x) + (o.y - b.y) * (o.y - b.y);
-        if (d < best) { best = d; to = 'B' + j; x1 = o.x; y1 = o.y; }
+        if (d < best && o.x * o.x + o.y * o.y < home) { best = d; to = 'B' + j; x1 = o.x; y1 = o.y; }
       }
       return { from: 'B' + i, to, x0: b.x, y0: b.y, x1, y1 };
     });

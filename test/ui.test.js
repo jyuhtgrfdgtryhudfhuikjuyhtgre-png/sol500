@@ -514,6 +514,15 @@ test("co-op: the goals come from the room's frame as the server judged them; a t
   assert.equal(m.expedition.goals[0].progress, 3, 'and the number is left as the server sent it');
 });
 
+test('the Expedition panel names a beacon kit in a backpack as it names a load, never by its key', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-KITPACK' });
+  m.expedition.carried = { minh: [pg.E.kitItem(), { kind: 'metal', id: 'x', region: 0, res: 'materials', amount: 40 }] };
+  pg.play(m);
+  const text = expPanel(pg).textContent;
+  assert.ok(!text.includes('haul.kit'), text);
+  assert.ok(text.includes(en('haul.kit', { n: 1 }) + ', ' + en('haul.materials', { n: 40 })), text);
+});
+
 test("the Expedition panel lists this round's goals with their progress and reward, and ticks the done ones", () => {
   const pg = page(), m = withGoals(pg, pg.mission({ seed: 'UI-GOALPANEL' }), ['chunks', 'landmark', 'haul']);
   pg.play(m);
@@ -533,6 +542,31 @@ test("the Expedition panel lists this round's goals with their progress and rewa
   assert.match(rows[2].className, /(^| )done( |$)/, 'four loads hauled');
   assert.ok(rows[2].textContent.includes(en('goal.reward', { list: en('haul.water', { n: 40 }) })), 'a quarter of the 160 kg');
   assert.doesNotMatch(rows[0].className, /(^| )done( |$)/);
+});
+
+test("solo: the Expedition panel's goals follow progress that comes with no action, new ground in the fog or a region walked into, at the HUD's next look, and are redrawn only when it moved", () => {
+  const pg = page(), m = withGoals(pg, pg.mission({ seed: 'UI-GOALFOLLOW' }), ['chunks', 'region']);
+  pg.play(m);
+  const F = pg.win.SolFog, W = pg.win.SolWorldgen, bits = F.empty();
+  F.set(bits, 3, 3);
+  const fog = F.encode(bits), hq = W.REGIONS[W.regionAt(W.seedOf(m.seed), 0, 0)];
+  const fresh = W.REGIONS.find(r => r !== hq && !m.expedition.regions.includes(r));
+  const rows = () => walk(expPanel(pg), []).filter(n => n.tagName === 'LI' && /(^| )goal( |$)/.test(n.className)); // as drawn: no render() here
+  const look = () => pg.surface.hooks.goals(); // the HUD asks twice a second
+  assert.ok(rows()[0].textContent.includes(en('goal.progress', { p: 0, n: 4 })), rows()[0].textContent);
+  const drawn = rows()[0];
+  look();
+  assert.equal(rows()[0], drawn, 'nothing moved: the list is not drawn again');
+  pg.surface.hooks.reveal({ '5,5': fog, '6,5': fog, '7,5': fog, '8,5': fog }); // the walk opens four new areas: no action, no render
+  look();
+  assert.ok(rows()[0].textContent.includes(en('goal.progress', { p: 4, n: 4 })), rows()[0].textContent);
+  assert.match(rows()[0].className, /(^| )done( |$)/);
+  assert.ok(rows()[0].textContent.includes(en('goal.done')), 'it pays out when the round advances');
+  assert.doesNotMatch(rows()[1].className, /(^| )done( |$)/);
+  pg.surface.hooks.enterRegion(fresh);
+  look();
+  assert.match(rows()[1].className, /(^| )done( |$)/, 'a kind of region the crew had not been in');
+  assert.ok(rows()[1].textContent.includes(en('goal.done')));
 });
 
 test('a goal is told in plain words for every kind, in both languages, with its numbers', () => {
@@ -686,6 +720,14 @@ test("the debrief's Expedition section shows distance and finds for each astrona
   assert.ok(text.includes(en('deb.exp.flareCover', { list: en('name.lena') + ' ×2, ' + en('name.minh') + ' ×1' })), 'who was not');
 });
 
+test("the debrief's walked column says 1 tile, not 1 tiles, and 2 tiles; Vietnamese has the one word for both", () => {
+  const m = explored();
+  m.expedition.stats = { lena: { finds: {}, distance: 1.2 }, minh: { finds: {}, distance: 2 } };
+  const rows = walk(expSection(debrief(page(), m)), []).filter(n => n.tagName === 'TR').slice(1).map(tr => tr.children.map(td => td.textContent).slice(0, 2));
+  assert.deepEqual(rows.sort(), [[en('name.lena'), '1 tile'], [en('name.minh'), '2 tiles']].sort());
+  assert.equal(I.STR.vi['eva.tiles1'], I.STR.vi['eva.tiles']);
+});
+
 test('the Expedition section leaves out what is empty: no table without a walk, no best find, no flare lines, no zero counts', () => {
   const m = finishedMission('DEB-2');
   m.expedition.landmarks = { 'L0,1': { by: 'lena', round: 2 } };
@@ -699,6 +741,52 @@ test('the Expedition section leaves out what is empty: no table without a walk, 
   const t = expSection(debrief(page(), flat)).textContent;
   assert.ok(t.includes(en('deb.exp.flares', { n: 3 })) && t.includes(en('deb.exp.flareCover', { list: en('name.lena') + ' ×3' })));
   assert.ok(!t.includes(en('deb.exp.flareHit', { d: 15, list: '' }).split(':')[0]), 'nobody was caught: no such line');
+});
+
+test("under the score table, a mission whose map science counts says it counts a tenth of itself up to 55 points, what it found and what counted; one with none, or a lost one, says nothing (R24)", () => {
+  const M = require('../src/data.js').SCORE.map;
+  const m = finishedMission('DEB-SC');
+  Object.assign(m, { status: 'success', science: 1121.5 });
+  m.expedition.science = 444; // the browser pass's mission
+  const pg = debrief(page(), m);
+  const hint = () => {
+    const sec = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('deb.score'));
+    return { row: walk(sec, []).find(n => n.tagName === 'TR').textContent, lines: walk(sec, []).filter(n => n.tagName === 'P').map(n => n.textContent) };
+  };
+  const line = (found, counted) => en('sc.mapHint', { pct: Math.round(M.share * 100), cap: M.cap, found, counted });
+  assert.deepEqual(hint(), { row: en('sc.science') + '+722', lines: [line(444, 44)] }, 'the row is 677.5 of the base\'s and 44.4 of the map\'s');
+  Object.assign(m, { science: 2709 });
+  m.expedition.science = 2135;
+  pg.UI.render();
+  assert.deepEqual(hint().lines, [line('2,135', 55)], 'past the cap');
+  m.expedition.science = 0;
+  pg.UI.render();
+  assert.deepEqual(hint().lines, [], 'no map science: no line');
+  m.expedition.science = 444;
+  m.status = 'lost';
+  pg.UI.render();
+  assert.deepEqual(hint().lines, [], 'a lost mission halves all its science: no line');
+});
+
+// Review Focus (M4d): a goal met in round 20 is paid at the final advance (G.advance → E.resolveTurn → payGoals), once.
+test("solo: a goal met in the last round is paid at the final advance, once: the report lists it, goalsDone keeps it, the debrief counts it and its science reaches the score", () => {
+  const Dat = require('../src/data.js'), pg = page(), m = pg.mission({ seed: 'UI-LASTGOAL' });
+  Object.assign(m, { turn: Dat.TURNS - 1, sol: (Dat.TURNS - 1) * Dat.TURN_SOLS });
+  m.expedition.goals = [Object.assign(pg.G.make(m, 'landmark'), { id: 'G19:0' })];
+  m.expedition.landmarks['L1,0'] = { by: 'minh', round: Dat.TURNS - 1 }; // discovered in round 20: nobody has judged the goal yet
+  pg.play(m);
+  const twin = plain(m);
+  twin.expedition.goals = [];
+  const without = pg.G.advance(twin, pg.E.defaultPlan(twin)).state; // the same last round, with no goal
+  pg.surface.hooks.advance();
+  const s = pg.UI.store.mission;
+  assert.equal(s.status, 'success');
+  assert.deepEqual(plain(pg.UI.store.report.expedition.goals), [{ id: 'G19:0', kind: 'landmark', params: {}, reward: { science: 25 } }], 'paid at the final advance');
+  assert.deepEqual(plain(s.expedition.goalsDone), [{ id: 'G19:0', kind: 'landmark', round: Dat.TURNS - 1, params: {} }], 'kept, once');
+  assert.deepEqual([s.science - without.science, s.expedition.science - without.expedition.science], [25, 25], 'its reward, once, as science from the map');
+  const sc = pg.E.scoreMission(s), sc0 = pg.E.scoreMission(without);
+  assert.ok(sc.parts.science > sc0.parts.science && sc.total - sc0.total === sc.parts.science - sc0.parts.science, 'it reaches the score');
+  assert.ok(expSection(pg).textContent.includes(en('deb.exp.goals', { n: 1 })), "the debrief's Goals completed");
 });
 
 test("a debrief survives an expedition state a hand-edited save left odd: junk stats, finds and best find are skipped, not drawn", () => {
@@ -798,6 +886,32 @@ test("the Science note lists every fact and story log the mission found with its
   pg.UI.render();
   assert.equal(foundNote(pg.dialog()).children[0].textContent, I.t('vi', 'notes.found'), 'and in Vietnamese');
   assert.ok(foundItems(pg.dialog())[6].textContent.includes(I.t('vi', 'ks.pod.log')));
+});
+
+test("each entry of the found list is a closed <details>: its summary is the card's eyebrow, title and meta, and the fact or log and its source open under it (R29)", () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  Object.assign(m.expedition, { regions: ['plains'], landmarks: { 'L0,1': { by: 'minh', round: 2 } }, structures: { 'S0,0': 'repaired' } });
+  pg.play(m);
+  const items = foundItems(notesOf(pg)), src = key => [[pg.I.SOURCES[key].url, pg.I.SOURCES[key].label]];
+  assert.equal(items.length, 3);
+  const parts = items.map(li => {
+    assert.deepEqual(li.children.map(n => n.tagName), ['DETAILS'], 'one details per card');
+    const details = li.children[0], [summary, ...inside] = details.children;
+    assert.equal(details.getAttribute('open'), null, 'closed');
+    assert.equal(summary.tagName, 'SUMMARY');
+    assert.deepEqual(linksOf(summary), [], 'the summary holds no link');
+    return { summary: summary.textContent, inside: inside.map(n => n.textContent).join(' '), links: linksOf({ children: inside }) };
+  });
+  const [region, landmark, log] = parts;
+  assert.equal(region.summary, en('region.note') + en('region.plains'), 'the eyebrow and the title');
+  assert.ok(region.inside.includes(en('region.fact.plains')));
+  assert.deepEqual(region.links, src('jezero'), 'the source opens with the fact');
+  assert.ok(landmark.summary.includes(en('lm.delta.name')) && landmark.summary.includes(en('disc.by', { name: en('name.minh') })), 'the title and the meta');
+  assert.ok(landmark.inside.includes(en('lm.delta.fact')) && !landmark.summary.includes(en('lm.delta.fact')));
+  assert.deepEqual(landmark.links, src(pg.I.LANDMARK_SOURCES.delta));
+  assert.equal(log.summary, en('ks.label') + en('ks.weather.name'));
+  assert.ok(log.inside.includes(en('ks.weather.log')));
+  assert.deepEqual(log.links, [], 'a Kestrel log is fiction: no source');
 });
 
 test("a fact or log found twice is listed once: two deltas (the first finder named), two supply caches, a region entered twice", () => {

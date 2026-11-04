@@ -1237,3 +1237,47 @@ test('the route home links each beacon to the nearest of the HQ and the beacons 
   assert.deepEqual(X.routeHome(m).map(k => k.from + '>' + k.to), ['B0>base', 'B1>base', 'B2>B0', 'B3>base'], 'a tie goes to the HQ, then to the oldest beacon');
   assert.equal(snap(m), before, 'worked out each time, never stored');
 });
+
+test('the route home never leads away from home: a beacon links only to an older one nearer the HQ than itself (R35)', () => {
+  const m = solo('EXP-1'), x = m.expedition, place = (bx, by) => x.beacons.push({ x: bx, y: by, by: 'lena', round: 0 });
+  place(12, 0); place(46, 0); place(32, 0); // the browser pass's chain: B2 is 14 tiles from B1, but B1 is further out
+  assert.deepEqual(X.routeHome(m).map(k => k.from + '>' + k.to), ['B0>base', 'B1>B0', 'B2>B0']);
+  place(-20, 30); place(-28, 40); place(0, 25);
+  const far = l => Math.hypot(l.x0, l.y0) - Math.hypot(l.x1, l.y1);
+  assert.ok(X.routeHome(m).every(l => far(l) > 0), 'every link ends nearer the HQ than it starts');
+});
+
+// Review Focus (M4d): a beacon kit in a solo collapse drop. A dropped kit no longer counts toward the 6 (src/engine.js
+// kitsMade: it may never come back), so one more can be built; the rules' limit still stops placing at 6.
+test("solo: a kit carried by an astronaut who collapses is in the drop with the load; one more can be built, the next advance leaves the drop, and the kit picked up is placed, until the 6th", () => {
+  const m = solo('EXP-1'), x = m.expedition, ice = { kind: 'ice', res: 'water', amount: 40, id: '0,0:0', region: 0 }, spot = at(30, 4);
+  m.resources.materials = 2000;
+  x.beacons.push(...[0, 1, 2, 3, 4].map(i => ({ x: 500 + 20 * i, y: 500, by: 'lena', round: 0 })));
+  x.carried.minh = [E.kitItem(), ice];
+  assert.deepEqual(E.canBuild(m, 'kit', []), { ok: false, reason: 'max' }, '5 placed and 1 carried make 6');
+  assert.deepEqual(X.collapse(m, 'minh', spot), { ok: true, benched: true });
+  const drop = { id: '0:minh', x: Math.round(spot.x), y: Math.round(spot.y), items: [KIT_ITEM, ice] };
+  assert.deepEqual(x.drops, [drop], 'the kit and the load, where minh fell');
+  assert.deepEqual(E.canBuild(m, 'kit', []), { ok: true }, 'the dropped kit no longer counts');
+  const next = E.resolveTurn(m, E.defaultPlan(m)).state, y = next.expedition;
+  assert.deepEqual(y.drops, [drop], 'the next advance leaves the drop where it is, with its kit');
+  assert.equal(y.kits, 0, 'and does not take the kit back to the base');
+  assert.equal(X.pickUp(next, 'minh', drop.id, spot).ok, true);
+  assert.deepEqual(y.carried.minh, [KIT_ITEM, ice], 'picked up, the kit is in a backpack again');
+  assert.deepEqual(E.canBuild(next, 'kit', []), { ok: false, reason: 'max' }, 'and counts again');
+  assert.equal(X.placeBeacon(next, 'minh', at(12, 0)).beacon, 'B5', 'it can still be placed: the 6th');
+  withKit(next, 'minh'); // the one built while it lay in the drop
+  assert.deepEqual(X.placeBeacon(next, 'minh', at(-12, 0)), { error: 'limit' }, 'placing stops at 6');
+  assert.equal(y.beacons.length, D.EXPEDITION.beacon.max);
+});
+
+test("a kit in a drop that newer drops push out (maxDrops) goes with it: accepted, since a dropped kit no longer counted", () => {
+  const m = solo('EXP-1'), x = m.expedition;
+  x.carried.minh = [E.kitItem()];
+  X.collapse(m, 'minh', at(30, 4));
+  x.drops.push(...Array.from({ length: D.EXPEDITION.maxDrops }, (_, i) => ({ id: 'old:' + i, x: 64 * (40 + i), y: 0, items: [{ kind: 'ice', res: 'water', amount: 40 }] })));
+  const y = E.resolveTurn(m, E.defaultPlan(m)).state.expedition;
+  assert.equal(y.drops.length, D.EXPEDITION.maxDrops, 'the oldest goes');
+  assert.equal(y.drops.some(d => d.items.some(E.isKit)), false, 'with its kit');
+  assert.deepEqual([y.kits, y.beacons.length, Object.values(y.carried).flat().length], [0, 0, 0], 'which is nowhere now');
+});

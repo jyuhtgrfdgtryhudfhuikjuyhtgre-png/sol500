@@ -652,6 +652,20 @@ test("science from the map counts a share of itself, up to a cap, beside the bas
   assert.equal(E.scoreMission(st).parts.science, 800 * D.SCORE.abortScience, 'with no exploring state it is all the base\'s');
 });
 
+test("the score gives the map's science it found and what of it counted, before a lost mission's halving, for the debrief to explain its Science row (R24)", () => {
+  const M = D.SCORE.map, st = calm();
+  Object.assign(st, { status: 'success', science: 1121.5 });
+  st.expedition.science = 444; // the browser pass's mission
+  assert.deepEqual(E.scoreMission(st).map, { found: 444, counted: 444 * M.share });
+  assert.equal(E.scoreMission(st).parts.science, Math.round(1121.5 - 444 + 444 * M.share), 'the Science row is the base\'s and what counted');
+  st.expedition.science = 5000;
+  assert.deepEqual(E.scoreMission(st).map, { found: 1121.5, counted: M.cap }, 'never more than the science, nor past the cap');
+  st.status = 'lost';
+  assert.deepEqual(E.scoreMission(st).map, { found: 1121.5, counted: M.cap }, 'before the halving');
+  delete st.expedition;
+  assert.deepEqual(E.scoreMission(st).map, { found: 0, counted: 0 }, 'no exploring state: none');
+});
+
 test('going over the dose budget costs far more score than staying under it', () => {
   const st = calm();
   st.status = 'success';
@@ -991,6 +1005,29 @@ test('a saved exploring state with missing or malformed fields is repaired field
 
 const goal = (id, kind, reward, done, params) => ({ id, kind, params: params || {}, need: 1, base: 0, progress: done ? 1 : 0, done, reward });
 
+test("a goal's beacon kit is paid only into the room left under the limit, kits being built counted; one it cuts comes as its materials, and the report says so (R34)", () => {
+  const M = D.EXPEDITION.beacon.max, K = D.BUILDS.kit;
+  const made = s => s.expedition.beacons.length + s.expedition.kits + s.projects.filter(p => p.type === 'kit').length;
+  const full = () => {
+    const s = calm();
+    s.expedition.beacons = Array.from({ length: M - 2 }, (_, i) => ({ x: 20 + 12 * i, y: 0, by: 'minh', round: 0 }));
+    s.expedition.kits = 1;
+    s.projects.push({ type: 'kit', x: null, y: null, progress: 0, work: K.work }); // the 6th, being built
+    return s;
+  };
+  const plain = full(), s = full();
+  s.expedition.goals = [goal('G0:0', 'beacon', { kits: 1 }, true, { tiles: 35 })];
+  const a = E.resolveTurn(plain, E.defaultPlan(plain)), b = E.resolveTurn(s, E.defaultPlan(s));
+  assert.equal(made(b.state), M, 'never a 7th kit');
+  assert.equal(Math.round(b.state.resources.materials - a.state.resources.materials), K.materials, 'the kit it cannot give, as the materials to build one');
+  assert.deepEqual(b.report.expedition.goals.map(g => g.reward), [{ materials: K.materials }], 'the report says what was paid');
+  const room = full();
+  room.projects.length = 0; // one place left
+  room.expedition.goals = [goal('G0:0', 'beacon', { kits: 1 }, true, { tiles: 35 })];
+  const c = E.resolveTurn(room, E.defaultPlan(room));
+  assert.deepEqual([made(c.state), c.report.expedition.goals[0].reward], [M, { kits: 1 }], 'with room, the kit itself');
+});
+
 test('done goals pay out once at the advance, the report lists them, the mission keeps a record, and the rest expire', () => {
   const plain = calm(), s = calm();
   for (const m of [plain, s]) m.morale = 60;
@@ -1216,4 +1253,20 @@ test("a saved best find, flare count or pod visit count with the wrong shape is 
   const odd = calm();
   odd.expedition.stats = { minh: { finds: {}, flareHit: -1, flareCover: 'two', distance: NaN, pods: -2 }, lena: { finds: {}, pods: 'many' } };
   assert.deepEqual(E.upgradeMission(odd, {}).expedition.stats, { minh: { finds: {} }, lena: { finds: {} } });
+});
+
+test("a saved stats entry whose finds is no map, or whose structure, landmark or find counts are no numbers, is repaired, so collecting after the load works", () => {
+  const X = require('../src/expedition.js');
+  for (const bad of [5, 'ice', true, [], [2, 1]]) {
+    const s = calm();
+    s.expedition.stats = { minh: { finds: bad, structures: 'two', landmarks: -1, distance: 3 } };
+    const m = E.upgradeMission(JSON.parse(JSON.stringify(s)), {}), x = m.expedition; // a save is JSON, and loads through the repair
+    let f = null;
+    for (let cy = -2; cy < 2 && !f; cy++) for (let cx = -2; cx < 2 && !f; cx++) for (const g of X.findsIn(m, cx, cy)) if (!f) f = Object.assign({ id: cx + ',' + cy + ':' + g.n }, g);
+    assert.equal(X.collect(m, 'minh', f.id, { x: (f.x + 0.5) * 64, y: (f.y + 0.5) * 64 }).ok, true, JSON.stringify(bad));
+    assert.deepEqual(x.stats.minh, { finds: { [f.kind]: 1 }, distance: 3 }, JSON.stringify(bad));
+  }
+  const keep = calm();
+  keep.expedition.stats = { minh: { finds: { ice: 2, metal: 'x', pod: -1, science: NaN }, structures: 2, landmarks: 1 } };
+  assert.deepEqual(E.upgradeMission(JSON.parse(JSON.stringify(keep)), {}).expedition.stats.minh, { finds: { ice: 2 }, structures: 2, landmarks: 1 }, 'good counts stay; a find count that is no number goes');
 });

@@ -79,7 +79,7 @@ function element(tag) {
 // was last shown, then show it again: ui.js renders the same mission after a solo action, and a co-op room broadcasts a new copy
 // (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for. Like ui.js, the page
 // is shown where its astronaut last stood (the solo save; `opts.lastPos` stands for the co-op server's position).
-// `opts.dpr` is the screen's pixel ratio (1); `opts.gfx` the Display settings the page passes to update (setGfx changes them);
+// `opts.dpr` is the screen's pixel ratio (1); `opts.lang` the player's language ('en'); `opts.gfx` the Display settings the page passes to update (setGfx changes them);
 // `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet).
 function page(m, me, opts) {
   const o = opts || {};
@@ -103,7 +103,7 @@ function page(m, me, opts) {
     cur = next;
     const shown = cur.coop ? plain(cur) : cur, plan = E.defaultPlan(shown);
     S.update({
-      mission: shown, plan, forecast: E.forecast(shown, plan), controlId: me, canControl: () => true, crewName: id => id, t: (k, p) => I.t('en', k, p), lang: 'en', fog: null,
+      mission: shown, plan, forecast: E.forecast(shown, plan), controlId: me, canControl: () => true, crewName: id => id, t: (k, p) => I.t(o.lang || 'en', k, p), lang: o.lang || 'en', fog: null,
       lastPos: cur.coop ? o.lastPos || null : X.whereOf(cur, me), gfx,
     });
   };
@@ -891,4 +891,47 @@ test("the HQ's menu builds a relay beacon kit, as it adds a shield layer: its co
   pg.key('KeyE');
   pg.key('KeyE', false);
   assert.deepEqual(kit().slice(1, 3), [I.t('en', 'bld.why.maxKit', { max: D.EXPEDITION.beacon.max }), true], "all kits made: the kit's own reason");
+});
+
+test("in Vietnamese the surface's build menus write a cost's numbers as the console does: 1,5 công, not 1.5 (R31)", () => {
+  const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh', { lang: 'vi' }), vi = (k, p) => I.t('vi', k, p);
+  const hq = m.layout.find(k => k.type === 'hab');
+  pg.qa.teleport(hq.x + W.BASE_RECT.x, hq.y + W.BASE_RECT.y - 0.65);
+  pg.step(0.2);
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  const sub = label => menuButtons(pg).find(b => b[0] === vi(label))[1];
+  assert.equal(sub('sf.kitAdd'), vi('bld.cost', { kg: '50', w: '1,5' }), "the HQ menu's kit");
+  assert.equal(sub('bld.shieldAdd'), vi('bld.cost', { kg: '100', w: '1' }), "the HQ menu's shield layer");
+  pg.key('Escape');
+  const [gx, gy] = E.buildSpots(m, 'battery', [])[0];
+  pg.qa.teleport(gx + W.BASE_RECT.x, gy + W.BASE_RECT.y - 0.35); // in the top of an empty spot, facing down into it
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'e:' + gx + ',' + gy);
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
+  const grid = menu.children.filter(n => n.className === 'sf-mbody').pop().children.find(n => n.className === 'sf-mgrid');
+  const battery = grid.children.map(b => b.children.find(n => n.className === 'sf-mtxt').children).find(c => c[0].textContent === vi('mod.battery'));
+  assert.equal(battery[1].textContent, vi('bld.cost', { kg: '200', w: '0,5' }), "the build grid's battery");
+});
+
+test("in Vietnamese the surface's menus write a build's progress and a module's power as the console does: 0,5 / 1,5 and +13,0 kW (R31)", () => {
+  const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh', { lang: 'vi' }), vi = (k, p) => I.t('vi', k, p);
+  const [gx, gy] = E.buildSpots(m, 'battery', [])[1];
+  m.projects.push({ type: 'workshop', x: gx, y: gy, progress: 0.5, work: 1.5 });
+  pg.show(m);
+  const notes = (tx, ty) => { // the menu's notes, facing the tile (tx, ty) of the base grid from the north
+    pg.key('Escape');
+    pg.qa.teleport(tx + W.BASE_RECT.x, ty + W.BASE_RECT.y - 0.65);
+    pg.step(0.2);
+    pg.key('KeyE');
+    pg.key('KeyE', false);
+    const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
+    return menu.children.filter(n => n.className === 'sf-mbody').pop().children.filter(n => /^sf-note/.test(n.className)).map(n => n.textContent);
+  };
+  assert.equal(notes(gx, gy)[0], vi('bld.progress', { p: '0,5', w: '1,5' }), 'a build in progress');
+  const solar = m.layout.find(k => k.type === 'solar' && k.x === 3 && k.y === 1), reactor = m.layout.find(k => k.type === 'reactor');
+  assert.match(notes(solar.x, solar.y)[0], /^\+\d+,\d kW · /, 'a solar array');
+  assert.match(notes(reactor.x, reactor.y)[0], /^\+\d+,\d kW$/, 'the reactor');
 });

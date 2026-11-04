@@ -145,3 +145,25 @@ test('no string in either language is still a draft, and no comment marks one as
   const lines = fs.readFileSync(path.join(__dirname, '..', 'src', 'i18n.js'), 'utf8').split('\n');
   assert.deepEqual(lines.map((l, i) => (i + 1) + ': ' + l.trim()).filter(l => draft.test(l)), [], 'src/i18n.js');
 });
+
+// R28: a new note in the surface's HUD column (210 px, 12 px Be Vietnam Pro) fits in two lines in English and three in
+// Vietnamese, its placeholders filled. The browser pass measured about 28-32 characters a line; words wrap here at 28.
+const linesAt28 = s => s.split(' ').reduce((out, w) => {
+  if (out.length && (out[out.length - 1] + ' ' + w).length <= 28) out[out.length - 1] += ' ' + w;
+  else out.push(w);
+  return out;
+}, []).length;
+
+test("the surface's new HUD notes fit its 210 px column, their placeholders filled: two lines in English, three in Vietnamese (R28)", () => {
+  const B = require('../src/data.js').EXPEDITION.beacon;
+  for (const [lang, most] of [['en', 2], ['vi', 3]]) {
+    assert.match(I.STR[lang]['eva.placed'], /\{r\}/, 'a placed beacon still says how near it refills a suit');
+    assert.match(I.STR[lang]['eva.tookKit'], /\{n\}/, 'a packed kit still says how far out it goes');
+    const name = I.t(lang, 'eva.beaconName', { n: B.max });
+    const notes = { 'eva.placed': { name, r: B.refill }, 'eva.tookKit': { n: B.base }, 'eva.refillUsed': { name }, 'eva.refillUsedPod': {} };
+    for (const [k, p] of Object.entries(notes)) {
+      const s = I.t(lang, k, p);
+      assert.ok(!/\{\w+\}/.test(s) && linesAt28(s) <= most, lang + ' ' + k + ', ' + linesAt28(s) + ' lines: ' + s);
+    }
+  }
+});

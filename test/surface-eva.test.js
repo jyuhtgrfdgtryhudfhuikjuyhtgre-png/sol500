@@ -198,6 +198,17 @@ test('nobody moves on an empty suit or a flat rover battery', () => {
   assert.equal(s.eva.canMove(Object.assign({}, p, { inRover: true }), p.x + 5, p.y), false);
 });
 
+test("the rover's battery reads 2 tiles, then 1 tile, not 1 tiles", () => {
+  const I = require('../src/i18n.js'), s = setup({ t: (k, p) => I.t('en', k, p) }), p = Object.assign(outside(20, 1), { inRover: true });
+  const left = () => s.eva.el.children.find(n => / batt$/.test(n.className)).children[2].textContent;
+  for (const [range, want] of [[2, '2 tiles'], [1.5, '1 tile']]) {
+    s.m.expedition.roverDriven = D.EXPEDITION.roverRange - range;
+    s.eva.sync(s.data);
+    tick(s, p, 0.1);
+    assert.equal(left(), want);
+  }
+});
+
 test('a collapsed co-op crew member asks for nothing while down, even standing in the base zone with a load', async () => {
   const coop = E.createMission({ seed: 'EVA-3', loadout: E.referenceKit('commander', 4), events: false, coop: true, pilot: 'minh' });
   const s = setup({ mission: coop });
@@ -480,7 +491,7 @@ test('the canister button shows only when breathing one is worth it, and breathi
   const CAN = { kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 };
   s.m.expedition.carried.minh = [Object.assign({}, CAN)];
   tick(s, NEAR(0, 1), 0.1);
-  assert.equal(btn.hidden, true, 'at the base the suit is paused: keep it (it is delivered there, 30 kg of O₂)');
+  assert.equal(btn.hidden, true, 'at the base the suit is paused: keep it (it is delivered there, 10 kg of O₂)');
   await flush();
   s.m.expedition.carried.minh = [Object.assign({}, CAN)]; // carry another one out
   s.eva.qaSuit(120);
@@ -823,7 +834,7 @@ test("a collect's note says what it hauled, from a plain find, a landmark's site
 const ARTS = (() => { const sb = {}; vm.runInNewContext(ART, sb); return sb.SolArt; })();
 const METAL = () => ({ kind: 'metal', res: 'materials', amount: 40, id: '0,0:1', region: 0 });
 
-test('a beacon kit stays in the backpack at the base: a pack of kits only asks for no delivery; with a load, the note counts what was banked and says the kit stays', async () => {
+test("a beacon kit stays in the backpack at the base: a pack of kits only asks for no delivery; with a load, the note counts what was banked, and the kit's own button shows it stays (R30)", async () => {
   const s = setup({ t: say });
   s.m.expedition.carried.minh = [E.kitItem()];
   tick(s, outside(1, 1), 3);
@@ -835,8 +846,10 @@ test('a beacon kit stays in the backpack at the base: a pack of kits only asks f
   tick(s, outside(1, 1), 0.1);
   assert.equal(s.calls.filter(c => c.type === 'deliver').length, 1);
   assert.equal(s.m.expedition.banked.materials, 40);
-  assert.equal(noteOf(s), 'eva.delivered1 ' + JSON.stringify({ n: 1 }) + ' eva.kitStays', 'one load, not two');
+  assert.equal(noteOf(s), 'eva.delivered1 ' + JSON.stringify({ n: 1 }), 'one load, not two, and no line about the kit: the note stays two lines in the HUD column (R30)');
   assert.deepEqual(plain(s.m.expedition.carried.minh), [plain(E.kitItem())], 'the kit is still in the backpack');
+  const back = s.eva.el.children.find(n => n.className.split(' ').includes('sf-kitback'));
+  assert.equal(back.hidden, false, 'its "Put the beacon kit back" button is up, so the HUD shows the kit stays');
 });
 
 test('the backpack shows a carried kit with its own icon and name', () => {
@@ -924,7 +937,7 @@ test('carrying a kit on the map, the prompt says why a beacon cannot go here (th
   assert.deepEqual(s.calls.filter(c => c.type === 'placeBeacon').map(c => plain(c.pos)), [{ x: Math.round(p.x), y: Math.round(p.y) }]);
   assert.deepEqual(plain(s.m.expedition.beacons), [{ x: bx, y: by, by: 'minh', round: 0 }]);
   assert.equal(s.m.expedition.carried.minh.length, 0, 'the kit is used up');
-  assert.equal(noteOf(s), say('eva.placed', { name: beaconName(0), n: D.EXPEDITION.beacon.reveal, r: D.EXPEDITION.beacon.refill }));
+  assert.equal(noteOf(s), say('eva.placed', { name: beaconName(0), r: D.EXPEDITION.beacon.refill }));
   // The next kit: too close to the first beacon.
   s.m.expedition.carried.minh = [E.kitItem()];
   const q = outside(bx + 4, by);
@@ -976,6 +989,55 @@ test('by a relay beacon a suit low enough is filled once a round; a nearly full 
   s.drawn.length = 0;
   s.eva.sprites((s.bx - 4) * T, (s.by - 4) * T, (s.bx + 4) * T, (s.by + 4) * T, s.world, 0).forEach(q => q.draw({}));
   assert.deepEqual(s.drawn.map(d => d.spent), [false]);
+});
+
+test('a suit low enough for a refill, by a beacon or in a hab pod that has already refilled it this round, is told why nothing comes, the beacon named, once each a round (R27)', async () => {
+  const s = withBeacon(), by2 = outside(s.bx, s.by + 2), refills = () => s.calls.filter(c => c.type === 'refill').length;
+  const used = say('eva.refillUsed', { name: beaconName(0) });
+  s.eva.qaSuit(60);
+  tick(s, by2, 0.1);
+  await flush();
+  tick(s, by2, 5); // refilled, and its note has gone
+  s.eva.qaSuit(D.EXPEDITION.suit - D.EXPEDITION.canister.suit + 1);
+  tick(s, by2, 0.1);
+  assert.notEqual(noteOf(s), used, 'a suit the beacon would not refill yet: nothing to explain');
+  s.eva.qaSuit(30);
+  tick(s, by2, 0.1);
+  assert.equal(noteOf(s), used, 'low again by the same beacon');
+  assert.equal(refills(), 1, 'and nothing more is asked');
+  tick(s, by2, 6);
+  assert.equal(noteOf(s), 'eva.low', 'the note goes, and the low-suit warning is back');
+  tick(s, outside(s.bx, s.by + 6), 1);
+  tick(s, by2, 1);
+  assert.equal(noteOf(s), 'eva.low', 'walking off and back: not said again this round');
+  // The next round (the advance clears x.refills): the beacon refills the suit again, and then says so again.
+  s.m.turn++;
+  quiet(s.m);
+  s.m.expedition.refills = {};
+  s.eva.sync(s.data);
+  s.eva.qaSuit(60);
+  tick(s, by2, 0.1);
+  await flush();
+  tick(s, by2, 5);
+  assert.equal(refills(), 2);
+  s.eva.qaSuit(30);
+  tick(s, by2, 0.1);
+  assert.equal(noteOf(s), used, 'told again in a new round');
+
+  const p = setup({ mission: quiet(poiMission()), t: say }), [ix, iy] = QA.podIn, inside = outside(ix, iy);
+  hold(p, ix, iy);
+  p.eva.qaSuit(50);
+  tick(p, inside, 0.1);
+  await flush();
+  tick(p, inside, 5); // the pod refilled the suit, and its note has gone
+  p.eva.qaSuit(D.EXPEDITION.suit - D.EXPEDITION.canister.suit);
+  tick(p, inside, 0.1);
+  assert.equal(noteOf(p), 'eva.refillUsedPod', 'still in the pod, the suit low enough');
+  tick(p, inside, 6);
+  tick(p, outside(ix, iy + 4), 0.5);
+  tick(p, inside, 1);
+  assert.notEqual(noteOf(p), 'eva.refillUsedPod', 'once a round');
+  assert.equal(p.calls.filter(c => c.type === 'refill').length, 1);
 });
 
 test("the maps always mark the relay beacons, fog or not, and draw the dashed route home: each beacon's link from X.routeHome, in world pixels", () => {
@@ -1064,4 +1126,15 @@ test("the round's goals show in the HUD column, asked twice a second: a line eac
   const bare = setup({ t: say }); // ui.js without the goals hook
   tick(bare, outside(0, 1), 0.5);
   assert.equal(bare.eva.el.children.find(n => n.className === 'sf-goals').hidden, true);
+});
+
+test("a hold's seconds are written in the player's language: the Engineer's 1.5 in English, 1,5 in Vietnamese, and a whole 3 the same in both (R31)", () => {
+  const s = setup({ t: say });
+  let f = null;
+  for (let cy = -2; cy < 2 && !f; cy++) for (let cx = -2; cx < 2 && !f; cx++) for (const g of X.findsIn(s.m, cx, cy)) if (g.kind === 'metal' && !f) f = Object.assign({ cx, cy }, g);
+  s.world.get(f.cx, f.cy);
+  const p = outside(f.x, f.y - 1), focus = s.eva.focusAt((f.x + 0.5) * T, (f.y + 0.5) * T, p, s.world);
+  const secs = (id, lang) => { s.eva.sync({ mission: s.m, controlId: id, lang }); const l = s.eva.label(focus); return JSON.parse(l.slice(l.indexOf(' ') + 1)).s; };
+  assert.equal(X.holdSeconds('metal', 'engineer'), 1.5);
+  assert.deepEqual([secs('lena', 'en'), secs('lena', 'vi'), secs('minh', 'vi')], ['1.5', '1,5', '3']);
 });

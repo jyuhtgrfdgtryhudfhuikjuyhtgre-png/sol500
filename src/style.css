@@ -372,6 +372,15 @@ p { margin: 0; }
 .found-list .meta { font-family: var(--font-data); font-size: var(--fs-xs); }
 .found-list li.log p { font-family: var(--font-data); font-size: var(--fs-xs); line-height: 1.5; }
 .note .found-list .src { display: block; margin-top: 2px; }
+/* R29: each entry is a closed <details>. Its summary (eyebrow, title, meta) is a grid, which has no marker of its own, so it
+   draws one, a + that turns into − when open, and a focus ring for the keyboard (Enter or Space opens it). */
+.found-list summary { display: grid; gap: 3px; position: relative; padding-right: 28px; cursor: pointer; list-style: none; border-radius: 4px; }
+.found-list summary::-webkit-details-marker { display: none; }
+.found-list summary::after { content: '+'; position: absolute; top: 50%; right: 0; transform: translateY(-50%); width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: 50%; color: var(--fg-2); font: 600 var(--fs-sm)/1 var(--font-data); }
+.found-list details[open] > summary::after { content: '\2212'; }
+.found-list summary:hover::after { border-color: var(--accent); color: var(--accent); }
+.found-list summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.found-list details > p { margin-top: 6px; }
 .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .badge { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--sunk); }
 .badge.locked { opacity: 0.45; }
@@ -393,6 +402,7 @@ p { margin: 0; }
 .score-table td { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .score-table td:last-child { text-align: right; font-family: var(--font-data); }
 .score-table tr.total td { font-weight: 700; border-bottom: 0; font-size: var(--fs-md); }
+.score-table + .hint { margin-top: 8px; } /* R24: how the map's science counts in the Science row */
 /* M4d hud: the debrief's Expedition section */
 .exp { display: grid; gap: 12px; }
 .exp-table th { text-align: left; font-weight: 600; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-xs); color: var(--fg-3); }
@@ -488,9 +498,9 @@ p { margin: 0; }
 .region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
 .region-card .src { font-size: var(--fs-xs); }
 .region-card a { color: var(--accent); }
-/* Wide screens: the card sits under the HUD's column, whose note (what a structure gave, a refill) can run to three lines
-   as the card opens; a longer column is drawn over the card (.sf-eva's z-index) while its note lasts. */
-@media (min-width: 641px) { .region-card { top: 196px; } }
+/* Wide screens: the card sits on the right, under the minimap and the FPS readout (top 180 px), clear of the HUD's column
+   on the left, which the round's goals, the kit buttons and the aura make as tall as a round needs (R33). */
+@media (min-width: 641px) { .region-card { top: 208px; left: auto; right: 12px; } }
 /* A Kestrel Survey story log: the programme's teal (its structures on the maps) and a log's monospace. */
 .region-card.log { border-left-color: #4a978e; }
 .region-card.log .eyebrow { color: #7cc7bd; }
@@ -616,6 +626,9 @@ p { margin: 0; }
      While the card shows, the hint steps aside, so the two never overlap. */
   .sf-hint, .sf-alert { top: 150px; left: 12px; right: 12px; transform: none; width: auto; max-width: none; }
   .sf-stage:has(.region-card) .sf-hint { display: none; }
+  /* No room beside the HUD's column here: while a card shows, the column keeps its suit, battery and backpack rows, and its
+     goals, buttons, aura and note step aside until the card closes (R33). */
+  .sf-stage:has(.region-card) .sf-eva > :not(.sf-suit, .sf-pack) { display: none; }
   .sf-alert { z-index: 3; } /* the flare's banner stays over the region card (z-index 2); the full map (3, later) still covers it */
 }
 .sf-side { display: grid; gap: 12px; min-width: 0; }

@@ -234,6 +234,11 @@
   }
 
   function t(k, p) { return S.data ? S.data.t(k, p) : k; }
+  // A number as the console writes it (ui.js's nf), d decimals: 1.5 in English, 1,5 in Vietnamese (R31).
+  function nf(v, d) {
+    return v.toLocaleString(S.data && S.data.lang === 'vi' ? 'vi-VN' : 'en-US', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+  }
+  const cost = spec => t('bld.cost', { kg: nf(spec.materials), w: nf(spec.work, spec.work % 1 ? 1 : 0) }); // as the console's build buttons
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -978,7 +983,7 @@
         const here = spots.some(([sx, sy]) => sx === f.gx && sy === f.gy);
         const chk = E.canBuild(m, ty, pending);
         const spec = D.BUILDS[ty];
-        const why = !chk.ok ? t('bld.why.' + chk.reason) : !here ? t('bld.why.space') : t('bld.cost', { kg: spec.materials, w: spec.work });
+        const why = !chk.ok ? t('bld.why.' + chk.reason) : !here ? t('bld.why.space') : cost(spec);
         grid.appendChild(numbered(mbtn(t('mod.' + ty), why, () => { H.queueBuild({ type: ty, x: f.gx, y: f.gy }); closeMenu(); },
           { disabled: !chk.ok || !here, icon: A.module(ty, 34) })));
       }
@@ -994,7 +999,7 @@
     }
     if (f.kind === 'project') {
       const pr = f.project;
-      note(t('bld.progress', { p: pr.progress.toFixed(1), w: pr.work }));
+      note(t('bld.progress', { p: nf(pr.progress, 1), w: nf(pr.work, 1) }));
       const bar = el('div', 'bar accent');
       const s = el('span');
       s.style.width = (pr.progress / pr.work * 100).toFixed(0) + '%';
@@ -1027,13 +1032,13 @@
       if (m.modules.hab.broken) note(t('sf.broken'), 'crit');
       const chk = E.canBuild(m, 'shield', plan.builds || []);
       body.appendChild(numbered(mbtn(t('sf.console'), t('sf.consoleSub'), () => { closeMenu(); H.openConsole(); }, { icon: A.icon('book', 18) })));
-      body.appendChild(numbered(mbtn(t('bld.shieldAdd'), chk.ok ? t('bld.cost', { kg: D.BUILDS.shield.materials, w: D.BUILDS.shield.work }) : t('bld.why.' + chk.reason),
+      body.appendChild(numbered(mbtn(t('bld.shieldAdd'), chk.ok ? cost(D.BUILDS.shield) : t('bld.why.' + chk.reason),
         () => { H.queueBuild({ type: 'shield' }); renderMenu(); }, { disabled: !chk.ok, icon: A.icon('shield', 18) })));
       // A relay beacon kit takes no tile either (spec §3.8): built here like a shield layer, it waits at the base.
       if (m.expedition) {
         const kit = E.canBuild(m, 'kit', plan.builds || []);
         const why = kit.reason === 'max' ? t('bld.why.maxKit', { max: D.EXPEDITION.beacon.max }) : t('bld.why.' + kit.reason); // as the console's kit button
-        body.appendChild(numbered(mbtn(t('sf.kitAdd'), kit.ok ? t('bld.cost', { kg: D.BUILDS.kit.materials, w: D.BUILDS.kit.work }) : why,
+        body.appendChild(numbered(mbtn(t('sf.kitAdd'), kit.ok ? cost(D.BUILDS.kit) : why,
           () => { H.queueBuild({ type: 'kit' }); renderMenu(); }, { disabled: !kit.ok, icon: A.icon('kit', 18) })));
       }
       if (decisions) note(t('sf.decisions', { n: decisions }), 'warn');
@@ -1052,9 +1057,9 @@
         body.appendChild(numbered(mbtn(t('sf.switch') + ': ' + (on ? t('common.on') : t('common.off')), t('mod.' + ty) + ' ×' + mod.count,
           () => { H.toggleModule(ty); renderMenu(); }, { on, icon: A.icon('power_off', 18) })));
       } else if (ty === 'solar') {
-        note('+' + fc.power.solarKw.toFixed(1) + ' kW · ' + t('pow.dust', { p: Math.round(m.cleanliness * 100) }));
+        note('+' + nf(fc.power.solarKw, 1) + ' kW · ' + t('pow.dust', { p: Math.round(m.cleanliness * 100) }));
       } else if (ty === 'reactor') {
-        note('+' + fc.power.reactorKw.toFixed(1) + ' kW');
+        note('+' + nf(fc.power.reactorKw, 1) + ' kW');
       }
       if (ty === 'rover' && mod.count - mod.broken > 0 && S.eva.roverAtBay(S.player) && !S.eva.collapsed(S.data.controlId)) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
       const scrapping = (plan.scrap || []).includes(ty);

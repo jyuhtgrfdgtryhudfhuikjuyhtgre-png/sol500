@@ -83,6 +83,7 @@
     let note = null;                               // { text, cls, until }
     let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
     let asked = {};                                // landmark id → when its discovery was answered (Infinity while asked)
+    let told = [];                                 // the beacons and pods whose "already refilled" was said this round
     let pings = [];                                // the live pings (spec §3.5): { x, y, by, at }, `at` on the wall clock
     let goals = [], goalsAt = -1e9;                // the round's goals as ui.js last gave them (renderGoals), and when
 
@@ -96,7 +97,7 @@
     const hasRoom = () => live() && pack().length < X.capacity(mission(), me);
     const at = p => ({ x: Math.round(p.x), y: Math.round(p.y) });
     const near2 = (ax, ay, bx, by) => (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
-    const secs = s => (Math.round(s * 10) / 10).toString();
+    const secs = s => (Math.round(s * 10) / 10).toLocaleString(shown.lang === 'vi' ? 'vi-VN' : 'en-US'); // 1.5, or 1,5 in Vietnamese (R31)
     const clock = () => (coopClock ? coopClock.t + (wall() - coopClock.at) : soloClock);
     function say(text, cls, s) { note = { text, cls: cls || '', until: now + (s || 3) }; }
     // A point of interest's card over the surface (ui.js shows each once a mission): { type: 'log' | ..., id, kind }.
@@ -272,7 +273,7 @@
       if (inRover) {
         const left = Math.max(0, XD.roverRange - driven);
         text(battM.k, 'bk', t('eva.battery'));
-        text(battM.v, 'bv', Math.floor(left) + ' ' + t('eva.tiles'));
+        text(battM.v, 'bv', Math.floor(left) + ' ' + t(Math.floor(left) === 1 ? 'eva.tiles1' : 'eva.tiles'));
         prop('bw', (100 * left / XD.roverRange).toFixed(1) + '%', v => { battM.fill.style.width = v; });
       }
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
@@ -359,6 +360,7 @@
         suit = me ? X.suitOf(m, me) : XD.suit;
         driven = Number(m.expedition.roverDriven) || 0;
         hold = null;
+        told = [];
         collapseAt = hitAt = flareAskAt = flareEndAt = -1e9;
         wasDown = !!(me && m.expedition.collapsed[me]);
         if (round) soloClock = 0;
@@ -385,6 +387,7 @@
       deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = refillAt = goalsAt = -1e9;
       inPod = null;
       asked = {};
+      told = [];
       marksCache = [];
       pings = [];
       goals = [];
@@ -447,10 +450,10 @@
         }
         // An abandoned hab pod (spec §3.7): walking in fills your suit, once per pod a round (x.refills, C3), and its story log
         // opens (ui.js shows each once a mission).
-        const pod = out ? podAt(p) : null;
+        const pod = out ? podAt(p) : null, had = x.refills[me] || [];
         if (pod && pod.id !== inPod) card({ type: 'log', id: pod.id, kind: 'pod' });
         inPod = pod ? pod.id : null;
-        if (pod && !(x.refills[me] || []).includes(pod.id) && now - refillAt > 2) {
+        if (pod && !had.includes(pod.id) && now - refillAt > 2) {
           refillAt = now;
           act('refill', p, { pod: pod.id }).then(r => {
             if (!r.ok) return;
@@ -461,27 +464,35 @@
         // A relay beacon (spec §3.8): within its refill tiles your suit is filled, once at each beacon a round (x.refills, shared
         // with the pods). Only when that gives a canister's worth or more: walking out past it with a nearly full suit would
         // spend this round's refill before the way home.
-        if (out && suit <= CAN_BELOW && now - refillAt > 2) {
-          const had = x.refills[me] || [], r2 = (XD.beacon.refill * T) * (XD.beacon.refill * T);
-          const i = x.beacons.findIndex((b, j) => !had.includes('B' + j) && near2((b.x + 0.5) * T, (b.y + 0.5) * T, p.x, p.y) <= r2);
-          if (i >= 0) {
+        if (out && suit <= CAN_BELOW) {
+          const r2 = (XD.beacon.refill * T) * (XD.beacon.refill * T);
+          const reach = x.beacons.map((b, j) => (near2((b.x + 0.5) * T, (b.y + 0.5) * T, p.x, p.y) <= r2 ? 'B' + j : null)).filter(Boolean);
+          const id = reach.find(b => !had.includes(b));
+          if (id && now - refillAt > 2) {
             refillAt = now;
-            act('refill', p, { beacon: 'B' + i }).then(r => {
+            act('refill', p, { beacon: id }).then(r => {
               if (!r.ok) return;
               suit = r.suit;
-              say(t('eva.refilledBeacon', { name: beaconName('B' + i), s: Math.round(r.suit) }), 'ok', 4);
+              say(t('eva.refilledBeacon', { name: beaconName(id), s: Math.round(r.suit) }), 'ok', 4);
             });
+          }
+          // A beacon or a hab pod that has already refilled your suit this round says so, once each a round (R27): the rules'
+          // 'refilled' is a quiet answer the surface never asks for, and a low suit there should know why nothing comes.
+          const spent = id ? null : reach.concat(pod ? [pod.id] : []).find(k => had.includes(k) && !told.includes(k));
+          if (spent) {
+            told.push(spent);
+            say(spent[0] === 'B' ? t('eva.refillUsed', { name: beaconName(spent) }) : t('eva.refillUsedPod'), 'warn', 5);
           }
         }
         if (out) sight(p);
         // The rules refuse anything while you are down, and never bank a beacon kit: a pack of kits only is not delivered.
         if (atBase && pack().some(it => !E.isKit(it)) && !collapsed(me) && now - deliverAt > 1.5) {
           deliverAt = now;
-          const kept = pack().some(E.isKit);
+          // A kit left in the pack gets no line here (R30): its slot and the "Put the beacon kit back" button show it stays.
           act('deliver', p).then(r => {
             if (!r.ok) return;
             const n = r.items.length;
-            say(t(n === 1 ? 'eva.delivered1' : 'eva.delivered', { n }) + (kept ? ' ' + t('eva.kitStays') : ''), 'ok', 4);
+            say(t(n === 1 ? 'eva.delivered1' : 'eva.delivered', { n }), 'ok', 4);
           });
         }
         if (hold) {
@@ -509,8 +520,9 @@
       ask.then(r => {
         if (!r.ok) return;
         if (f.kind === 'kestrel') return used(f.struct, r);
-        // Its fog is in the mission's (solo) or comes as any fog does (co-op), as a repaired weather station's.
-        if (f.kind === 'beacon') return say(t('eva.placed', { name: beaconName(r.beacon), n: XD.beacon.reveal, r: XD.beacon.refill }), 'ok', 6);
+        // Its fog is in the mission's (solo) or comes as any fog does (co-op), as a repaired weather station's: the maps show
+        // it, so the note says only what the beacon does for a suit (R28: two lines of the HUD column).
+        if (f.kind === 'beacon') return say(t('eva.placed', { name: beaconName(r.beacon), r: XD.beacon.refill }), 'ok', 6);
         if (f.kind === 'find') {
           say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
           // A formation's survey: its real fact and source, once per formation (spec §3.7).
@@ -714,7 +726,7 @@
       marksCache = out;
       return out.concat(pingMarks());
     }
-    // The maps' lines: the dashed route home (X.routeHome), each beacon to the nearest of the HQ and the beacons before it.
+    // The maps' lines: the dashed route home (X.routeHome), each beacon to the nearest of the HQ and the older beacons nearer home.
     function lines() {
       const m = mission();
       if (!m || !m.expedition) return [];

@@ -74,6 +74,7 @@
   const locale = () => (store.lang === 'vi' ? 'vi-VN' : 'en-US');
   const nf = (n, d) => new Intl.NumberFormat(locale(), { maximumFractionDigits: d || 0, minimumFractionDigits: d || 0 }).format(n);
   const signed = (n, d) => (n > 0.0001 ? '+' : n < -0.0001 ? '−' : '±') + nf(Math.abs(n), d);
+  const tilesText = n => { const v = nf(n); return v + ' ' + t(v === '1' ? 'eva.tiles1' : 'eva.tiles'); }; // "1 tile", "2 tiles"
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -785,14 +786,17 @@
   }
 
   // The note: each entry is the card's own words (eyebrow, title, fact or log, source), so the notes and the cards cannot differ.
+  // An entry is a native <details>, closed (R29): its summary is the eyebrow, title and meta, and the fact or log and its
+  // source open under it, so a long mission's list stays a list of titles to open.
   function foundNote(s) {
     const cards = foundCards(s);
     return h('article', { class: 'note found' }, h('h3', null, t('notes.found')),
       cards.length ? h('ul', { class: 'found-list' }, cards.map(c => {
         const { cls, eyebrow, title, meta, body, src } = cardText(c);
-        return h('li', { class: cls.trim() || null },
-          h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null, h('p', null, body),
-          src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null);
+        return h('li', { class: cls.trim() || null }, h('details', null,
+          h('summary', null, h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null),
+          h('p', null, body),
+          src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
       })) : h('p', null, t('notes.foundNone')));
   }
 
@@ -859,7 +863,8 @@
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
     card: c => showCard(c),
     // This round's goals for the surface's HUD column (spec §3.9): [{ text, done, frac }], frac 0-1; empty when there are none.
-    goals: () => goalsOf(mission()).map(g => ({
+    // The HUD asks twice a second, so the Expedition panel beside it follows here too (followGoals).
+    goals: () => followGoals(goalsOf(mission())).map(g => ({
       text: g.need > 1 ? t('goal.withProgress', { goal: goalText(g), p: nf(g.progress), n: nf(g.need) }) : goalText(g), done: g.done === true, frac: goalFrac(g),
     })),
     // Exploring (the rules' one table, Z.act). Solo: the rules run here for your pilot on your mission, which is saved, and
@@ -942,6 +947,23 @@
         h('span', { class: 'hint' }, goalReward(g)),
         g.done ? h('span', { class: 'hint ok' }, t('goal.done')) : null));
   }
+  // The Expedition panel's goals list, and the progress it shows. In solo play progress also moves with no action and so no
+  // render(): new ground in the fog (the reveal hook), a region walked into (enterRegion). The HUD's look at the goals then
+  // redraws the list in place, only when a goal's progress or done flag changed; a render() would move the surface's node
+  // into a new stage (see setCard). Co-op tabs render each room frame, and the server sends one when a goal moves.
+  let goalsUl = null, goalsShown = '';
+  const goalsKey = list => list.map(g => g.id + ':' + g.progress + ':' + g.done).join(' ');
+  function goalList(goals) {
+    goalsShown = goalsKey(goals);
+    return (goalsUl = h('ul', { class: 'replist goals' }, goals.map(goalRow)));
+  }
+  function followGoals(goals) {
+    if (goalsUl && goalsKey(goals) !== goalsShown) {
+      goalsShown = goalsKey(goals);
+      goalsUl.replaceChildren(...goals.map(goalRow));
+    }
+    return goals;
+  }
 
   // What is waiting outside this round (Z.outside, spec §3.4): a solar flare, dust devils, a dust storm, an oxygen leak at the base.
   function conditions(s) {
@@ -959,13 +981,14 @@
   }
   function expeditionPanel(s) {
     const x = s.expedition;
+    goalsUl = null;
     if (!x || !x.banked) return null;
     const lines = x.banked.lines || [];
     const carrying = Object.keys(x.carried).filter(id => Array.isArray(x.carried[id]) && x.carried[id].length);
     const body = [], cond = conditions(s), goals = goalsOf(s);
     if (goals.length) {
       body.push(h('span', { class: 'eyebrow' }, t('goal.title')));
-      body.push(h('ul', { class: 'replist goals' }, goals.map(goalRow)));
+      body.push(goalList(goals));
     }
     if (cond.length) {
       body.push(h('span', { class: 'eyebrow' }, t('eva.cond.title')));
@@ -1594,7 +1617,7 @@
       rows.length ? h('table', { class: 'score-table exp-table' },
         h('thead', null, h('tr', null, h('th', null, t('deb.crew')), h('th', null, t('deb.exp.walked')), h('th', null, t('deb.exp.found')))),
         h('tbody', null, rows.map(c => h('tr', null,
-          h('td', null, crewName(c.id)), h('td', null, nf(c.walked) + ' ' + t('eva.tiles')),
+          h('td', null, crewName(c.id)), h('td', null, tilesText(c.walked)),
           h('td', null, c.loads ? nf(c.loads) + ' (' + c.finds.map(([k, n]) => t('find.' + k) + ' ×' + nf(n)).join(' · ') + ')' : '–'))))) : null,
       f.best ? h('p', null, h('b', null, t('deb.exp.best') + ': '), haulText(f.best)) : null,
       counts.length ? h('div', { class: 'exp-counts' }, counts.map(k => h('span', { class: 'chip' }, t('deb.exp.' + k, { n: nf(f.counts[k]) })))) : null,
@@ -1667,6 +1690,11 @@
     chartHead.appendChild(h('h3', { class: 'eyebrow', style: 'margin-bottom:8px' }, t('ch.stocks') + ' · ' + t('ch.dose') + ' · ' + t('ch.power')));
 
     const scoreRows = ['science', 'health', 'radiation', 'crew', 'independence', 'depot', 'completion'];
+    // The Science row counts the map's science at a share, up to a cap (D.SCORE.map, R24): a line under the table says so with
+    // the score's own figures. A lost mission halves all its science, which the line doesn't explain, so it has none.
+    const mapHint = success && sc.map.found > 0 ? h('p', { class: 'hint' }, t('sc.mapHint', {
+      pct: Math.round(D.SCORE.map.share * 100), cap: nf(D.SCORE.map.cap), found: nf(sc.map.found), counted: nf(sc.map.counted),
+    })) : null;
     return [
       topbar(lanOn() ? lanChip() : null),
       h('section', { class: 'deb-hero' + (success ? '' : ' lost') },
@@ -1683,10 +1711,10 @@
       expeditionSection(s),
       h('div', { class: 'deb-grid' },
         h('div', { class: 'col' },
-          panel(t('deb.score'), h('table', { class: 'score-table' },
+          panel(t('deb.score'), [h('table', { class: 'score-table' },
             h('tbody', null,
               scoreRows.map(k => h('tr', null, h('td', null, t('sc.' + k)), h('td', null, signed(sc.parts[k])))),
-              h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total)))))),
+              h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total))))), mapHint]),
           panel(t('deb.lessons'), h('div', { class: 'lessons' }, lessonsFor(s).map(([k, src]) => h('article', { class: 'lesson' },
             h('h3', null, t('lesson.' + k + '.title')),
             h('p', null, t('lesson.' + k + '.body')),

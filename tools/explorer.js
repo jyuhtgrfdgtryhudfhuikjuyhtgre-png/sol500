@@ -2,7 +2,8 @@
 /*
  * SOL 500 — a scripted explorer for the balance runs (spec §10). Each round one crew member goes out on one suit charge,
  * walks (or drives the rover) to the nearest finds, collects them through the real rules in src/expedition.js and
- * delivers them at the base. It is a model, not a player: it moves in straight lines with a detour factor, never
+ * delivers them at the base. On the way it explores the fog within its view and visits the regions it walks into, as a
+ * player's game does (see). It is a model, not a player: it moves in straight lines with a detour factor, never
  * sprints, and knows where every find within 128 tiles is. Holding E drains the suit at the walking rate (you step
  * out of the rover to work), and the rover drives at most roverRange tiles a round.
  * The dangers (spec §3.4) cost it what they cost a player who ignores them: it never dodges a dust devil, so on foot it
@@ -11,7 +12,11 @@
  * Played thoughtfully (`poi`), it also uses the points of interest near the base (spec §3.6, §3.7) as a thoughtful
  * player would: it collects the landmarks' and formations' sites like finds, opens supply caches, salvages wrecks and
  * solar arrays (picking up what did not fit), repairs weather stations, discovers a landmark once its centre is in view,
- * and fills its suit at a hab pod when the next find would be out of reach. Comms masts it leaves: it knows the map.
+ * and fills its suit at a hab pod or a relay beacon when the next find would be out of reach. It goes after the round's
+ * open goals (spec §3.9) when it can get there and back: a science site far enough out, a landmark, a structure to repair
+ * or salvage (a comms mast too, which it otherwise leaves: it knows the map), a kind of region it hasn't visited, the
+ * nearest chunk it hasn't explored; a haul it meets by hauling. And it takes a relay beacon kit out when one waits at
+ * the base (spec §3.8), and places it on the first open ground PLACE tiles out or more, or as far as a beacon goal asks.
  *
  * API: haulRound(mission, crewId, poi) → { loads, seconds, time, flare: null | 'hit' | 'safe' } (call it before
  *      E.resolveTurn; it changes mission.expedition). loads are what it delivered; seconds the suit it used; time the
