@@ -3,11 +3,13 @@
  * the crew has explored, with pan and zoom. Both draw the painter's one-pixel-per-tile "mini" images of explored
  * chunks, so they never need the full ground painting. Also formats the debug overlay (?debug=chunks or F3).
  *
- * API: SolMap.create({ t, onOpen, onClose }) → map
+ * API: SolMap.create({ t, onOpen, onClose, onPing(x, y) }) → map   (onPing: a tap on the minimap or a click on the map, world px)
  *        map.attach(world, painter)          a new mission's world
- *        map.minimap · map.el                elements for the surface overlay
- *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, diamond, text, ring }] }
- *                                            (world pixels; marks are finds, cave mouths, dropped loads, the parked rover and poiMarks)
+ *        map.minimap · map.openBtn · map.el  elements for the surface overlay (openBtn: the minimap's open-the-map corner)
+ *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, diamond, beacon, text, ring,
+ *                                            ping, label, alpha }], lines: [{ x0, y0, x1, y1, color, width?, dash?, alpha? }] }
+ *                                            (world pixels; marks are finds, cave mouths, dropped loads, the parked rover, relay beacons, live
+ *                                            pings and poiMarks; lines the dashed route home and the commander's route line)
  *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
  *        map.frame(state, deadline)          every animation frame (does nothing while closed)
  *        map.relabel()                       after a language change
@@ -32,11 +34,38 @@
       return n;
     };
 
-    // Finds and the like, then the HQ, then every crew member as a dot in their role colour (you with a white ring).
+    // The lines (the dashed route home, the commander's route line), then finds and the like, then the HQ, then every crew member
+    // as a dot in their role colour (you with a white ring). Dashes are in screen pixels, so they read the same at every zoom; a
+    // line or mark with an `alpha` (a ping fading out, spec §3.5) is drawn that faint.
     function markers(g, st, at) {
+      for (const l of st.lines || []) {
+        const [x0, y0] = at(l.x0, l.y0), [x1, y1] = at(l.x1, l.y1);
+        g.globalAlpha = l.alpha == null ? 1 : l.alpha;
+        g.strokeStyle = l.color;
+        g.lineWidth = l.width || 1.5;
+        g.setLineDash(l.dash || []);
+        g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      }
+      g.globalAlpha = 1;
+      g.setLineDash([]);
       for (const k of st.marks || []) {
         const [x, y] = at(k.x, k.y);
         g.fillStyle = k.color;
+        if (k.ping) { // a ping: a ring in the sender's colour with their name over it, edged in dark
+          g.globalAlpha = k.alpha == null ? 1 : k.alpha;
+          g.strokeStyle = k.color;
+          g.lineWidth = 2;
+          g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.stroke();
+          g.font = '600 9px system-ui, sans-serif';
+          g.textAlign = 'center';
+          g.textBaseline = 'bottom';
+          g.strokeStyle = '#120a0c';
+          g.lineWidth = 2.5;
+          g.strokeText(k.label || '', x, y - 6);
+          g.fillText(k.label || '', x, y - 6);
+          g.globalAlpha = 1;
+          continue;
+        }
         if (k.text) { // a comms mast's "?", edged in dark so it reads on any ground
           g.font = '700 10px system-ui, sans-serif';
           g.textAlign = 'center';
@@ -49,6 +78,10 @@
         }
         if (k.square) g.fillRect(x - 2.5, y - 2.5, 5, 5);
         else if (k.diamond) { g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + 4, y); g.lineTo(x, y + 4); g.lineTo(x - 4, y); g.closePath(); g.fill(); }
+        else if (k.beacon) { // a relay beacon: a little mast standing on its spot, edged in dark
+          g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 3.5, y + 1.5); g.lineTo(x - 3.5, y + 1.5); g.closePath(); g.fill();
+          g.strokeStyle = '#120a0c'; g.lineWidth = 1; g.stroke();
+        }
         else { g.beginPath(); g.arc(x, y, k.ring ? 2.5 : 2, 0, Math.PI * 2); g.fill(); }
         if (k.ring) { g.strokeStyle = k.ring; g.lineWidth = 1; g.stroke(); } // a cave's mouth: dark, with a light rim; a landmark's dark edge
       }
@@ -67,11 +100,20 @@
     }
 
     // ---------- minimap ----------
+    // A tap or click on the minimap pings that spot (spec §3.5); its corner button, M, or Enter on the minimap opens the map.
     const minimap = node('button', 'sf-mini');
     minimap.type = 'button';
     const mc = node('canvas');
     minimap.appendChild(mc);
-    minimap.addEventListener('click', () => openMap());
+    minimap.addEventListener('click', e => {
+      if (e.detail === 0 || !opts.onPing || !last) { openMap(); return; } // Enter or Space on the focused minimap
+      const r = mc.getBoundingClientRect(), z = (minimap.clientWidth || MINI) / MINI;
+      const ox = Math.floor(last.px / T) - MINI / 2, oy = Math.floor(last.py / T) - MINI / 2;
+      opts.onPing((ox + (e.clientX - r.left) / z) * T, (oy + (e.clientY - r.top) / z) * T);
+    });
+    const openBtn = node('button', 'sf-mini-open', '⤢');
+    openBtn.type = 'button';
+    openBtn.addEventListener('click', () => openMap());
 
     function drawMini(st, now) {
       last = st;
@@ -125,6 +167,7 @@
       hint.textContent = t('sf.mapHint');
       el.setAttribute('aria-label', t('sf.mapTitle'));
       minimap.setAttribute('aria-label', t('sf.minimap'));
+      openBtn.setAttribute('aria-label', t('sf.openMap'));
       zoomIn.setAttribute('aria-label', t('sf.zoomIn'));
       zoomOut.setAttribute('aria-label', t('sf.zoomOut'));
       shut.setAttribute('aria-label', t('common.close'));
@@ -167,17 +210,25 @@
       cy += d[1] * step;
       return true;
     }
-    fc.addEventListener('pointerdown', e => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; fc.setPointerCapture(e.pointerId); });
+    fc.addEventListener('pointerdown', e => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; fc.setPointerCapture(e.pointerId); });
     fc.addEventListener('pointermove', e => {
       if (!drag || drag.id !== e.pointerId) return;
       const z = ZOOMS[zi];
+      drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y);
       cx -= (e.clientX - drag.x) / z;
       cy -= (e.clientY - drag.y) / z;
       drag.x = e.clientX;
       drag.y = e.clientY;
     });
     const endDrag = () => { drag = null; };
-    fc.addEventListener('pointerup', endDrag);
+    // A click that did not drag the map (under 5 px) pings the spot under it.
+    fc.addEventListener('pointerup', e => {
+      const click = drag && drag.id === e.pointerId && drag.moved < 5;
+      endDrag();
+      if (!click || !opts.onPing) return;
+      const r = fc.getBoundingClientRect(), z = ZOOMS[zi], w = el.clientWidth, h = el.clientHeight;
+      opts.onPing((cx - w / 2 / z + (e.clientX - r.left) / z) * T, (cy - h / 2 / z + (e.clientY - r.top) / z) * T);
+    });
     fc.addEventListener('pointercancel', endDrag);
     fc.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1 : -1); }, { passive: false });
 
@@ -206,7 +257,7 @@
     }
 
     return {
-      minimap, el, drawMini, frame, key, relabel,
+      minimap, openBtn, el, drawMini, frame, key, relabel,
       attach(w, p) { world = w; painter = p; closeMap(); },
       open: openMap, close: closeMap, isOpen: () => open,
     };

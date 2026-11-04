@@ -17,7 +17,9 @@ const Z = require('../src/dangers.js');
 
 const T = 64;
 function element() {
-  const n = { children: [], style: {}, hidden: false, className: '', textContent: '', innerHTML: '', title: '', attrs: {} };
+  const n = { children: [], style: {}, hidden: false, className: '', innerHTML: '', title: '', attrs: {} };
+  let text = '';
+  Object.defineProperty(n, 'textContent', { get: () => text, set: v => { text = String(v); n.children = []; } }); // as the DOM's: it replaces the children
   n.appendChild = c => { n.children.push(c); return c; };
   n.append = (...cs) => { n.children.push(...cs); };
   n.addEventListener = () => {};
@@ -34,7 +36,9 @@ const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'src', 'surface-eva.js
 // (a server's refusal).
 function setup(opts) {
   const o = opts || {};
-  const sandbox = { SolData: D, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolPaint: P, SolWorld: SW, document: { createElement: element } };
+  // `o.paint` replaces SolPaint sprite painters (to see what is drawn).
+  const paint = o.paint ? Object.assign({}, P, { sprites: Object.assign({}, P.sprites, o.paint) }) : P;
+  const sandbox = { SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: X, SolDangers: Z, SolPaint: paint, SolWorld: SW, document: { createElement: element } };
   vm.runInNewContext(ART, sandbox);
   vm.runInNewContext(SOURCE, sandbox);
   const m = o.mission || E.createMission({ seed: 'EVA-1', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' });
@@ -47,10 +51,11 @@ function setup(opts) {
     },
     suit: r => reports.push(JSON.parse(JSON.stringify(r))),
     card: c => cards.push(JSON.parse(JSON.stringify(c))),
+    goals: o.goals, // ui.js's goals hook (the hud branch adds it): o.goals() → [{ text, done, frac }]
   };
   const eva = sandbox.SolEva.create({
     t: o.t || (k => k), hooks: () => hooks, crewName: id => id, player: () => player.p, home: () => home.push(1), drawRover: () => {},
-    now: () => clock.now, push: (dx, dy) => pushes.push([dx, dy]),
+    now: () => clock.now, push: (dx, dy) => pushes.push([dx, dy]), team: o.team, // `o.team()`: where the crew stand
   });
   const data = { mission: m, controlId: me, lang: 'en', clock: o.clock || null };
   eva.sync(data);
@@ -268,7 +273,7 @@ const flareMission = (seed, extra) => {
   m.schedule[m.turn].spe = true;
   return m;
 };
-const noteOf = s => s.eva.el.children[4].textContent;
+const noteOf = s => s.eva.el.children.find(n => n.className.startsWith('sf-evanote')).textContent;
 const banner = s => ({ hidden: s.eva.alert.hidden, msg: s.eva.alert.children[0].textContent, secs: s.eva.alert.children[1].textContent, cls: s.eva.alert.className });
 
 test('solo: the first step outside in a flare round starts the flare on the round clock; 30 s later the banner counts down', async () => {
@@ -471,7 +476,7 @@ test('a dust devil that catches you on foot throws you 2 tiles and takes 10 s of
 
 test('the canister button shows only when breathing one is worth it, and breathing sends your live suit level', async () => {
   const s = setup();
-  const btn = s.eva.el.children[3];
+  const canBtn = e => e.eva.el.children.find(n => n.className === 'sf-can'), btn = canBtn(s);
   const CAN = { kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 };
   s.m.expedition.carried.minh = [Object.assign({}, CAN)];
   tick(s, NEAR(0, 1), 0.1);
@@ -494,7 +499,7 @@ test('the canister button shows only when breathing one is worth it, and breathi
   X.collapse(coop, 'minh', NEAR(6, 4));
   const c = setup({ mission: coop });
   tick(c, NEAR(6, 4), 0.1);
-  assert.equal(c.eva.el.children[3].hidden, true, 'not while you are down');
+  assert.equal(canBtn(c).hidden, true, 'not while you are down');
 });
 
 test("every 2 s the layer reports the suit, the rover's distance, the round's clock and where you stand; a reload picks the clock up", () => {
@@ -812,4 +817,243 @@ test("a collect's note says what it hauled, from a plain find, a landmark's site
     const q = outside(x, y);
     assert.equal(...(await collect(s, q, s.eva.focusAt(q.x, q.y, q, s.world))), what);
   }
+});
+
+// ---------- relay beacons, pings and the team (M4d) ----------
+const ARTS = (() => { const sb = {}; vm.runInNewContext(ART, sb); return sb.SolArt; })();
+const METAL = () => ({ kind: 'metal', res: 'materials', amount: 40, id: '0,0:1', region: 0 });
+
+test('a beacon kit stays in the backpack at the base: a pack of kits only asks for no delivery; with a load, the note counts what was banked and says the kit stays', async () => {
+  const s = setup({ t: say });
+  s.m.expedition.carried.minh = [E.kitItem()];
+  tick(s, outside(1, 1), 3);
+  await flush();
+  assert.equal(s.calls.filter(c => c.type === 'deliver').length, 0, 'nothing to deliver: no request every 1.5 s');
+  s.m.expedition.carried.minh = [E.kitItem(), METAL()];
+  tick(s, outside(1, 1), 0.1);
+  await flush();
+  tick(s, outside(1, 1), 0.1);
+  assert.equal(s.calls.filter(c => c.type === 'deliver').length, 1);
+  assert.equal(s.m.expedition.banked.materials, 40);
+  assert.equal(noteOf(s), 'eva.delivered1 ' + JSON.stringify({ n: 1 }) + ' eva.kitStays', 'one load, not two');
+  assert.deepEqual(plain(s.m.expedition.carried.minh), [plain(E.kitItem())], 'the kit is still in the backpack');
+});
+
+test('the backpack shows a carried kit with its own icon and name', () => {
+  const s = setup({ t: say });
+  s.m.expedition.carried.minh = [METAL(), E.kitItem()];
+  tick(s, outside(9, 1), 0.1);
+  const slots = s.eva.el.children.find(n => n.className === 'sf-pack').children;
+  assert.equal(slots[1].innerHTML, ARTS.icon('kit', 14));
+  assert.notEqual(ARTS.icon('kit', 14), ARTS.icon('info', 14), 'an icon of its own, not the fallback');
+  assert.equal(slots[1].title, 'eva.kit');
+  assert.equal(slots[0].innerHTML, ARTS.icon('materials', 14));
+});
+
+const button = (s, cls) => s.eva.el.children.find(n => n.className.split(' ').includes(cls));
+test('at the base with a kit waiting and room in the backpack, a button (or K) takes one; carrying one there, another puts it back', async () => {
+  const s = setup({ t: say });
+  const base = outside(0, 1), take = () => button(s, 'sf-kit'), back = () => button(s, 'sf-kitback');
+  tick(s, base, 0.1);
+  assert.equal(take().hidden, true, 'no kit waiting: no button');
+  assert.equal(back().hidden, true);
+  s.m.expedition.kits = 2;
+  tick(s, base, 0.1);
+  assert.equal(take().hidden, false);
+  assert.equal(take().textContent, 'eva.takeKit ' + JSON.stringify({ n: 2 }));
+  s.eva.takeKit(base);
+  await flush();
+  tick(s, base, 0.1);
+  assert.equal(s.m.expedition.kits, 1);
+  assert.deepEqual(plain(s.m.expedition.carried.minh), [plain(E.kitItem())]);
+  assert.equal(noteOf(s), 'eva.tookKit ' + JSON.stringify({ n: D.EXPEDITION.beacon.base }), 'the note says how far out it goes');
+  assert.equal(back().hidden, false, 'carrying one at the base, it can go back');
+  assert.equal(take().textContent, 'eva.takeKit ' + JSON.stringify({ n: 1 }), 'and the other can come too');
+  tick(s, outside(9, 1), 0.1);
+  assert.deepEqual([take().hidden, back().hidden], [true, true], 'out of the base zone: neither');
+  s.eva.returnKit(base);
+  await flush();
+  tick(s, base, 0.1);
+  assert.deepEqual([s.m.expedition.kits, s.m.expedition.carried.minh.length], [2, 0]);
+  assert.equal(noteOf(s), 'eva.returnedKit');
+  assert.equal(back().hidden, true);
+  s.m.expedition.carried.minh = [E.kitItem(), E.kitItem(), E.kitItem()]; // loads would be delivered here at once
+  tick(s, base, 0.1);
+  assert.equal(take().hidden, true, 'a full backpack takes no kit');
+});
+
+// The first tile east of the HQ, `from` tiles out or more along row `ty`, where nothing else is in reach and a beacon may go
+// (the surface holds its chunk). → [tx, ty]
+function openSpot(s, from, ty) {
+  for (let tx = from; tx < from + 60; tx++) {
+    hold(s, tx, ty);
+    const p = outside(tx, ty), f = s.eva.focusAt(p.x, p.y + 34, p, s.world);
+    if (f && f.kind === 'beacon' && f.spot.ok) return [tx, ty];
+  }
+  throw new Error('no open spot');
+}
+const beaconName = i => say('eva.beaconName', { n: i + 1 });
+
+test('carrying a kit on the map, the prompt says why a beacon cannot go here (the tiles still to go), or to hold E for its 4 s; the note names it', async () => {
+  const s = setup({ mission: quiet(E.createMission({ seed: 'EVA-BEACON', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' })), t: say });
+  const facing = p => s.eva.focusAt(p.x, p.y + 34, p, s.world);
+  assert.equal(facing(outside(14, 0)), null, 'no kit: nothing to place');
+  s.m.expedition.carried.minh = [E.kitItem()];
+  hold(s, 6, 0);
+  let f = facing(outside(6, 0));
+  assert.equal(f.kind, 'beacon');
+  assert.equal(s.eva.label(f), say('eva.beaconNearBase', { n: D.EXPEDITION.beacon.base - 6 }));
+  assert.equal(s.eva.holdable(f), false, 'nothing to hold');
+  assert.equal(s.eva.start(f), false);
+  assert.equal(facing(Object.assign(outside(14, 0), { inRover: true })), null, 'in the rover, E gets you out first');
+  assert.equal(facing(outside(1, 1)), null, 'in the base zone: no beacon');
+  const [bx, by] = openSpot(s, D.EXPEDITION.beacon.base, 0), p = outside(bx, by);
+  f = facing(p);
+  assert.equal(s.eva.label(f), say('eva.placeBeacon', { s: String(X.holdSeconds('beacon', 'commander')) }));
+  assert.equal(s.eva.holdable(f), true);
+  assert.equal(s.eva.start(f), true);
+  tick(s, p, X.holdSeconds('beacon', 'commander') + 0.2, f);
+  await flush();
+  s.eva.step(0.1, p, s.world, 0, null);
+  assert.deepEqual(s.calls.filter(c => c.type === 'placeBeacon').map(c => plain(c.pos)), [{ x: Math.round(p.x), y: Math.round(p.y) }]);
+  assert.deepEqual(plain(s.m.expedition.beacons), [{ x: bx, y: by, by: 'minh', round: 0 }]);
+  assert.equal(s.m.expedition.carried.minh.length, 0, 'the kit is used up');
+  assert.equal(noteOf(s), say('eva.placed', { name: beaconName(0), n: D.EXPEDITION.beacon.reveal, r: D.EXPEDITION.beacon.refill }));
+  // The next kit: too close to the first beacon.
+  s.m.expedition.carried.minh = [E.kitItem()];
+  const q = outside(bx + 4, by);
+  hold(s, bx + 4, by);
+  assert.equal(s.eva.label(facing(q)), say('eva.beaconNearBeacon', { name: beaconName(0), n: D.EXPEDITION.beacon.apart - 4 }));
+  s.m.expedition.beacons.push(...Array.from({ length: D.EXPEDITION.beacon.max - 1 }, (_, i) => ({ x: 500 + 20 * i, y: 500, by: 'minh', round: 0 })));
+  assert.equal(s.eva.label(facing(q)), say('eva.beaconLimit', { n: D.EXPEDITION.beacon.max }), 'all six placed');
+});
+
+// A mission with relay beacon B0 placed by minh at an open spot 12 or more tiles east of the HQ, and the layer on it.
+function withBeacon(o) {
+  const drawn = [];
+  const s = setup(Object.assign({ mission: quiet(E.createMission({ seed: 'EVA-BEACON', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' })), t: say, paint: { drawBeacon: (ctx, x, y, time, spent) => drawn.push({ x, y, spent }) } }, o));
+  s.m.expedition.carried.minh = [E.kitItem()];
+  const [bx, by] = openSpot(s, D.EXPEDITION.beacon.base, 0);
+  assert.equal(X.placeBeacon(s.m, 'minh', outside(bx, by)).ok, true);
+  return Object.assign(s, { bx, by, drawn });
+}
+
+test('by a relay beacon a suit low enough is filled once a round; a nearly full one is not, so the refill waits for the way home; the beacon looks spent until the next round', async () => {
+  const s = withBeacon(), refills = () => s.calls.filter(c => c.type === 'refill');
+  const by2 = outside(s.bx, s.by + 2); // 2 tiles from the beacon
+  tick(s, by2, 0.5);
+  assert.equal(refills().length, 0, 'a full suit asks for nothing');
+  s.eva.qaSuit(D.EXPEDITION.suit - D.EXPEDITION.canister.suit + 1);
+  tick(s, by2, 0.5);
+  assert.equal(refills().length, 0, 'nor one that would gain less than a canister');
+  s.eva.qaSuit(60);
+  tick(s, outside(s.bx, s.by + 3), 0.5);
+  assert.equal(refills().length, 0, '3 tiles away: too far');
+  tick(s, by2, 0.1);
+  await flush();
+  tick(s, by2, 0.1);
+  assert.deepEqual(refills().map(c => plain(c.payload)), [{ beacon: 'B0' }]);
+  assert.equal(s.eva.state().suit > D.EXPEDITION.suit - 1, true, "the suit from the rules' answer");
+  assert.equal(noteOf(s), say('eva.refilledBeacon', { name: beaconName(0), s: D.EXPEDITION.suit }));
+  s.eva.qaSuit(30);
+  tick(s, by2, 3);
+  await flush();
+  assert.equal(refills().length, 1, 'once this round');
+  s.drawn.length = 0;
+  s.player.p = by2;
+  s.eva.sprites((s.bx - 4) * T, (s.by - 4) * T, (s.bx + 4) * T, (s.by + 4) * T, s.world, 0).forEach(q => q.draw({}));
+  assert.deepEqual(s.drawn, [{ x: (s.bx + 0.5) * T, y: (s.by + 0.5) * T, spent: true }], 'drawn on its tile, its light dim');
+  // The next round: the rules clear x.refills, and the beacon is lit again.
+  s.m.expedition.refills = {};
+  s.drawn.length = 0;
+  s.eva.sprites((s.bx - 4) * T, (s.by - 4) * T, (s.bx + 4) * T, (s.by + 4) * T, s.world, 0).forEach(q => q.draw({}));
+  assert.deepEqual(s.drawn.map(d => d.spent), [false]);
+});
+
+test("the maps always mark the relay beacons, fog or not, and draw the dashed route home: each beacon's link from X.routeHome, in world pixels", () => {
+  const s = withBeacon();
+  s.m.expedition.beacons.push({ x: s.bx + 11, y: s.by + 3, by: 'minh', round: 0 }); // B1 links to B0, its nearest
+  tick(s, NEAR(0, 1), 0.2);
+  const marks = s.eva.marks(s.world, 0, 0).filter(k => k.beacon);
+  assert.deepEqual(plain(marks), s.m.expedition.beacons.map(b => ({ x: (b.x + 0.5) * T, y: (b.y + 0.5) * T, color: '#ffcf7a', beacon: true })));
+  const px = v => (v + 0.5) * T;
+  assert.deepEqual(plain(s.eva.lines()).map(l => [l.x0, l.y0, l.x1, l.y1, l.dash.length > 0]), X.routeHome(s.m).map(l => [px(l.x0), px(l.y0), px(l.x1), px(l.y1), true]));
+  assert.deepEqual(X.routeHome(s.m).map(l => l.to), ['base', 'B0'], 'B0 to the HQ, B1 to B0');
+});
+
+const FIVE = o => quiet(E.createMission(Object.assign({ seed: 'EVA-TEAM', loadout: E.referenceKit('commander', 5), crewSize: 5, events: false, pilot: 'minh' }, o)));
+const ROLE_COLOR = role => ARTS.ROLE[role];
+
+test("a ping shows on the maps in its sender's colour with their name, fading out over 10 s of the wall clock", () => {
+  const s = setup({ mission: FIVE(), t: say });
+  const pings = () => plain(s.eva.marks(s.world, 0, 0).filter(k => k.ping));
+  tick(s, NEAR(0, 1), 0.2);
+  s.eva.addPing({ x: 640, y: -320, by: 'diego' });
+  s.eva.addPing({ x: 'x', y: 0, by: 'diego' }); // not a spot: ignored
+  assert.deepEqual(pings(), [{ x: 640, y: -320, color: ROLE_COLOR('scientist'), ping: true, label: 'diego', alpha: 1 }]);
+  s.clock.now += D.TEAM.ping.life / 2;
+  assert.equal(pings()[0].alpha, 0.5, 'half way: half faded');
+  s.clock.now += D.TEAM.ping.life / 2;
+  assert.deepEqual(pings(), [], 'gone after 10 s');
+});
+
+test("while the commander is out, his pings draw a dashed line from him to each, for everyone; nobody else's do, and a 4-crew mission has none", () => {
+  const team = { list: [] };
+  const s = setup({ mission: FIVE(), t: say, team: () => team.list });
+  team.list = [{ crewId: 'minh', x: 0, y: 0 }, { crewId: 'kai', x: 20 * T, y: 0 }];
+  s.eva.addPing({ x: 40 * T, y: 3 * T, by: 'kai' });
+  s.eva.addPing({ x: 9 * T, y: 9 * T, by: 'diego' });
+  const route = () => plain(s.eva.lines()).filter(l => l.x1 !== T / 2 || l.y1 !== T / 2); // not the route home
+  assert.deepEqual(route().map(l => [l.x0, l.y0, l.x1, l.y1, l.color, l.dash.length > 0]), [[20 * T, 0, 40 * T, 3 * T, ROLE_COLOR('commander'), true]]);
+  team.list = [{ crewId: 'minh', x: 0, y: 0 }, { crewId: 'kai', x: T, y: T }];
+  assert.deepEqual(route(), [], 'at the base he is not out: no line');
+  const four = setup({ mission: quiet(E.createMission({ seed: 'EVA-TEAM', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' })), t: say, team: () => [{ crewId: 'minh', x: 20 * T, y: 0 }] });
+  four.eva.addPing({ x: 40 * T, y: 3 * T, by: 'minh' });
+  assert.deepEqual(plain(four.eva.lines()), [], 'no commander in a crew of 4');
+});
+
+test("the commander's aura: within 5 tiles of him while he is out you move 10 % faster on foot, never in the rover, and a hint says so", () => {
+  const team = { list: [] };
+  const s = setup({ mission: FIVE(), t: say, team: () => team.list }), me = outside(30, 0);
+  const hint = () => s.eva.el.children.find(n => n.className.split(' ').includes('sf-aura'));
+  team.list = [{ crewId: 'minh', x: me.x, y: me.y }, { crewId: 'kai', x: me.x + 4 * T, y: me.y }];
+  tick(s, me, 0.1);
+  assert.equal(s.eva.speed(me), D.SKILLS.commander.auraSpeed);
+  assert.equal(hint().hidden, false);
+  assert.equal(hint().textContent, say('eva.aura', { p: 10 }));
+  assert.equal(s.eva.speed(Object.assign({}, me, { inRover: true })), 1, 'the rover keeps its own speed');
+  team.list[1].x = me.x + 6 * T;
+  tick(s, me, 0.1);
+  assert.equal(s.eva.speed(me), 1, '6 tiles away: out of reach');
+  assert.equal(hint().hidden, true);
+  // Kai himself, out on the map, leads: the hint says so.
+  s.eva.sync({ mission: s.m, controlId: 'kai', lang: 'en' });
+  team.list = [{ crewId: 'kai', x: me.x, y: me.y }];
+  tick(s, me, 0.1);
+  assert.equal(s.eva.speed(me), D.SKILLS.commander.auraSpeed);
+  assert.equal(hint().textContent, say('eva.auraLead', { p: 10, n: D.SKILLS.commander.auraRange }));
+});
+
+test("the round's goals show in the HUD column, asked twice a second: a line each over a bar, a done one ticked; no goals or no hook, no block", () => {
+  const survey = { text: 'Survey a science site at least 40 tiles from the base', done: false, frac: 0.25 };
+  const haul = { text: 'Bring home 3 loads of ice or metal (1/3)', done: false, frac: 1 / 3 };
+  let list = [survey, haul], asked = 0;
+  const s = setup({ t: say, goals: () => { asked++; return list; } });
+  const block = () => s.eva.el.children.find(n => n.className === 'sf-goals');
+  const lines = () => block().children[1].children.map(li => [li.className, li.textContent, li.children[0].children[0].style.width]);
+  tick(s, outside(0, 1), 0.1);
+  assert.equal(block().hidden, false);
+  assert.equal(block().children[0].textContent, say('eva.goals'));
+  assert.deepEqual(lines(), [['', survey.text, '25%'], ['', haul.text, '33%']]);
+  tick(s, outside(0, 1), 1);
+  assert.ok(asked >= 2 && asked <= 3, 'twice a second, not on each of the 11 frames: ' + asked);
+  list = [survey, Object.assign({}, haul, { text: 'Bring home 3 loads of ice or metal (3/3)', done: true, frac: 1 })];
+  tick(s, outside(0, 1), 0.5);
+  assert.deepEqual(lines()[1], ['done', '✓ Bring home 3 loads of ice or metal (3/3)', '100%']);
+  list = [];
+  tick(s, outside(0, 1), 0.5);
+  assert.equal(block().hidden, true, 'no goals: no block');
+  const bare = setup({ t: say }); // ui.js without the goals hook
+  tick(bare, outside(0, 1), 0.5);
+  assert.equal(bare.eva.el.children.find(n => n.className === 'sf-goals').hidden, true);
 });

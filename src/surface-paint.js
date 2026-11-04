@@ -764,6 +764,55 @@
     ctx.restore();
   }
 
+  // A relay beacon (spec §3.8): a mast on three legs with the outpost's teal band and its light on top, which flashes once
+  // every 2 s; `spent` (your refill there is used this round) leaves the light dark. (x, y) is its foot, in world pixels.
+  function drawBeacon(ctx, x, y, time, spent) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(x, y + 4, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#8b9097';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y - 40); ctx.lineTo(x, y);
+    ctx.moveTo(x, y - 14); ctx.lineTo(x - 10, y + 3);
+    ctx.moveTo(x, y - 14); ctx.lineTo(x + 10, y + 3);
+    ctx.stroke();
+    ctx.fillStyle = '#4fd0c4';
+    ctx.fillRect(x - 4, y - 30, 8, 5);
+    const flash = spent ? 0 : Math.pow(Math.max(0, Math.sin(time * Math.PI)), 8);
+    if (flash > 0.02) {
+      ctx.fillStyle = 'rgba(255,207,122,' + (0.45 * flash).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(x, y - 43, 11, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = spent ? '#5d5355' : '#ffcf7a';
+    ctx.beginPath(); ctx.arc(x, y - 43, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // A ping (spec §3.5) on the ground: a ring that opens out from the spot every 1.5 s round a pin, in the sender's colour,
+  // with their name over it; `fade` (1 new, 0 gone) dims it all. (x, y) is the spot, in world pixels; `age` its seconds.
+  function drawPing(ctx, x, y, color, name, fade, age) {
+    const a = Math.max(0, Math.min(1, fade)), k = (age % 1.5) / 1.5;
+    if (a <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = a * (1 - k);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(x, y, 10 + 30 * k, 5 + 15 * k, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = 'rgba(20,14,16,0.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 7, y - 16); ctx.arc(x, y - 18, 7, Math.PI * 0.8, Math.PI * 0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.font = '600 11px "Be Vietnam Pro", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3;
+    ctx.strokeText(name, x, y - 30);
+    ctx.fillText(name, x, y - 30);
+    ctx.restore();
+  }
+
   // How far a hold of E has got: a ring that fills clockwise. (x, y) is its centre in world pixels.
   function drawRing(ctx, x, y, frac) {
     ctx.save();
@@ -844,6 +893,6 @@
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
-    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawRing, drawSuitBar, drawDevil, drawRoof },
+    sprites: { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
   };
 });

@@ -84,7 +84,7 @@ function element(tag) {
 function page(m, me, opts) {
   const o = opts || {};
   let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7;
-  const on = {}, sent = [], calls = [];
+  const on = {}, sent = [], calls = [], walks = [], queued = [];
   const { painter, seen } = stubPainter(() => clock);
   const win = {
     SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW,
@@ -117,11 +117,15 @@ function page(m, me, opts) {
     // What a solo save keeps every 2 s (ui.js does the same).
     suit: r => { if (!cur.coop) { X.setSuit(cur, me, r.suit); if (r.driven != null) X.setRoverDriven(cur, me, r.driven); Z.setClock(cur, r.clock); X.setWhere(cur, me, r.at); } },
     sendPos: pos => sent.push(plain(pos)),
+    // Walking samples (ui.js counts the tiles in solo, as here; the co-op server counts them from positions).
+    walk: (from, to, dt) => { walks.push(dt); if (!cur.coop) X.addDistance(cur, me, from, to, dt); },
+    ping: o.ping, // co-op: `o.ping(x, y)` sends a ping (true when it went out)
+    queueBuild: b => queued.push(b), canAdvance: () => false, // the HQ menu's builds, and its Advance button
   };
   const root = S.mount(hooks), canvas = root.children[0];
   show(m);
   return {
-    sent, calls, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list),
+    sent, calls, walks, queued, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
     canvas, overlay: root.children[1], seen, setGfx(g) { gfx = g; show(cur); },
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
     // `secs` of frames at `hz` with synthetic timestamps, as requestAnimationFrame gives them (the clock is the frame's exact time;
@@ -730,4 +734,154 @@ test("the maps are given the points of interest's marks: a landmark once it is d
   const pg = page(m, 'minh', { expedition: { mastMarks: () => [{ id: 'S5,5', x: 330, y: 340, kind: 'wreck' }] } });
   pg.step(0.1);
   assert.deepEqual(poi(pg).map(k => k.text || 'diamond'), ['diamond', '?']);
+});
+
+// ---------- relay beacons, pings and the team (M4d) ----------
+test('K at the base takes a relay beacon kit that waits there into the backpack; out on the map it does nothing', async () => {
+  const m = mission({ seed: 'KIT-K' });
+  m.expedition.kits = 1;
+  const pg = page(m, 'minh');
+  pg.qa.teleport(9, 1); // outside the base zone
+  pg.step(0.1);
+  pg.key('KeyK');
+  await flush();
+  assert.deepEqual(pg.calls, [], 'out on the map: nothing asked');
+  pg.qa.teleport(0, 1);
+  pg.step(0.1);
+  pg.key('KeyK');
+  await flush();
+  assert.deepEqual(pg.calls, ['takeKit']);
+  assert.equal(m.expedition.kits, 0);
+  assert.ok(E.isKit(m.expedition.carried.minh[0]), 'the kit is in the backpack');
+});
+
+test("E where a relay beacon cannot go opens no menu: the prompt has already said why", () => {
+  const m = mission({ seed: 'KIT-E' });
+  m.expedition.carried.minh = [E.kitItem()];
+  const pg = page(m, 'minh');
+  pg.qa.teleport(6, 9); // out of the base zone, too close to the base for a beacon
+  pg.step(0.2);
+  assert.equal(pg.probe().focus, 'beacon');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  assert.equal(pg.probe().menu, null, 'no menu');
+});
+
+const pingsOf = pg => plain(pg.probe().marks).filter(k => k.ping).map(k => [k.x, k.y, k.label]);
+test('P pings where you stand: solo shows it on your own maps at once, without the network; at most one a second', () => {
+  const pg = page(mission({ seed: 'PING-1' }), 'minh');
+  pg.qa.teleport(6, 3);
+  pg.step(0.1);
+  pg.key('KeyP');
+  pg.step(0.2);
+  assert.deepEqual(pingsOf(pg), [[6.5 * T, 3.5 * T, 'minh']]);
+  pg.key('KeyP');
+  pg.step(0.2);
+  assert.equal(pingsOf(pg).length, 1, 'a second press within the second: nothing');
+  pg.step(1);
+  pg.key('KeyP');
+  pg.step(0.2);
+  assert.equal(pingsOf(pg).length, 2);
+});
+
+test("co-op: P sends the ping and draws nothing itself; the server's echo (SolSurface.ping) draws it, the sender's too", () => {
+  const sent = [];
+  const pg = page(mission({ seed: 'PING-2', coop: true }), 'minh', { ping: (x, y) => { sent.push([x, y]); return true; } });
+  pg.qa.teleport(6, 3);
+  pg.step(0.1);
+  pg.key('KeyP');
+  pg.step(0.2);
+  assert.deepEqual(sent, [[6.5 * T, 3.5 * T]]);
+  assert.deepEqual(pingsOf(pg), [], 'nothing until the echo');
+  pg.ping({ x: 6.5 * T, y: 3.5 * T, by: 'minh' });
+  pg.ping({ x: 900, y: 40, by: 'diego' });
+  pg.step(0.2);
+  assert.deepEqual(pingsOf(pg), [[6.5 * T, 3.5 * T, 'minh'], [900, 40, 'diego']]);
+});
+
+test("the commander's aura speeds his walk by 10 % once he is out of the base zone; a crew of 4 has none", () => {
+  const walked = (crewSize, pilot) => {
+    const pg = page(mission({ seed: 'AURA-1', loadout: E.referenceKit('commander', crewSize), crewSize, pilot }), pilot);
+    pg.qa.teleport(20, 38); // open ground of normal speed to the east
+    pg.step(0.1);
+    const x0 = pg.probe().player.x;
+    pg.qa.hold('KeyD', true);
+    pg.step(1);
+    pg.qa.hold('KeyD', false);
+    return pg.probe().player.x - x0;
+  };
+  const plainWalk = walked(4, 'minh'), led = walked(5, 'kai');
+  assert.ok(plainWalk > 100, 'walked east: ' + plainWalk);
+  assert.ok(Math.abs(led / plainWalk - D.SKILLS.commander.auraSpeed) < 0.01, 'the commander walks 10 % further: ' + led / plainWalk);
+});
+
+test("co-op: a teammate whose tab is gone counts for nobody's aura or route line, though they still stand where they left", () => {
+  const pg = page(mission({ seed: 'AURA-2', loadout: E.referenceKit('commander', 5), crewSize: 5, coop: true }), 'minh');
+  const kai = { crewId: 'kai', x: 30 * T, y: 4 * T, dir: 'down', moving: false, rover: false };
+  pg.remote([kai]);
+  pg.step(0.2);
+  assert.deepEqual(plain(pg.probe().team).map(q => q.crewId), ['minh', 'kai']);
+  pg.remote([Object.assign({ away: true }, kai)]);
+  pg.step(0.2);
+  assert.deepEqual(plain(pg.probe().team).map(q => q.crewId), ['minh'], 'away: not in the team');
+  assert.deepEqual(Object.keys(pg.probe().remote), ['kai'], 'still drawn where he stood');
+});
+
+test('solo: the tiles you walk reach the rules about every 150 ms of the surface clock; a jump and a ride in the rover count for nothing', () => {
+  const m = mission({ seed: 'WALK-1' }), pg = page(m, 'minh');
+  const dist = () => (m.expedition.stats.minh || {}).distance || 0;
+  pg.qa.teleport(20, 38); // open ground of normal speed to the east, far from the base: a jump
+  pg.step(0.5);
+  assert.equal(dist(), 0, 'the teleport counted for nothing');
+  const x0 = pg.probe().player.x;
+  pg.qa.hold('KeyD', true);
+  pg.step(1);
+  pg.qa.hold('KeyD', false);
+  pg.step(0.5);
+  const walked = (pg.probe().player.x - x0) / T;
+  assert.ok(walked > 2, 'walked east: ' + walked);
+  assert.ok(Math.abs(dist() - walked) < 1e-6, 'the tiles walked: ' + dist() + ' of ' + walked);
+  assert.ok(pg.walks.length >= 10 && pg.walks.every(dt => dt > 0.11 && dt < 0.25), 'samples at the co-op cadence: ' + pg.walks.join());
+  // the same drive in the rover: no tiles walked (it has its own odometer)
+  const r = mission({ seed: 'WALK-2' });
+  assert.equal(X.board(r, 'minh', X.bay(r)).ok, true);
+  const pr = page(r, 'minh');
+  pr.qa.teleport(20, 38);
+  pr.step(0.5);
+  const rx = pr.probe().player.x;
+  pr.qa.hold('KeyD', true);
+  pr.step(1);
+  pr.qa.hold('KeyD', false);
+  pr.step(0.5);
+  assert.ok(pr.probe().player.inRover && pr.probe().player.x - rx > 2 * T, 'driven east: ' + (pr.probe().player.x - rx));
+  assert.equal((r.expedition.stats.minh || {}).distance || 0, 0);
+});
+
+// The menu's buttons as [label, sub-label, disabled], from the last time it was drawn.
+const menuButtons = pg => {
+  const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
+  const body = menu.children.filter(n => n.className === 'sf-mbody').pop();
+  return body.children.filter(n => /^sf-mbtn/.test(n.className)).map(b => {
+    const txt = b.children.find(n => n.className === 'sf-mtxt');
+    return [txt.children[0].textContent, txt.children[1] ? txt.children[1].textContent : '', b.disabled, b];
+  });
+};
+test("the HQ's menu builds a relay beacon kit, as it adds a shield layer: its cost, or why not", () => {
+  const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh');
+  const hq = m.layout.find(k => k.type === 'hab');
+  pg.qa.teleport(hq.x + W.BASE_RECT.x, hq.y + W.BASE_RECT.y - 0.65); // on the south edge of the module north of the HQ, facing it
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'hq');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  const kit = () => menuButtons(pg).find(b => b[0] === I.t('en', 'sf.kitAdd'));
+  assert.deepEqual(kit().slice(0, 3), [I.t('en', 'sf.kitAdd'), I.t('en', 'bld.cost', { kg: D.BUILDS.kit.materials, w: D.BUILDS.kit.work }), false]);
+  for (const fn of kit()[3].listeners.click) fn({});
+  assert.deepEqual(plain(pg.queued), [{ type: 'kit' }]);
+  m.resources.materials = 10;
+  pg.show(m);
+  pg.key('Escape');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  assert.deepEqual(kit().slice(1, 3), [I.t('en', 'bld.why.materials'), true], 'too little material: why, and no button');
 });

@@ -333,3 +333,22 @@ test("the world's decor props are painted into the ground: the flat ones with th
   assert.ok(pit > clip && pit < restore, 'the pit, centred on its tile, with the decor');
   assert.ok(calls.slice(restore).some(c => c[0] === 'ellipse'), 'the rock, after the decor (the ground here has nothing else that stands up)');
 });
+
+test("a relay beacon's light flashes once every 2 s, and stays dark while your refill there is used", () => {
+  // Every arc filled, with the fill style it had: the last one is the light on top of the mast.
+  const lights = (time, spent) => {
+    const arcs = [];
+    const ctx = new Proxy({}, {
+      get(t, p) { if (p in t) return t[p]; if (p === 'arc') return (x, y, r) => arcs.push({ y, r }); if (p === 'fill') return () => { if (arcs.length) arcs[arcs.length - 1].style = t.fillStyle; }; return () => {}; },
+      set(t, p, v) { t[p] = v; return true; },
+    });
+    P.sprites.drawBeacon(ctx, 100, 200, time, spent);
+    return arcs;
+  };
+  const lit = lights(0.5, false), dark = lights(1.5, false), spent = lights(0.5, true);
+  assert.equal(lit.length, 2, 'at the top of its flash: the glow and the light');
+  assert.equal(lit[1].style, '#ffcf7a');
+  assert.equal(dark.length, 1, 'between flashes: the light alone');
+  assert.deepEqual(spent.map(a => a.style), ['#5d5355'], 'spent: dark, and no flash');
+  assert.ok(lit.every(a => a.y < 200), 'the light stands above its foot');
+});

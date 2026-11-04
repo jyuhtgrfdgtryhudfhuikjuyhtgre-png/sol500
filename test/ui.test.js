@@ -260,6 +260,49 @@ test("co-op: a crewmate's discovery from the server opens its card on this tab, 
   assert.equal(pg.UI.store.card.science, 132, "the reward, when the server's event carries it");
 });
 
+// ---------- M4d eva: the surface's hooks and the net handlers it needs (pings, a teammate whose tab is gone) ----------
+// A page whose net connects at boot and whose surface is up, recording what ui.js hands it.
+function surfacePage() {
+  const got = { hooks: null, remote: [], pings: [] }, sent = [];
+  const net = { info: () => Promise.resolve({ lan: true }), restore: () => ({ code: 'ABCD', playerId: 'p1', token: 't' }), connect: (...h) => { net.h = h; }, sendPing: (x, y) => { sent.push([x, y]); return true; } };
+  const SolSurface = { mount: hooks => { got.hooks = hooks; return new El('div'); }, update() {}, isMounted: () => true, setRemote: l => got.remote.push(l), ping: d => got.pings.push(d) };
+  return { got, sent, net, pg: page(null, { SolNet: net, SolSurface }) };
+}
+
+test("a ping: solo sends nothing (the surface shows it itself); co-op sends it to the server, and the server's pings reach the surface", async () => {
+  const { got, sent, net, pg } = surfacePage();
+  pg.play(pg.mission());
+  assert.equal(got.hooks.ping(640, -320), false, 'solo: not sent');
+  assert.deepEqual(sent, []);
+  await new Promise(r => setImmediate(r)); // the boot asks the server for its info, then connects
+  pg.UI.store.room = { mission: pg.mission({ coop: true }), players: [], settings: { names: {} } };
+  assert.equal(got.hooks.ping(640, -320), true, 'co-op: sent');
+  assert.deepEqual(sent, [[640, -320]]);
+  net.h[5]({ x: 640, y: -320, by: 'diego' });
+  assert.deepEqual(plain(got.pings), [{ x: 640, y: -320, by: 'diego' }]);
+});
+
+test("co-op: a teammate whose tab is gone reaches the surface marked away, so they count for nobody's aura or route line", async () => {
+  const { got, net, pg } = surfacePage();
+  await new Promise(r => setImmediate(r));
+  pg.UI.store.room = { mission: pg.mission({ coop: true }), players: [{ crewId: 'minh', connected: true }, { crewId: 'kai', connected: false }, { crewId: null, connected: true }], settings: { names: {} } };
+  net.h[2]([{ crewId: 'minh', x: 0, y: 0 }, { crewId: 'kai', x: 640, y: 0 }]);
+  assert.deepEqual(plain(got.remote), [[{ crewId: 'minh', x: 0, y: 0, away: false }, { crewId: 'kai', x: 640, y: 0, away: true }]]);
+});
+
+test("solo: the surface's walking samples add the tiles walked to the pilot's stats; co-op leaves them to the server", async () => {
+  const { got, pg } = surfacePage(), m = pg.mission();
+  pg.play(m);
+  got.hooks.walk({ x: 0, y: 0, rover: false }, { x: 128, y: 0, rover: false }, 0.5);
+  assert.equal(m.expedition.stats.minh.distance, 2);
+  await new Promise(r => setImmediate(r));
+  const room = { mission: pg.mission({ coop: true }), players: [], settings: { names: {} } };
+  pg.UI.store.room = room;
+  got.hooks.walk({ x: 0, y: 0, rover: false }, { x: 128, y: 0, rover: false }, 0.5);
+  assert.equal(room.mission.expedition.stats.minh, undefined, 'co-op: not here');
+  assert.equal(m.expedition.stats.minh.distance, 2);
+});
+
 test("solo: a formation's survey opens its real fact with its source, once per formation", () => {
   const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
   if (!pg.I.FORMATION_SOURCES) pg.I.FORMATION_SOURCES = { ventifact: 'bagnold' }; // a stand-in until the words branch brings the real map

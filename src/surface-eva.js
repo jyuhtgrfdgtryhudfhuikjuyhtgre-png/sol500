@@ -11,10 +11,12 @@
  *
  * API: SolEva.create(env) → eva
  *        env: { t(key, params), hooks(), crewName(id), home(), drawRover(ctx, x, y), player(), now() → seconds,
- *               push(dx, dy) (a dust devil throws your astronaut that far, world px) }
- *        hooks() is ui.js's: exp(type, payload, pos) runs the rules (above), suit(report) keeps the solo save, and
+ *               push(dx, dy) (a dust devil throws your astronaut that far, world px),
+ *               team() → [{ crewId, x, y }] where the crew who count stand, you included (the commander's aura and route line) }
+ *        hooks() is ui.js's: exp(type, payload, pos) runs the rules (above), suit(report) keeps the solo save,
  *        card({ type, id, kind, ... }) shows a point of interest's card (a Kestrel structure's story log, a hab pod's as you
- *        walk in, a landmark's discovery { by, science }, a formation's fact when you survey it)
+ *        walk in, a landmark's discovery { by, science }, a formation's fact when you survey it), and goals() → [{ text, done,
+ *        frac }] the round's goals for the HUD column (none without the hook)
  *      eva.el · eva.alert                           the HUD node and the flare's banner, for the surface overlay
  *      eva.sync(data) → { round, fresh }            round: a new round began; fresh: first look at this mission/seat
  *                                                   (data.clock, co-op only: { t: round seconds, at: env.now() then })
@@ -27,23 +29,28 @@
  *      eva.holdable(focus) · eva.label(focus) · eva.start(focus) · eva.stop()       E / the action button
  *      eva.hasRoom() → does your backpack take another load?
  *      eva.act(type, player, payload) → Promise of the rules' answer (board, park) · eva.canister(player) (the button, or Q)
+ *      eva.takeKit(player) (the button, or K) · eva.returnKit(player): a relay beacon kit from the base into your backpack, and back
  *      eva.drawZone(ctx, x0, y0, x1, y1, world) the base zone, and every cover in view during a flare warning
  *      eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx)
  *      eva.flareFx(player) → { warn: 0–1, flash: 0–1 }: the red edge of a flare countdown, the flash when it hits
  *      eva.view(player) → tiles you see from where you stand (Z.viewAt) · eva.clock() → the round's clock (s) · eva.alerting()
  *      eva.suitBar(teammate) → 0–1, or null: the suit bar on a teammate's name tag (drawn by SolPaint's drawTags)
- *      eva.marks(world, px, py) → minimap markers · eva.report() → { suit (null while collapsed), driven } for positions
+ *      eva.marks(world, px, py) → minimap markers (live pings too) · eva.lines() → the maps' lines (the dashed route home, the
+ *        commander's route line to his pings), world px
+ *      eva.addPing({ x, y, by }) a ping to show for D.TEAM.ping.life s · eva.speed(player) → the commander's aura factor (1 or 1.1)
+ *      eva.report() → { suit (null while collapsed), driven } for positions
  *      eva.roverAtBay(player) · eva.driving() · eva.collapsed(crewId) · eva.state() (play-testing)
  */
 (function (root) {
   'use strict';
-  const D = root.SolData, W = root.SolWorldgen, X = root.SolExpedition, Z = root.SolDangers, P = root.SolPaint, SW = root.SolWorld, A = root.SolArt;
-  const { drawFind, drawDrop, drawRing, drawDevil, roundRect } = P.sprites;
+  const D = root.SolData, E = root.SolEngine, W = root.SolWorldgen, X = root.SolExpedition, Z = root.SolDangers, P = root.SolPaint, SW = root.SolWorld, A = root.SolArt;
+  const { drawFind, drawDrop, drawRing, drawDevil, drawBeacon, drawPing, roundRect } = P.sprites;
   const XD = D.EXPEDITION, ZD = D.DANGERS;
   const T = 64, ICY = W.REGIONS.indexOf('icy');
   const REACH = 0.9 * T;                        // how close the spot you look at must be to a find
   const COLORS = { ice: '#9fd3ea', metal: '#d9b46a', pod: '#ece5db', science: '#6fa8ff' };
-  const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science' };
+  const BEACON = '#ffcf7a';                      // a relay beacon's light: its mark and the route home on the maps
+  const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science', kit: 'kit' };
   // No message when these are refused: they are retried, or harmless (a discovery is asked for when a landmark comes into
   // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
   const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
@@ -76,6 +83,8 @@
     let note = null;                               // { text, cls, until }
     let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
     let asked = {};                                // landmark id → when its discovery was answered (Infinity while asked)
+    let pings = [];                                // the live pings (spec §3.5): { x, y, by, at }, `at` on the wall clock
+    let goals = [], goalsAt = -1e9;                // the round's goals as ui.js last gave them (renderGoals), and when
 
     const mission = () => (data && data.mission) || null;
     const exp = () => mission().expedition;
@@ -93,6 +102,27 @@
     // A point of interest's card over the surface (ui.js shows each once a mission): { type: 'log' | ..., id, kind }.
     const card = c => { const h = env.hooks(); if (h && h.card) h.card(c); };
 
+    // ---------- the team: pings and the commander (spec §3.3, §3.5) ----------
+    // Where the crew stand ([{ crewId, x, y }], world px), as the surface knows it: you, and the teammates who count.
+    const team = () => (env.team ? env.team() || [] : []);
+    // A ping: a spot a crewmate (or you) pointed out, { x, y } in world px and `by` their crew id. It lasts D.TEAM.ping.life
+    // seconds of the wall clock, so it fades on time while the surface is hidden too; the newest 50 are kept.
+    function addPing(d) {
+      if (!d || !Number.isFinite(d.x) || !Number.isFinite(d.y) || typeof d.by !== 'string') return;
+      const t0 = wall();
+      pings = pings.filter(q => t0 - q.at < D.TEAM.ping.life).concat([{ x: d.x, y: d.y, by: d.by, at: t0 }]).slice(-50);
+    }
+    // The live pings with how far each has faded (1 new, 0 gone) and its age in seconds.
+    function livePings() {
+      const t0 = wall(), life = D.TEAM.ping.life;
+      return pings.filter(q => t0 - q.at < life).map(q => ({ x: q.x, y: q.y, by: q.by, age: t0 - q.at, fade: 1 - (t0 - q.at) / life }));
+    }
+    const pingColor = id => { const c = mission() && mission().crew.find(k => k.id === id); return (c && A.ROLE[c.role]) || '#cccccc'; };
+    const pingMarks = () => (mission() ? livePings().map(q => ({ x: q.x, y: q.y, color: pingColor(q.by), ping: true, label: env.crewName(q.by), alpha: q.fade })) : []);
+    // How much faster you move: the commander's aura (X.speedFactor) while he is out and you are within his reach, on foot (a
+    // rover keeps its own speed). A crew of 4 has no commander, so never.
+    const speed = p => (live() && !collapsed(me) && !(p && p.inRover) ? X.speedFactor(mission(), me, team()) : 1);
+
     // ---------- the HUD ----------
     const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
     const el = node('div', 'sf-eva');
@@ -103,9 +133,20 @@
     const canBtn = node('button', 'sf-can');
     canBtn.type = 'button';
     canBtn.addEventListener('click', () => canister(env.player && env.player()));
+    // A relay beacon kit waiting at the base (x.kits) goes into your backpack with a button there (or K), and back with another.
+    const kitBtn = node('button', 'sf-kit'), backBtn = node('button', 'sf-kitback');
+    kitBtn.type = backBtn.type = 'button';
+    kitBtn.addEventListener('click', () => takeKit(env.player && env.player()));
+    backBtn.addEventListener('click', () => returnKit(env.player && env.player()));
+    const auraEl = node('p', 'sf-aura');           // the commander's aura, while it speeds you up
+    auraEl.hidden = true;
+    // The round's goals (spec §3.9), under the backpack, where they stay put while the buttons and notes below come and go.
+    const goalsEl = node('div', 'sf-goals'), goalsCap = node('b'), goalsList = node('ul');
+    goalsEl.append(goalsCap, goalsList);
+    goalsEl.hidden = true;
     const noteEl = node('p', 'sf-evanote');
     noteEl.setAttribute('role', 'status');
-    el.append(suitM.row, battM.row, packEl, canBtn, noteEl);
+    el.append(suitM.row, battM.row, packEl, goalsEl, canBtn, kitBtn, backBtn, auraEl, noteEl);
     // The flare's banner: what to do is announced when it changes; the seconds tick on their own, unannounced.
     const alert = node('div', 'sf-alert');
     alert.hidden = true;
@@ -186,6 +227,27 @@
     }
     // The canister button shows only when breathing one now is worth it: outside, on your feet, and with room for all 45 s.
     const canBreathe = p => live() && !collapsed(me) && !benched() && pack().some(i => i.canister) && suit <= CAN_BELOW && !(p && X.inBaseZone(p));
+    // The round's goals from ui.js's goals hook ([{ text, done, frac }], frac 0–1; text has "(p/n)" when it needs more than
+    // one), asked twice a second: a line each with a thin bar, a done one ticked. No hook or no goals: no block.
+    function renderGoals() {
+      if (now - goalsAt >= 0.5) {
+        goalsAt = now;
+        const h = env.hooks(), g = h && typeof h.goals === 'function' ? h.goals() : null;
+        goals = Array.isArray(g) ? g.filter(q => q && typeof q.text === 'string') : [];
+      }
+      prop('gl', JSON.stringify(goals) + '|' + (shown.lang || ''), () => {
+        goalsEl.hidden = !goals.length;
+        goalsCap.textContent = t('eva.goals');
+        goalsList.textContent = '';
+        for (const q of goals) {
+          const li = node('li', q.done ? 'done' : null, (q.done ? '✓ ' : '') + q.text), bar = node('span', 'bar'), fill = node('i');
+          fill.style.width = Math.round(100 * (q.done ? 1 : Math.max(0, Math.min(1, Number(q.frac) || 0)))) + '%';
+          bar.appendChild(fill);
+          li.appendChild(bar);
+          goalsList.appendChild(li);
+        }
+      });
+    }
 
     function renderHud(p) {
       const hide = !me || !mission() || !mission().expedition || mission().status !== 'active';
@@ -219,12 +281,21 @@
         packEl.setAttribute('aria-label', t('eva.pack', { n: items.length, m: cap }));
         for (let i = 0; i < cap; i++) {
           const it = items[i], slot = node('span', 'slot' + (it ? ' full' : ''));
-          if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = t('haul.' + it.res, { n: it.amount }); }
+          if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = E.isKit(it) ? t('eva.kit') : t('haul.' + it.res, { n: it.amount }); }
           packEl.appendChild(slot);
         }
       });
+      renderGoals();
       prop('ch', !canBreathe(p), v => { canBtn.hidden = v; });
       text(canBtn, 'ct', t('eva.useCanister', { s: XD.canister.suit }));
+      const kitHere = atBase && live() && !collapsed(me) && !benched(), kits = Number(exp().kits) || 0;
+      prop('kh', !(kitHere && kits > 0 && hasRoom()), v => { kitBtn.hidden = v; });
+      text(kitBtn, 'kt', t('eva.takeKit', { n: kits }));
+      prop('rh', !(kitHere && pack().some(E.isKit)), v => { backBtn.hidden = v; });
+      text(backBtn, 'rt', t('eva.returnKit'));
+      const aura = speed(p) > 1, lead = aura && crew().role === 'commander', pct = Math.round((D.SKILLS.commander.auraSpeed - 1) * 100);
+      prop('uh', !aura, v => { auraEl.hidden = v; });
+      if (aura) text(auraEl, 'ut', lead ? t('eva.auraLead', { p: pct, n: D.SKILLS.commander.auraRange }) : t('eva.aura', { p: pct }));
       const n = note && note.until > now ? note : statusNote(p);
       text(noteEl, 'nt', n ? n.text : '');
       prop('nc', 'sf-evanote' + (n && n.cls ? ' ' + n.cls : ''), v => { noteEl.className = v; });
@@ -251,6 +322,17 @@
         suit = Number.isFinite(r.suit) ? r.suit : Math.min(XD.suit, suit + XD.canister.suit);
         say(t('eva.breathed', { s: XD.canister.suit }), 'ok');
       });
+    }
+
+    // Takes a relay beacon kit waiting at the base into your backpack (the button, or K), or puts one back. Only in the base
+    // zone, where the buttons show: K pressed out on the map does nothing.
+    function takeKit(p) {
+      if (!live() || !X.inBaseZone(p) || !(exp().kits > 0)) return;
+      act('takeKit', p).then(r => { if (r.ok) say(t('eva.tookKit', { n: XD.beacon.base }), 'ok', 6); });
+    }
+    function returnKit(p) {
+      if (!live() || !X.inBaseZone(p) || !pack().some(E.isKit)) return;
+      act('returnKit', p).then(r => { if (r.ok) say(t('eva.returnedKit'), 'ok', 3); });
     }
 
     // What is waiting outside this round (Z.outside), said once a round when you first look at it.
@@ -300,10 +382,12 @@
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
       driven = soloClock = 0;
-      deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = refillAt = -1e9;
+      deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = refillAt = goalsAt = -1e9;
       inPod = null;
       asked = {};
       marksCache = [];
+      pings = [];
+      goals = [];
     }
 
     // ---------- every frame ----------
@@ -374,11 +458,31 @@
             say(t('eva.refilled', { s: Math.round(r.suit) }), 'ok', 4);
           });
         }
+        // A relay beacon (spec §3.8): within its refill tiles your suit is filled, once at each beacon a round (x.refills, shared
+        // with the pods). Only when that gives a canister's worth or more: walking out past it with a nearly full suit would
+        // spend this round's refill before the way home.
+        if (out && suit <= CAN_BELOW && now - refillAt > 2) {
+          const had = x.refills[me] || [], r2 = (XD.beacon.refill * T) * (XD.beacon.refill * T);
+          const i = x.beacons.findIndex((b, j) => !had.includes('B' + j) && near2((b.x + 0.5) * T, (b.y + 0.5) * T, p.x, p.y) <= r2);
+          if (i >= 0) {
+            refillAt = now;
+            act('refill', p, { beacon: 'B' + i }).then(r => {
+              if (!r.ok) return;
+              suit = r.suit;
+              say(t('eva.refilledBeacon', { name: beaconName('B' + i), s: Math.round(r.suit) }), 'ok', 4);
+            });
+          }
+        }
         if (out) sight(p);
-        if (atBase && pack().length && !collapsed(me) && now - deliverAt > 1.5) { // the rules refuse anything while you are down
+        // The rules refuse anything while you are down, and never bank a beacon kit: a pack of kits only is not delivered.
+        if (atBase && pack().some(it => !E.isKit(it)) && !collapsed(me) && now - deliverAt > 1.5) {
           deliverAt = now;
-          const n = pack().length;
-          act('deliver', p).then(r => { if (r.ok) say(t(n === 1 ? 'eva.delivered1' : 'eva.delivered', { n }), 'ok', 4); });
+          const kept = pack().some(E.isKit);
+          act('deliver', p).then(r => {
+            if (!r.ok) return;
+            const n = r.items.length;
+            say(t(n === 1 ? 'eva.delivered1' : 'eva.delivered', { n }) + (kept ? ' ' + t('eva.kitStays') : ''), 'ok', 4);
+          });
         }
         if (hold) {
           if (p.moving || !focus || focus.key !== hold.f.key) hold = null;
@@ -400,10 +504,13 @@
       const ask = f.kind === 'find' ? act('collect', p, { find: f.id })
         : f.kind === 'drop' ? act('pickup', p, { drop: f.id })
           : f.kind === 'kestrel' ? act('interact', p, { structure: f.id })
-            : act('revive', p, { target: f.id });
+            : f.kind === 'beacon' ? act('placeBeacon', p)
+              : act('revive', p, { target: f.id });
       ask.then(r => {
         if (!r.ok) return;
         if (f.kind === 'kestrel') return used(f.struct, r);
+        // Its fog is in the mission's (solo) or comes as any fog does (co-op), as a repaired weather station's.
+        if (f.kind === 'beacon') return say(t('eva.placed', { name: beaconName(r.beacon), n: XD.beacon.reveal, r: XD.beacon.refill }), 'ok', 6);
         if (f.kind === 'find') {
           say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
           // A formation's survey: its real fact and source, once per formation (spec §3.7).
@@ -427,11 +534,18 @@
     }
 
     // ---------- what you can work on ----------
-    function hold0(f) {
-      const role = crew() && crew().role;
-      return X.holdSeconds(f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : 'revive', role);
+    // Every hold's seconds come from the rules' one function (X.holdSeconds), with your role's skill (spec §3.3).
+    const holdKind = f => (f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : f.kind === 'beacon' ? 'beacon' : 'revive');
+    const hold0 = f => X.holdSeconds(holdKind(f), crew() && crew().role);
+    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
+    // A relay beacon by its id "B<i>": "Beacon <i + 1>".
+    const beaconName = id => t('eva.beaconName', { n: Number(String(id).slice(1)) + 1 });
+    // Where the relay beacon you carry would go (spec §3.8): the tile under you, as the rules judge it (X.beaconSpot changes
+    // nothing; a co-op server's refusal drops the tiles still to go, so the prompt asks here). On foot and out of the base zone.
+    function beaconFocus(p) {
+      const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), spot = X.beaconSpot(mission(), me, at(p));
+      return { kind: 'beacon', key: 'b:' + tx + ',' + ty + ':' + (spot.error || 'ok'), spot, wx: tx, wy: ty, x: (tx + 0.5) * T, y: (ty + 0.5) * T };
     }
-    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive' || f.kind === 'kestrel');
 
     function focusAt(lx, ly, p, world) {
       if (!live() || collapsed(me) || benched()) return null;
@@ -462,6 +576,8 @@
         consider(s.x, s.y, { kind: 'revive', key: 'v:' + id, id, x: s.x, y: s.y - 10 });
       }
       if (x.rover && !x.rover.driver && !p.inRover) consider(x.rover.x, x.rover.y, { kind: 'rover', key: 'rover-parked', parked: true, x: x.rover.x, y: x.rover.y });
+      // With nothing else to work on, the beacon kit you carry: the tile under you is where it would stand.
+      if (!best && !p.inRover && !X.inBaseZone(p) && pack().some(E.isKit)) return beaconFocus(p);
       return best;
     }
 
@@ -475,6 +591,14 @@
       if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role)) });
       if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
       if (f.kind === 'rover') return t('sf.boardRover');
+      if (f.kind === 'beacon') {
+        const s = f.spot, more = Math.max(1, Math.ceil(s.need - 1e-9)); // whole tiles, at least one more
+        if (s.ok) return t('eva.placeBeacon', { s: secs(X.holdSeconds('beacon', role)) });
+        if (s.error === 'nearBase') return t('eva.beaconNearBase', { n: more });
+        if (s.error === 'nearBeacon') return t('eva.beaconNearBeacon', { name: beaconName(s.beacon), n: more });
+        if (s.error === 'limit') return t('eva.beaconLimit', { n: XD.beacon.max });
+        return t('eva.err.' + s.error);
+      }
       return '';
     }
 
@@ -527,6 +651,12 @@
       }
       const inView = (px, py) => px > x0 - T && px < x1 + T && py > y0 - T && py < y1 + 2 * T;
       for (const d of x.drops) if (inView(d.x, d.y)) out.push({ y: d.y + 8, draw: ctx => drawDrop(ctx, d.x, d.y) });
+      // Relay beacons stand for good, their light dim while your refill there is used this round.
+      const had = (me && x.refills[me]) || [];
+      x.beacons.forEach((b, i) => {
+        const bx = (b.x + 0.5) * T, by = (b.y + 0.5) * T, spent = had.includes('B' + i);
+        if (inView(bx, by)) out.push({ y: by + 6, draw: ctx => drawBeacon(ctx, bx, by, time, spent) });
+      });
       if (x.rover && !x.rover.driver && inView(x.rover.x, x.rover.y)) {
         const r = x.rover;
         out.push({ y: r.y + 10, draw: ctx => env.drawRover(ctx, r.x, r.y) });
@@ -542,8 +672,9 @@
       return out;
     }
 
-    // Over the fog: the hold ring.
+    // Over the fog: the pings (seen wherever they are), then the hold ring.
     function drawOver(ctx) {
+      for (const q of livePings()) drawPing(ctx, q.x, q.y, pingColor(q.by), env.crewName(q.by), q.fade, q.age);
       if (hold) drawRing(ctx, hold.f.x, hold.f.y - 40, hold.t / hold.dur);
     }
     // The flare on the whole screen: a red edge that grows through the countdown while you are in the open, then a flash.
@@ -562,7 +693,7 @@
     // have seen, dropped loads, the parked rover. Rebuilt at most every 150 ms.
     function marks(world, px, py) {
       if (!mission() || !mission().expedition || !world) return [];
-      if (now - marksAt < 0.15) return marksCache;
+      if (now - marksAt < 0.15) return marksCache.concat(pingMarks());
       marksAt = now;
       const m = mission(), x = exp(), out = [];
       const sniff = ((D.SKILLS[crew() && crew().role] || {}).sight) || 0;
@@ -579,13 +710,25 @@
       }
       for (const d of x.drops) out.push({ x: d.x, y: d.y, color: '#f46e5f' });
       if (x.rover && !x.rover.driver) out.push({ x: x.rover.x, y: x.rover.y, color: '#e9e2d8', square: true });
+      for (const b of x.beacons) out.push({ x: (b.x + 0.5) * T, y: (b.y + 0.5) * T, color: BEACON, beacon: true }); // its reveal lit them
       marksCache = out;
+      return out.concat(pingMarks());
+    }
+    // The maps' lines: the dashed route home (X.routeHome), each beacon to the nearest of the HQ and the beacons before it.
+    function lines() {
+      const m = mission();
+      if (!m || !m.expedition) return [];
+      const px = v => (v + 0.5) * T;
+      const out = X.routeHome(m).map(l => ({ x0: px(l.x0), y0: px(l.y0), x1: px(l.x1), y1: px(l.y1), color: BEACON, dash: [3, 2] }));
+      // The commander's route line (spec §3.5, §13.12): while he is out, a dashed line from him to each of his live pings.
+      const lead = X.commanderOut(m, team());
+      if (lead) for (const q of livePings()) if (q.by === lead.id) out.push({ x0: lead.x, y0: lead.y, x1: q.x, y1: q.y, color: A.ROLE.commander, width: 2, dash: [6, 3], alpha: q.fade });
       return out;
     }
 
     return {
-      el, alert, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, drawZone, sprites, drawOver,
-      flareFx, suitBar, marks, clock,
+      el, alert, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, takeKit, returnKit, drawZone, sprites, drawOver,
+      flareFx, suitBar, marks, lines, clock, addPing, speed,
       view: viewOf,
       alerting: () => !alert.hidden,
       // While you are down your suit is not sent: a position in flight could undo a revive the server has just made.

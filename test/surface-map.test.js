@@ -30,7 +30,9 @@ function element() {
   const n = { children: [], style: {}, hidden: false, className: '', textContent: '', clientWidth: 160, clientHeight: 160, width: 0, height: 0 };
   n.appendChild = c => { n.children.push(c); return c; };
   n.append = (...cs) => { n.children.push(...cs); };
-  n.addEventListener = () => {};
+  n.on = {};
+  n.addEventListener = (type, fn) => { (n.on[type] = n.on[type] || []).push(fn); };
+  n.getBoundingClientRect = () => ({ left: 0, top: 0, width: n.clientWidth, height: n.clientHeight });
   n.setAttribute = () => {};
   n.focus = () => {};
   n.setPointerCapture = () => {};
@@ -40,12 +42,12 @@ function element() {
 }
 
 const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'src', 'surface-map.js'), 'utf8');
-function setup(seed) {
+function setup(seed, opts) {
   const sandbox = { SolWorldgen: W, SolPaint: P, document: { createElement: element, createTextNode: text => ({ text }) } };
   vm.runInNewContext(SOURCE, sandbox);
   const world = SW.create(seed);
   const painter = P.createPainter(world, { canvas, now: () => 0 });
-  const map = sandbox.SolMap.create({ t: k => k });
+  const map = sandbox.SolMap.create(Object.assign({ t: k => k }, opts));
   map.attach(world, painter);
   return { world, painter, map };
 }
@@ -132,4 +134,76 @@ test("the minimap draws a landmark's diamond and a mast's '?' where their marks 
   const at = calls.findIndex(c => c[0] === 'moveTo' && c[1] === 90 && c[2] === 76);
   assert.deepEqual(calls.slice(at, at + 6), [['moveTo', 90, 76], ['lineTo', 94, 80], ['lineTo', 90, 84], ['lineTo', 86, 80], ['closePath'], ['fill']]);
   assert.ok(calls.some(c => c[0] === 'fillText' && c[1] === '?' && c[2] === 70 && c[3] === 80), 'the "?" 10 tiles west of you');
+});
+
+// ---------- relay beacons and pings (M4d) ----------
+test("the minimap draws a dashed line for each link of the route home, under the marks, and a relay beacon's mark as a little mast", () => {
+  const { map } = setup('MAP-ROUTE');
+  const calls = [];
+  const ctx = new Proxy({}, { get(t, p) { if (p in t) return t[p]; return (...a) => { calls.push([p, ...a]); }; }, set(t, p, v) { calls.push(['set', p, v]); t[p] = v; return true; } });
+  map.minimap.children[0].getContext = () => ctx;
+  // you at the HQ: one CSS pixel a tile, the HQ's tile (0, 0) at minimap pixel 80.5
+  map.drawMini({ px: 0, py: 0, crew: [], lines: [{ x0: 20.5 * 64, y0: 0.5 * 64, x1: 0.5 * 64, y1: 0.5 * 64, color: '#ffcf7a', dash: [3, 2] }], marks: [{ x: 20.5 * 64, y: 0.5 * 64, color: '#ffcf7a', beacon: true }] }, 1000);
+  const dash = calls.findIndex(c => c[0] === 'setLineDash' && c[1].length);
+  assert.ok(dash >= 0, 'a dashed line');
+  assert.deepEqual(calls.slice(dash + 1).filter(c => c[0] === 'moveTo' || c[0] === 'lineTo').slice(0, 2), [['moveTo', 100.5, 80.5], ['lineTo', 80.5, 80.5]], 'from the beacon 20 tiles east to the HQ');
+  const undash = calls.findIndex((c, i) => i > dash && c[0] === 'setLineDash' && !c[1].length);
+  assert.ok(undash > dash, 'the dash is reset before the marks');
+  const mast = calls.findIndex((c, i) => i > undash && c[0] === 'moveTo' && c[1] === 100.5 && c[2] < 80.5);
+  assert.ok(mast > 0, "the beacon's mark: a little mast standing on its spot");
+});
+
+const fire = (n, type, e) => { for (const fn of n.on[type] || []) fn(Object.assign({ preventDefault() {} }, e)); };
+const near = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
+
+test('a tap on the minimap pings that spot in world pixels; Enter on the minimap, or its corner button, opens the full map', () => {
+  const pinged = [];
+  const { map } = setup('MAP-PING', { onPing: (x, y) => pinged.push([x, y]) });
+  map.drawMini({ px: 0, py: 0, crew: [] }, 1000); // you at the HQ: the minimap's left edge is 80 tiles west of your tile, its top 80 north
+  fire(map.minimap, 'click', { detail: 1, clientX: 100, clientY: 70 });
+  assert.deepEqual(pinged, [[20 * 64, -10 * 64]], '20 tiles east of you, 10 north');
+  assert.equal(map.isOpen(), false, 'a tap does not open the map');
+  fire(map.minimap, 'click', { detail: 0 }); // Enter or Space on the focused minimap: a click with no pointer
+  assert.equal(map.isOpen(), true);
+  assert.equal(pinged.length, 1);
+  map.close();
+  fire(map.openBtn, 'click', { detail: 1 });
+  assert.equal(map.isOpen(), true, 'the corner button opens it');
+});
+
+test('on the full map a click that does not drag pings the spot under it; a drag pans and never pings', () => {
+  const pinged = [];
+  const { map } = setup('MAP-PING-2', { onPing: (x, y) => pinged.push([x, y]) });
+  map.open({ px: 0, py: 0, crew: [] }); // centred on you at the HQ, 3 screen pixels a tile, on a 160 × 160 map
+  const fc = map.el.children[0];
+  fire(fc, 'pointerdown', { pointerId: 1, clientX: 110, clientY: 50 });
+  fire(fc, 'pointerup', { pointerId: 1, clientX: 110, clientY: 50 });
+  assert.equal(pinged.length, 1);
+  assert.ok(near(pinged[0], [10 * 64, -10 * 64]), '30 screen pixels right of the centre and 30 up: 10 tiles each way, ' + pinged[0]);
+  fire(fc, 'pointerdown', { pointerId: 2, clientX: 80, clientY: 80 });
+  fire(fc, 'pointermove', { pointerId: 2, clientX: 95, clientY: 80 });
+  fire(fc, 'pointerup', { pointerId: 2, clientX: 95, clientY: 80 });
+  assert.equal(pinged.length, 1, 'a drag of 15 px: no ping');
+});
+
+test("the maps draw a ping as a ring in the sender's colour with their name, and a mark's or a line's alpha as its faintness", () => {
+  const { map } = setup('MAP-PING-3');
+  const calls = [];
+  const ctx = new Proxy({}, { get(t, p) { if (p in t) return t[p]; return (...a) => { calls.push([p, ...a]); }; }, set(t, p, v) { calls.push(['set', p, v]); t[p] = v; return true; } });
+  map.minimap.children[0].getContext = () => ctx;
+  map.drawMini({
+    px: 0, py: 0, crew: [],
+    lines: [{ x0: 0, y0: 0, x1: 640, y1: 0, color: '#d69cf0', width: 2, dash: [6, 3], alpha: 0.25 }],
+    marks: [{ x: 10.5 * 64, y: 0.5 * 64, color: '#d69cf0', ping: true, label: 'kai', alpha: 0.5 }],
+  }, 1000);
+  const alpha = i => { for (let j = i; j >= 0; j--) if (calls[j][0] === 'set' && calls[j][1] === 'globalAlpha') return calls[j][2]; return 1; };
+  const line = calls.findIndex(c => c[0] === 'stroke');
+  assert.equal(alpha(line), 0.25, 'the line as faint as its alpha');
+  const name = calls.findIndex(c => c[0] === 'fillText' && c[1] === 'kai');
+  assert.ok(name > line, "the sender's name");
+  assert.deepEqual(calls[name].slice(2), [90.5, 80.5 - 6], 'over the spot, 10 tiles east of you');
+  assert.equal(alpha(name), 0.5, 'as faint as the ping');
+  assert.ok(calls.some(c => c[0] === 'arc' && c[1] === 90.5 && c[2] === 80.5), 'a ring round the spot');
+  const hq = calls.findIndex(c => c[0] === 'fillRect' && c[1] === 80.5 - 3.5);
+  assert.ok(hq > name && alpha(hq) === 1, 'the HQ after it, at full strength');
 });

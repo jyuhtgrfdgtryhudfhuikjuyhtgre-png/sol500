@@ -885,6 +885,16 @@
       X.setWhere(s, s.pilot, r.at);
       saveSoloSoon();
     },
+    // Solo: the tiles you walk (spec §3.10), from two samples of where you stood about 150 ms apart on the surface's clock; the
+    // suit report above saves them. Co-op's server counts them from the positions it relays.
+    walk: (from, to, dt) => {
+      const s = mission();
+      if (lanOn() || !s || !s.expedition || !s.pilot) return;
+      X.addDistance(s, s.pilot, from, to, dt);
+    },
+    // A ping (spec §3.5): co-op sends it to the server, which names you and sends it on to everyone, you too (onPing). Solo has
+    // nobody to send it to: false, and the surface shows it itself.
+    ping: (x, y) => lanOn() && N.sendPing(x, y),
   };
 
   // ---------- exploring: what was delivered and what is still out there ----------
@@ -1893,7 +1903,7 @@
     if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent);
+    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing);
   }
 
   async function joinRoom(code, name) {
@@ -1901,7 +1911,7 @@
     if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
-    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent);
+    N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing);
   }
 
   // Desktop app only: a friend's game on another PC opens in the normal browser (see app/join.js).
@@ -1912,14 +1922,23 @@
     toast(t('lan.opened'));
   }
 
+  // Teammates' positions. A seat whose player's tab is gone still stands where they left (the room keeps it until the round
+  // ends): marked `away`, it counts for nobody's speed aura or route line.
   function onPos(list) {
-    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.setRemote(list);
+    if (!window.SolSurface || !window.SolSurface.isMounted() || !Array.isArray(list)) return;
+    const on = new Set(((store.room && store.room.players) || []).filter(pl => pl.connected).map(pl => pl.crewId));
+    window.SolSurface.setRemote(list.map(q => Object.assign({}, q, { away: !on.has(q.crewId) })));
   }
 
   // Fog a teammate revealed: kept for a rebuilt surface, and drawn straight away without a full re-render.
   function onFog(map) {
     F.mergeMap(store.fog, map, 4096);
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.mergeFog(map);
+  }
+
+  // A ping (spec §3.5), { x, y, by }: a teammate's, or your own come back from the server. The surface draws it.
+  function onPing(d) {
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.ping(d);
   }
 
   // ---------- dialogs ----------
@@ -2134,7 +2153,7 @@
         let joinCode = null;
         try { joinCode = new URLSearchParams(location.search).get('join'); } catch (e) { /* no query */ }
         const invited = !s && !!joinCode && /^[A-Za-z]{1,6}$/.test(joinCode);
-        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog, onEvent); }
+        if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing); }
         else if (invited) { store.lanForm.code = joinCode.toUpperCase(); store.modal = 'lan'; }
         render();
         if (invited) { const el = document.getElementById('lan-me'); if (el) el.focus(); }

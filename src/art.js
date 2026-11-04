@@ -49,6 +49,8 @@
     power_off: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
     chevron: '<path d="m9 6 6 6-6 6"/>',
     flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    // a relay beacon (spec §3.8): its mast on three legs, the light on top and its signal (the backpack's kit, the maps' key)
+    kit: '<path d="M12 9v12M12 16l-4.5 5M12 16l4.5 5"/><circle cx="12" cy="6" r="2"/><path d="M8 9.5a5 5 0 0 1 0-7M16 2.5a5 5 0 0 1 0 7"/>',
     gear: '<path d="M10.3 5.1 10.6 2.3h2.8l.3 2.8A7.1 7.1 0 0 1 17.1 7.1l2.6-1.2 1.4 2.5-2.3 1.6A7.1 7.1 0 0 1 18.8 14l2.3 1.6-1.4 2.5-2.6-1.2a7.1 7.1 0 0 1-3.4 2l-.3 2.8h-2.8l-.3-2.8a7.1 7.1 0 0 1-3.4-2l-2.6 1.2-1.4-2.5L5.2 14A7.1 7.1 0 0 1 5.2 10L2.9 8.4l1.4-2.5 2.6 1.2a7.1 7.1 0 0 1 3.4-2z"/><circle cx="12" cy="12" r="3"/>',
   };
 
@@ -134,6 +136,12 @@
     shelter: () => shadow(27) +
       `<path d="M4 53q28-36 56 0z" fill="${RUST}"/><path d="M11 48q21-26 42 0" stroke="#a5552f" stroke-width="2" fill="none"/>` +
       `<path d="M24 53v-8a8 8 0 0 1 16 0v8z" fill="${DARK}"/><path d="M24 45h16" stroke="#e9a13b" stroke-width="1.6"/>`,
+    // a relay beacon kit (spec §3.8): the folded mast strapped on its case, its light at the tip
+    kit: () => shadow(20) +
+      `<rect x="13" y="37" width="38" height="16" rx="3" fill="#6b5e57"/><rect x="13" y="37" width="38" height="5" rx="2.5" fill="#fff" opacity="0.12"/>` +
+      `<path d="M13 46h38" stroke="#4fd0c4" stroke-width="2"/><path d="M19 37v16M45 37v16" stroke="#54494b" stroke-width="1.6"/>` +
+      `<path d="M16 32h31" stroke="${METAL}" stroke-width="3" stroke-linecap="round"/><path d="M20 35l4-3M30 35l4-3" stroke="${METAL}" stroke-width="1.4"/>` +
+      `<circle cx="49" cy="32" r="4.5" fill="${WARM}" opacity="0.3"/><circle cx="49" cy="32" r="2.4" fill="${WARM}"/>`,
     scaffold: () =>
       `<rect x="10" y="22" width="44" height="31" fill="none" stroke="#d9aa7a" stroke-width="1.6" stroke-dasharray="4 3"/>` +
       `<path d="M10 22l44 31M54 22 10 53" stroke="#d9aa7a" stroke-width="0.8" opacity="0.5"/>` +

@@ -551,12 +551,21 @@ p { margin: 0; }
 .sf-pack { display: flex; gap: 4px; flex-wrap: wrap; }
 .sf-pack .slot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: 1px dashed var(--line-2); background: rgba(20, 14, 16, 0.6); color: var(--fg); }
 .sf-pack .slot.full { border-style: solid; background: rgba(20, 14, 16, 0.86); }
-.sf-can { justify-self: start; font: inherit; font-size: var(--fs-xs); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); background: rgba(20, 14, 16, 0.86); color: var(--fg); cursor: pointer; }
-.sf-can:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sf-can, .sf-kit, .sf-kitback { justify-self: start; font: inherit; font-size: var(--fs-xs); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); background: rgba(20, 14, 16, 0.86); color: var(--fg); cursor: pointer; }
+.sf-can:focus-visible, .sf-kit:focus-visible, .sf-kitback:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sf-kitback { border-color: var(--line-2); }
 .sf-evanote { margin: 0; font-size: var(--fs-xs); background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px; color: var(--fg); }
 .sf-evanote.ok { border-color: var(--ok); }
 .sf-evanote.warn { border-color: var(--warn); }
 .sf-evanote.crit { border-color: var(--crit); color: var(--crit); }
+/* The round's goals in the HUD column (M4d): a short line each over a thin progress bar; a done one is ticked, in green. */
+.sf-goals { background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 10px; padding: 4px 10px 6px; font-size: var(--fs-xs); color: var(--fg); }
+.sf-goals > b { display: block; color: var(--fg-2); font-weight: 600; }
+.sf-goals ul { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 4px; }
+.sf-goals .bar { display: block; height: 3px; margin-top: 2px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.sf-goals .bar i { display: block; height: 100%; background: var(--accent); }
+.sf-goals li.done { color: var(--ok); }
+.sf-goals li.done .bar i { background: var(--ok); }
 /* The solar flare's banner: what to do and the seconds left, top centre in the hint's place (the hint hides while it shows). */
 .sf-alert { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: 10px; width: max-content; max-width: calc(100% - 380px); background: rgba(20, 14, 16, 0.96); border: 2px solid var(--line-2); border-radius: 12px; padding: 6px 14px; font-size: var(--fs-sm); font-weight: 600; color: var(--fg); text-align: center; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
 .sf-alert b { font: 700 var(--fs-md) var(--font-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -565,9 +574,13 @@ p { margin: 0; }
 .sf-alert.crit b { color: var(--crit); }
 .sf-alert.ok { border-color: var(--ok); }
 .sf-alert.ok b { color: var(--ok); }
-.sf-mini { position: absolute; right: 12px; top: 12px; width: 160px; height: 160px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #120a0c; pointer-events: auto; cursor: zoom-in; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+.sf-mini { position: absolute; right: 12px; top: 12px; width: 160px; height: 160px; padding: 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #120a0c; pointer-events: auto; cursor: crosshair; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); } /* a tap pings that spot */
 .sf-mini canvas { width: 100%; height: 100%; display: block; }
 .sf-mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The minimap's open-the-map corner, over its top-right corner (the minimap is 12 px from the top and right). */
+.sf-mini-open { position: absolute; right: 16px; top: 16px; width: 28px; height: 28px; padding: 0; border-radius: 7px; border: 1px solid var(--line-2); background: rgba(20, 14, 16, 0.86); color: var(--fg); font-size: 15px; line-height: 1; cursor: zoom-in; pointer-events: auto; }
+.sf-mini-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sf-aura { margin: 0; font-size: var(--fs-xs); background: rgba(20, 14, 16, 0.82); border: 1px solid #d69cf0; border-radius: 10px; padding: 4px 10px; color: var(--fg); } /* the commander's colour (SolArt ROLE) */
 /* The FPS readout (Display settings, Show FPS), under the minimap: 12 px + the 160 px minimap + 8 px clear. */
 .sf-fps { position: absolute; right: 12px; top: 180px; background: rgba(20, 14, 16, 0.82); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 8px; font: 600 11px var(--font-data); font-variant-numeric: tabular-nums; color: var(--fg); }
 .sf-map { position: absolute; inset: 0; background: #120a0c; pointer-events: auto; z-index: 3; }

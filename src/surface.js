@@ -11,12 +11,16 @@
  *        lastPos: { x, y } where your astronaut last stood this round (the solo save, or the co-op server), for a reload
  *        gfx: the Display settings { quality: 'best' | 'fast', fpsCap: 0 (Max) | 30 | 60, showFps }; a missing or unknown value is
  *          the default (Best, Max, no readout), and a new quality takes effect at once
- *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover }])
+ *      SolSurface.setRemote([{ crewId, x, y, dir, moving, rover, away }]) (away: that player's tab is gone; they still stand there)
+ *      SolSurface.ping({ x, y, by }) a co-op ping from the server (world px; by: the sender's crew id)
  *      SolSurface.mergeFog({ "<cx>,<cy>": base64 }) · SolSurface.reset() (call when a new mission starts)
  * Hooks: queueBuild, cancelBuild, toggleModule, toggleScrap, setJob, openConsole, canAdvance, advance,
  *        sendPos(pos), reveal({ key: base64 }), enterRegion(regionId), reopenRegion(regionId),
  *        exp(type, payload, pos) → Promise of { ok } or { error } (exploring, see src/surface-eva.js),
- *        suit({ suit, driven, clock, at }) (every 2 s: what a solo save keeps)
+ *        suit({ suit, driven, clock, at }) (every 2 s: what a solo save keeps),
+ *        walk(from, to, dt) (about every 150 ms of the surface's clock: two samples of where you stood, { x, y, rover } in world
+ *          px, and the seconds between them; solo counts the tiles walked from them, co-op's server from your positions),
+ *        ping(x, y) → true when it went out to the co-op server (world px; solo has none, so the surface shows it itself)
  * Exploring on the map (finds, the suit, the backpack, the rover's battery, the dangers) is src/surface-eva.js.
  */
 (function (root) {
@@ -28,6 +32,7 @@
   const LANDER = [-6, -4];
   const SPEED = 150, SPRINT_X = 1.75, ROVER_X = 2.6, NPC_SPEED = 115;
   const PUSH_TIME = 0.25; // seconds a dust devil's throw takes (a slide that stops at walls)
+  const WALK_GAP = 0.15; // seconds between two walking samples (the walk hook), about co-op's position cadence (110 ms or more)
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
   const DEBUG = /[?&]debug=chunks\b/.test((root.location && root.location.search) || '');
   const tkey = (x, y) => x + ',' + y;
@@ -101,6 +106,7 @@
     S.worldSeed = m.seed;
     S.world.reveal(0, 0, W.FLAT_RADIUS); // the crew knows their own base
     S.player = null;
+    S.walk = null;
     S.npcs = {};
     S.region = null;
     S.seenAt = [NaN, NaN, 0];
@@ -187,15 +193,16 @@
       view: { w: 0, h: 0, zoom: 1, dpr: 1, camX: 0, camY: 0 }, time: 0, last: 0, fps: 60, camSnap: true,
       gfx: { quality: 'best', fpsCap: 0, showFps: false }, nextDraw: 0, fpsAt: -Infinity,
       lastSent: 0, lastSentKey: '', hintUntil: 14, touch: false,
-      region: null, seenAt: [NaN, NaN, 0], fogSent: 0, debug: DEBUG, debugAt: 0, lang: null, qa: { ghost: false, speed: 1 },
+      region: null, seenAt: [NaN, NaN, 0], fogSent: 0, debug: DEBUG, debugAt: 0, lang: null, qa: { ghost: false, speed: 1 }, pingAt: -Infinity, walk: null,
     };
     S.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }) });
+    S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }), onPing: (x, y) => ping(x, y) });
     S.eva = EV.create({
       t: (k, p) => t(k, p), hooks: () => S.hooks, crewName: id => S.data.crewName(id), player: () => S.player, home: goHome,
       drawRover: (ctx, x, y) => { const img = moduleImage('rover', 1); if (ready(img)) ctx.drawImage(img, x - 34, y - 52, 68, 68); },
       now: () => performance.now() / 1000,
       push: (dx, dy) => { if (S.player) S.player.push = { x: dx, y: dy, left: PUSH_TIME }; },
+      team: () => team(),
     });
     buildOverlay();
     bindInput();
@@ -266,7 +273,7 @@
     S.fpsEl = el('div', 'sf-fps');
     S.fpsEl.hidden = true;
     S.fpsEl.setAttribute('aria-hidden', 'true');
-    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.eva.alert, S.map.minimap, S.fpsEl, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
+    o.append(S.hint, S.stamina, S.regionChip, S.eva.el, S.eva.alert, S.map.minimap, S.map.openBtn, S.fpsEl, S.prompt, S.menu, S.pad, S.btnAct, S.btnRun, S.debugBox, S.map.el);
     // The action button is held for finds, like E: it acts when pressed and lets go of a hold when released.
     S.btnAct.addEventListener('pointerdown', e => { e.preventDefault(); S.actId = e.pointerId; interact(); });
     S.btnAct.addEventListener('click', e => { if (e.detail === 0) interact(); }); // Enter or Space on the focused button
@@ -318,6 +325,8 @@
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') S.keys.add('Shift');
       if (e.code === 'KeyE' && !e.repeat) { interact(); e.preventDefault(); }
       if (e.code === 'KeyQ' && !e.repeat) { S.eva.canister(S.player); e.preventDefault(); }
+      if (e.code === 'KeyK' && !e.repeat) { S.eva.takeKit(S.player); e.preventDefault(); }
+      if (e.code === 'KeyP' && !e.repeat && S.player) { ping(S.player.x, S.player.y); e.preventDefault(); }
       if (e.code === 'Escape' && S.menuOpen) { closeMenu(); e.preventDefault(); }
       if (e.code === 'KeyC' && !e.repeat && S.hooks.openConsole) S.hooks.openConsole();
       if (S.menuOpen && /^Digit[1-9]$/.test(e.code)) {
@@ -446,7 +455,7 @@
       const prev = S.remote[p.crewId];
       next[p.crewId] = {
         x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover,
-        phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0,
+        phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0, away: !!p.away,
       };
     }
     S.remote = next;
@@ -454,6 +463,28 @@
 
   // Fog a teammate revealed (co-op). ui.js keeps it too, so a rebuilt world gets it back through update().
   function mergeFog(map) { if (S && S.world) S.world.mergeFog(map); }
+
+  // A ping (spec §3.5): P (where you stand), or a tap on the minimap or the map. Solo shows it on your own maps at once and
+  // never touches the network; co-op sends it (the hook says whether it went out), and every tab, this one too, draws the
+  // server's echo (SolSurface.ping). One a second at most, as the server allows (D.TEAM.ping.gap).
+  function ping(x, y) {
+    const m = S.data && S.data.mission;
+    if (!m || m.status !== 'active' || S.time - S.pingAt < D.TEAM.ping.gap) return;
+    S.pingAt = S.time;
+    const px = Math.round(x), py = Math.round(y);
+    if (S.hooks.ping && S.hooks.ping(px, py)) return;
+    S.eva.addPing({ x: px, y: py, by: S.data.controlId });
+  }
+  // Where the crew who count stand, for the commander's aura and his route line (X.speedFactor, X.commanderOut): you, and in
+  // co-op the players whose tab is connected (a dropped one's last position stays in the room until the round ends; ui.js
+  // marks it `away`); in solo the crew walking round the outpost, who are your team.
+  function team() {
+    if (!S.player || !S.data || !S.data.mission) return [];
+    const out = [{ crewId: S.data.controlId, x: S.player.x, y: S.player.y }];
+    if (S.data.mission.coop) { for (const [id, r] of Object.entries(S.remote)) if (!r.away) out.push({ crewId: id, x: r.x, y: r.y }); }
+    else for (const [id, n] of Object.entries(S.npcs)) out.push({ crewId: id, x: n.x, y: n.y });
+    return out;
+  }
 
   // ---------- simulation ----------
   function loop(ts) {
@@ -489,6 +520,7 @@
     if (S.debug && ts - S.debugAt > 250) { S.debugAt = ts; drawDebugText(); }
     if (S.gfx.showFps && ts - S.fpsAt >= 250) { S.fpsAt = ts; S.fpsEl.textContent = t('display.fps', { n: Math.round(S.fps) }); } // four times a second at most
     maybeSend(ts);
+    walkSample();
   }
 
   // Chunk streaming: keep the data near you (at most one new chunk a frame, the ones ahead of you first)
@@ -535,10 +567,10 @@
   }
 
   function mapState() {
-    if (!S.player) return { px: 0, py: 0, crew: [], marks: [] };
+    if (!S.player) return { px: 0, py: 0, crew: [], marks: [], lines: [] };
     return {
       px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })),
-      marks: S.eva.marks(S.world, S.player.x, S.player.y).concat(poiMarks()),
+      marks: S.eva.marks(S.world, S.player.x, S.player.y).concat(poiMarks()), lines: S.eva.lines(),
     };
   }
   // The maps' marks for the points of interest (src/surface-map.js poiMarks), made again only when what they show changes:
@@ -601,7 +633,7 @@
     if (moving) {
       const nx = vx / Math.max(1, len), ny = vy / Math.max(1, len);
       const ground = p.inRover ? 1 : S.world.speed(Math.floor(p.x / T), Math.floor(p.y / T)); // dunes slow walking
-      const sp = SPEED * (sprinting ? SPRINT_X : 1) * (p.inRover ? ROVER_X : 1) * ground * S.qa.speed * Math.min(1, len);
+      const sp = SPEED * (sprinting ? SPRINT_X : 1) * (p.inRover ? ROVER_X : 1) * ground * S.eva.speed(p) * S.qa.speed * Math.min(1, len); // the commander's aura
       const stuck = hitsWall(p.x, p.y);
       const mx = p.x + nx * sp * dt, my = p.y + ny * sp * dt;
       // A step is allowed if nothing blocks it and the exploring rules agree (an empty suit, a flat rover battery).
@@ -731,6 +763,16 @@
     // the rover has gone, and `rover: false` from the driver parks it there even if the park action was lost.
     S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, suit: ev.suit == null ? undefined : ev.suit, driven: p.inRover ? ev.driven : undefined });
   }
+  // Walked distance (spec §3.10, R5): where you stand goes to the walk hook every WALK_GAP seconds of the surface's clock, with
+  // where you stood before, the way co-op's positions reach the server. Solo's rules count the tiles (X.addDistance: a jump or a
+  // ride in the rover counts for nothing), and a hidden tab's clock stands still, so nothing is counted for time not walked.
+  function walkSample() {
+    const p = S.player, w = S.walk;
+    if (!S.hooks.walk || (w && S.time - w.t < WALK_GAP)) return;
+    const at = { x: p.x, y: p.y, rover: !!p.inRover };
+    if (w) S.hooks.walk(w.at, at, S.time - w.t);
+    S.walk = { at, t: S.time };
+  }
 
   // ---------- what the player is looking at ----------
   function avatars() {
@@ -846,6 +888,7 @@
     if (!S.focus) return;
     if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
     if (S.focus.kind === 'rover') { toggleRover(); return; }
+    if (S.focus.kind === 'beacon') return; // where a beacon cannot go: the prompt says why, and there is no menu
     openMenu();
   }
 
@@ -986,6 +1029,12 @@
       body.appendChild(numbered(mbtn(t('sf.console'), t('sf.consoleSub'), () => { closeMenu(); H.openConsole(); }, { icon: A.icon('book', 18) })));
       body.appendChild(numbered(mbtn(t('bld.shieldAdd'), chk.ok ? t('bld.cost', { kg: D.BUILDS.shield.materials, w: D.BUILDS.shield.work }) : t('bld.why.' + chk.reason),
         () => { H.queueBuild({ type: 'shield' }); renderMenu(); }, { disabled: !chk.ok, icon: A.icon('shield', 18) })));
+      // A relay beacon kit takes no tile either (spec §3.8): built here like a shield layer, it waits at the base.
+      if (m.expedition) {
+        const kit = E.canBuild(m, 'kit', plan.builds || []);
+        body.appendChild(numbered(mbtn(t('sf.kitAdd'), kit.ok ? t('bld.cost', { kg: D.BUILDS.kit.materials, w: D.BUILDS.kit.work }) : t('bld.why.' + kit.reason),
+          () => { H.queueBuild({ type: 'kit' }); renderMenu(); }, { disabled: !kit.ok, icon: A.icon('kit', 18) })));
+      }
       if (decisions) note(t('sf.decisions', { n: decisions }), 'warn');
       body.appendChild(numbered(mbtn(t('ops.advance'), '', () => { closeMenu(); H.advance(); }, { primary: true, disabled: !H.canAdvance(), icon: A.icon('chevron', 18) })));
       return;
@@ -1225,6 +1274,7 @@
       hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
       pois: JSON.parse(JSON.stringify(S.pois || [])), tube: S.tube ? S.tube.id : null, // the last frame's points of interest
       marks: JSON.parse(JSON.stringify(mapState().marks)), // what the maps mark
+      lines: JSON.parse(JSON.stringify(mapState().lines)), team: JSON.parse(JSON.stringify(team())), // the maps' lines; who counts for the aura
     };
   }
 
@@ -1241,5 +1291,5 @@
     clock(s) { S.eva.qaClock(s); }, // solo: jump the round's clock (a flare's warning, its end)
   };
 
-  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe }, DEBUG ? { qa } : {});
+  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});
 })(typeof self !== 'undefined' ? self : this);
