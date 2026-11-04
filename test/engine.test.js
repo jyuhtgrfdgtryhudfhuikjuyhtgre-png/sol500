@@ -375,6 +375,21 @@ test("a build or a scrap named like a property every object has ('__proto__', 't
   assert.equal(({}).count, undefined, 'Object.prototype is untouched');
 });
 
+test("a build or a scrap whose type is wrapped in an array (['kit'], ['solar'], ['hab']) is unknown too: nothing starts or is scrapped, and the resources are a plain turn's", () => {
+  const st = calm(), plan = allJobs(st, 'maintenance');
+  plan.jobs.lena = 'construction';
+  const plain = E.resolveTurn(st, plan).state;
+  for (const type of [['kit'], ['solar']]) {
+    assert.deepEqual(E.canBuild(st, type, []), { ok: false, reason: 'unknown' }, String(type));
+    const { state, report } = E.resolveTurn(st, Object.assign({}, plan, { builds: [{ type }] }));
+    assert.deepEqual(report.started, [], String(type));
+    assert.deepEqual(state.resources, plain.resources, String(type));
+  }
+  const { state, report } = E.resolveTurn(st, Object.assign({}, plan, { scrap: [['hab']] }));
+  assert.deepEqual(report.scrapped, [], 'the hab is not scrapped');
+  assert.deepEqual(state.resources, plain.resources, 'no spare from a scrap named by an array');
+});
+
 // ---------- repairs ----------
 
 test('repairs need a maintenance crew and use one spare kit each', () => {

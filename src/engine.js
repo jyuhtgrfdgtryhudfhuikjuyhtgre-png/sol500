@@ -471,7 +471,7 @@
   }
 
   // A build or a module is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
-  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
   function canBuild(s, type, pending) {
     if (!own(D.BUILDS, type)) return { ok: false, reason: 'unknown' };
     const spec = D.BUILDS[type], pend = pending || [];
