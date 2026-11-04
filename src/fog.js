@@ -12,7 +12,9 @@
   const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const VAL = new Int16Array(128).fill(-1);
   for (let i = 0; i < 64; i++) VAL[B64.charCodeAt(i)] = i;
-  const KEY = /^-?\d{1,6},-?\d{1,6}$/;
+  // A chunk's key is "<cx>,<cy>" as String() writes the numbers: no "-0", no leading zeros. One chunk, one key, so a chunk
+  // never takes two slots of a capped map and explored ground is counted once (expedition goals, M4d).
+  const KEY = /^(0|-?[1-9]\d{0,5}),(0|-?[1-9]\d{0,5})$/;
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
   const empty = () => new Uint8Array(BYTES);

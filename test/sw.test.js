@@ -35,6 +35,7 @@ test('every script the page loads is in the offline cache', () => {
   assert.ok(scripts.indexOf('src/engine.js') < scripts.indexOf('src/expedition.js') && scripts.indexOf('src/worldgen.js') < scripts.indexOf('src/expedition.js'), 'the rules load after the engine and the world');
   assert.ok(scripts.indexOf('src/expedition.js') < scripts.indexOf('src/dangers.js') && scripts.indexOf('src/dangers.js') < scripts.indexOf('src/surface-eva.js'), 'the dangers load after the rules they use and before the surface');
   assert.ok(scripts.indexOf('src/surface-eva.js') < scripts.indexOf('src/surface.js'), 'the exploring layer loads before the surface');
+  assert.ok(scripts.indexOf('src/expedition.js') < scripts.indexOf('src/goals.js') && scripts.indexOf('src/goals.js') < scripts.indexOf('src/ui.js'), 'the goals load after the rules they read and before the interface');
   for (const s of scripts) assert.ok(sw.includes("'" + s + "'"), s + ' is cached by sw.js');
   assert.ok(scripts.indexOf('src/surface-map.js') < scripts.indexOf('src/surface.js') && scripts.indexOf('src/surface.js') < scripts.indexOf('src/ui.js'), 'load order');
   assert.match(sw, /const CACHE = 'sol500-v4'/);

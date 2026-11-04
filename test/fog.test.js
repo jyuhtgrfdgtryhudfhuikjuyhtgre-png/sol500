@@ -80,3 +80,11 @@ test('hostile fog is skipped: odd keys, prototype keys, wrong values, non-object
   assert.equal(Object.keys(changed).length, 4096);
   assert.equal(Object.keys(map).length, 4096);
 });
+
+test('a chunk has one fog key, spelled the way String() writes its numbers, so it takes one slot and counts once (M4d)', () => {
+  for (const k of ['0,0', '-1,0', '0,-1', '7,-12', '999999,-999999']) assert.ok(F.KEY.test(k), k);
+  for (const k of ['-0,0', '0,-0', '00,0', '01,2', '1,007', '+1,0', ' 1,0', '1, 0', '1234567,0', '1,2,3']) assert.equal(F.KEY.test(k), false, k);
+  const v = F.encode(randomBits(6)), map = {};
+  assert.deepEqual(Object.keys(F.mergeMap(map, { '0,0': v, '-0,0': v, '00,0': v, '0,-0': v })), ['0,0']);
+  assert.deepEqual(Object.keys(map), ['0,0']);
+});

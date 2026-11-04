@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers;
+  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers, G = window.SolGoals;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -239,6 +239,7 @@
       seed: (store.seed || '').trim() || E.newMissionCode(), loadout: store.loadout, difficulty: store.settings.difficulty,
       crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot,
     });
+    G.pick(s); // round 1's goals; each advance picks the next round's
     store.mission = s;
     store.plan = E.defaultPlan(s);
     store.report = null;
@@ -290,7 +291,7 @@
 
   function advance() {
     if (lanOn()) return;
-    const { state, report } = E.resolveTurn(store.mission, store.plan);
+    const { state, report } = G.advance(store.mission, store.plan); // the round's goals judged here, as the server does (R3, R4)
     store.mission = state;
     store.plan = E.nextPlan(state, store.plan);
     store.report = report;

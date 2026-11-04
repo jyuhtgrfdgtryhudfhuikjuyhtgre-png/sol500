@@ -346,6 +346,30 @@ test('bad fog is ignored without breaking anything, and the caps hold', () => {
   assert.equal(R2.reveal(r2, h2, { '0,0': fogOf([[0, 0]]) }), 'badPhase', 'no mission yet');
 });
 
+test('each seat adds at most its budget of new fog chunks a mission, so one seat cannot fill the shared cap (M4d)', () => {
+  const { FOG_SEAT_BUDGET } = require('../lib/rooms.js');
+  assert.ok(FOG_SEAT_BUDGET * 5 <= 4096, 'five seats fit under the cap');
+  const { R, room, host, guest } = inMission();
+  const fog = room.mission.expedition.revealed, v = fogOf([[0, 0]]);
+  for (let n = 0; n * 64 < FOG_SEAT_BUDGET + 100; n++) {
+    const batch = {};
+    for (let i = 0; i < 64; i++) batch[(n * 64 + i) + ',1'] = v;
+    assert.equal(R.reveal(room, guest, batch), null);
+  }
+  assert.equal(Object.keys(fog).length, FOG_SEAT_BUDGET, 'the guest stops at the budget');
+  R.reveal(room, guest, { '0,1': fogOf([[3, 3]]), '99999,1': v });
+  assert.equal(F.has(F.decode(fog['0,1']), 3, 3), 1, 'a chunk already in the map still merges');
+  assert.equal(fog['99999,1'], undefined, 'a new one does not');
+  R.reveal(room, host, { '5,-5': v });
+  assert.ok(fog['5,-5'], 'another seat has its own budget');
+  R.reveal(room, host, { '-0,7': v, '07,7': v });
+  assert.deepEqual(Object.keys(fog).filter(k => k.endsWith(',7')), [], 'only canonical keys are taken');
+  say(R, room, host, 'restart');
+  say(R, room, host, 'launch');
+  R.reveal(room, guest, { '3,3': v });
+  assert.ok(room.mission.expedition.revealed['3,3'], 'a new mission gives every seat its budget again');
+});
+
 test('room messages leave the fog out, and a tab that attaches gets the whole fog', () => {
   const { R, room, host, guest } = inMission();
   R.reveal(room, guest, { '3,-4': fogOf([[1, 2]]) });

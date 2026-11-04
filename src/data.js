@@ -318,6 +318,23 @@
         deviltracks: { regions: ['plains', 'dunes', 'icy'], size: 3, fact: 'fm.deviltracks' },
       },
     },
+    // Expedition goals (spec §3.9, M4d): 1 a round, 2 from round `two`. The survey and beacon goals ask for `tiles` out
+    // from the HQ: min(max, a + b × round) for tiles [a, b, max]. Every goal must be doable within `reach` tiles of the HQ
+    // (a region, a landmark, a structure or a science site lies there). A reward is science, morale, kg of materials or
+    // beacon kits; a survey's science grows from 20 at the first round's distance to 40 at the farthest, and a haul adds
+    // `bonus` of what its loads gave. src/goals.js picks and judges the goals; the engine pays them out.
+    GOALS: {
+      two: 5, tiles: [30, 5, 120], reach: 150,
+      kinds: {
+        survey: { science: [20, 40] },                   // a science site surveyed `tiles` out
+        haul: { loads: 4, bonus: 0.25 },                 // loads of ice or metal (water or materials) brought home
+        region: { reward: { morale: 2, science: 15 } },  // a region you haven't been in
+        landmark: { reward: { science: 25 } },           // discovered
+        structure: { reward: { materials: 40 } },        // repaired or salvaged: not a supply cache opened, nor a hab pod
+        beacon: { reward: { kits: 1 } },                 // placed `tiles` out
+        chunks: { count: 4, reward: { science: 15 } },   // chunks of fog explored for the first time
+      },
+    },
     // Decor (spec §3.7): props scattered by each chunk's seed, `props` darts a chunk. Scenery only: nothing blocks or is
     // picked up. 4–6 kinds per region: the painter's own decor (src/surface-paint.js) and `rock`, a small rock standing up.
     DECOR: {

@@ -659,7 +659,7 @@ test("a new mission has an empty exploring state and, in solo play, the player's
   assert.deepEqual(s.expedition.revealed, {});
   assert.deepEqual(s.expedition.regions, []);
   assert.deepEqual(Object.keys(s.expedition).sort(),
-    ['banked', 'beacons', 'benched', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'forecastUntil', 'goals', 'incidents', 'kits', 'landmarks',
+    ['banked', 'beacons', 'benched', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'forecastUntil', 'goals', 'goalsDone', 'incidents', 'kits', 'landmarks',
       'refills', 'regions', 'revealed', 'rover', 'roverDriven', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
   assert.equal(s.expedition.flare, null, 'no solar flare yet');
   assert.equal(s.expedition.forecastUntil, -1, 'no weather station forecast yet');
@@ -809,6 +809,34 @@ test('a load still in a backpack is banked at the start of the next round and ma
   assert.ok(r2IceLines.some(l => l.late === false && l.amount === 40), 'on-time ice line exists');
 });
 
+test("the last round's backpack is banked at the final advance, so it counts for the score and the report (M4d)", () => {
+  const last = m => Object.assign(m, { turn: D.TURNS - 1, sol: (D.TURNS - 1) * D.TURN_SOLS });
+  const plain = last(calm()), s = last(calm());
+  s.expedition.carried = { lena: [ICE, SURVEY, E.kitItem()] };
+  assert.equal(E.forecast(s, E.defaultPlan(s)).expedition.lines.length, 2, 'the console shows it before the advance');
+  const a = E.resolveTurn(plain, E.defaultPlan(plain)), b = E.resolveTurn(s, E.defaultPlan(s));
+  assert.equal(b.state.status, 'success');
+  assert.equal(Math.round(b.state.resources.water - a.state.resources.water), 40);
+  assert.equal(Math.round(b.state.science - a.state.science), 35);
+  assert.equal(E.scoreMission(b.state).parts.science - E.scoreMission(a.state).parts.science, 35, 'it counts for the score');
+  assert.deepEqual(b.report.expedition.lines, [
+    { crewId: 'lena', kind: 'ice', res: 'water', region: 4, amount: 40, loads: 1, late: true },
+    { crewId: 'lena', kind: 'science', res: 'science', region: 0, amount: 35, loads: 1, late: true },
+  ], 'the report lists it, banked from a backpack');
+  assert.deepEqual(b.state.expedition.carried, {});
+  assert.equal(b.state.expedition.kits, 1, 'a carried beacon kit is back at the base, never banked');
+  assert.equal(b.state.expedition.banked.water, 0, 'nothing waits for a round that never comes');
+  const early = calm();
+  early.expedition.carried = { lena: [ICE] };
+  assert.equal(E.resolveTurn(early, E.defaultPlan(early)).report.expedition.lines.length, 0, 'before the last round it still waits a round');
+  const coop = last(E.createMission({ seed: 'COOP-X', loadout: kit(), events: false, coop: true }));
+  coop.expedition.collapsed = { diego: { x: 900, y: -640 } };
+  coop.expedition.carried = { diego: [ICE], minh: [METAL] };
+  const c = E.resolveTurn(coop, E.defaultPlan(coop));
+  assert.deepEqual(c.report.expedition.lines.map(l => l.crewId), ['minh'], 'a co-op astronaut still collapsed outside banks nothing');
+  assert.deepEqual(c.state.expedition.drops, [{ id: (D.TURNS - 1) + ':diego', x: 900, y: -640, items: [ICE] }]);
+});
+
 test('a collapse outside costs that astronaut 20 health and the crew 3 morale at the advance, once', () => {
   const plain = calm(), s = calm();
   for (const m of [plain, s]) { m.crew[1].health = 70; m.morale = 60; }
@@ -918,6 +946,63 @@ test('a saved exploring state with missing or malformed fields is repaired field
   assert.deepEqual(x.collapsed, {}, 'fields a v3.2 save never had are added');
   assert.equal(up.pilot, 'lena', 'a pilot who is not in the crew is chosen again');
   assert.deepEqual(E.upgradeMission(calm(), {}).expedition, E.newExpedition(), 'a good one is untouched');
+});
+
+// ---------- expedition goals (M4d): the engine pays out what src/goals.js judged done ----------
+
+const goal = (id, kind, reward, done, params) => ({ id, kind, params: params || {}, need: 1, base: 0, progress: done ? 1 : 0, done, reward });
+
+test('done goals pay out once at the advance, the report lists them, the mission keeps a record, and the rest expire', () => {
+  const plain = calm(), s = calm();
+  for (const m of [plain, s]) m.morale = 60;
+  s.expedition.goals = [
+    goal('G0:0', 'landmark', { science: 25 }, true),
+    goal('G0:1', 'region', { morale: 2, science: 15 }, true),
+    goal('G0:2', 'structure', { materials: 40 }, false),
+    goal('G0:3', 'beacon', { kits: 1 }, true, { tiles: 35 }),
+  ];
+  assert.equal(Math.round(E.forecast(s, E.defaultPlan(s)).science - E.forecast(plain, E.defaultPlan(plain)).science), 40, 'the console shows it first');
+  const a = E.resolveTurn(plain, E.defaultPlan(plain)), b = E.resolveTurn(s, E.defaultPlan(s));
+  assert.equal(Math.round(b.state.science - a.state.science), 40);
+  assert.equal(Math.round(b.state.morale - a.state.morale), 2);
+  assert.equal(Math.round(b.state.resources.materials - a.state.resources.materials), 0, 'a goal not done pays nothing');
+  assert.equal(b.state.expedition.kits, 1, 'a free beacon kit waits at the base');
+  assert.deepEqual(b.report.expedition.goals, [
+    { id: 'G0:0', kind: 'landmark', params: {}, reward: { science: 25 } },
+    { id: 'G0:1', kind: 'region', params: {}, reward: { morale: 2, science: 15 } },
+    { id: 'G0:3', kind: 'beacon', params: { tiles: 35 }, reward: { kits: 1 } },
+  ]);
+  assert.equal(b.report.expedition.got.science, 40, 'goal science counts with the haul');
+  assert.deepEqual(b.report.expedition.lines, [], 'goals are not haul lines');
+  assert.deepEqual(b.state.expedition.goals, [], 'the round is over: its goals are paid or expired');
+  assert.deepEqual(b.state.expedition.goalsDone, [
+    { id: 'G0:0', kind: 'landmark', round: 0, params: {} },
+    { id: 'G0:1', kind: 'region', round: 0, params: {} },
+    { id: 'G0:3', kind: 'beacon', round: 0, params: { tiles: 35 } },
+  ]);
+  const c = E.resolveTurn(b.state, E.defaultPlan(b.state));
+  assert.deepEqual(c.report.expedition.goals, [], 'paid once');
+  assert.equal(c.state.expedition.goalsDone.length, 3, 'the record lasts the mission');
+  assert.deepEqual(plain.expedition.goals, [], 'resolving never changes the state it was given');
+  const odd = calm();
+  odd.expedition.goals = [goal('G0:0', 'landmark', { science: '25', water: -5, food: NaN }, true)];
+  assert.equal(E.resolveTurn(odd, E.defaultPlan(odd)).report.expedition.got.science, 0, 'a reward that is not a positive number pays nothing');
+});
+
+test('a saved goal or goal record with the wrong shape is dropped, and a save from before M4d gets an empty record', () => {
+  const s = calm();
+  delete s.expedition.goalsDone;
+  const good = goal('G3:0', 'chunks', { science: 15 }, false, { count: 4 });
+  s.expedition.goals = [null, 'G3:0', { id: 'G3:1', kind: 'landmark' }, goal('G3:2', 'teleport', {}, true), Object.assign(goal('G3:3', 'landmark', {}, true), { done: 'yes' }),
+    Object.assign(goal('G3:4', 'landmark', {}, true), { progress: 'x' }), Object.assign(goal('G3:5', 'landmark', null, true)), good];
+  assert.deepEqual(E.upgradeMission(s, {}).expedition.goals, [good]);
+  assert.deepEqual(s.expedition.goalsDone, [], 'a save from before M4d starts an empty record');
+  const t = calm();
+  t.expedition.goalsDone = [{ id: 'G1:0', kind: 'haul', round: 1, params: { loads: 4 } }, { id: 'G2:0', kind: 'haul' }, 7, { id: 3, kind: 'haul', round: 2, params: {} }];
+  assert.deepEqual(E.upgradeMission(t, {}).expedition.goalsDone, [{ id: 'G1:0', kind: 'haul', round: 1, params: { loads: 4 } }]);
+  const u = calm();
+  u.expedition.goalsDone = 'lots';
+  assert.deepEqual(E.upgradeMission(u, {}).expedition.goalsDone, []);
 });
 
 // ---------- dangers (M4b) ----------

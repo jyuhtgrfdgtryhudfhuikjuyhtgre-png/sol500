@@ -230,6 +230,8 @@
   // M4c adds the points of interest (src/expedition.js): landmarks { landmarkId: { by, round } } (discovered) ·
   //   structures { structId: 'used' | 'repaired' } · forecastUntil: the last round a repaired weather station forecasts
   //   the next one's weather (−1: none) · stats[crewId].landmarks, .structures (counts).
+  // M4d adds the expedition goals (src/goals.js): goals [{ id, kind, params, need, base, progress, done, reward }] (this
+  //   round's; see src/goals.js) · goalsDone [{ id, kind, round, params }] (every goal paid out this mission).
   // An item is { kind, res, amount, id, region } (+ sub for a survey, canister: true for an O₂ canister).
   // M4d adds the relay beacons (spec §3.8): beacons [{ x, y, by, round }] (world tiles; beacon i's id is "B<i>") ·
   //   kits: the beacon kits waiting at the base. A kit someone carries is the item { kind: 'kit', res: 'kit', amount: 1 }
@@ -246,7 +248,7 @@
   function newExpedition() {
     return {
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
-      carried: {}, drops: [], banked: freshBank(), goals: [], incidents: [], stats: {},
+      carried: {}, drops: [], banked: freshBank(), goals: [], goalsDone: [], incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
       flare: null, clock: 0, where: {}, forecastUntil: -1,
     };
@@ -280,6 +282,11 @@
     x.kits = Math.max(0, Math.floor(x.kits));
     for (const id of Object.keys(x.refills)) x.refills[id] = Array.isArray(x.refills[id]) ? x.refills[id].filter(k => typeof k === 'string') : [];
     for (const items of Object.values(x.carried)) if (Array.isArray(items)) items.forEach((it, i) => { if (isKit(it)) items[i] = kitItem(); });
+    // So would a goal or a goal record with the wrong shape, or of a kind this version does not know: drop it.
+    const kind = k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(D.GOALS.kinds, k);
+    x.goals = x.goals.filter(g => isMap(g) && typeof g.id === 'string' && kind(g.kind) && isMap(g.params) && isMap(g.reward) &&
+      typeof g.done === 'boolean' && [g.need, g.base, g.progress].every(Number.isFinite));
+    x.goalsDone = x.goalsDone.filter(g => isMap(g) && typeof g.id === 'string' && kind(g.kind) && Number.isFinite(g.round) && isMap(g.params));
     return x;
   }
 
@@ -986,6 +993,17 @@
   function applyExpedition(s) {
     const x = s.expedition;
     if (!x || !x.banked) return null;
+    // The final advance has no next round to bank a backpack in (rollExpedition), so the last round's backpacks are banked
+    // now, marked late, and count for the score and the debrief (spec §13.12). A co-op astronaut still collapsed outside
+    // keeps theirs: rollExpedition leaves it where they fell.
+    if (s.turn === D.TURNS - 1) {
+      for (const id of Object.keys(x.carried || {})) {
+        if (!Array.isArray(x.carried[id]) || (x.collapsed || {})[id]) continue;
+        for (const it of x.carried[id]) if (isKit(it)) x.kits += 1; else bankItem(x.banked, id, it, true); // a kit is back at the base
+        x.carried[id] = [];
+      }
+    }
+    const goals = payGoals(s);
     const got = {};
     for (const k of BANK_RES) got[k] = Math.max(0, Number(x.banked[k]) || 0);
     for (const k of ['water', 'materials', 'spares', 'food', 'o2']) s.resources[k] += got[k];
@@ -1000,7 +1018,23 @@
       c.health = clamp(c.health - D.EXPEDITION.collapse.health, 0, 100);
       s.morale = clamp(s.morale - D.EXPEDITION.collapse.morale, 0, 100);
     }
-    return { got, lines: (x.banked.lines || []).map(l => Object.assign({}, l)), incidents };
+    return { got, lines: (x.banked.lines || []).map(l => Object.assign({}, l)), incidents, goals };
+  }
+
+  // The round's done goals pay out (spec §3.9). The advance brought their progress up to date first (src/goals.js, which
+  // needs the world); this only reads the numbers it left. A reward goes into the bank with the haul, so it counts like a
+  // delivery (a beacon kit joins the kits at the base); the report lists the goal and goalsDone keeps it for the debrief.
+  // rollExpedition then clears the round's goals, paid or expired, so each pays once. Returns the report's list.
+  function payGoals(s) {
+    const x = s.expedition, paid = [], amount = v => (Number.isFinite(v) && v > 0 ? v : 0);
+    for (const g of x.goals || []) {
+      if (g.done !== true) continue;
+      for (const k of BANK_RES) x.banked[k] += amount(g.reward[k]);
+      x.kits += amount(g.reward.kits);
+      paid.push({ id: g.id, kind: g.kind, params: Object.assign({}, g.params), reward: Object.assign({}, g.reward) });
+      x.goalsDone.push({ id: g.id, kind: g.kind, round: s.turn, params: Object.assign({}, g.params) });
+    }
+    return paid;
   }
 
   // After a round: the bank and the incidents are spent; what is still in a backpack is banked for the next round (a
@@ -1022,6 +1056,7 @@
     x.banked = next;
     x.carried = {};
     x.incidents = [];
+    x.goals = []; // paid or expired; the advance picks the next round's (src/goals.js)
     x.collapsed = {};
     x.benched = [];
     x.suits = {};

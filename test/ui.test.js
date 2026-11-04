@@ -11,7 +11,7 @@ const vm = require('node:vm');
 const I = require('../src/i18n.js');
 
 const T = 64;
-const SOURCES = ['data.js', 'engine.js', 'i18n.js', 'art.js', 'charts.js', 'worldgen.js', 'fog.js', 'expedition.js', 'dangers.js', 'ui.js']
+const SOURCES = ['data.js', 'engine.js', 'i18n.js', 'art.js', 'charts.js', 'worldgen.js', 'fog.js', 'expedition.js', 'goals.js', 'dangers.js', 'ui.js']
   .map(f => [f, fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')]);
 const en = (k, p) => I.t('en', k, p);
 const plain = v => JSON.parse(JSON.stringify(v));
@@ -48,7 +48,7 @@ function page(stored, globals) {
     localStorage: { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: k => { delete ls[k]; } },
     navigator: { language: 'en-US' }, location: { search: '', hostname: 'localhost', protocol: 'http:' },
     addEventListener() {}, scrollTo() {}, Intl, console, setTimeout: fn => timers.push(fn), clearTimeout() {},
-    SolSurface: { mount: hooks => { surface.hooks = hooks; return new El('div'); }, update: data => { surface.data = data; } },
+    SolSurface: { mount: hooks => { surface.hooks = hooks; return new El('div'); }, update: data => { surface.data = data; }, isMounted: () => false },
   };
   win.window = win.self = win;
   Object.assign(win, globals);
@@ -58,7 +58,7 @@ function page(stored, globals) {
   const UI = win.SolUI, E = win.SolEngine;
   const all = () => walk(app, []);
   return {
-    UI, E, X: win.SolExpedition, I: win.SolI18n, ls, surface, all,
+    UI, E, X: win.SolExpedition, G: win.SolGoals, I: win.SolI18n, ls, surface, all,
     byKey: k => all().find(n => n.attrs['data-k'] === k),
     dialog: () => all().find(n => n.attrs.role === 'dialog') || null,
     flush() { while (timers.length) timers.shift()(); },
@@ -296,4 +296,28 @@ test('a landmark discovered in a new mission under a code played before opens it
   assert.equal(pg.UI.store.card, null, 'the log was read under this code');
   pg.surface.hooks.card({ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science: 120 });
   assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'L0,1', "the discovery is this mission's");
+});
+
+// ---------- expedition goals (src/goals.js, M4d) ----------
+
+test("solo: a new mission starts with round 1's goal; the advance judges the goals from the mission, pays the done ones and picks the next round's", () => {
+  const pg = page();
+  Object.assign(pg.UI.store, { loadout: pg.E.referenceKit('commander', 4), seed: 'UI-GOALS', screen: 'pilot' });
+  pg.UI.render();
+  click(pg.byKey('pilot:minh'));
+  const m = pg.UI.store.mission;
+  assert.equal(m.expedition.goals.length, 1, "round 1's goal, picked as the mission starts");
+  assert.deepEqual(plain(m.expedition.goals), plain(pg.G.pick(pg.mission({ seed: 'UI-GOALS' }))), 'the goal the rules pick for this mission code');
+  m.expedition.goals = [Object.assign(pg.G.make(m, 'landmark'), { id: 'G0:0' })];
+  m.expedition.landmarks['L1,0'] = { by: 'minh', round: 0 }; // discovered: nobody has judged the goal yet
+  pg.play(m);
+  const science = m.science;
+  pg.surface.hooks.advance();
+  const s = pg.UI.store.mission;
+  assert.deepEqual(plain(pg.UI.store.report.expedition.goals), [{ id: 'G0:0', kind: 'landmark', params: {}, reward: { science: 25 } }]);
+  assert.ok(s.science >= science + 25, 'its science is paid');
+  assert.deepEqual(plain(s.expedition.goalsDone), [{ id: 'G0:0', kind: 'landmark', round: 0, params: {} }]);
+  assert.deepEqual(plain(s.expedition.goals.map(g => g.id)), ['G1:0'], "round 2's goal");
+  pg.flush();
+  assert.deepEqual(JSON.parse(pg.ls['sol500.save']).mission.expedition.goals.map(g => g.id), ['G1:0'], 'and the save has it');
 });
