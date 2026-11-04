@@ -884,4 +884,11 @@ test("the HQ's menu builds a relay beacon kit, as it adds a shield layer: its co
   pg.key('KeyE');
   pg.key('KeyE', false);
   assert.deepEqual(kit().slice(1, 3), [I.t('en', 'bld.why.materials'), true], 'too little material: why, and no button');
+  m.resources.materials = 500;
+  m.expedition.kits = D.EXPEDITION.beacon.max;
+  pg.show(m);
+  pg.key('Escape');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  assert.deepEqual(kit().slice(1, 3), [I.t('en', 'bld.why.maxKit', { max: D.EXPEDITION.beacon.max }), true], "all kits made: the kit's own reason");
 });

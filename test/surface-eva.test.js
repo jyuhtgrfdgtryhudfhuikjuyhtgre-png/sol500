@@ -846,7 +846,7 @@ test('the backpack shows a carried kit with its own icon and name', () => {
   const slots = s.eva.el.children.find(n => n.className === 'sf-pack').children;
   assert.equal(slots[1].innerHTML, ARTS.icon('kit', 14));
   assert.notEqual(ARTS.icon('kit', 14), ARTS.icon('info', 14), 'an icon of its own, not the fallback');
-  assert.equal(slots[1].title, 'eva.kit');
+  assert.equal(slots[1].title, 'mod.kit', "the console's name for it");
   assert.equal(slots[0].innerHTML, ARTS.icon('materials', 14));
 });
 
@@ -903,6 +903,12 @@ test('carrying a kit on the map, the prompt says why a beacon cannot go here (th
   let f = facing(outside(6, 0));
   assert.equal(f.kind, 'beacon');
   assert.equal(s.eva.label(f), say('eva.beaconNearBase', { n: D.EXPEDITION.beacon.base - 6 }));
+  // One tile short, the prompt has its own words ("1 more tile", not "1 more tiles"), on a tile of column tx or just below.
+  const oneShort = (tx, ty) => {
+    for (let d = 0; d < 5; d++) { hold(s, tx, ty + d); const g = facing(outside(tx, ty + d)); if (g && g.kind === 'beacon') return g; }
+    throw new Error('no spot');
+  };
+  assert.equal(s.eva.label(oneShort(D.EXPEDITION.beacon.base - 1, 0)), say('eva.beaconNearBase1', { n: 1 }));
   assert.equal(s.eva.holdable(f), false, 'nothing to hold');
   assert.equal(s.eva.start(f), false);
   assert.equal(facing(Object.assign(outside(14, 0), { inRover: true })), null, 'in the rover, E gets you out first');
@@ -924,6 +930,8 @@ test('carrying a kit on the map, the prompt says why a beacon cannot go here (th
   const q = outside(bx + 4, by);
   hold(s, bx + 4, by);
   assert.equal(s.eva.label(facing(q)), say('eva.beaconNearBeacon', { name: beaconName(0), n: D.EXPEDITION.beacon.apart - 4 }));
+  assert.equal(s.eva.label(oneShort(bx + D.EXPEDITION.beacon.apart - 1, by)), say('eva.beaconNearBeacon1', { name: beaconName(0), n: 1 }));
+  hold(s, bx + 4, by);
   s.m.expedition.beacons.push(...Array.from({ length: D.EXPEDITION.beacon.max - 1 }, (_, i) => ({ x: 500 + 20 * i, y: 500, by: 'minh', round: 0 })));
   assert.equal(s.eva.label(facing(q)), say('eva.beaconLimit', { n: D.EXPEDITION.beacon.max }), 'all six placed');
 });
@@ -1043,7 +1051,7 @@ test("the round's goals show in the HUD column, asked twice a second: a line eac
   const lines = () => block().children[1].children.map(li => [li.className, li.textContent, li.children[0].children[0].style.width]);
   tick(s, outside(0, 1), 0.1);
   assert.equal(block().hidden, false);
-  assert.equal(block().children[0].textContent, say('eva.goals'));
+  assert.equal(block().children[0].textContent, say('goal.title'), "the console's title for the goals");
   assert.deepEqual(lines(), [['', survey.text, '25%'], ['', haul.text, '33%']]);
   tick(s, outside(0, 1), 1);
   assert.ok(asked >= 2 && asked <= 3, 'twice a second, not on each of the 11 frames: ' + asked);

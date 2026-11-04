@@ -1032,7 +1032,8 @@
       // A relay beacon kit takes no tile either (spec §3.8): built here like a shield layer, it waits at the base.
       if (m.expedition) {
         const kit = E.canBuild(m, 'kit', plan.builds || []);
-        body.appendChild(numbered(mbtn(t('sf.kitAdd'), kit.ok ? t('bld.cost', { kg: D.BUILDS.kit.materials, w: D.BUILDS.kit.work }) : t('bld.why.' + kit.reason),
+        const why = kit.reason === 'max' ? t('bld.why.maxKit', { max: D.EXPEDITION.beacon.max }) : t('bld.why.' + kit.reason); // as the console's kit button
+        body.appendChild(numbered(mbtn(t('sf.kitAdd'), kit.ok ? t('bld.cost', { kg: D.BUILDS.kit.materials, w: D.BUILDS.kit.work }) : why,
           () => { H.queueBuild({ type: 'kit' }); renderMenu(); }, { disabled: !kit.ok, icon: A.icon('kit', 18) })));
       }
       if (decisions) note(t('sf.decisions', { n: decisions }), 'warn');

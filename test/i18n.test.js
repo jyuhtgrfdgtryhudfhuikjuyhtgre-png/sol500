@@ -120,3 +120,28 @@ test('the ISRU lesson and its sources are in both languages; the sources are NAS
   assert.match(I.SOURCES.lroIce.label, /chemistry only/, 'the lunar page is only for the water-splitting chemistry (sources.md L2)');
   assert.match(I.SOURCES.protonCeramics.label, /research-fellowship project/, 'and a student project is not a NASA plan');
 });
+
+// ---------- M4d words: no draft left ----------
+
+test("the solar-storm card's Take shelter hint says crew out on the surface still need cover from the flare (spec §13.12)", () => {
+  // The card decides the day at the base; the map's flare is a danger of its own (§3.4), so nobody thinks their astronaut is safe.
+  assert.match(I.STR.en['ev.spe.shelter.hint'], /surface.*cover/);
+  assert.match(I.STR.vi['ev.spe.shelter.hint'], /bề mặt.*trú ẩn/);
+});
+
+test('every Vietnamese string keeps exactly the placeholders of its English twin', () => {
+  const holes = s => [...new Set(String(s).match(/\{\w+\}/g) || [])].sort().join(' ');
+  assert.deepEqual(Object.keys(I.STR.en).filter(k => holes(I.STR.en[k]) !== holes(I.STR.vi[k])), []);
+});
+
+test("the hints' · separator has a space on each side, in both languages", () => {
+  for (const lang of ['en', 'vi']) assert.deepEqual(Object.keys(I.STR[lang]).filter(k => /\S·|·\S/.test(I.STR[lang][k])), [], lang);
+});
+
+test('no string in either language is still a draft, and no comment marks one as a draft', () => {
+  const draft = /dry run|draft|nháp/i;
+  for (const lang of ['en', 'vi']) assert.deepEqual(Object.keys(I.STR[lang]).filter(k => draft.test(I.STR[lang][k])), [], lang);
+  const fs = require('node:fs'), path = require('node:path');
+  const lines = fs.readFileSync(path.join(__dirname, '..', 'src', 'i18n.js'), 'utf8').split('\n');
+  assert.deepEqual(lines.map((l, i) => (i + 1) + ': ' + l.trim()).filter(l => draft.test(l)), [], 'src/i18n.js');
+});

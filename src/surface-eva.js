@@ -237,7 +237,7 @@
       }
       prop('gl', JSON.stringify(goals) + '|' + (shown.lang || ''), () => {
         goalsEl.hidden = !goals.length;
-        goalsCap.textContent = t('eva.goals');
+        goalsCap.textContent = t('goal.title');
         goalsList.textContent = '';
         for (const q of goals) {
           const li = node('li', q.done ? 'done' : null, (q.done ? '✓ ' : '') + q.text), bar = node('span', 'bar'), fill = node('i');
@@ -281,7 +281,7 @@
         packEl.setAttribute('aria-label', t('eva.pack', { n: items.length, m: cap }));
         for (let i = 0; i < cap; i++) {
           const it = items[i], slot = node('span', 'slot' + (it ? ' full' : ''));
-          if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = E.isKit(it) ? t('eva.kit') : t('haul.' + it.res, { n: it.amount }); }
+          if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = E.isKit(it) ? t('mod.kit') : t('haul.' + it.res, { n: it.amount }); }
           packEl.appendChild(slot);
         }
       });
@@ -594,8 +594,8 @@
       if (f.kind === 'beacon') {
         const s = f.spot, more = Math.max(1, Math.ceil(s.need - 1e-9)); // whole tiles, at least one more
         if (s.ok) return t('eva.placeBeacon', { s: secs(X.holdSeconds('beacon', role)) });
-        if (s.error === 'nearBase') return t('eva.beaconNearBase', { n: more });
-        if (s.error === 'nearBeacon') return t('eva.beaconNearBeacon', { name: beaconName(s.beacon), n: more });
+        if (s.error === 'nearBase') return t(more === 1 ? 'eva.beaconNearBase1' : 'eva.beaconNearBase', { n: more });
+        if (s.error === 'nearBeacon') return t(more === 1 ? 'eva.beaconNearBeacon1' : 'eva.beaconNearBeacon', { name: beaconName(s.beacon), n: more });
         if (s.error === 'limit') return t('eva.beaconLimit', { n: XD.beacon.max });
         return t('eva.err.' + s.error);
       }
