@@ -1513,7 +1513,7 @@ test('a demo writes no save, no regionsSeen, no opsView and no badges, even adva
   h.card({ type: 'region', id: 'dunes' });
   h.card({ type: 'log', id: 'S0,0', kind: 'weather' });
   await h.exp('collect', {}, at(1, 1));
-  for (let i = 0; i < 30 && pg.UI.store.mission.status === 'active'; i++) { pg.got.hooks.advance(); pg.UI.store.modal = null; pg.UI.render(); pg.flush(); }
+  for (let i = 0; i < 30 && pg.UI.store.mission.status === 'active'; i++) { const st = pg.UI.store; st.plan.answered = Object.fromEntries((st.mission.events || []).map(e => [e.type, true])); pg.got.hooks.advance(); pg.UI.store.modal = null; pg.UI.render(); pg.flush(); }
   assert.notEqual(pg.UI.store.mission.status, 'active', 'advanced to its debrief');
   pg.UI.render();
   pg.UI.store.modal = 'badges';

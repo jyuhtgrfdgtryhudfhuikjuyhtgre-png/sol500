@@ -2276,7 +2276,7 @@
   // Show me builds a throwaway mission on SH.CODE and swaps it for the presenter's own in memory; store.demo marks it, and while
   // it is set nothing is saved, recorded or remembered (see LS, saveSolo, checkBadges, firstTime). Leaving puts the presenter's
   // mission, plan and tab back as they were.
-  let demoKeep = null, demoSeen = null;
+  let demoKeep = null, demoSeen = null, demoStep = 0;
   function viewShowcase() {
     return [
       h('header', { class: 'topbar' },
@@ -2293,9 +2293,14 @@
   }
   // The bar over the stage: back to the gallery, and the card's purpose on one line.
   function demoBar() {
-    const why = t('show.card.' + store.demo.id + '.why');
+    const why = t('show.card.' + store.demo.id + '.why'), steps = SH.card(store.demo.id).steps;
+    const next = () => {
+      demoStep = (demoStep + 1) % steps.length;
+      try { Promise.resolve(window.SolSurface.scene({ at: steps[demoStep] })).catch(() => toast(t('show.failed'))); } catch (e) { toast(t('show.failed')); }
+    };
     return h('div', { class: 'show-bar' },
       h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'show-back', onclick: leaveDemo }, t('show.back')),
+      steps ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'show-next', onclick: next }, t('show.next')) : null,
       h('p', { class: 'show-cap', title: why }, h('b', null, t('show.why') + ': '), why));
   }
   function showScene(id) {
@@ -2303,14 +2308,20 @@
     if (!c || lanOn() || store.demo) return;
     flushSolo(); // a save already waiting is the presenter's, and goes to disk now; the demo starts with no timer pending
     demoKeep = { mission: store.mission, plan: store.plan, report: store.report, advice: store.advice, opsView: store.opsView };
-    const s = E.createMission({
-      seed: SH.CODE, loadout: E.referenceKit('commander', 5), difficulty: 'commander', crewSize: 5, events: false,
-      pilot: D.CREW.find(x => x.role === 'commander').id, schedulePatch: c.schedule,
-    });
-    G.pick(s);
+    const sc = D.SHOWCASE;
+    let s;
+    try {
+      s = E.createMission({
+        seed: SH.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, true), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
+        pilot: D.CREW.find(x => x.role === 'commander').id, quick: true, schedulePatch: c.schedule,
+      });
+      G.pick(s);
+      if (c.prepare) c.prepare(s, { Z, X });
+    } catch (e) { demoKeep = null; toast(t('show.failed')); return; }
     held = [];
+    demoStep = 0;
     demoSeen = { key: '', list: [] };
-    Object.assign(store, { demo: { id }, mission: s, plan: E.defaultPlan(s), report: null, advice: null, card: null, opsView: c.view === 'console' ? 'console' : 'surface', modal: c.view === 'modal' ? c.modal : null });
+    Object.assign(store, { demo: { id }, mission: s, plan: E.defaultPlan(s), report: null, advice: null, card: null, opsView: c.view === 'console' ? 'console' : 'surface', modal: c.view === 'modal' ? c.modal : null, storyPage: 0 });
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
     go('ops');
     if (c.view === 'surface' && (c.at || c.board || c.suit != null || c.clock != null)) setUpScene(c, 0);
@@ -2318,10 +2329,12 @@
   // The surface builds its world on the render that mounts it; the scene waits for it (about 3 s at most), then asks once.
   function setUpScene(c, tries) {
     if (!store.demo || store.demo.id !== c.id) return;
-    const SS = window.SolSurface, p = SS && SS.probe && SS.probe();
-    const fail = () => { if (store.demo && store.demo.id === c.id) { leaveDemo(); toast(t('show.failed')); } };
-    if (!p || !p.world) { if (tries >= 30) fail(); else setTimeout(() => setUpScene(c, tries + 1), 100); return; }
-    try { Promise.resolve(SS.scene({ at: c.at, board: c.board, suit: c.suit, clock: c.clock })).catch(fail); } catch (e) { fail(); }
+    const SS = window.SolSurface, fail = () => { if (store.demo && store.demo.id === c.id) { leaveDemo(); toast(t('show.failed')); } };
+    try {
+      const p = SS && SS.probe && SS.probe();
+      if (!p || !p.world) { if (tries >= D.SHOWCASE.waitTries) fail(); else setTimeout(() => setUpScene(c, tries + 1), D.SHOWCASE.waitMs); return; }
+      Promise.resolve(SS.scene({ at: c.at, board: c.board, suit: c.suit, clock: c.clock })).catch(fail);
+    } catch (e) { fail(); }
   }
   function leaveDemo() {
     const keep = demoKeep;
