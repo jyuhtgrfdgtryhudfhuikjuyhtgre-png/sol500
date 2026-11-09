@@ -1405,5 +1405,19 @@
     clock(s) { S.eva.qaClock(s); }, // solo: jump the round's clock (a flare's warning, its end)
   };
 
-  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});
+  // The Showcase's scene (ui.js asks once the world is up): stand on a tile, get into the rover by the real rule (the E key's
+  // toggleRover, which asks the rules to board), and set the suit and the round clock. Throws when there is nothing to set up.
+  function scene(o) {
+    if (!S || !S.player) throw new Error('the surface is not ready');
+    if (o.at) qa.teleport(o.at[0], o.at[1]);
+    if (o.suit != null) qa.suit(o.suit);
+    if (o.clock != null) qa.clock(o.clock);
+    if (o.board && !S.player.inRover) {
+      toggleRover();
+      if (!S.player.inRover) throw new Error('no rover to board');
+    }
+    return Promise.resolve();
+  }
+
+  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, scene, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});
 })(typeof self !== 'undefined' ? self : this);
