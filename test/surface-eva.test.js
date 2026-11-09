@@ -243,6 +243,19 @@ function recorder() {
   return { ctx, fills };
 }
 
+test("bunched name tags keep clear of each other's suit bars, and your own tag is laid out first", () => {
+  const tags = [], drawn = recorder();
+  for (const text of ['A', 'B', 'C', 'D']) tags.push({ x: 500, y: 300, text, color: '#fff', you: undefined, bar: 0.5 });
+  tags.push({ x: 500, y: 300, text: 'Me', color: '#fff', you: true, bar: null });
+  P.sprites.drawTags(drawn.ctx, tags);
+  const mine = drawn.fills.find(f => f.style === 'rgba(140,188,236,0.92)');
+  assert.equal(mine.top, 286, 'yours is first, so it stays where it was and the others move');
+  const boxes = drawn.fills.filter(f => f.style === 'rgba(20,14,16,0.78)').sort((a, b) => a.top - b.top);
+  const bars = drawn.fills.filter(f => f.style === 'rgba(20,14,16,0.8)').sort((a, b) => a.top - b.top);
+  assert.equal(boxes.length, 4);
+  for (let i = 1; i < boxes.length; i++) assert.ok(boxes[i - 1].bottom < bars[i].top, 'the tag above ends above the bar below it: ' + boxes[i - 1].bottom + ' vs ' + bars[i].top);
+});
+
 test("a teammate's suit bar is drawn fully above their name tag: standing, walking, lying down and in the rover", () => {
   const s = setup();
   const x = 30 * T + 32, y = 4 * T + 32; // outside the base zone, where the bar shows

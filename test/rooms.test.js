@@ -978,3 +978,21 @@ test("a co-op plan can't queue, scrap or request a type named like a property ev
   }
   assert.equal({}.count, undefined, 'nothing reached Object.prototype');
 });
+
+test('a flare timer answered "early" tries again, so a host clock that stepped back still gets the flare to land', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let now = 1e12;
+  t.mock.method(Date, 'now', () => now);
+  const { R, room, guest } = inMission();
+  const m = room.mission;
+  m.schedule[m.turn].spe = true;
+  now += 4000;
+  R.position(room, guest, at(30, 0));
+  assert.equal(m.expedition.flare.end, 94);
+  now += 80000; // the timer is due after 90 s of its own, but the wall clock reads 14 s short of the end
+  t.mock.timers.tick(90000);
+  assert.equal(m.expedition.flare.over, false, 'too early by the clock: not judged yet');
+  now += 14000;
+  t.mock.timers.tick(14000);
+  assert.equal(m.expedition.flare.over, true, 'it tried again and landed');
+});

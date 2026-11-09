@@ -154,13 +154,14 @@
   const me = () => (lanOn() ? store.room.players.find(p => p.id === store.lan.playerId) : null);
   const isHost = () => !lanOn() || store.room.hostId === store.lan.playerId;
   // Fog waiting to go to the server: kept until the socket takes it, sent 64 chunks per message.
-  let fogOut = {};
+  let fogOut = {}, fogSent = []; // fogSent: [{ at, part }], what went out lately, in case the socket was half open
   function flushFog() {
     const keys = Object.keys(fogOut);
     for (let i = 0; i < keys.length; i += 64) {
       const part = {};
       for (const k of keys.slice(i, i + 64)) part[k] = fogOut[k];
       if (!N.sendReveal(part)) return;
+      fogSent.push({ at: Date.now(), part });
       for (const k of Object.keys(part)) delete fogOut[k];
     }
   }
@@ -168,6 +169,7 @@
   function forgetFog() {
     store.fog = {};
     fogOut = {};
+    fogSent = [];
     store.launchSeen = null;
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
   }
@@ -241,6 +243,7 @@
       crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot,
     });
     G.pick(s); // round 1's goals; each advance picks the next round's
+    held = [];
     store.mission = s;
     store.plan = E.defaultPlan(s);
     store.report = null;
@@ -635,6 +638,7 @@
   // The mouse or the focus leaving the card (see surfaceCard) starts the 15 s again. Touch never holds it: :hover sticks
   // after a tap, so only a mouse (hover: hover) counts.
   const canHover = () => !!window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  const onConsole = () => store.screen === 'ops' && store.opsView === 'console'; // the card is on the surface: out of sight here
   function reading() {
     const card = document.querySelector('.region-card');
     return !!card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement));
@@ -642,7 +646,7 @@
   function armCardTimer() {
     clearTimeout(cardTimer);
     if (!store.card) return;
-    cardTimer = setTimeout(() => { if (reading()) armCardTimer(); else closeCard(); }, 15000);
+    cardTimer = setTimeout(() => { if (reading() || onConsole()) armCardTimer(); else closeCard(); }, 15000);
   }
 
   // A card that comes while another opened less than 8 s ago is still up waits, in order, so a hab pod's log or a formation's
@@ -660,9 +664,9 @@
   }
   function nextCard() {
     holdTimer = null;
-    if (held.length && reading()) { holdTimer = setTimeout(nextCard, CARD_HOLD); return; }
-    const key = missionKey();
-    held = held.filter(e => e.key === key);
+    const key = missionKey(), s = mission();
+    held = s && s.status === 'active' ? held.filter(e => e.key === key) : [];
+    if (held.length && (reading() || onConsole())) { holdTimer = setTimeout(nextCard, CARD_HOLD); return; }
     if (held.length) openCard(held.shift().c);
   }
   function closeCard() {
@@ -671,8 +675,10 @@
     nextCard();
   }
   function arrive(c) {
-    if (holdTimer) held.push({ c, key: missionKey() });
-    else openCard(c);
+    if (holdTimer || (store.card && reading())) {
+      held.push({ c, key: missionKey() });
+      if (!holdTimer) holdTimer = setTimeout(nextCard, CARD_HOLD);
+    } else openCard(c);
   }
 
   // Is this the first time the card of `id` (a region, or a point of interest) comes up in this mission and mode?
@@ -685,12 +691,14 @@
     return true;
   }
 
-  function showRegionCard(id) {
-    if (firstTime(id)) arrive({ type: 'region', id });
+  function showRegionCard(id, soloFirst) {
+    const first = firstTime(id); // also keeps the device's list for the Science notes
+    if (soloFirst == null ? first : soloFirst) arrive({ type: 'region', id });
   }
 
   // The region's name on the surface was selected: read its card again, for another 15 s.
   function reopenRegionCard(id) {
+    held = held.filter(e => e.c.id !== id);
     openCard({ type: 'region', id, again: true });
   }
 
@@ -859,11 +867,12 @@
     enterRegion: id => {
       const s = mission();
       if (!s || !s.expedition || !W.REGIONS.includes(id)) return;
-      if (!s.expedition.regions.includes(id)) {
+      const first = !s.expedition.regions.includes(id);
+      if (first) {
         if (lanOn()) N.act('region', { region: id });
         else { s.expedition.regions.push(id); saveSoloSoon(); }
       }
-      showRegionCard(id);
+      showRegionCard(id, lanOn() ? null : first); // solo: this mission's own record, not the device's slot
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
     card: c => showCard(c),
@@ -1082,6 +1091,7 @@
     const s = mission();
     const p = currentPlan();
     if (!s || !p) return viewTitle();
+    goalsOf(s); // brings the goals up to date before the forecast reads them
     const f = E.forecast(s, p);
     if (store.opsView !== 'console' && window.SolSurface) {
       return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
@@ -1926,6 +1936,10 @@
       return;
     }
     store.lanStatus = status;
+    if (status === 'open') { // fog sent in the last 30 s may have gone into a dead socket: send it again (the server's merge is safe to repeat)
+      for (const e of fogSent) if (Date.now() - e.at < 30000) F.mergeMap(fogOut, e.part);
+      fogSent = [];
+    }
     // Fog seen while the socket was down is sent by onRoom, once the first room frame says which mission the server is on:
     // sending it here could put an old mission's fog into a new mission or room.
     render();
