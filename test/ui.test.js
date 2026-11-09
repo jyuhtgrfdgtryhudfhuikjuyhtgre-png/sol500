@@ -462,6 +462,17 @@ test("a card is not replaced while the player is reading it, the mouse on it or 
   assert.notEqual(up(), 'F1,0', "a card of a mission that is over does not open in the next");
 });
 
+test('a launch clears the region card and the cards waiting, so "Fly again" on the same code starts clean', () => {
+  const pg = page();
+  pg.play(pg.mission({ seed: 'UI-CARD' }));
+  pg.surface.hooks.card({ type: 'landmark', id: 'L0,1', kind: 'delta', by: 'minh', science: 120 });
+  assert.ok(pg.UI.store.card, 'a card is up');
+  Object.assign(pg.UI.store, { loadout: pg.E.referenceKit('commander', 4), seed: 'UI-CARD', screen: 'pilot' });
+  pg.UI.render();
+  click(pg.byKey('pilot:minh'));
+  assert.equal(pg.UI.store.card, null, 'the new mission starts with no card');
+});
+
 // ---------- expedition goals (src/goals.js, M4d) ----------
 
 test("solo: a new mission starts with round 1's goal; the advance judges the goals from the mission, pays the done ones and picks the next round's", () => {

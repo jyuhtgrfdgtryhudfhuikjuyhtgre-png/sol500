@@ -171,6 +171,7 @@
     fogOut = {};
     fogSent = [];
     store.launchSeen = null;
+    setCard(null); // and the old mission's card
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
   }
   const mission = () => (lanOn() ? store.room.mission : store.mission);
@@ -244,6 +245,7 @@
     });
     G.pick(s); // round 1's goals; each advance picks the next round's
     held = [];
+    setCard(null); // the last mission's card ("Fly again" reuses the code)
     store.mission = s;
     store.plan = E.defaultPlan(s);
     store.report = null;
