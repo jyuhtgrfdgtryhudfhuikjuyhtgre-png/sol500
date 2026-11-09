@@ -886,7 +886,7 @@ test("the Science note lists every fact and story log the mission found with its
   assert.deepEqual(items.map(titleOf), [
     en('region.plains'), en('region.icy'), en('lm.delta.name'), en('fm.ventifact.name'), en('ks.weather.name'), en('ks.cache.name'), en('ks.pod.name'),
   ], 'in the order the mission found them, hab pods last; a find that is no formation (4,4:0) is no entry');
-  assert.deepEqual(linksOf(items[0]), link('jezero'), 'a region fact: its real place');
+  assert.deepEqual(linksOf(items[0]), link('jezero').concat(link('marsNames')), 'a region fact: its real place, and for the Plains the page that says what Jezero means');
   assert.deepEqual(linksOf(items[1]), link(pg.I.REGION_SOURCES.icy));
   assert.deepEqual(linksOf(items[2]), link(pg.I.LANDMARK_SOURCES.delta));
   assert.deepEqual(linksOf(items[3]), link(pg.I.FORMATION_SOURCES.ventifact));
@@ -921,7 +921,7 @@ test("each entry of the found list is a closed <details>: its summary is the car
   const [region, landmark, log] = parts;
   assert.equal(region.summary, en('region.note') + en('region.plains'), 'the eyebrow and the title');
   assert.ok(region.inside.includes(en('region.fact.plains')));
-  assert.deepEqual(region.links, src('jezero'), 'the source opens with the fact');
+  assert.deepEqual(region.links, src('jezero').concat(src('marsNames')), 'the source opens with the fact');
   assert.ok(landmark.summary.includes(en('lm.delta.name')) && landmark.summary.includes(en('disc.by', { name: en('name.minh') })), 'the title and the meta');
   assert.ok(landmark.inside.includes(en('lm.delta.fact')) && !landmark.summary.includes(en('lm.delta.fact')));
   assert.deepEqual(landmark.links, src(pg.I.LANDMARK_SOURCES.delta));
@@ -1038,7 +1038,7 @@ test('the field guide labels every piece of cargo, building and gear and says wh
       assert.doesNotMatch(item.textContent, /\{\w+\}/, what + ': no unfilled {placeholder}');
       assert.equal(links.length, fact ? 1 : 0, what + ': a fact shows its source, and only a fact does');
       if (!fact) continue;
-      cited[id] = Object.keys(I.SOURCES).find(s => I.SOURCES[s].url === links[0].attrs.href && I.SOURCES[s].label === links[0].textContent);
+      cited[id] = Object.keys(I.SOURCES).find(s => I.SOURCES[s].url === links[0].attrs.href && I.srcLabel(lang, s) === links[0].textContent);
       assert.ok(cited[id] && /^https:\/\//.test(links[0].attrs.href), what + ': its source is in SOURCES');
     }
     // lab's and spares' lines are mottos, not facts; no page checked says solar's 43 %, the water wall's "best shield per
