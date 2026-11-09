@@ -1271,7 +1271,7 @@ test("a saved best find, flare count or pod visit count with the wrong shape is 
   const k = E.upgradeMission(keep, {}).expedition;
   assert.deepEqual(k.bestFind, good);
   assert.deepEqual(k.stats.minh, { finds: {}, flareHit: 2, flareCover: 3, distance: 5, pods: 4 });
-  for (const bad of ['x', 7, [], {}, { crewId: 5, amount: 9 }, { crewId: 'minh', amount: 'lots' }, { crewId: 'minh', amount: -3 }, { crewId: 'minh', kind: 'landmark', amount: 9, region: 1.5 }]) {
+  for (const bad of ['x', 7, [], {}, ...[{ crewId: 5 }, { kind: 5 }, { res: 'water' }, { amount: 'lots' }, { amount: -3 }, { amount: 0 }, { region: 1.5 }].map(wrong => Object.assign({}, good, wrong))]) {
     const s = calm();
     s.expedition.bestFind = bad;
     assert.equal(E.upgradeMission(s, {}).expedition.bestFind, null, JSON.stringify(bad));
