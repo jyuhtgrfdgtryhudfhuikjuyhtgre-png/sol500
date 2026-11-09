@@ -980,8 +980,8 @@
       if (S.prompt.dataset.label !== label) {
         S.prompt.dataset.label = label;
         S.prompt.textContent = '';
-        const k = el('kbd', null, S.touch ? '◉' : 'E');
-        S.prompt.append(k, document.createTextNode(' ' + label));
+        const k = f.kind === 'beacon' && !S.eva.holdable(f) ? null : el('kbd', null, S.touch ? '◉' : 'E'); // no key cap where E does nothing
+        S.prompt.append(...(k ? [k] : []), document.createTextNode((k ? ' ' : '') + label));
       }
     }
     const hintKey = S.player && S.player.inRover ? (S.touch ? 'sf.hintRoverTouch' : 'sf.hintRover') : (S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
@@ -997,7 +997,7 @@
     if (!S.focus) return;
     if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
     if (S.focus.kind === 'rover') { toggleRover(); return; }
-    if (S.focus.kind === 'beacon') return; // where a beacon cannot go: the prompt says why, and there is no menu
+    if (S.focus.kind === 'beacon' || S.focus.kind === 'drop') return; // where a beacon cannot go, or a load will not fit: the prompt says why, and there is no menu
     openMenu();
   }
 

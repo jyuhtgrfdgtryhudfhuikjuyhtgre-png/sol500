@@ -1178,3 +1178,33 @@ test("the rover's battery counts each tile boosted or driven over rocks twice (a
   const phys = s.eva.el.children.find(n => / batt$/.test(n.className)).children[3].textContent;
   assert.equal(phys, '22 km/h · stops in 2.8 m (on Earth: 1.1 m)', 'Mars needs 2.6 times as far to stop');
 });
+
+// ---------- M5 polish ----------
+test('with a full backpack the pickup prompt says so and offers no hold', () => {
+  const s = setup({ t: say });
+  const drop = { kind: 'drop', key: 'd:1', id: 1, x: 0, y: 0 };
+  assert.equal(s.eva.holdable(drop), true, 'room: a hold');
+  assert.match(s.eva.label(drop), /^eva\.pickup/);
+  s.m.expedition.carried.minh = Array.from({ length: X.capacity(s.m, 'minh') }, METAL);
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(s.eva.holdable(drop), false, 'a full backpack: no hold');
+  assert.equal(s.eva.label(drop), 'eva.err.full', 'the prompt says it is full');
+  assert.equal(s.eva.start(drop), false);
+});
+
+test('a pack with a kit counts the kit apart, and a pack of only kits is not "full"', () => {
+  const s = setup({ t: say });
+  const cap = X.capacity(s.m, 'minh'), pack = () => s.eva.el.children.find(n => n.className === 'sf-pack');
+  s.m.expedition.carried.minh = [METAL(), E.kitItem()];
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(pack().attrs['aria-label'], 'eva.packKit ' + JSON.stringify({ n: 1, k: 1, m: cap }), 'one load and one kit, not "2 of ' + cap + ' loads"');
+  s.m.expedition.carried.minh = [METAL()];
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(pack().attrs['aria-label'], 'eva.pack ' + JSON.stringify({ n: 1, m: cap }), 'no kit: as before');
+  s.m.expedition.carried.minh = Array.from({ length: cap }, E.kitItem);
+  tick(s, outside(9, 1), 0.1);
+  assert.notEqual(noteOf(s), 'eva.full', 'a pack of only kits is not the "bring it back" full');
+  s.m.expedition.carried.minh = [E.kitItem(), ...Array.from({ length: cap - 1 }, METAL)];
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(noteOf(s), 'eva.full', 'with loads in it, full is full');
+});

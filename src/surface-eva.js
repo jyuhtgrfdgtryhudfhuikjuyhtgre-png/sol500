@@ -222,7 +222,7 @@
       if (benched()) return { text: t('eva.benched'), cls: 'warn' };
       if (p && p.inRover && driven >= XD.roverRange) return { text: t('eva.flat'), cls: 'warn' };
       const atBase = !!p && X.inBaseZone(p);
-      if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t('eva.full'), cls: '' };
+      if (live() && pack().length >= X.capacity(mission(), me) && pack().some(i => !E.isKit(i)) && !atBase) return { text: t('eva.full'), cls: '' };
       if (live() && suit <= XD.suit * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
       const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
       if (cover) return { text: t(cover), cls: 'ok' };
@@ -283,7 +283,8 @@
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
       prop('pk', items.map(i => i.res + (i.canister ? '*' : '')).join(',') + '|' + cap + '|' + (shown.lang || ''), () => {
         packEl.textContent = '';
-        packEl.setAttribute('aria-label', t('eva.pack', { n: items.length, m: cap }));
+        const kitN = items.filter(E.isKit).length; // a kit is counted apart from the loads
+        packEl.setAttribute('aria-label', kitN ? t('eva.packKit', { n: items.length - kitN, k: kitN, m: cap }) : t('eva.pack', { n: items.length, m: cap }));
         for (let i = 0; i < cap; i++) {
           const it = items[i], slot = node('span', 'slot' + (it ? ' full' : ''));
           if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = E.isKit(it) ? t('mod.kit') : t('haul.' + it.res, { n: it.amount }); }
@@ -555,7 +556,7 @@
     // Every hold's seconds come from the rules' one function (X.holdSeconds), with your role's skill (spec §3.3).
     const holdKind = f => (f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : f.kind === 'beacon' ? 'beacon' : 'revive');
     const hold0 = f => X.holdSeconds(holdKind(f), crew() && crew().role);
-    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
+    const holdable = f => !!f && (f.kind === 'find' || (f.kind === 'drop' && hasRoom()) || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
     // A relay beacon by its id "B<i>": "Beacon <i + 1>".
     const beaconName = id => t('eva.beaconName', { n: Number(String(id).slice(1)) + 1 });
     // Where the relay beacon you carry would go (spec §3.8): the tile under you, as the rules judge it (X.beaconSpot changes
@@ -605,7 +606,7 @@
         const what = t('find.' + f.find.kind) + (f.find.sub ? ' · ' + t('sci.' + f.find.sub) : '');
         return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role)) });
       }
-      if (f.kind === 'drop') return t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
+      if (f.kind === 'drop') return !hasRoom() ? t('eva.err.full') : t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
       if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role)) });
       if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
       if (f.kind === 'rover') return t('sf.boardRover');

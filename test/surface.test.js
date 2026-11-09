@@ -787,6 +787,30 @@ test("E where a relay beacon cannot go opens no menu: the prompt has already sai
   assert.equal(pg.probe().menu, null, 'no menu');
 });
 
+// Every element under `n` whose class list holds `cls`.
+const findAll = (n, cls) => [n].concat(...(n.children || []).map(c => findAll(c, cls))).filter(c => c && String(c.className || '').split(' ').includes(cls));
+test('a refused beacon spot shows no key cap; a spot where E works does', () => {
+  const m = mission({ seed: 'KIT-E' });
+  m.expedition.carried.minh = [E.kitItem()];
+  const pg = page(m, 'minh');
+  pg.qa.teleport(6, 9); // too close to the base for a beacon
+  pg.step(0.2);
+  const prompt = () => findAll(pg.overlay, 'sf-prompt')[0];
+  assert.equal(pg.probe().focus, 'beacon');
+  assert.equal(prompt().children.some(c => c.tagName === 'KBD'), false, 'no key cap where E does nothing');
+  const [x, y] = openSpotFor(m);
+  pg.qa.teleport(x, y);
+  pg.step(0.2);
+  assert.equal(pg.probe().focus, 'beacon');
+  assert.equal(prompt().children.some(c => c.tagName === 'KBD'), true, 'the key cap where a beacon can go');
+});
+// A tile far enough from the base for a beacon, where nothing else is in reach.
+function openSpotFor(m) {
+  const w = SW.create(m.seed);
+  for (let x = 14; x < 80; x++) if ([0, 1, 2].every(d => !w.isBlocked(x + d, 9)) && !X.inBaseZone({ x: (x + 0.5) * T, y: 9.5 * T })) return [x, 9];
+  return null;
+}
+
 const pingsOf = pg => plain(pg.probe().marks).filter(k => k.ping).map(k => [k.x, k.y, k.label]);
 test('P pings where you stand: solo shows it on your own maps at once, without the network; at most one a second', () => {
   const pg = page(mission({ seed: 'PING-1' }), 'minh');
