@@ -564,6 +564,17 @@ test('the round brief says what is waiting outside: a solar flare, dust devils, 
   assert.equal(noteOf(quiet), '', 'nothing to say in a quiet round');
 });
 
+test('the round brief shows after a seat change at an advance, too', () => {
+  const s = setup({ t: say });
+  tick(s, NEAR(0, 1), 9); // round 1's note is gone
+  const next = E.resolveTurn(s.m, E.defaultPlan(s.m)).state;
+  Object.assign(next.schedule[next.turn], { spe: true });
+  const other = next.crew.find(c => c.id !== 'minh' && c.status === 'active').id;
+  s.eva.sync({ mission: next, controlId: other, lang: 'en' }); // a takeover at the advance: another seat in the next round
+  tick(s, NEAR(0, 1), 0.1);
+  assert.match(noteOf(s), /^eva\.brief /, 'the new round is briefed');
+});
+
 // ---------- paths no earlier test reached (M4a follow-ups) ----------
 
 test('with E still held after a load, the next load of the same find starts at once', async () => {

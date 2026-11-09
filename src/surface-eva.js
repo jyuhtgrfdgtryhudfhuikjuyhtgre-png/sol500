@@ -357,7 +357,7 @@
       const id = d.controlId || null;
       let round = false, fresh = false;
       if (m.turn !== turn || id !== me) {
-        const first = turn == null;
+        const first = turn == null, newRound = !first && m.turn !== turn;
         round = !first && m.turn !== turn && id === me;
         fresh = !round;
         turn = m.turn;
@@ -371,7 +371,7 @@
         if (round) soloClock = 0;
         else if (first) soloClock = Z.clockOf(m); // a reload picks the round's clock up where it was saved
         warned = !!(m.expedition.flare && clock() >= m.expedition.flare.warn); // a warning already under way is not said again
-        if (first || round) brief(m);
+        if (first || newRound) brief(m); // at an advance whoever's seat it is
       }
       const down = !!(me && m.expedition.collapsed[me]);
       if (wasDown && !down && me) { suit = X.suitOf(m, me); say(t('eva.revived', { s: XD.reviveSuit }), 'ok', 4); }
