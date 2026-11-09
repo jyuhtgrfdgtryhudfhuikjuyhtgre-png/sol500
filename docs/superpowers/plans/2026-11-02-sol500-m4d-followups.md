@@ -6,19 +6,26 @@ This doc holds everything the task reviews, the final review and the QA deferred
 
 ## Measured numbers
 
-The controller fills in the four sections below from the release tree (Task 9, steps 1 and 2). The dry run's figures are in the plan, under "Measured in the dry run".
+Measured on the release tree (Task 9, steps 1 and 2). The dry run's figures are in the plan, under "Measured in the dry run".
 
 ### Tests
-<<TESTS>>
+668 of 668 on the release tree (`10201fe`): 636 from M4d plus the floor's.
 
 ### Balance
-<<BALANCE>>
+Measured on `10201fe`, 1,000 missions a cell, and equal to the dry run. Veteran sloppy 66.8 % to 88.8 % with exploring (+22.0, 10 to 25 wanted). Careless + explorer at most 26.8 % (under 35). Thoughtful + explorer 100 % (over 70). Commander S grades: 292 of 1,000 thoughtful explorers (250 to 333), 37 of 1,000 sloppy (under 100). Every target passes except the run length (R20).
 
 ### Browser QA
-<<QA>>
+37 checks on `10201fe`: 34 PASS, 3 SEEN, 0 FAIL; Critical 0, Important 0. World hash `3ae4db5e`, repaint 420 of 420. A real 3.5.0 save resumes and repairs. Open Minor findings for M5:
+- **A held card expires unseen on the console** (`src/ui.js` `openCard`, `nextCard`): its timers run whatever the view. Pause them off the surface, or rely on the Science notes (a design call).
+- **A long log card covers the top 23 px of E on a 1024 x 768 touch tablet** (`src/style.css` R33 wide rule): cap the card's height. A tap still works.
+- **A found-list summary is announced with "plus" or "minus"** (`src/style.css` `summary::after`): use `content: '+' / ''`.
+- **The grains photo repeats visibly on Volcanic Flanks** (`src/surface-paint.js` `PHOTO.grains`, `repeat: 140`).
+- **Ground changes are hard tile edges**, more visible with the photos (`paintTile`).
+- **Vietnamese wording**: `guide.kit.desc` says "trạm tiếp sóng" where the rest say "trạm chuyển tiếp"; the rover is both "xe tự hành" and "xe thám hiểm".
+- **The Notes dialog scrolls 5,336 px on a phone**: only the found list folds.
 
 ### Frame rate
-<<FPS>>
+1280 x 720, Best, poller clean (110 samples, 0 busy): scene median 163.9 fps, control 163.9, on a 165 Hz display; paint median 0.50 ms. No region differs.
 
 ### Run length
 From the dry run (`BAL-0` to `BAL-999`, commander, 30 to 60 s of planning a round; ruling R20):
