@@ -9,15 +9,15 @@
  *   schedule: { turn: patch } for E.createMission's schedulePatch · at: [tx, ty] tile · board · suit · clock: SolSurface.scene's
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.SolShowcase = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'));
+  else root.SolShowcase = factory(root.SolData);
+})(typeof self !== 'undefined' ? self : this, function (D) {
   'use strict';
   // The mission code whose points of interest QA has mapped (.superpowers/sdd/qa-tools-m4c/qa/pois-PAINT-QA-1.json).
   const CODE = 'PAINT-QA-1';
   // Where beacons go (tiles east of the HQ on the x axis: 13 and 24 are open ground, 11 apart, the third spot 11 further on).
   const BEACON_AT = [[13, 0], [24, 0]], BEACON_STAND = [35, 0];
-  const tilePos = ([tx, ty]) => ({ x: (tx + 0.5) * 64, y: (ty + 0.5) * 64 });
+  const tilePos = ([tx, ty]) => ({ x: (tx + 0.5) * D.TILE_PX, y: (ty + 0.5) * D.TILE_PX });
   // Stock three kits (a build project makes them, which takes a round), carry them out of the base zone by the rules, and place two.
   function placeBeacons(s, R) {
     const id = s.pilot, ok = r => { if (r.error) throw new Error(r.error); };
@@ -29,13 +29,14 @@
     // prepare starts the flare's warning at once (30 s delay + 60 s countdown ends it at 90 s); the clock at 70 leaves 20 s.
     // [28, 8] is 26 tiles from the base zone: about 11 s on foot.
     { id: 'flare', source: 'hazards', view: 'surface', schedule: { 0: { spe: true } }, at: [28, 8], clock: 70, prepare: (s, R) => { const r = R.Z.flareStart(s, 0); if (r.error) throw new Error(r.error); } },
-    // [1, -1] is inside the rover's bay reach (boarding asks the rules, which want you within 2 tiles of the bay).
-    { id: 'rover', source: null, view: 'surface', at: [1, -1], board: true },
+    // [0, -4] is sand just outside the base pad and within the bay's reach (boarding asks the rules, which want you within 2 tiles).
+    { id: 'rover', source: null, view: 'surface', at: [0, -4], board: true },
     // The Quick schedule's rupture, moved to the opening round; the Console shows the event with its two choices.
     { id: 'oxygen', source: null, view: 'console', schedule: { 0: { flavor: 'o2_rupture' } } },
     { id: 'beacons', source: 'relayJpl', view: 'surface', at: BEACON_STAND, prepare: placeBeacons },
-    // One tile in each region, in the order of W.REGIONS: plains, dunes, craters, canyons, icy, volcanic.
-    { id: 'ground', source: 'photoJezero', view: 'surface', at: [68, 466], steps: [[68, 466], [402, 50], [-76, -340], [-372, 160], [190, 112], [-180, 446]] },
+    // One stop in each region, in the order of W.REGIONS: plains, dunes, craters, canyons, icy, volcanic. Each has its region's own photo
+    // under the whole view and no landmark within 9 tiles (a discovery card would open mid-tour).
+    { id: 'ground', source: 'photoJezero', view: 'surface', at: [34, 10], steps: [[34, 10], [402, 50], [-76, -340], [-360, 146], [184, 114], [-194, 432]] },
     // The delta at (68, 462): a few tiles south of its middle, well inside discovery range.
     { id: 'landmark', source: 'wildcat', view: 'surface', at: [68, 468] },
     // The skylight of the tube at (-176, 439): the way in.

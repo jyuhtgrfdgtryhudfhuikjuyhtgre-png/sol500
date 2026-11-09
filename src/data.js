@@ -128,6 +128,7 @@
     REGOLITH_PER_POINT: 100, // kg of materials from leftover construction work
     REPAIR_MATERIALS: 100, // kg per repair when there are no spare kits
 
+    TILE_PX: 64, // world pixels a tile spans (the surface, the rules and the Showcase all place things in tiles)
     GRID: { w: 9, h: 5, hq: [4, 2], ice: 3, rock: 4 },
 
     BREAKDOWN: {
