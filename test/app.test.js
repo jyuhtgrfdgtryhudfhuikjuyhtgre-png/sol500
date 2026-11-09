@@ -41,3 +41,13 @@ test('a failed checksum and a failed copy have their own words in both languages
     assert.notEqual(I.t(lang, 'online.errorHash'), I.t(lang, 'online.error'));
   }
 });
+
+test('help names SmartScreen, the Firewall prompt and the install folder in both languages', () => {
+  for (const lang of ['en', 'vi']) {
+    const s = I.t(lang, 'help.win');
+    assert.match(s, /SmartScreen/);
+    assert.match(s, /Firewall/);
+    assert.ok(s.includes('%LOCALAPPDATA%\\Programs\\sol500'), lang);
+  }
+  assert.match(I.t('en', 'help.win'), /Run anyway/);
+});

@@ -873,6 +873,7 @@
     'goal.kits': '+{n} relay beacon kit',
     'goal.done': 'Done: it pays out when the round advances.',
     'help.11': 'Dangers outside: a solar flare gives a 60 s warning. Be at the base, in a cave (a dark arch at the foot of a cliff), a lava tube, a hab pod or the storm shelter when it ends, or take +15 mSv. Dust devils throw you aside and take 10 s of suit, so walk round them (the rover is safe). A dust storm shrinks how far you can see.',
+    'help.win': 'Windows warnings (the desktop app): the installer is not signed, so SmartScreen may say "Windows protected your PC". Click "More info", then "Run anyway". The first time SOL 500 starts, the Windows Firewall asks whether to allow it on your network: allow it on private networks so friends on your Wi-Fi can join. The app installs for your user only, in %LOCALAPPDATA%\\Programs\\sol500.',
     'help.9': 'Explore: the world goes on in every direction. Walk or drive out of the base, and what you see stays on your map. Press M or tap ⤢ on the minimap to open the map. Each region of Mars looks different and comes with a real fact.',
 
     'notes.title': 'Science notes',
@@ -1976,6 +1977,7 @@
     'goal.kits': '+{n} bộ trạm chuyển tiếp',
     'goal.done': 'Xong: nhận thưởng khi sang vòng mới.',
     'help.11': 'Nguy hiểm bên ngoài: bão hạt Mặt Trời báo trước 60 giây. Hãy ở căn cứ, trong hang (vòm tối dưới chân vách đá), ống dung nham, khoang sinh hoạt hoặc hầm trú bão khi hết giờ, nếu không sẽ nhận +15 mSv. Lốc bụi hất bạn sang bên và lấy 10 giây oxy bộ đồ, nên hãy đi vòng qua (xe thám hiểm thì an toàn). Bão bụi làm bạn nhìn thấy gần hơn.',
+    'help.win': 'Cảnh báo của Windows (ứng dụng máy tính): bộ cài chưa được ký số nên SmartScreen có thể báo "Windows protected your PC". Hãy bấm "More info", rồi "Run anyway". Lần đầu SOL 500 chạy, Windows Firewall sẽ hỏi có cho phép dùng mạng không: hãy cho phép trên mạng riêng (Private) để bạn bè cùng Wi-Fi vào được. Ứng dụng chỉ cài cho tài khoản của bạn, trong %LOCALAPPDATA%\\Programs\\sol500.',
     'help.9': 'Khám phá: thế giới trải dài về mọi hướng. Hãy đi bộ hoặc lái xe ra khỏi căn cứ, những gì bạn nhìn thấy sẽ ở lại trên bản đồ. Nhấn M hoặc chạm ⤢ trên bản đồ nhỏ để mở bản đồ. Mỗi vùng của sao Hỏa trông khác nhau và đi kèm một sự thật khoa học.',
 
     'notes.title': 'Ghi chú khoa học',
