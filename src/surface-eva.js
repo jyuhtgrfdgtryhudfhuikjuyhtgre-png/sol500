@@ -81,6 +81,7 @@
     let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [], refillAt = -1e9, inPod = null;
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
+    let briefed = null;                            // the round brief while its note runs: { until, covered } (a card over the HUD hid it)
     let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
     let asked = {};                                // landmark id → when its discovery was answered (Infinity while asked)
     let told = [];                                 // the beacons and pods whose "already refilled" was said this round
@@ -345,6 +346,7 @@
     function brief(m) {
       const params = { storm: { n: Z.viewTiles(m, false) } };
       const list = Z.outside(m).map(k => t('eva.brief.' + k, params[k]));
+      briefed = list.length ? { until: now + 8, covered: false } : null;
       if (list.length) say(t('eva.brief', { list: list.join(', ') }), 'warn', 8);
     }
 
@@ -385,7 +387,7 @@
     // A new mission or room (SolSurface.reset): nothing of the last one's exploring carries over, so the next sync is a
     // fresh look even with the same astronaut in the same round.
     function reset() {
-      data = me = turn = hold = note = coopClock = peek = null;
+      data = me = turn = hold = note = coopClock = peek = briefed = null;
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
       driven = soloClock = 0;
@@ -413,6 +415,12 @@
       now += dt;
       peek = world.peek;
       const m = mission();
+      if (briefed) { // a card over the HUD hides the note: say it again when the card closes
+        const h = env.hooks(), up = !!(h && h.cardUp && h.cardUp());
+        if (now >= briefed.until) briefed = null;
+        else if (up) briefed.covered = true;
+        else if (briefed.covered && m) brief(m);
+      }
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
         const x = m.expedition, atBase = X.inBaseZone(p), out = !atBase && !collapsed(me) && !benched();

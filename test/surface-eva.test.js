@@ -51,6 +51,7 @@ function setup(opts) {
     },
     suit: r => reports.push(JSON.parse(JSON.stringify(r))),
     card: c => cards.push(JSON.parse(JSON.stringify(c))),
+    cardUp: () => o.cardUp ? o.cardUp() : false,
     goals: o.goals, // ui.js's goals hook (the hud branch adds it): o.goals() → [{ text, done, frac }]
   };
   const eva = sandbox.SolEva.create({
@@ -573,6 +574,27 @@ test('the round brief shows after a seat change at an advance, too', () => {
   s.eva.sync({ mission: next, controlId: other, lang: 'en' }); // a takeover at the advance: another seat in the next round
   tick(s, NEAR(0, 1), 0.1);
   assert.match(noteOf(s), /^eva\.brief /, 'the new round is briefed');
+});
+
+test('a card over the HUD hides the round brief: it is said again when the card closes', () => {
+  let up = false;
+  const m = E.createMission({ seed: 'EVA-BRIEF', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' });
+  Object.assign(m.schedule[m.turn], { spe: true });
+  const s = setup({ mission: m, t: say, cardUp: () => up });
+  tick(s, NEAR(0, 1), 0.1);
+  assert.match(noteOf(s), /^eva.brief /);
+  up = true; // a region's card opens over the note
+  tick(s, NEAR(0, 1), 5);
+  up = false; // and closes with the note still due 3 s
+  tick(s, NEAR(0, 1), 5);
+  assert.match(noteOf(s), /^eva.brief /, 'the note comes back');
+  tick(s, NEAR(0, 1), 9);
+  assert.equal(noteOf(s), '', 'and goes, once, after its 8 s');
+  const seen = setup({ mission: m, t: say, cardUp: () => up });
+  tick(seen, NEAR(0, 1), 9); // no card over it: nothing to repeat
+  up = true; up = false;
+  tick(seen, NEAR(0, 1), 1);
+  assert.equal(noteOf(seen), '');
 });
 
 // ---------- paths no earlier test reached (M4a follow-ups) ----------

@@ -878,6 +878,7 @@
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
     card: c => showCard(c),
+    cardUp: () => !!store.card, // the surface says the round brief again once the card over it closes
     // This round's goals for the surface's HUD column (spec §3.9): [{ text, done, frac }], frac 0-1; empty when there are none.
     // The HUD asks twice a second, so the Expedition panel beside it follows here too (followGoals).
     goals: () => followGoals(goalsOf(mission())).map(g => ({
