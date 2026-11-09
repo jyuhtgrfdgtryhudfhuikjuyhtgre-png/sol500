@@ -330,21 +330,6 @@ test("a lava tube's roof covers its walls and floor with the skylight's pit on i
   assert.deepEqual(P.scenery(chunks, { at: [600, 310], done: () => false, tube: TUBE }), []);
 });
 
-test('inside a lava tube the dark closes in from the radius given: clear round your headlamp, nearly black at the radius and beyond', () => {
-  const calls = [], stops = [];
-  const ctx = new Proxy({}, {
-    get(t, p) {
-      if (p in t) return t[p];
-      if (p === 'createRadialGradient') return (...a) => { calls.push([p, ...a]); return { addColorStop: (k, c) => stops.push([k, c]) }; };
-      return (...a) => { calls.push([p, ...a]); };
-    },
-    set(t, p, v) { t[p] = v; return true; },
-  });
-  P.drawDark(ctx, 0, 0, 1280, 720, 640, 348, 512);
-  assert.deepEqual(calls, [['createRadialGradient', 640, 348, 512 * 0.3, 640, 348, 512], ['fillRect', 0, 0, 1280, 720]]);
-  assert.deepEqual(stops, [[0, 'rgba(5,3,4,0)'], [1, 'rgba(5,3,4,0.94)']]);
-});
-
 test("the world's decor props are painted into the ground: the flat ones with the decor, a rock standing up over it", () => {
   const { ctx, calls } = recorder();
   const props = [{ x: 1, y: 1, kind: 'pit' }, { x: 2, y: 2, kind: 'rock' }];
@@ -451,4 +436,40 @@ test("someone in the rover is drawn as the science rover from above: 2 tiles lon
   const parked = rec();
   P.sprites.drawAvatar(parked.ctx, { x: 0, y: 0, rover: true, dir: 'down' }, '', 0, []);
   assert.equal(parked.calls.find(c => c[0] === 'rotate')[1], Math.PI / 2, 'no heading yet: it faces the way the driver faced');
+});
+
+test('a lava tube pool is dark at the new radius: a tighter pool, nearly black at 60 % of the headlamp radius and beyond', () => {
+  const calls = [], stops = [];
+  const ctx = new Proxy({}, {
+    get(t, p) {
+      if (p === 'createRadialGradient') return (...a) => { calls.push(a); return { addColorStop: (k, c) => stops.push([k, c]) }; };
+      return () => {};
+    },
+    set() { return true; },
+  });
+  P.drawDark(ctx, 0, 0, 1280, 720, 640, 348, 512);
+  const r = 512 * 0.6;
+  assert.deepEqual(calls, [[640, 348, r * 0.25, 640, 348, r]]);
+  assert.deepEqual(stops.at(0), [0, 'rgba(5,3,4,0)']);
+  assert.deepEqual(stops.at(-1), [1, 'rgba(5,3,4,0.97)']);
+});
+
+test('loadPhotos no longer makes the images seamless synchronously: the work waits for an idle moment', () => {
+  const vm = require('node:vm'), fs = require('node:fs'), path = require('node:path');
+  const reads = [], idle = [], imgs = [];
+  const ctx = new Proxy({}, { get: (t, p) => (p === 'getImageData' ? (x, y, w, h) => { reads.push(w); return { data: new Uint8ClampedArray(w * h * 4) }; } : () => ({})), set() { return true; } });
+  const sandbox = {
+    SolWorldgen: require('../src/worldgen.js'), SolFog: require('../src/fog.js'), SolGroundPhotos: { flagstone: 'data:x' },
+    document: { createElement: () => ({ getContext: () => ctx }) },
+    Image: function () { imgs.push(this); },
+    requestIdleCallback: fn => idle.push(fn), setTimeout: () => 0,
+  };
+  sandbox.self = sandbox;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'surface-paint.js'), 'utf8'), sandbox);
+  assert.equal(imgs.length, 1);
+  imgs[0].onload();
+  assert.deepEqual(reads, [], 'the photo loaded: nothing read, nothing made seamless yet');
+  assert.equal(idle.length, 1);
+  idle.shift()();
+  assert.equal(reads.length, 2, 'at the idle moment the work runs');
 });
