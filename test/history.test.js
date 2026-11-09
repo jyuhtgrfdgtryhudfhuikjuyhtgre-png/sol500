@@ -180,3 +180,34 @@ test('a solo mission is refused when its pilot is not one of its crew', () => {
   assert.equal(validMission(Object.assign({}, m, { pilot: null })), true);
   for (const pilot of ['kai', 'nobody', 42, {}, '__proto__']) assert.equal(validMission(Object.assign({}, m, { pilot })), false, String(pilot));
 });
+
+const quickDone = () => {
+  let s = E.createMission({ seed: 'Q1', quick: true, loadout: E.referenceKit('commander', 4, true), difficulty: 'commander', crewSize: 4 });
+  let plan = E.defaultPlan(s);
+  while (s.status === 'active') { s = E.resolveTurn(s, plan).state; plan = E.nextPlan(s, plan); }
+  return s;
+};
+test('a solo mission claiming quick with 20 rounds is refused', () => {
+  const m = JSON.parse(JSON.stringify(finishedMission()));
+  m.quick = true;
+  assert.equal(validMission(m), false);
+});
+test('a mission with a full flag but an 8-round schedule is refused', () => {
+  const m = JSON.parse(JSON.stringify(quickDone()));
+  delete m.quick;
+  assert.equal(validMission(m), false);
+});
+test('a quick mission with turn 9 is refused', () => {
+  const m = JSON.parse(JSON.stringify(quickDone()));
+  m.turn = 9;
+  assert.equal(validMission(m), false);
+});
+test('a valid quick mission is accepted and its record says quick: true', () => {
+  const m = JSON.parse(JSON.stringify(quickDone()));
+  assert.equal(m.status, 'success');
+  assert.equal(validMission(m), true);
+  assert.equal(summarize(m, { mode: 'solo', players: [] }).quick, true);
+});
+test('a full mission record has no quick field', () => {
+  assert.equal('quick' in summarize(finishedMission(), { mode: 'solo', players: [] }), false);
+});

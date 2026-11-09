@@ -208,6 +208,15 @@
     },
 
     CONJUNCTION_TURN: 10,
+
+    // The Quick mission: 8 rounds with set moments (the flare in round 3, the oxygen rupture in round 5). Its budget,
+    // kit change and grades are tuned against tools/balance.js.
+    QUICK: {
+      turns: 8, flareTurn: 2, oxygenTurn: 4, // zero-based round indices
+      budget: { cadet: 32, commander: 30, veteran: 28 },
+      kitChange: { rover: 1, waterwall: 0 }, // the reference kit swaps the water wall for a rover
+      grades: [['S', 1400], ['A', 1200], ['B', 1000], ['C', 800]],
+    },
     GLOBAL_STORM_CHANCE: 0.4,
     GLOBAL_STORM_TURNS: [10, 15],
     GLOBAL_STORM_LENGTH: 3,

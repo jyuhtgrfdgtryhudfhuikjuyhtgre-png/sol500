@@ -21,7 +21,7 @@ const LOADOUTS = {
   roverKit: Object.assign({}, D.REFERENCE_KITS.commander, { rover: 1, waterwall: 0 }), // a rover instead of the water wall
 };
 
-const remainingTurns = s => D.TURNS - s.turn;
+const remainingTurns = s => E.turnsOf(s) - s.turn;
 const byRole = (s, r) => s.crew.find(c => c.role === r);
 
 // Careless: all science, never maintain, never build, ignores warnings.

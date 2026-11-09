@@ -112,20 +112,26 @@
     return D.CREW_SIZES.includes(Number(n)) ? Number(n) : D.DEFAULT_CREW;
   }
 
-  function budgetFor(difficulty, crewSize) {
-    return D.DIFFICULTY[difficultyOf(difficulty)].budget + (crewSizeOf(crewSize) === 5 ? D.CREW5_BUDGET : 0);
+  // A mission's length is its schedule's: 20 rounds, or 8 in a Quick mission.
+  const turnsOf = s => s.schedule.length;
+
+  function budgetFor(difficulty, crewSize, quick) {
+    const base = quick ? D.QUICK.budget[difficultyOf(difficulty)] : D.DIFFICULTY[difficultyOf(difficulty)].budget;
+    return base + (crewSizeOf(crewSize) === 5 ? D.CREW5_BUDGET : 0);
   }
 
-  function referenceKit(difficulty, crewSize) {
+  function referenceKit(difficulty, crewSize, quick) {
     const kit = Object.assign({}, D.REFERENCE_KITS[difficultyOf(difficulty)]);
     if (crewSizeOf(crewSize) === 5) for (const k of Object.keys(D.CREW5_EXTRA)) kit[k] += D.CREW5_EXTRA[k];
+    if (quick) Object.assign(kit, D.QUICK.kitChange);
     return kit;
   }
 
-  function validateLoadout(loadout, difficulty, crewSize) {
-    const budget = budgetFor(difficulty, crewSize);
+  function validateLoadout(loadout, difficulty, crewSize, quick) {
+    const budget = budgetFor(difficulty, crewSize, quick);
     const L = normalizeLoadout(loadout);
     const errors = [];
+    if (quick && L.rover < 1) errors.push('needs_rover');
     for (const id of D.ITEM_ORDER) if (L[id] > D.ITEMS[id].max) errors.push('too_many:' + id);
     const mass = loadoutMass(L);
     if (mass > budget + 1e-9) errors.push('over_budget');
@@ -133,8 +139,9 @@
   }
 
   // ---------- event schedule ----------
-  function buildSchedule(seed, eventsOn, level) {
+  function buildSchedule(seed, eventsOn, level, quick) {
     const diff = D.DIFFICULTY[difficultyOf(level)];
+    if (quick) return buildQuickSchedule(seed, diff);
     const turns = [];
     for (let t = 0; t < D.TURNS; t++) {
       turns.push({ weather: 'clear', spe: false, devil: false, flavor: null, conjunction: t === D.CONJUNCTION_TURN });
@@ -154,6 +161,25 @@
       if (r() < D.EXTRA_SPE_CHANCE) turns[t].spe = true;
       if (r() < D.DUST_DEVIL_CHANCE && turns[t].weather === 'clear') turns[t].devil = true;
       if (r() < diff.flavor && t >= 2) turns[t].flavor = pickWeighted(r, D.FLAVOR_WEIGHTS);
+    }
+    return turns;
+  }
+
+  // The Quick schedule: rounds 1 and 2 calm, the flare and the oxygen rupture at set rounds, no conjunction and no global
+  // storm. The other rounds (4, 6, 7, 8) draw a regional storm, an extra flare, a devil and a flavour by the Full rules.
+  function buildQuickSchedule(seed, diff) {
+    const turns = [];
+    for (let t = 0; t < D.QUICK.turns; t++) turns.push({ weather: 'clear', spe: false, devil: false, flavor: null, conjunction: false });
+    turns[D.QUICK.flareTurn].spe = true;
+    turns[D.QUICK.oxygenTurn].flavor = 'o2_rupture';
+    const r = rng(seed, 'schedule-quick');
+    for (const t of [3, 5, 6, 7]) {
+      const season = seasonAt(t * D.TURN_SOLS);
+      const pStorm = season.dustSeason ? D.REGIONAL_STORM_CHANCE.season : D.REGIONAL_STORM_CHANCE.calm;
+      if (r() < pStorm) turns[t].weather = 'regional';
+      if (r() < D.EXTRA_SPE_CHANCE) turns[t].spe = true;
+      if (r() < D.DUST_DEVIL_CHANCE && turns[t].weather === 'clear') turns[t].devil = true;
+      if (r() < diff.flavor) turns[t].flavor = pickWeighted(r, D.FLAVOR_WEIGHTS);
     }
     return turns;
   }
@@ -329,7 +355,7 @@
     if (item.res === 'science' && amount > (bank.best ? bank.best.amount : 0)) bank.best = { crewId, kind: item.kind, res: 'science', amount, region: item.region };
   }
 
-  function buildState(loadout, seed, eventsOn, level, size) {
+  function buildState(loadout, seed, eventsOn, level, size, quick) {
     const difficulty = difficultyOf(level);
     const crewSize = crewSizeOf(size);
     const L = normalizeLoadout(loadout);
@@ -372,7 +398,7 @@
         built: 0, scrapped: 0, shelters: 0, salvages: 0, revives: 0, downs: 0, deaths: 0, dropsUsed: 0,
       },
       depot: { drops: D.DIFFICULTY[difficulty].drops, incoming: [] },
-      schedule: buildSchedule(String(seed), !!eventsOn, difficulty),
+      schedule: buildSchedule(String(seed), !!eventsOn, difficulty, quick),
       events: [],
       pending: { discovery: false, injuries: [], breakdowns: [] },
       history: [],
@@ -387,9 +413,14 @@
 
   function createMission(opts) {
     const o = opts || {};
-    const v = validateLoadout(o.loadout, o.difficulty, o.crewSize);
+    const quick = o.quick === true;
+    const v = validateLoadout(o.loadout, o.difficulty, o.crewSize, quick);
     if (!v.ok) throw new Error('Invalid loadout: ' + v.errors.join(', '));
-    const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false, o.difficulty, o.crewSize);
+    const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false, o.difficulty, o.crewSize, quick);
+    if (quick) {
+      s.quick = true;
+      for (const t of Object.keys(o.schedulePatch || {})) if (s.schedule[t]) Object.assign(s.schedule[t], o.schedulePatch[t]);
+    }
     if (o.coop) s.coop = true;
     if (o.names) for (const c of s.crew) if (o.names[c.id]) c.name = String(o.names[c.id]).slice(0, 24);
     if (o.pilot != null) {
@@ -488,7 +519,7 @@
   function beginTurn(s) {
     const info = s.schedule[s.turn];
     const ev = [];
-    if (s.turn === 0) ev.push({ type: 'landing' });
+    if (s.turn === 0) ev.push({ type: s.quick ? 'landing_quick' : 'landing' });
     if (s.turn > 0) {
       const now = seasonAt(s.sol);
       const before = seasonAt(s.sol - D.TURN_SOLS);
@@ -1024,7 +1055,7 @@
     // The final advance has no next round to bank a backpack in (rollExpedition), so the last round's backpacks are banked
     // now, marked late, and count for the score and the debrief (spec §13.12). A co-op astronaut still collapsed outside
     // keeps theirs: rollExpedition leaves it where they fell.
-    if (s.turn === D.TURNS - 1) {
+    if (s.turn === turnsOf(s) - 1) {
       for (const id of Object.keys(x.carried || {})) {
         if (!Array.isArray(x.carried[id]) || (x.collapsed || {})[id]) continue;
         for (const it of x.carried[id]) if (isKit(it)) x.kits += 1; else bankItem(x.banked, id, it, true); // a kit is back at the base
@@ -1195,7 +1226,7 @@
       const last = s.crew.find(c => report.deaths.includes(c.id) || report.downs.includes(c.id)) || s.crew[0];
       s.status = 'lost';
       s.endCause = { type: 'crew', reason: last.harm || 'health', crewId: last.id, sol: s.sol };
-    } else if (s.turn >= D.TURNS) {
+    } else if (s.turn >= turnsOf(s)) {
       s.status = 'success';
     }
 
@@ -1255,7 +1286,7 @@
     const total = Object.values(parts).reduce((a, b) => a + b, 0);
     let grade = 'D';
     if (success) {
-      for (const [g, min] of D.SCORE.grades) {
+      for (const [g, min] of (s.quick ? D.QUICK.grades : D.SCORE.grades)) {
         if (total >= min) { grade = g; break; }
       }
     }
@@ -1264,6 +1295,7 @@
   }
 
   function achievements(s) {
+    if (s.quick) return [];
     const success = s.status === 'success';
     const got = new Set();
     const maxDose = Math.max(...s.crew.filter(c => c.status !== 'dead').map(c => c.dose), 0);
@@ -1291,7 +1323,7 @@
   // Engineering advice from Earth: the most urgent problems, in priority order.
   function advise(s, plan) {
     const f = forecast(s, plan);
-    const remaining = (D.TURNS - s.turn) * D.TURN_SOLS;
+    const remaining = (turnsOf(s) - s.turn) * D.TURN_SOLS;
     const out = [];
     if (f.power.habShort) out.push({ code: 'hab_cold' });
     if (f.hypoxia > 0) out.push({ code: 'o2_out' });
@@ -1302,7 +1334,7 @@
     else if (f.runway.food < remaining) out.push({ code: 'food_runway', sols: Math.floor(f.runway.food) });
     const down = s.crew.find(c => c.status === 'down');
     if (down && !f.revived.length) out.push({ code: 'crew_down', crewId: down.id });
-    const turnsLeft = D.TURNS - s.turn;
+    const turnsLeft = turnsOf(s) - s.turn;
     for (const c of f.crew) {
       const crew = s.crew.find(x => x.id === c.id);
       if (crew.status !== 'active' || crew.grounded) continue;
@@ -1312,7 +1344,7 @@
     const shed = D.SHED_ORDER.find(t => f.power.shed[t] > 0);
     if (shed) out.push({ code: 'power_shed', module: shed });
     const solarShare = f.power.supply > 0 ? f.power.solarKw / f.power.supply : 0;
-    if (s.turn < D.GLOBAL_STORM_TURNS[1] && solarShare > 0.6) out.push({ code: 'storm_risk' });
+    if (!s.quick && s.turn < D.GLOBAL_STORM_TURNS[1] && solarShare > 0.6) out.push({ code: 'storm_risk' });
     if (s.morale < 45) out.push({ code: 'morale' });
     if (s.resources.spares === 0 && activeCount(s, 'workshop') === 0) out.push({ code: 'spares' });
     if (!out.length) out.push({ code: 'all_good' });
@@ -1320,8 +1352,8 @@
   }
 
   // Manifest-screen forecast: steady-state numbers for a proposed loadout.
-  function summarizeLoadout(loadout, difficulty, crewSize) {
-    const budget = budgetFor(difficulty, crewSize);
+  function summarizeLoadout(loadout, difficulty, crewSize, quick) {
+    const budget = budgetFor(difficulty, crewSize, quick);
     const L = normalizeLoadout(loadout);
     const mass = loadoutMass(L);
     const s = buildState(L, 'MANIFEST', false, difficulty, crewSize);
@@ -1340,8 +1372,9 @@
     sols.water = wNet >= 0 ? Infinity : s.resources.water / -wNet;
     sols.waterWithWall = wNet >= 0 ? Infinity : (s.resources.water + s.wallWater) / -wNet;
     const S0 = shielding(s);
-    const doseIndoor = D.TURNS * D.TURN_SOLS * D.DOSE_RATE * (1 - S0);
-    const mission = D.TURNS * D.TURN_SOLS;
+    const length = quick ? D.QUICK.turns : D.TURNS;
+    const doseIndoor = length * D.TURN_SOLS * D.DOSE_RATE * (1 - S0);
+    const mission = length * D.TURN_SOLS;
     const warn = [];
     if (mass > budget + 1e-9) warn.push('over_budget');
     if (f.power.load < f.power.demand - 1e-9 || f.power.habShort) warn.push('power_short');
@@ -1362,7 +1395,7 @@
   }
 
   return {
-    createMission, resolveTurn, forecast, defaultPlan, scoreMission, achievements, advise,
+    createMission, turnsOf, resolveTurn, forecast, defaultPlan, scoreMission, achievements, advise,
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
