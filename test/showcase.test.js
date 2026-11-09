@@ -65,7 +65,7 @@ test('every surface scene stands on open ground in the Showcase code', () => {
   for (const c of C.CARDS.filter(k => k.view === 'surface')) {
     const { s } = demo(c.id);
     assert.ok(c.at, c.id + ' has a place to stand');
-    for (const p of stands(c)) assert.ok(standable(s, p), c.id + ' ' + p + ' is not a wall');
+    for (const p of stands(c)) assert.ok(standable(s, p) && tileAt(s, p) !== W.TILE.BASE, c.id + ' ' + p + ' is open ground, not a wall and not the base pad');
   }
 });
 
@@ -160,4 +160,44 @@ test('a purpose line is one or two plain sentences in both languages', () => {
 test('the rover stops in more room on Mars than on Earth, so the readout the rover card promises has something to say', () => {
   const PH = require('../src/physics.js');
   assert.ok(PH.stopDistance(300) > PH.stopDistance(300, PH.EARTH_G));
+});
+
+const inView = (s, [tx, ty], r, fn) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r) fn(tx + x, ty + y); };
+
+test("each ground stop paints its own region's photo under the view, not another region's", () => {
+  const P = require('../src/surface-paint.js'), PHOTO = ['flagstone', 'sand', 'cobbles', 'dust', 'phoenix', 'grains']; // REGION_PHOTO in src/surface-paint.js
+  const { c, s } = demo('ground'), view = D.DANGERS.view.clear;
+  c.steps.forEach(p => {
+    const reg = W.regionAt(W.seedOf(s.seed), p[0], p[1]);
+    let n = 0, own = 0;
+    inView(s, p, view, (x, y) => {
+      const k = W.CHUNK, cx = Math.floor(x / k), cy = Math.floor(y / k), ch = X.chunkAt(s, cx, cy), r = W.regionOf(ch, x - cx * k, y - cy * k);
+      n++;
+      if (r === reg && P.photoOf(W.tileOf(ch, x - cx * k, y - cy * k), r) === PHOTO[reg]) own++;
+    });
+    assert.ok(own / n >= 0.9, 'stop ' + p + ' (' + W.REGIONS[reg] + '): ' + own + ' of ' + n + ' tiles show its photo');
+  });
+});
+
+test('no stop has a landmark in view whose discovery card would open mid-scene, except the two scenes about a landmark', () => {
+  for (const c of C.CARDS.filter(k => k.view === 'surface' && !['landmark', 'tube'].includes(k.id))) {
+    const { s } = demo(c.id);
+    for (const p of stands(c)) {
+      const cx = Math.floor(p[0] / W.CHUNK), cy = Math.floor(p[1] / W.CHUNK);
+      for (let j = cy - 2; j <= cy + 2; j++) for (let i = cx - 2; i <= cx + 2; i++) for (const l of X.chunkAt(s, i, j).landmarks) {
+        assert.ok(Math.hypot(l.x - p[0], l.y - p[1]) > D.DANGERS.view.clear + 1, c.id + ' ' + p + ' sees ' + l.id);
+      }
+    }
+  }
+});
+
+test("the crew card puts the Commander's and the Engineer's seconds for the same hold side by side, read from the rules", () => {
+  const card = C.card('crew');
+  for (const lang of ['en', 'vi']) {
+    const a = X.holdSeconds('weather', 'commander'), b = X.holdSeconds('weather', 'engineer');
+    assert.notEqual(a, b);
+    const line = card.line((k, p) => I.t(lang, k, p), X);
+    assert.ok(line.includes(String(a)) && line.includes(String(b)), lang + ': ' + line);
+    assert.ok(I.STR[lang]['show.crew.holds']);
+  }
 });

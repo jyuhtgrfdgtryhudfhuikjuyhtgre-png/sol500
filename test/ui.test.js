@@ -1651,3 +1651,16 @@ test('a surface that throws when asked for its probe fails the scene cleanly', a
   assert.equal(pg.UI.store.toast, en('show.failed'));
   assert.equal(pg.UI.store.demo, null);
 });
+
+test("the Showcase crew scene shows the Commander's and the Engineer's hold seconds under the caption", () => {
+  const pg = page();
+  Object.assign(pg.UI.store, { screen: 'showcase' });
+  pg.UI.render();
+  click(pg.byKey('show:crew'));
+  const line = pg.byKey('show-line');
+  assert.ok(line, 'a line under the caption');
+  const a = pg.X.holdSeconds('weather', 'commander'), b = pg.X.holdSeconds('weather', 'engineer');
+  assert.notEqual(a, b);
+  assert.equal(line.textContent, en('show.crew.holds', { a, b }));
+  assert.ok(line.textContent.includes(a) && line.textContent.includes(b));
+});
