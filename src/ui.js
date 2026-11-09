@@ -1782,7 +1782,7 @@
               h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total))))), mapHint]),
           panel(t('deb.lessons'), h('div', { class: 'lessons' }, lessonsFor(s).map(([k, src]) => h('article', { class: 'lesson' },
             h('h3', null, t('lesson.' + k + '.title')),
-            h('p', null, t('lesson.' + k + '.body')),
+            h('p', null, t('lesson.' + k + '.body', { end: E.turnsOf(s) * D.TURN_SOLS })),
             src.map(id => srcA(I.SOURCES[id])))))),
           panel(t('deb.badges'), h('div', { class: 'badges' }, earned.length
             ? earned.map(b => badgeCard(b, true, store.newBadges.includes(b)))

@@ -1721,3 +1721,19 @@ test('Resume on a damaged slot says so, in both languages, and the slot is gone'
     assert.equal(pg.UI.store.mission.seed, 'FULL-1', 'the mission on screen stays');
   }
 });
+
+test("the starvation and life-support lessons name the mission's own end sol: 200 on a Quick debrief, 500 on a Full one", () => {
+  const saves = twoSaves();
+  for (const [slot, end, lang] of [['saveQuick', 200, 'en'], ['save', 500, 'en'], ['saveQuick', 200, 'vi'], ['save', 500, 'vi']]) {
+    const pg = page({ [slot]: saves[slot], lang });
+    pg.UI.store.mission.status = 'lost';
+    pg.UI.store.mission.endCause = { reason: 'dehydration', sol: 40 };
+    pg.UI.store.screen = 'debrief';
+    pg.UI.render();
+    const text = pg.all()[0].textContent, body = I.t(lang, 'lesson.spares.body', { end });
+    assert.ok(text.includes(body), slot + ' ' + lang);
+    assert.ok(body.includes(String(end)) && !body.includes('{end}'));
+    assert.ok(!text.includes('{end}'));
+  }
+  for (const lang of ['en', 'vi']) assert.ok(I.t(lang, 'lesson.food.body', { end: 200 }).includes('200') && !I.t(lang, 'lesson.food.body', { end: 200 }).includes('500'));
+});
