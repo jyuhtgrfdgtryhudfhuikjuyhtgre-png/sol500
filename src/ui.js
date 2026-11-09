@@ -19,6 +19,8 @@
   };
   const DEMO_KEYS = ['lang', 'settings'];
 
+  const seenList = k => { const rs = LS.get(k, null); return rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }; };
+
   // ---------- state ----------
   const store = {
     lang: LS.get('lang', /^vi/i.test(navigator.language || '') ? 'vi' : 'en'),
@@ -48,7 +50,8 @@
     toast: null,
     prevScreen: null,
     opsView: LS.get('opsView', 'surface'),
-    regionsSeen: (rs => (rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }))(LS.get('regionsSeen', null)),
+    regionsSeen: seenList('regionsSeen'), // the Full mission's seen-once list; the Quick slot keeps its own in regionsSeenQuick
+    regionsSeenQuick: seenList('regionsSeenQuick'),
     card: null,           // the card over the surface (a region's fact, a point of interest's): see setCard
     fog: {},
     launchSeen: null, // co-op: the launch number of the mission this tab last showed (see SolFog.isNewLaunch)
@@ -720,13 +723,14 @@
   function firstTime(id, kind) {
     const key = missionKey();
     // A demo keeps its own list, in memory: the device's list is neither read nor changed.
-    let rs = store.demo ? demoSeen : store.regionsSeen;
-    if (rs.key !== key) { rs = { key, list: [] }; if (store.demo) demoSeen = rs; else store.regionsSeen = rs; }
+    const slot = mission() && mission().quick ? 'regionsSeenQuick' : 'regionsSeen'; // each slot keeps its own list
+    let rs = store.demo ? demoSeen : store[slot];
+    if (rs.key !== key) { rs = { key, list: [] }; if (store.demo) demoSeen = rs; else store[slot] = rs; }
     const kinds = rs.kinds || (rs.kinds = []);
     const newId = !rs.list.includes(id), newKind = !kind || !kinds.includes(kind);
     if (newId) rs.list.push(id);
     if (kind && newKind) kinds.push(kind);
-    if (newId || (kind && newKind)) LS.set('regionsSeen', rs);
+    if (newId || (kind && newKind)) LS.set(slot, rs);
     return newId && newKind;
   }
 

@@ -1680,3 +1680,18 @@ test("a Quick debrief's log leaves the touchdown out of its first row, as a Full
     assert.equal(row.children[1].textContent, en('weather.clear'), slot);
   }
 });
+
+test('each mission length keeps its own seen-once list: a region read on Full does not open again after a Quick mission, and the reverse', () => {
+  const pg = page(), full = pg.mission({ seed: 'SEEN-F' }), quick = pg.mission({ seed: 'SEEN-Q', quick: true, loadout: pg.E.referenceKit('commander', 4, true) });
+  const visit = m => { pg.flush(); pg.play(m); pg.UI.store.card = null; pg.surface.hooks.enterRegion('icy'); return pg.UI.store.card; };
+  assert.ok(visit(full), 'first time on Full: a card');
+  assert.ok(visit(quick), 'first time on Quick: a card');
+  assert.equal(visit(full), null, 'back on Full: already read');
+  assert.equal(visit(quick), null, 'back on Quick: already read');
+  assert.equal(pg.UI.store.regionsSeen.key, 'SEEN-F|solo');
+  assert.equal(pg.UI.store.regionsSeenQuick.key, 'SEEN-Q|solo');
+  assert.equal(JSON.parse(pg.ls['sol500.regionsSeen']).key, 'SEEN-F|solo', 'the Full list is still under the old key');
+  assert.equal(JSON.parse(pg.ls['sol500.regionsSeenQuick']).key, 'SEEN-Q|solo');
+  const again = page({ regionsSeen: JSON.parse(pg.ls['sol500.regionsSeen']), regionsSeenQuick: JSON.parse(pg.ls['sol500.regionsSeenQuick']) });
+  assert.deepEqual([again.UI.store.regionsSeen.list, again.UI.store.regionsSeenQuick.list].map(l => l.length > 0), [true, true], 'both come back after a reload');
+});
