@@ -46,7 +46,7 @@
     "win": {
       "target": "nsis",
       "icon": "icons/icon.ico",
-      "publisherName": "Tung Son"
+      "signtoolOptions": { "publisherName": "Tung Son" }
     },
     "nsis": {
       "oneClick": true,

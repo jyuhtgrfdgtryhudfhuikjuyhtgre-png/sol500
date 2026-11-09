@@ -21,7 +21,7 @@ test('the app has no menu, so Ctrl+R and Ctrl+Shift+I do nothing, and the build 
   assert.match(main, /Menu\.setApplicationMenu\(null\)/);
   const pkg = require('../package.json');
   assert.equal(pkg.build.win.icon, 'icons/icon.ico');
-  assert.equal(pkg.build.win.publisherName, pkg.author);
+  assert.equal(pkg.build.win.signtoolOptions.publisherName, pkg.author);
   assert.ok(pkg.build.copyright.includes(pkg.author));
   const ico = fs.readFileSync(path.join(__dirname, '..', 'icons', 'icon.ico'));
   assert.equal(ico.readUInt16LE(2), 1, 'an .ico');
