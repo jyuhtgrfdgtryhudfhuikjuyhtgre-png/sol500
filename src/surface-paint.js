@@ -1054,14 +1054,14 @@
   function drawTags(ctx, tags) {
     const placed = [];
     ctx.font = '600 10px "Be Vietnam Pro", system-ui, sans-serif';
-    const list = tags.slice().sort((a, b) => (b.you - a.you) || (b.y - a.y));
+    const list = tags.slice().sort((a, b) => (b.you ? 1 : 0) - (a.you ? 1 : 0) || (b.y - a.y));
     for (const tg of list) {
       const w = ctx.measureText(tg.text).width + 16, up = tg.bar == null ? 0 : 7;
       let y = tg.y;
       for (let i = 0; i < 6; i++) { // a tag spans y - 14 - up to y + 1; two keep 1 px apart
         const hit = placed.some(r => Math.abs(r.x - tg.x) < (r.w + w) / 2 + 2 && y - 14 - up < r.y + 2 && r.y - 14 - r.up < y + 2);
         if (!hit) break;
-        y -= 16;
+        y -= 16 + up; // the tag's whole height, its suit bar too
       }
       placed.push({ x: tg.x, y, w, up });
       if (tg.bar != null) drawSuitBar(ctx, tg.x, y - 21, tg.bar);
