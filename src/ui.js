@@ -1797,7 +1797,7 @@
         h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
           h('button', {
             class: 'btn btn-sm', type: 'button', 'data-k': 'online-copy',
-            onclick: () => navigator.clipboard.writeText(o.url).then(() => toast(t('online.copied')), () => {}),
+            onclick: () => navigator.clipboard.writeText(o.url).then(() => toast(t('online.copied')), () => toast(t('online.copyFailed'))),
           }, t('online.copy')),
           h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-stop', onclick: () => window.solApp.stopOnline() }, t('online.stop'))),
         h('img', { src: o.qr, alt: t('online.qr'), width: 160, height: 160, style: 'border-radius:8px;background:#fff;padding:6px' }),
@@ -1807,7 +1807,7 @@
         h('p', { class: 'muted' }, t(o.state === 'downloading' ? 'online.downloading' : 'online.starting')),
         h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-cancel', onclick: () => window.solApp.stopOnline() }, t('online.cancel')));
     } else {
-      if (o.error) body.push(h('p', { class: 'crit' }, t('online.error')));
+      if (o.error) body.push(h('p', { class: 'crit' }, t(o.error === 'hashMismatch' ? 'online.errorHash' : 'online.error')));
       body.push(h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'online-start', onclick: () => startOnline(false) }, ico('wifi', 16), t('online.start')));
     }
     return body;
