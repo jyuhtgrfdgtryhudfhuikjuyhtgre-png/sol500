@@ -978,3 +978,30 @@ test("a co-op plan can't queue, scrap or request a type named like a property ev
   }
   assert.equal({}.count, undefined, 'nothing reached Object.prototype');
 });
+
+test('rejoining under the same name reuses the away row instead of adding a second player', () => {
+  const R = createRooms();
+  const { room } = R.create('Host');
+  const { player: old } = R.join(room.code, 'Mai');
+  R.act({ code: room.code, player: old.id, token: old.token, type: 'claim', crewId: 'minh' });
+  const oldToken = old.token;
+  makeAbsent(old);
+  const { player: back } = R.join(room.code, 'Mai');
+  assert.equal(room.players.length, 2, 'still two rows');
+  assert.equal(back.id, old.id);
+  assert.notEqual(back.token, oldToken, 'a fresh token: the old tab can no longer act');
+  assert.equal(R.act({ code: room.code, player: old.id, token: oldToken, type: 'rename', name: 'x' }).status, 403);
+  assert.equal(back.crewId, 'minh', 'and the seat is still theirs');
+  const { player: other } = R.join(room.code, 'Mai');
+  assert.equal(room.players.length, 3, 'a name that is still here (present) gets its own row');
+  assert.notEqual(other.id, back.id);
+});
+
+test('a host that is away is not taken over by a guest with the same name', () => {
+  const R = createRooms();
+  const { room, player: host } = R.create('Linh');
+  makeAbsent(host);
+  const { player: guest } = R.join(room.code, 'Linh');
+  assert.notEqual(guest.id, host.id);
+  assert.equal(room.hostId, host.id);
+});

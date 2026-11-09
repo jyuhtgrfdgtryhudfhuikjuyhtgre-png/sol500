@@ -1040,7 +1040,7 @@
     return panel(t(own ? 'seat.lost' : 'seat.none'), [
       h('p', { class: 'muted' }, t(free.length ? 'seat.pick' : 'seat.watch')),
       free.length ? h('div', { class: 'seat-list' }, free.map(c => h('button', {
-        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => N.act('claim', { crewId: c.id }),
+        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => claimSeat(c.id),
       }, t('seat.take', { name: crewName(c.id), role: t('role.' + c.role) })))) : null,
     ]);
   }
@@ -1873,7 +1873,7 @@
             mineSlot
               ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => N.act('claim', { crewId: null }) }, t('lan.leave'))
               // A seat whose player has gone (closed tab, old share link) can be taken back.
-              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!(owner && owner.connected), onclick: () => N.act('claim', { crewId: c.id }) }, t('lan.take')));
+              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!(owner && owner.connected), onclick: () => claimSeat(c.id) }, t('lan.take')));
         })))),
       h('div', { class: 'deb-actions' },
         h('button', { class: 'btn btn-ghost', type: 'button', onclick: leaveRoom }, t('lan.leave'))),
@@ -1931,9 +1931,16 @@
     render();
   }
 
+  // A seat claim the server refused says why (a dead astronaut, a seat just taken), instead of failing in silence.
+  function claimSeat(crewId) {
+    return N.act('claim', { crewId }).then(r => {
+      if (r && r.error) toast(t(r.error === 'deadCrew' ? 'lan.deadCrew' : r.error === 'taken' ? 'lan.seatTaken' : 'eva.err.' + (I.has(store.lang, 'eva.err.' + r.error) ? r.error : 'net')));
+    });
+  }
+
   async function hostRoom(name) {
     const r = await N.create(name);
-    if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
+    if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
     N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing);

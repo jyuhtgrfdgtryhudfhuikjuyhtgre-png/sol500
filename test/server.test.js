@@ -170,3 +170,10 @@ test('oversized requests are turned away with 413', async () => {
     assert.equal((await r.json()).error, 'tooBig');
   } finally { srv.close(); }
 });
+
+test('the lobby lists only addresses that in-app Join accepts', () => {
+  const { lanAddresses } = require('../server.js');
+  const ifs = { a: [{ family: 'IPv4', internal: false, address: '192.168.1.20' }, { family: 'IPv4', internal: false, address: '26.1.2.3' }],
+    b: [{ family: 'IPv4', internal: false, address: '100.64.0.9' }, { family: 'IPv4', internal: false, address: '10.0.0.5' }, { family: 'IPv4', internal: true, address: '127.0.0.1' }, { family: 'IPv6', internal: false, address: 'fe80::1' }] };
+  assert.deepEqual(lanAddresses(5050, ifs), ['http://192.168.1.20:5050', 'http://10.0.0.5:5050']);
+});
