@@ -916,6 +916,24 @@ test("in Vietnamese the surface's build menus write a cost's numbers as the cons
   assert.equal(battery[1].textContent, vi('bld.cost', { kg: '200', w: '0,5' }), "the build grid's battery");
 });
 
+test('with a beacon kit in the pack, E at a module outside the base zone still opens it: the beacon prompt is for when nothing else is in reach', () => {
+  const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh');
+  m.expedition.carried.minh = [E.kitItem()];
+  m.layout = m.layout.filter(k => !(k.x === 8 && k.y === 2)).concat([{ type: 'solar', x: 8, y: 2 }]);
+  pg.show(m);
+  pg.qa.teleport(8 + W.BASE_RECT.x, 2 + W.BASE_RECT.y - 0.65);
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 's:8,2');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
+  assert.match(menu.children.filter(n => n.className === 'sf-mbody').pop().children.find(n => /^sf-note/.test(n.className)).textContent, /kW/, "the module's menu");
+  pg.key('Escape');
+  pg.qa.teleport(30, 30);
+  pg.step(0.2);
+  assert.match(pg.probe().focusKey, /^b:/, 'out on open ground the beacon prompt is back');
+});
+
 test("in Vietnamese the surface's menus write a build's progress and a module's power as the console does: 0,5 / 1,5 and +13,0 kW (R31)", () => {
   const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh', { lang: 'vi' }), vi = (k, p) => I.t('vi', k, p);
   const [gx, gy] = E.buildSpots(m, 'battery', [])[1];

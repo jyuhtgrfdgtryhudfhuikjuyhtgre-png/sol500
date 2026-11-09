@@ -838,12 +838,14 @@
     const crew = avatars().find(a => !a.you && !a.remote && Math.hypot(a.x - lx, a.y - ly) < 30);
     if (crew) f = { kind: 'crew', key: 'c:' + crew.id, id: crew.id };
     const ef = S.eva.focusAt(lx, ly, p, S.world); // a find, a dropped load, a crewmate down outside, the parked rover
-    if (!f) f = ef;
+    if (!f && !(ef && ef.kind === 'beacon')) f = ef;
     if (!f) f = focusAt(Math.floor(lx / T), Math.floor(ly / T));
     if (!f || f.kind === 'empty') {
       const under = focusAt(Math.floor(p.x / T), Math.floor((p.y - 4) / T));
       if (under && (!f || under.kind !== 'empty' || !f)) f = under || f;
     }
+    // A beacon can't stand near the base, so its prompt comes only when the surface itself has nothing here (the brief's "only when nothing else is in reach").
+    if (!f && ef) f = ef;
     // In the rover, E gets you out, unless there is work right there: a crewmate to revive, or a find or a dropped load your
     // backpack has room for (you step out to work on it and get back in). A full backpack never keeps you in a flat rover.
     if (p.inRover) f = ef && S.eva.holdable(ef) && (ef.kind === 'revive' || S.eva.hasRoom()) ? ef : { kind: 'rover', key: 'rover-exit', driving: true };
