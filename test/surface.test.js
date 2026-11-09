@@ -83,7 +83,7 @@ function element(tag) {
 // `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet).
 function page(m, me, opts) {
   const o = opts || {};
-  let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7;
+  let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7, resized = null;
   const on = {}, sent = [], calls = [], walks = [], queued = [];
   const { painter, seen } = stubPainter(() => clock);
   const win = {
@@ -92,6 +92,7 @@ function page(m, me, opts) {
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
     location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: function () {},
     matchMedia: () => ({ matches: false }),
+    ResizeObserver: function (fn) { this.observe = () => { resized = fn; }; }, // the page's `pg.resize()` is the browser telling it the stage changed
     addEventListener: (type, fn) => { (on[type] = on[type] || []).push(fn); },
     requestAnimationFrame: fn => { raf = fn; },
   };
@@ -126,7 +127,7 @@ function page(m, me, opts) {
   show(m);
   return {
     sent, calls, walks, queued, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
-    canvas, overlay: root.children[1], seen, setGfx(g) { gfx = g; show(cur); },
+    canvas, overlay: root.children[1], seen, resize: () => resized(), setGfx(g) { gfx = g; show(cur); },
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
     // `secs` of frames at `hz` with synthetic timestamps, as requestAnimationFrame gives them (the clock is the frame's exact time;
     // the timestamp wobbles by up to ±`jitter` ms); returns how many of them drew the ground.
@@ -589,6 +590,25 @@ test('a new quality is drawn at once, even under an FPS limit: the resize cleare
   assert.equal(one(), 0, 'the callback 7 ms after a drawn frame is skipped');
   pg.setGfx({ quality: 'fast', fpsCap: 30 });
   assert.equal(one(), 1, 'the callback 14 ms after it draws: the new quality resized the canvas, which cleared it');
+});
+
+test('a resize asks for the next draw at once, even under an FPS limit: it cleared the canvas', () => {
+  const m = mission({ seed: 'CAP-4' });
+  const pg = page(m, 'minh', { gfx: { fpsCap: 30 } });
+  const one = () => pg.frames(144, 1 / 144);
+  pg.frames(144, 0.5);
+  let n = 0;
+  while (!one()) assert.ok(++n < 5, 'a frame is drawn at least every five callbacks');
+  assert.equal(one(), 0, 'the callback 7 ms after a drawn frame is skipped');
+  pg.resize(); // a window drag
+  assert.equal(one(), 1, 'the next callback draws');
+});
+
+test('Fast never draws more pixels than Best on a zoomed-out browser (ratio 0.5), and is still 1 at 3', () => {
+  const m = mission({ seed: 'GFX-2' });
+  const px = (dpr, quality) => { const pg = page(m, 'minh', { dpr, gfx: { quality } }); pg.step(0.1); return pg.canvas.width * pg.canvas.height; };
+  assert.ok(px(0.5, 'fast') <= px(0.5, 'best'), 'ratio 0.5: ' + px(0.5, 'fast') + ' against ' + px(0.5, 'best'));
+  assert.equal(px(3, 'fast'), 960 * 640, 'ratio 3: Fast stays at 1');
 });
 
 test('the FPS limit does not slow the game: a skipped callback leaves its time to the next frame; the fps reading is the rate actually drawn', () => {

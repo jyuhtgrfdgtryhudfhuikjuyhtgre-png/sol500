@@ -235,13 +235,14 @@
   const groundScale = () => (S.gfx.quality === 'best' ? 2 : 1);
   function resize() {
     const r = S.el.getBoundingClientRect();
-    const dpr = S.gfx.quality === 'fast' ? 1 : Math.min(4, window.devicePixelRatio || 1);
+    const dpr = Math.min(S.gfx.quality === 'fast' ? 1 : 4, window.devicePixelRatio || 1);
     S.view.w = r.width;
     S.view.h = r.height;
     S.view.dpr = dpr;
     S.view.zoom = clamp(r.width / (T * 10.5), 0.62, 1.55);
     S.canvas.width = Math.max(1, Math.round(r.width * dpr));
     S.canvas.height = Math.max(1, Math.round(r.height * dpr));
+    S.nextDraw = 0; // the next callback draws, even under a limit: the resize cleared the canvas
   }
 
   function t(k, p) { return S.data ? S.data.t(k, p) : k; }
@@ -421,7 +422,6 @@
     if (!changed) return;
     resize();
     if (S.painter) S.painter.setScale(groundScale());
-    S.nextDraw = 0; // the next callback draws, even under a limit: the resize cleared the canvas
   }
 
   function update(data) {
