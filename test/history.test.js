@@ -137,9 +137,10 @@ test('CSV export opens cleanly in Excel and never runs a formula', () => {
   }]);
   assert.ok(csv.startsWith('﻿'));
   const lines = csv.slice(1).split('\r\n');
-  assert.equal(lines[0], 'endedAt,mode,missionCode,difficulty,crewSize,players,outcome,cause,score,grade,sols,achievements');
-  assert.equal(lines[1], '"2026-10-01T10:00:00.000Z","solo","ABC","cadet","4","\'=HYPERLINK(""x"") (medic); Bảo ""B""","lost","cold","-12","D","250","first_sol builder"');
+  assert.equal(lines[0], 'endedAt,mode,missionCode,difficulty,crewSize,players,outcome,cause,score,grade,sols,achievements,quick');
+  assert.equal(lines[1], '"2026-10-01T10:00:00.000Z","solo","ABC","cadet","4","\'=HYPERLINK(""x"") (medic); Bảo ""B""","lost","cold","-12","D","250","first_sol builder",""');
   assert.equal(lines[2], '');
+  assert.ok(toCSV([{ quick: true }]).includes(',"true"\r\n'), 'a Quick mission says so in the last column');
 });
 
 test('a solo crewId that is not a crew member of the mission is dropped', () => {

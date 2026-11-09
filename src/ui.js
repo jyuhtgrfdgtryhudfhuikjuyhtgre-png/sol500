@@ -1,11 +1,11 @@
 /*
  * SOL 500 — the interface: title, payload manifest, operations, debrief, LAN lobby and dialogs.
  * Renders the whole screen from state on every change; the engine does all the simulation.
- * localStorage keys (per browser): sol500.lang, sol500.settings, sol500.names, sol500.badges, sol500.save.
+ * localStorage keys (per browser): sol500.lang, sol500.settings, sol500.names, sol500.badges, sol500.save, sol500.saveQuick.
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers, G = window.SolGoals;
+  const D = window.SolData, E = window.SolEngine, SV = window.SolSaves, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers, G = window.SolGoals;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -21,7 +21,7 @@
   const store = {
     lang: LS.get('lang', /^vi/i.test(navigator.language || '') ? 'vi' : 'en'),
     screen: 'title',
-    settings: Object.assign({ difficulty: D.DEFAULT_DIFFICULTY, crewSize: D.DEFAULT_CREW, training: false, gfx: 'best', fpsCap: 0, showFps: false }, LS.get('settings', {})),
+    settings: Object.assign({ difficulty: D.DEFAULT_DIFFICULTY, crewSize: D.DEFAULT_CREW, training: false, length: 'full', gfx: 'best', fpsCap: 0, showFps: false }, LS.get('settings', {})),
     seed: E.newMissionCode(),
     names: LS.get('names', {}),
     loadout: null,
@@ -51,22 +51,16 @@
     launchSeen: null, // co-op: the launch number of the mission this tab last showed (see SolFog.isNewLaunch)
   };
   // The Display settings (graphics level, FPS limit 0 = Max, readout) stay on this device. A stored value outside its set reads as the default.
-  Object.assign(store.settings, { gfx: store.settings.gfx === 'fast' ? 'fast' : 'best', fpsCap: [30, 60].includes(store.settings.fpsCap) ? store.settings.fpsCap : 0, showFps: store.settings.showFps === true });
-  const saved = LS.get('save', null);
-  if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
-    // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
-    // A save that can't be read (damaged, or edited by hand) is dropped, so the app still opens on its home screen.
-    try {
-      store.mission = E.upgradeMission(saved.mission, { controlId: LS.get('controlId', null) });
-      store.plan = saved.plan || E.defaultPlan(saved.mission);
-      LS.set('save', { mission: store.mission, plan: store.plan }); // write the upgraded save back straight away
-    } catch (e) {
-      console.warn('SOL 500: dropped a saved mission that could not be read:', e);
-      store.mission = null;
-      store.plan = null;
-      LS.del('save');
-    }
-  }
+  Object.assign(store.settings, { length: store.settings.length === 'quick' ? 'quick' : 'full', gfx: store.settings.gfx === 'fast' ? 'fast' : 'best', fpsCap: [30, 60].includes(store.settings.fpsCap) ? store.settings.fpsCap : 0, showFps: store.settings.showFps === true });
+  // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
+  // A save that can't be read (damaged, or edited by hand) is dropped from its own slot, so the app still opens on its home screen.
+  // The Full slot opens first; the Quick one is the one resumed when there is no Full mission.
+  const loadSlot = key => {
+    const r = SV.load(LS, key, m => E.upgradeMission(m, { controlId: LS.get('controlId', null) }), E.defaultPlan);
+    return r && { mission: r.mission, plan: r.plan };
+  };
+  const bootSave = loadSlot('save') || loadSlot('saveQuick');
+  if (bootSave) { store.mission = bootSave.mission; store.plan = bootSave.plan; }
   LS.del('controlId'); // replaced by mission.pilot
 
   // ---------- helpers ----------
@@ -196,8 +190,9 @@
   // ---------- persistence ----------
   function saveSolo() {
     if (lanOn()) return;
-    if (store.mission && store.mission.status === 'active') LS.set('save', { mission: store.mission, plan: store.plan });
-    else LS.del('save');
+    if (!store.mission) return;
+    if (store.mission.status === 'active') LS.set(SV.slotOf(store.mission), { mission: store.mission, plan: store.plan });
+    else LS.del(SV.slotOf(store.mission));
   }
   function saveSettings() { LS.set('settings', store.settings); }
 
@@ -226,10 +221,27 @@
     render();
   }
 
+  const isQuick = () => !lanOn() && store.settings.length === 'quick';
+
+  // Resume a slot from the title. The mission on screen is already saved, so leaving it for the other slot loses nothing.
+  function resumeSlot(key) {
+    flushSolo();
+    if (!(store.mission && store.mission.status === 'active' && SV.slotOf(store.mission) === key)) {
+      const r = loadSlot(key);
+      if (!r) { render(); return; }
+      store.mission = r.mission;
+      store.plan = r.plan;
+      store.report = null;
+      store.advice = null;
+      if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
+    }
+    go('ops');
+  }
+
   function startManifest(training) {
     store.settings.training = !!training;
     saveSettings();
-    if (!store.loadout) store.loadout = E.referenceKit(store.settings.difficulty, store.settings.crewSize);
+    if (!store.loadout) store.loadout = E.referenceKit(store.settings.difficulty, store.settings.crewSize, isQuick());
     go('manifest');
   }
 
@@ -242,7 +254,7 @@
   function startMission(pilot) {
     const s = E.createMission({
       seed: (store.seed || '').trim() || E.newMissionCode(), loadout: store.loadout, difficulty: store.settings.difficulty,
-      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot,
+      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot, quick: isQuick(),
     });
     G.pick(s); // round 1's goals; each advance picks the next round's
     held = [];
@@ -326,19 +338,20 @@
     store.settings.difficulty = s.difficulty;
     store.settings.crewSize = s.crewSize;
     store.settings.training = !s.eventsOn;
+    store.settings.length = s.quick ? 'quick' : 'full';
     store.loadout = Object.assign({}, s.loadout);
+    LS.del(SV.slotOf(s)); // the finished mission's own slot only; saveSolo no longer deletes once the mission is gone
     store.mission = null;
     store.plan = null;
-    saveSolo();
     go('manifest');
   }
 
   function newMission() {
     if (lanOn()) { N.act('restart'); return; }
+    if (store.mission) LS.del(SV.slotOf(store.mission));
     store.mission = null;
     store.plan = null;
     store.seed = E.newMissionCode();
-    saveSolo();
     go('title');
   }
 
@@ -365,7 +378,10 @@
   function viewTitle() {
     const st = store.settings;
     const diffOpts = Object.keys(D.DIFFICULTY).map(k => ({ value: k, label: t('diff.' + k) }));
-    const resume = store.mission && store.mission.status === 'active' && !lanOn();
+    const slots = lanOn() ? { save: null, saveQuick: null } : SV.summary(LS);
+    const resume = ['save', 'saveQuick'].filter(k => slots[k]).map(k => h('button', {
+      class: 'btn btn-lg', type: 'button', 'data-k': 'resume:' + k, onclick: () => resumeSlot(k),
+    }, t(k === 'saveQuick' ? 'title.resumeQuick' : 'title.resume', { sol: slots[k].sol })));
     return [
       topbar(),
       h('section', { class: 'title-hero' },
@@ -384,6 +400,11 @@
             seg('diff', diffOpts, st.difficulty, v => { st.difficulty = v; store.loadout = null; saveSettings(); render(); }),
             h('p', { class: 'hint' }, t('diff.' + st.difficulty + '.hint'))),
           h('div', { class: 'setup-row' },
+            h('span', { class: 'label eyebrow' }, t('title.length')),
+            seg('length', [{ value: 'full', label: t('length.full') }, { value: 'quick', label: t('length.quick') }], st.length,
+              v => { st.length = v; store.loadout = null; saveSettings(); render(); }),
+            h('p', { class: 'hint' }, t(st.length === 'quick' ? 'length.quickHint' : 'length.fullHint'))),
+          h('div', { class: 'setup-row' },
             h('span', { class: 'label eyebrow' }, t('title.crew')),
             seg('crew', [{ value: 4, label: t('crew.four') }, { value: 5, label: t('crew.five') }], st.crewSize,
               v => { st.crewSize = v; store.loadout = null; saveSettings(); render(); }),
@@ -399,8 +420,8 @@
             h('p', { class: 'hint' }, t('title.codeHint'))),
           h('div', { class: 'setup-actions' },
             h('button', { class: 'btn btn-primary btn-lg', type: 'button', 'data-k': 'start', onclick: () => startManifest(false) }, ico('rocket', 20), t('title.start')),
-            h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'train', onclick: () => startManifest(true), title: t('title.trainingHint') }, t('title.training')),
-            resume ? h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'resume', onclick: () => go('ops') }, t('title.resume', { sol: store.mission.sol })) : null,
+            h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'train', onclick: () => startManifest(true), title: t('title.trainingHint'), disabled: st.length === 'quick' }, t('title.training')),
+            resume,
             installButton()),
           h('p', { class: 'hint' }, t('title.trainingHint')),
           h('div', { class: 'divider' }),
@@ -445,8 +466,8 @@
   const GROUP_COLOR = { hq: '#8f7f78', power: '#e9a13b', life: '#7fd1a0', shield: '#6fa8ff', science: '#d69cf0', supplies: '#d9aa7a' };
 
   function manifestSettings() {
-    if (lanOn()) return { difficulty: store.room.settings.difficulty, crewSize: store.room.settings.crewSize };
-    return { difficulty: store.settings.difficulty, crewSize: store.settings.crewSize };
+    if (lanOn()) return { difficulty: store.room.settings.difficulty, crewSize: store.room.settings.crewSize, quick: false };
+    return { difficulty: store.settings.difficulty, crewSize: store.settings.crewSize, quick: isQuick() };
   }
 
   function currentLoadout() {
@@ -461,9 +482,9 @@
   }
 
   function viewManifest() {
-    const { difficulty, crewSize } = manifestSettings();
+    const { difficulty, crewSize, quick } = manifestSettings();
     const L = currentLoadout();
-    const sum = E.summarizeLoadout(L, difficulty, crewSize);
+    const sum = E.summarizeLoadout(L, difficulty, crewSize, quick);
     const editable = isHost();
     const scaleMax = Math.max(sum.budget * 1.12, sum.mass);
     const segs = [['hq', D.HAB.mass]];
@@ -521,7 +542,7 @@
         h('p', { class: 'fact-line' }, t('item.' + id + '.fact'))),
       h('div', { class: 'qty' },
         h('div', { class: 'stepper' },
-          h('button', { type: 'button', 'data-k': 'dec:' + id, 'aria-label': '−1 ' + t('item.' + id + '.name'), disabled: !editable || n <= 0, onclick: () => change(-1) }, '−'),
+          h('button', { type: 'button', 'data-k': 'dec:' + id, 'aria-label': '−1 ' + t('item.' + id + '.name'), disabled: !editable || n <= (id === 'rover' && isQuick() ? 1 : 0), onclick: () => change(-1) }, '−'),
           h('output', { 'aria-live': 'polite' }, String(n)),
           h('button', { type: 'button', 'data-k': 'inc:' + id, 'aria-label': '+1 ' + t('item.' + id + '.name'), disabled: !editable || n >= it.max, onclick: () => change(1) }, '+')),
         h('span', { class: 'sub num' }, nf(n * it.mass, 2) + ' t · ' + t('man.each', { m: nf(it.mass, 2) }))));
@@ -559,12 +580,12 @@
       sum.warnings.length
         ? h('ul', { class: 'warnlist' }, sum.warnings.map(w => {
           const crit = ['over_budget', 'power_short', 'no_recycler', 'o2_short', 'water_short'].includes(w);
-          return h('li', { class: crit ? 'crit' : 'warn' }, ico(crit ? 'crit' : 'warn', 16), h('span', { style: 'color:var(--fg)' }, t('mwarn.' + w)));
+          return h('li', { class: crit ? 'crit' : 'warn' }, ico(crit ? 'crit' : 'warn', 16), h('span', { style: 'color:var(--fg)' }, t('mwarn.' + w, { end: sum.mission })));
         }))
         : h('p', { class: 'ok' }, ico('ok', 16), ' ', t('rev.clear')),
       h('div', { class: 'setup-actions' },
-        h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'ref', disabled: !editable, onclick: () => { const ms = manifestSettings(); setLoadout(E.referenceKit(ms.difficulty, ms.crewSize)); } }, t('man.reference')),
-        h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'empty', disabled: !editable, onclick: () => setLoadout(E.normalizeLoadout({})) }, t('man.clear'))),
+        h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'ref', disabled: !editable, onclick: () => { const ms = manifestSettings(); setLoadout(E.referenceKit(ms.difficulty, ms.crewSize, ms.quick)); } }, t('man.reference')),
+        h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'empty', disabled: !editable, onclick: () => setLoadout(E.normalizeLoadout(isQuick() ? { rover: 1 } : {})) }, t('man.clear'))),
       launchButton(sum, editable),
     ]);
   }
@@ -1118,9 +1139,10 @@
     const weather = s.schedule[s.turn].weather;
     const next = X.forecastAhead(s); // a repaired weather station's forecast (C1): next round's weather, or null
     const wx = w => (w === 'global' ? 'crit' : w === 'regional' ? 'warn' : '');
-    const remaining = (D.TURNS - s.turn) * D.TURN_SOLS;
-    const track = h('div', { class: 'track', 'aria-label': t('ops.round', { n: s.turn + 1, m: D.TURNS }) },
-      Array.from({ length: D.TURNS }, (_, i) => {
+    const turns = E.turnsOf(s);
+    const remaining = (turns - s.turn) * D.TURN_SOLS;
+    const track = h('div', { class: 'track', 'aria-label': t('ops.round', { n: s.turn + 1, m: turns }) },
+      Array.from({ length: turns }, (_, i) => {
         let cls = '';
         if (i < s.turn) { const w = s.history[i + 1] && s.history[i + 1].weather; cls = 'done' + (w && w !== 'clear' ? ' ' + w : ''); }
         if (i === s.turn) cls = 'now';
@@ -1142,8 +1164,8 @@
         h('div', { class: 'solclock' },
           h('button', { class: 'brand brand-mini', type: 'button', title: t('nav.home'), 'aria-label': t('nav.home'), onclick: () => { if (!lanOn()) { store.modal = 'confirm'; render(); } } }, ico('flag', 16)),
           h('b', null, t('ops.sol', { sol: s.sol })),
-          h('span', { class: 'muted num' }, '/ ' + D.TURNS * D.TURN_SOLS),
-          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: D.TURNS }))),
+          h('span', { class: 'muted num' }, '/ ' + turns * D.TURN_SOLS),
+          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: turns }))),
         track,
         h('div', { class: 'topbar-actions' },
           h('span', { class: 'chip', title: t(seasonKey(season.ls)) }, t(seasonKey(season.ls) + '.short') + ' · Ls ' + Math.round(season.ls) + '°'),
@@ -1197,7 +1219,8 @@
   function eventsPanel(s, p) {
     const decisions = (s.events || []).filter(e => e.options);
     const infos = (s.events || []).filter(e => !e.options);
-    if (!decisions.length && !infos.length) return null;
+    const flareDue = s.quick === true && s.turn === D.QUICK.flareTurn; // the Quick mission's set flare: invite the player outside
+    if (!decisions.length && !infos.length && !flareDue) return null;
     const optionDisabled = (e, o) => (e.type === 'water_leak' && o === 'patch' && s.resources.spares < 1) ||
       (e.type === 'perchlorate' && o === 'wash' && s.resources.water < D.PERCHLORATE_WASH_WATER);
     return panel(t('panel.events'), h('div', { class: 'events' },
@@ -1212,7 +1235,8 @@
           onclick: () => choose(e.type, o),
         }, h('b', null, t('ev.' + e.type + '.' + o)), h('span', null, t('ev.' + e.type + '.' + o + '.hint'))))))),
       infos.length ? h('div', { class: 'infos' }, infos.map(e => h('div', { class: 'info-ev' },
-        h('b', null, eventText(e, 'title')), h('span', null, eventText(e, 'body'))))) : null));
+        h('b', null, eventText(e, 'title')), h('span', null, eventText(e, 'body'))))) : null,
+      flareDue ? h('div', { class: 'info-ev', 'data-k': 'quick-flare' }, h('span', null, t('quick.flareHint'))) : null));
   }
 
   // ----- outpost map -----
@@ -1573,7 +1597,7 @@
         ? h('div', { class: 'advice', 'aria-live': 'polite' },
           h('span', { class: 'head' }, ico('radio', 12), ' ', t('earth.adviceHead', { m: lightDelay(s.sol) })),
           h('ol', null, adviceNow.items.map(a => h('li', null, t('advice.' + a.code, {
-            sols: a.sols, name: a.crewId ? crewName(a.crewId) : '', module: a.module ? t('mod.' + a.module) : '',
+            sols: a.sols, name: a.crewId ? crewName(a.crewId) : '', module: a.module ? t('mod.' + a.module) : '', end: E.turnsOf(s) * D.TURN_SOLS,
           })))),
           h('span', { class: 'hint' }, t('earth.adviceUsed')))
         : h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'advice', disabled: blackout, onclick: askAdvice }, ico('radio', 14), t('earth.advice'))));
@@ -1688,8 +1712,9 @@
     const charts = h('div', { class: 'charts' });
     const H = s.history;
     const pts = key => H.map(x => [x.sol, x[key]]);
+    const xMax = E.turnsOf(s) * D.TURN_SOLS; // the mission's own last sol (500 for a Full mission)
     C.lineChart(charts, {
-      title: t('ch.stocks'), unit: 'kg', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.stocks'),
+      xMax, title: t('ch.stocks'), unit: 'kg', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.stocks'),
       series: [
         { name: t('hud.o2'), color: STOCK_COLORS.o2, points: pts('o2') },
         { name: t('hud.water'), color: STOCK_COLORS.water, points: pts('water') },
@@ -1697,12 +1722,12 @@
       ],
     });
     C.lineChart(charts, {
-      title: t('ch.dose'), unit: 'mSv', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.dose'),
+      xMax, title: t('ch.dose'), unit: 'mSv', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.dose'),
       refLines: [{ y: D.DOSE_LIMIT, label: t('ch.limit') }],
       series: s.crew.map((c, i) => ({ name: crewName(c.id), color: CHART_ROLE[c.role], points: H.map(x => [x.sol, x.doses[i]]) })),
     });
     C.lineChart(charts, {
-      title: t('ch.power'), unit: 'kW', xLabel: t('ch.sol'), fmt: v => nf(v, 1), tableLabel: t('ch.power'),
+      xMax, title: t('ch.power'), unit: 'kW', xLabel: t('ch.sol'), fmt: v => nf(v, 1), tableLabel: t('ch.power'),
       series: [
         { name: t('ch.supply'), color: '#3987e5', points: H.filter(x => x.supply != null).map(x => [x.sol - D.TURN_SOLS, x.supply]) },
         { name: t('ch.load'), color: '#d95926', points: H.filter(x => x.load != null).map(x => [x.sol - D.TURN_SOLS, x.load]) },
@@ -1722,8 +1747,9 @@
       h('section', { class: 'deb-hero' + (success ? '' : ' lost') },
         h('div', null,
           h('span', { class: 'eyebrow' }, t('deb.code') + ' · ' + s.seed + ' · ' + t('diff.' + s.difficulty)),
+          s.quick ? h('span', { class: 'chip', 'data-k': 'quick-tag' }, t('quick.tag')) : null,
           h('h1', null, success ? t('deb.success') : t('deb.lost', { sol: s.endCause ? s.endCause.sol : s.sol })),
-          h('p', null, success ? t('deb.successBody', { n: alive, m: s.crew.length }) : t('cause.' + ((s.endCause && s.endCause.reason) || 'health')))),
+          h('p', null, success ? t('deb.successBody', { n: alive, m: s.crew.length, end: E.turnsOf(s) * D.TURN_SOLS }) : t('cause.' + ((s.endCause && s.endCause.reason) || 'health')))),
         h('div', { class: 'grade', 'aria-label': t('deb.grade') + ' ' + sc.grade }, sc.grade, h('small', null, nf(sc.total)))),
       panel(t('deb.crew'), h('div', { class: 'deb-crew' }, s.crew.map((c, i) => h('div', { class: 'c' },
         h('div', { html: A.portrait(c.role, 44, { variant: i, status: c.status }) }),

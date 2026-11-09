@@ -211,7 +211,7 @@
     : h('span', { class: 'chip crit' }, ico('crit', 12), t('admin.outcome.lost')));
   const COLS = [
     { key: 'endedAt', label: 'admin.col.date', cell: r => dateTime(r.endedAt) },
-    { key: 'mode', label: 'admin.col.mode', cell: r => h('span', { class: 'chip' }, t('admin.mode.' + r.mode)) },
+    { key: 'mode', label: 'admin.col.mode', cell: r => [h('span', { class: 'chip' }, t('admin.mode.' + r.mode)), r.quick ? h('span', { class: 'chip', 'data-k': 'quick-tag' }, t('quick.tag')) : null] },
     { key: 'missionCode', label: 'admin.col.code', cell: r => h('span', { class: 'num' }, r.missionCode), sm: true },
     { key: 'players', label: 'admin.col.players', cell: players, sortVal: players, sm: true },
     { key: 'outcome', label: 'admin.col.outcome', cell: r => outcomeChip(r.outcome) },
@@ -343,7 +343,7 @@
       h('div', { class: 'stats' },
         stat(t('admin.h.missions'), nf(list.length)),
         stat(t('admin.h.winRate'), Math.round((wins / list.length) * 100) + ' %'),
-        stat(t('admin.h.best'), nf(Math.max(...list.map(r => r.score)))),
+        stat(t('admin.h.best'), list.some(r => !r.quick) ? nf(Math.max(...list.filter(r => !r.quick).map(r => r.score))) : '—'), // a Quick score never competes with a Full one
         stat(t('admin.h.finds'), nf(finds))),
       h('div', { class: 'adm-charts' },
         panel(t('admin.h.scoreChart'), scoreBox, 'wide'),

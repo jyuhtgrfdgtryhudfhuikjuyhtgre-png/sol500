@@ -12,7 +12,7 @@ const vm = require('node:vm');
 const I = require('../src/i18n.js');
 
 const T = 64;
-const SOURCES = ['data.js', 'engine.js', 'i18n.js', 'art.js', 'charts.js', 'worldgen.js', 'fog.js', 'expedition.js', 'goals.js', 'dangers.js', 'ui.js']
+const SOURCES = ['data.js', 'engine.js', 'i18n.js', 'art.js', 'charts.js', 'worldgen.js', 'fog.js', 'expedition.js', 'goals.js', 'dangers.js', 'saves.js', 'ui.js']
   .map(f => [f, fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')]);
 const en = (k, p) => I.t('en', k, p);
 const plain = v => JSON.parse(JSON.stringify(v));
@@ -1249,4 +1249,189 @@ test('the season chip in the top bar is short, with the full wording as its tool
     if (s === 'autumn' || s === 'winter') assert.match(short, lang === 'en' ? /dust season/ : /mùa bão bụi/, lang + ' ' + s + ' still says dust season');
   }
   assert.ok(c.attrs.title.length > c.textContent.length - 8, 'the tooltip carries the full wording');
+});
+
+// ---------- the Quick mission and its own save slot ----------
+
+// Two saved missions, as a device that played both lengths would hold them (a plain copy, as localStorage keeps them).
+function twoSaves() {
+  const p = page();
+  const full = p.mission({ seed: 'FULL-1' }), quick = p.mission({ seed: 'QUICK-1', quick: true, loadout: p.E.referenceKit('commander', 4, true) });
+  const slot = m => plain({ mission: m, plan: p.E.defaultPlan(m) });
+  return { save: slot(full), saveQuick: slot(quick) };
+}
+const stored = (pg, k) => (('sol500.' + k) in pg.ls ? JSON.parse(pg.ls['sol500.' + k]) : undefined);
+const finish = (pg, status) => { pg.UI.store.mission.status = status || 'lost'; pg.UI.store.mission.endCause = { reason: 'health', sol: 40 }; };
+
+test('starting a quick mission leaves the full save unchanged', () => {
+  const saves = twoSaves();
+  const pg = page({ save: saves.save, settings: { length: 'quick' } });
+  assert.equal(pg.UI.store.mission.quick, undefined, 'the boot loads the full slot');
+  pg.UI.store.mission = null;
+  pg.UI.render();
+  click(pg.byKey('start'));
+  click(pg.byKey('launch'));
+  click(pg.byKey('pilot:minh'));
+  assert.equal(pg.UI.store.mission.quick, true);
+  assert.equal(pg.UI.store.mission.schedule.length, 8);
+  assert.deepEqual(stored(pg, 'save'), saves.save, 'the full save is as it was');
+  assert.equal(stored(pg, 'saveQuick').mission.quick, true);
+});
+
+test('abandoning a quick mission (newMission) deletes only saveQuick', () => {
+  const saves = twoSaves();
+  const pg = page({ saveQuick: saves.saveQuick, save: saves.save });
+  pg.UI.store.mission = pg.E.upgradeMission(saves.saveQuick.mission);
+  finish(pg);
+  pg.UI.store.screen = 'debrief';
+  pg.UI.render();
+  click(pg.byKey('new'));
+  assert.equal(stored(pg, 'saveQuick'), undefined);
+  assert.deepEqual(stored(pg, 'save'), saves.save);
+});
+
+test('Fly again from a finished quick mission keeps the full save, and sets the length to Quick', () => {
+  const saves = twoSaves();
+  const pg = page({ saveQuick: saves.saveQuick, save: saves.save });
+  pg.UI.store.mission = pg.E.upgradeMission(saves.saveQuick.mission);
+  finish(pg);
+  pg.UI.store.screen = 'debrief';
+  pg.UI.render();
+  click(pg.byKey('again'));
+  assert.equal(stored(pg, 'saveQuick'), undefined);
+  assert.deepEqual(stored(pg, 'save'), saves.save);
+  assert.equal(pg.UI.store.settings.length, 'quick');
+  assert.equal(pg.UI.store.screen, 'manifest');
+});
+
+test('finishing a full mission leaves the quick save unchanged', () => {
+  const saves = twoSaves();
+  const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+  assert.equal(pg.UI.store.mission.quick, undefined);
+  finish(pg);
+  pg.UI.store.screen = 'debrief';
+  pg.UI.render();
+  click(pg.byKey('new'));
+  assert.equal(stored(pg, 'save'), undefined);
+  assert.deepEqual(stored(pg, 'saveQuick'), saves.saveQuick);
+});
+
+test('the title offers a Resume for each slot that holds a mission', () => {
+  const saves = twoSaves();
+  assert.ok(page({ save: saves.save, saveQuick: saves.saveQuick }).byKey('resume:save') && page({ save: saves.save, saveQuick: saves.saveQuick }).byKey('resume:saveQuick'));
+  const onlyQuick = page({ saveQuick: saves.saveQuick });
+  assert.equal(onlyQuick.byKey('resume:save'), undefined);
+  assert.ok(onlyQuick.byKey('resume:saveQuick'));
+  assert.equal(onlyQuick.UI.store.mission.quick, true, 'with only a quick save, the boot loads it');
+  assert.equal(page().byKey('resume:save'), undefined);
+});
+
+test('Resume on the other slot loads that mission and keeps both saved', () => {
+  const saves = twoSaves();
+  const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+  click(pg.byKey('resume:saveQuick'));
+  assert.equal(pg.UI.store.mission.quick, true);
+  assert.equal(pg.UI.store.screen, 'ops');
+  pg.flush();
+  assert.equal(stored(pg, 'saveQuick').mission.seed, 'QUICK-1');
+  assert.equal(stored(pg, 'save').mission.seed, 'FULL-1');
+  pg.UI.store.screen = 'title';
+  pg.UI.render();
+  click(pg.byKey('resume:save'));
+  assert.equal(pg.UI.store.mission.seed, 'FULL-1');
+  assert.equal(stored(pg, 'saveQuick').mission.seed, 'QUICK-1');
+});
+
+test('the length row on the title: Quick drops the stored kit and disables Training; any other stored value reads as full', () => {
+  const pg = page({ settings: { length: 'quick' } });
+  assert.equal(pg.byKey('train').attrs.disabled, '');
+  pg.UI.store.loadout = { rover: 3 };
+  click(pg.byKey('length:full'));
+  assert.equal(pg.UI.store.loadout, null);
+  assert.equal(stored(pg, 'settings').length, 'full');
+  assert.equal(pg.byKey('train').attrs.disabled, undefined);
+  assert.equal(page({ settings: { length: 'bogus' } }).UI.store.settings.length, 'full');
+});
+
+test('a quick mission names its length: the sol clock and the debrief tag', () => {
+  const saves = twoSaves();
+  const pg = page({ saveQuick: saves.saveQuick });
+  pg.UI.store.screen = 'ops';
+  pg.UI.render();
+  assert.ok(pg.all()[0].textContent.includes('/ 200'), 'the sol clock counts to the last sol of 8 rounds');
+  finish(pg, 'success');
+  pg.UI.store.screen = 'debrief';
+  pg.UI.render();
+  const text = walkText(pg);
+  assert.ok(text.includes(en('quick.tag')));
+  assert.ok(text.includes('on sol 200'), 'the lift-off is on the mission\'s last sol');
+});
+function walkText(pg) { return pg.all()[0].textContent; }
+
+test('the end sol in the manifest warnings and the debrief follows the mission: sol 500 on a Full mission, sol 200 on a Quick one', () => {
+  for (const [lang, k] of [['en', 'mwarn.o2_short'], ['vi', 'mwarn.o2_short']]) {
+    assert.ok(I.t(lang, k, { end: 200 }).includes('200') && !I.t(lang, k, { end: 200 }).includes('500'));
+    assert.ok(I.t(lang, k, { end: 500 }).includes('500'));
+  }
+  const pg = page({ settings: { length: 'quick' } });
+  click(pg.byKey('start'));
+  click(pg.byKey('empty')); // nothing packed but the rover: the supplies fall short
+  const quickText = pg.all()[0].textContent;
+  assert.ok(quickText.includes('before sol 200') && !/sol 500/.test(quickText), 'a Quick manifest says sol 200');
+});
+
+test("a Quick mission's round 3 says the flare is due, and no other round does", () => {
+  const saves = twoSaves();
+  const pg = page({ saveQuick: saves.saveQuick });
+  const m = pg.UI.store.mission;
+  assert.equal(m.quick, true);
+  pg.UI.store.screen = 'ops';
+  pg.UI.render();
+  assert.equal(pg.byKey('quick-flare'), undefined, 'round 1 has no such note');
+  m.turn = 2;
+  pg.UI.render();
+  assert.equal(pg.byKey('quick-flare').textContent, en('quick.flareHint'));
+  const full = page({ save: saves.save });
+  full.UI.store.mission.turn = 2;
+  full.UI.store.screen = 'ops';
+  full.UI.render();
+  assert.equal(full.byKey('quick-flare'), undefined);
+});
+
+test('a Quick manifest keeps its rover: the minus is disabled at 1 and Clear leaves one', () => {
+  const pg = page({ settings: { length: 'quick' } });
+  click(pg.byKey('start'));
+  assert.equal(pg.UI.store.loadout.rover, 1);
+  assert.equal(pg.byKey('dec:rover').attrs.disabled, '');
+  click(pg.byKey('empty'));
+  assert.equal(pg.UI.store.loadout.rover, 1);
+});
+
+// ---------- fix round 1: the slots at the end of a mission, and the timer ----------
+for (const [ending, other] of [['save', 'saveQuick'], ['saveQuick', 'save']]) {
+  test('ending a ' + (ending === 'save' ? 'full' : 'quick') + ' mission through the advance deletes its slot and leaves the ' + (other === 'save' ? 'full' : 'quick') + ' save as it was', () => {
+    const saves = twoSaves();
+    const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+    pg.UI.store.settings.length = ending === 'saveQuick' ? 'quick' : 'full';
+    click(pg.byKey('resume:' + ending));
+    const m = pg.UI.store.mission;
+    m.turn = pg.E.turnsOf(m) - 1;
+    pg.play(m);
+    pg.surface.hooks.advance();
+    assert.notEqual(pg.UI.store.mission.status, 'active', 'the mission ended');
+    assert.equal(stored(pg, ending), undefined, 'its own slot is deleted');
+    assert.deepEqual(stored(pg, other), saves[other], 'the other slot is untouched');
+  });
+}
+
+test('after a Resume on the other slot, the 4 s save timer writes the mission to its own slot', () => {
+  const saves = twoSaves();
+  const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+  click(pg.byKey('resume:saveQuick'));
+  pg.UI.render();
+  pg.surface.hooks.suit({ suit: 77, driven: null, clock: 9, at: { x: 640, y: 200 } }); // the exploring hook asks for a save a few seconds on
+  pg.flush();
+  assert.equal(stored(pg, 'saveQuick').mission.expedition.suits.minh, 77, 'the quick slot has the new state');
+  assert.ok(stored(pg, 'saveQuick').mission.quick);
+  assert.deepEqual(stored(pg, 'save'), saves.save, 'the full slot is not overwritten');
 });
