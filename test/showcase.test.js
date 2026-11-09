@@ -88,7 +88,7 @@ test('the landmark scene stands within discovery range of an undiscovered landma
   const { c, s } = demo('landmark'), cx = Math.floor(c.at[0] / W.CHUNK), cy = Math.floor(c.at[1] / W.CHUNK);
   const ls = [];
   for (let j = cy - 2; j <= cy + 2; j++) for (let i = cx - 2; i <= cx + 2; i++) ls.push(...X.chunkAt(s, i, j).landmarks);
-  const found = ls.filter(l => Math.hypot(l.x - c.at[0], l.y - c.at[1]) < 12);
+  const found = [...new Map(ls.filter(l => Math.hypot(l.x - c.at[0], l.y - c.at[1]) < 12).map(l => [l.id, l])).values()]; // a chunk lists every landmark its box touches
   assert.equal(found.length, 1, 'one landmark is near');
   const l = found[0];
   assert.equal(I.LANDMARK_SOURCES[l.kind], c.source, 'the card cites the source of this kind of landmark');
@@ -155,4 +155,9 @@ test('a purpose line is one or two plain sentences in both languages', () => {
     assert.ok((why.match(/[.!?](\s|$)/g) || []).length <= 2, lang + ' ' + c.id + ' is at most two sentences');
   }
   for (const c of C.CARDS) assert.ok(!/xe tự hành|trạm tiếp sóng|\bbase\b/.test(I.STR.vi['show.card.' + c.id + '.why']), c.id + ' uses the agreed Vietnamese terms');
+});
+
+test('the rover stops in more room on Mars than on Earth, so the readout the rover card promises has something to say', () => {
+  const PH = require('../src/physics.js');
+  assert.ok(PH.stopDistance(300) > PH.stopDistance(300, PH.EARTH_G));
 });
