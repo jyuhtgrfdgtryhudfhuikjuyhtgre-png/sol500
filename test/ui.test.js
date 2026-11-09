@@ -1664,3 +1664,19 @@ test("the Showcase crew scene shows the Commander's and the Engineer's hold seco
   assert.equal(line.textContent, en('show.crew.holds', { a, b }));
   assert.ok(line.textContent.includes(a) && line.textContent.includes(b));
 });
+
+// ---------- M5 final review fixes ----------
+
+const logRow = (pg, events) => ({ sol: 0, weather: 'clear', events, repairs: [], breakdowns: [], completed: [], downs: [], deaths: [], revived: [], requested: null, habShort: false, science: 0 });
+test("a Quick debrief's log leaves the touchdown out of its first row, as a Full one does", () => {
+  const saves = twoSaves();
+  for (const [slot, ev] of [['saveQuick', 'landing_quick'], ['save', 'landing']]) {
+    const pg = page({ [slot]: saves[slot] });
+    pg.UI.store.mission.log = [logRow(pg, [ev])];
+    finish(pg);
+    pg.UI.store.screen = 'debrief';
+    pg.UI.render();
+    const row = pg.all().find(n => n.tagName === 'TR' && n.children[0] && n.children[0].textContent === '0–' + pg.win.SolData.TURN_SOLS);
+    assert.equal(row.children[1].textContent, en('weather.clear'), slot);
+  }
+});

@@ -1792,7 +1792,7 @@
   }
 
   // Weather is its own column entry; breakdowns and injuries are listed as outcomes of the round before.
-  const LOG_SKIP = ['landing', 'breakdown', 'injury', 'dust_regional', 'dust_global', 'supply_arrived'];
+  const LOG_SKIP = ['landing', 'landing_quick', 'breakdown', 'injury', 'dust_regional', 'dust_global', 'supply_arrived'];
 
   function logTable(s) {
     const evName = type => (I.has(store.lang, 'ev.' + type + '.title') ? t('ev.' + type + '.title', { module: '', name: '' }).replace(/\s+/g, ' ').trim() : type);
