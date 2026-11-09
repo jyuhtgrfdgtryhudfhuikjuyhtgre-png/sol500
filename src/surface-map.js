@@ -20,6 +20,9 @@
   const W = root.SolWorldgen, P = root.SolPaint;
   const T = 64, CH = W.CHUNK, MINI = 160;
   const ZOOMS = [1, 2, 3, 4, 6, 8]; // screen pixels per tile on the full map
+  // The map key: [id, glyph, colour] for each mark the maps draw (see markers); the strings are sf.key.<id>.
+  const MARKS = [['find', '●', '#9fd3ea'], ['cave', '○', '#e8c9a8'], ['drop', '●', '#f46e5f'], ['rover', '■', '#e9e2d8'], ['beacon', '▲', '#ffcf7a'],
+    ['landmark', '◆', '#f0c35a'], ['structure', '■', '#a9f4e4'], ['mast', '?', '#a9f4e4'], ['base', '■', '#f4e9df'], ['you', '◎', '#ffffff']];
   const PAN = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
 
   function create(opts) {
@@ -158,7 +161,8 @@
     const legend = node('div', 'sf-map-legend');
     const button = (label, onClick) => { const b = node('button', null, label); b.type = 'button'; b.addEventListener('click', onClick); return b; };
     const zoomOut = button('−', () => zoom(-1)), zoomIn = button('+', () => zoom(1)), shut = button('×', () => closeMap());
-    head.append(title, legend, zoomOut, zoomIn, shut);
+    const markKey = node('div', 'sf-map-key'); // what the marks on the map mean
+    head.append(title, legend, zoomOut, zoomIn, shut, markKey);
     const hint = node('p', 'sf-map-hint');
     el.append(fc, head, hint);
 
@@ -179,6 +183,13 @@
         item.append(swatch, document.createTextNode(t('region.' + id)));
         legend.appendChild(item);
       });
+      markKey.textContent = '';
+      for (const [id, glyph, color] of MARKS) {
+        const item = node('span'), sw = node('i', null, glyph);
+        sw.style.color = color;
+        item.append(sw, node('span', null, t('sf.key.' + id)));
+        markKey.appendChild(item);
+      }
     }
 
     function openMap(st) {

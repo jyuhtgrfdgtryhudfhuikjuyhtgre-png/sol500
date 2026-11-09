@@ -1151,3 +1151,47 @@ test('fog sent just before a socket drops is sent again when it reopens', async 
   net.h[0](room);
   assert.deepEqual(sent, [['2,2'], ['2,2']], 'sent again once the room frame names the mission');
 });
+
+// ---------- M5 Task 10: the look and the offline start ----------
+
+test('a story log or fact opens once a mission per kind: a second structure or formation of a kind opens nothing, a new kind does', () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  pg.play(m);
+  const show = c => { pg.surface.hooks.card(c); pg.UI.render(); };
+  show({ type: 'log', id: 'S0,0', kind: 'weather' });
+  assert.ok(cardOf(pg), 'the first weather station opens its log');
+  click(pg.byKey('region-close'));
+  show({ type: 'log', id: 'S7,7', kind: 'weather' });
+  assert.equal(cardOf(pg), null, 'another station: the same text, not again');
+  show({ type: 'log', id: 'S8,8', kind: 'cache' });
+  assert.ok(cardOf(pg), 'a cache is a new kind');
+  click(pg.byKey('region-close'));
+  show({ type: 'formation', id: 'F1,0', kind: 'ventifact' });
+  assert.ok(cardOf(pg));
+  click(pg.byKey('region-close'));
+  show({ type: 'formation', id: 'F4,4', kind: 'ventifact' });
+  assert.equal(cardOf(pg), null, 'another ventifact: not again');
+  pg.play(pg.mission({ seed: 'PAINT-QA-2' }));
+  show({ type: 'log', id: 'S0,0', kind: 'weather' });
+  assert.ok(cardOf(pg), 'a new mission shows them again');
+});
+
+test('the found-list marker is not read aloud: its + and minus carry an empty alternative text', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'style.css'), 'utf8');
+  assert.match(css, /\.found-list summary::after \{[^}]*content: '\+' \/ '';/);
+  assert.match(css, /\.found-list details\[open\] > summary::after \{[^}]*content: '\\2212' \/ '';/);
+});
+
+test('the Display rows have accessible names: each choice group is labelled with its row', () => {
+  const pg = page();
+  click(pg.all().find(n => n.tagName === 'BUTTON' && n.textContent === en('nav.display')));
+  const groups = pg.all().filter(n => n.attrs.role === 'group' && pg.dialog().children && walk(pg.dialog(), []).includes(n));
+  assert.deepEqual(groups.map(g => g.attrs['aria-label']), [en('display.gfx'), en('display.fpsCap'), en('display.showFps')]);
+});
+
+test('the page loads with no font request when offline or in the single file, and asks for the fonts otherwise', () => {
+  const fonts = pg => pg.win.document.head.children.filter(n => n.tagName === 'LINK' && /fonts\.googleapis/.test(n.href));
+  assert.equal(fonts(page()).length, 1, 'online in the app or on a server: the fonts');
+  assert.equal(fonts(page(null, { navigator: { language: 'en-US', onLine: false } })).length, 0, 'offline');
+  assert.equal(fonts(page(null, { SOL_APP: false })).length, 0, 'the single file');
+});

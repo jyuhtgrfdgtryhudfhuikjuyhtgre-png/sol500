@@ -378,8 +378,8 @@ p { margin: 0; }
    draws one, a + that turns into − when open, and a focus ring for the keyboard (Enter or Space opens it). */
 .found-list summary { display: grid; gap: 3px; position: relative; padding-right: 28px; cursor: pointer; list-style: none; border-radius: 4px; }
 .found-list summary::-webkit-details-marker { display: none; }
-.found-list summary::after { content: '+'; position: absolute; top: 50%; right: 0; transform: translateY(-50%); width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: 50%; color: var(--fg-2); font: 600 var(--fs-sm)/1 var(--font-data); }
-.found-list details[open] > summary::after { content: '\2212'; }
+.found-list summary::after { content: '+'; content: '+' / ''; position: absolute; top: 50%; right: 0; transform: translateY(-50%); width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: 50%; color: var(--fg-2); font: 600 var(--fs-sm)/1 var(--font-data); }
+.found-list details[open] > summary::after { content: '\2212'; content: '\2212' / ''; }
 .found-list summary:hover::after { border-color: var(--accent); color: var(--accent); }
 .found-list summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .found-list details > p { margin-top: 6px; }
@@ -603,6 +603,8 @@ p { margin: 0; }
 .sf-map-head { position: absolute; left: 12px; right: 12px; top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(20, 14, 16, 0.88); border: 1px solid var(--line-2); border-radius: 10px; padding: 6px 8px 6px 12px; }
 .sf-map-head b { font-family: var(--font-display); margin-right: auto; }
 .sf-map-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: var(--fs-xs); color: var(--fg-2); }
+.sf-map-key { flex-basis: 100%; display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: var(--fs-xs); color: var(--fg-2); }
+.sf-map-key i { font-style: normal; font-weight: 700; margin-right: 4px; }
 .sf-map-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.2); }
 .sf-map-head button { min-width: 34px; min-height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--raised); color: var(--fg); font-weight: 700; cursor: pointer; }
 .sf-map-head button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

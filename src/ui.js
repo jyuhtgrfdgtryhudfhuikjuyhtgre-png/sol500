@@ -114,8 +114,8 @@
       h('div', { class: 'panel-b' }, body));
   }
 
-  function seg(key, options, value, onPick, disabled) {
-    return h('div', { class: 'seg', role: 'group' }, options.map(o =>
+  function seg(key, options, value, onPick, disabled, label) {
+    return h('div', { class: 'seg', role: 'group', 'aria-label': label || null }, options.map(o =>
       h('button', {
         type: 'button', 'data-k': key + ':' + o.value, 'aria-pressed': String(o.value === value), disabled: disabled || o.disabled,
         title: o.title || null, onclick: () => onPick(o.value),
@@ -682,13 +682,16 @@
   }
 
   // Is this the first time the card of `id` (a region, or a point of interest) comes up in this mission and mode?
-  function firstTime(id) {
+  // With a `kind` (a story log's or a fact's), also only the first of its kind: there are 6 log texts and 7 facts.
+  function firstTime(id, kind) {
     const key = missionKey();
     if (store.regionsSeen.key !== key) store.regionsSeen = { key, list: [] };
-    if (store.regionsSeen.list.includes(id)) return false;
-    store.regionsSeen.list.push(id);
-    LS.set('regionsSeen', store.regionsSeen);
-    return true;
+    const rs = store.regionsSeen, kinds = rs.kinds || (rs.kinds = []);
+    const newId = !rs.list.includes(id), newKind = !kind || !kinds.includes(kind);
+    if (newId) rs.list.push(id);
+    if (kind && newKind) kinds.push(kind);
+    if (newId || (kind && newKind)) LS.set('regionsSeen', rs);
+    return newId && newKind;
   }
 
   function showRegionCard(id, soloFirst) {
@@ -720,7 +723,7 @@
       if (waits.c.science == null && c.science != null) waits.c = Object.assign({}, waits.c, { science: c.science });
       return;
     }
-    if (c.type !== 'landmark' && !firstTime(c.id)) return;
+    if (c.type !== 'landmark' && !firstTime(c.id, c.type + ':' + c.kind)) return;
     arrive(c);
   }
 
@@ -2117,11 +2120,11 @@
     const pick = (key, v) => { st[key] = v; saveSettings(); render(); };
     const row = (label, choice, hint) => h('div', { class: 'setup-row' }, h('span', { class: 'eyebrow' }, label), choice, hint ? h('p', { class: 'hint' }, hint) : null);
     return modal(t('display.title'), [
-      row(t('display.gfx'), seg('gfx', [{ value: 'best', label: t('display.gfx.best') }, { value: 'fast', label: t('display.gfx.fast') }], st.gfx, v => pick('gfx', v)),
+      row(t('display.gfx'), seg('gfx', [{ value: 'best', label: t('display.gfx.best') }, { value: 'fast', label: t('display.gfx.fast') }], st.gfx, v => pick('gfx', v), false, t('display.gfx')),
         t('display.gfx.' + st.gfx + '.hint')),
-      row(t('display.fpsCap'), seg('fpsCap', [{ value: 30, label: '30' }, { value: 60, label: '60' }, { value: 0, label: t('display.fpsCap.max') }], st.fpsCap, v => pick('fpsCap', v)),
+      row(t('display.fpsCap'), seg('fpsCap', [{ value: 30, label: '30' }, { value: 60, label: '60' }, { value: 0, label: t('display.fpsCap.max') }], st.fpsCap, v => pick('fpsCap', v), false, t('display.fpsCap')),
         t('display.fpsCap.hint')),
-      row(t('display.showFps'), seg('showFps', [{ value: false, label: t('common.off') }, { value: true, label: t('common.on') }], st.showFps, v => pick('showFps', v))),
+      row(t('display.showFps'), seg('showFps', [{ value: false, label: t('common.off') }, { value: true, label: t('common.on') }], st.showFps, v => pick('showFps', v), false, t('display.showFps'))),
     ]);
   }
 
@@ -2239,11 +2242,14 @@
 
   // ---------- boot ----------
   function boot() {
-    // Script-inserted, so a network that drops Google traffic cannot hold up the first paint.
-    const fonts = document.createElement('link');
-    fonts.rel = 'stylesheet';
-    fonts.href = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap';
-    document.head.appendChild(fonts);
+    // Script-inserted, so a network that drops Google traffic cannot hold up the first paint. Not asked for when offline or in
+    // the single file (window.SOL_APP false): the CSS stacks fall back to the system fonts.
+    if (navigator.onLine !== false && window.SOL_APP !== false) {
+      const fonts = document.createElement('link');
+      fonts.rel = 'stylesheet';
+      fonts.href = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap';
+      document.head.appendChild(fonts);
+    }
     registerServiceWorker();
     if (window.solApp) window.solApp.onOnline(s => { store.online = s; render(); });
     render();

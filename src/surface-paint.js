@@ -140,12 +140,15 @@
     b.setTransform(new DOMMatrix().rotateSelf(37).scaleSelf(k * 1.73));
     return [a, b];
   }
+  // The photos are made seamless when the page is idle, so a frame never waits for it (the generator of src/ground-photos.js is not
+  // in the repository, so they are not shipped seamless); without requestIdleCallback, a short timer.
+  const idle = fn => (typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 50));
   function loadPhotos(urls) {
     const N = 512, O = 112, S = N + O, names = Object.keys(PHOTO).filter(n => urls[n]), out = {};
     const next = i => {
       if (i === names.length) { photos = out; photosWanted.splice(0).forEach(fn => fn()); return; }
       const name = names[i], p = PHOTO[name], img = new Image(), go = () => setTimeout(() => next(i + 1), 0);
-      img.onload = () => {
+      img.onload = () => idle(() => {
         try {
           const c = document.createElement('canvas'), tiny = document.createElement('canvas');
           c.width = c.height = S;
@@ -160,7 +163,7 @@
           out[name] = { col: p.tint ? photoPatterns(t.col, N, p.repeat) : null, lum: photoPatterns(t.lum, N, p.repeat) };
         } catch (e) { /* this photo's grounds stay plain */ }
         go();
-      };
+      });
       img.onerror = go;
       img.src = urls[name];
     };
@@ -658,9 +661,10 @@
   }
   // Inside a lava tube it is dark but for your headlamp: clear round you (px, py), nearly black from `rad` world pixels out.
   function drawDark(ctx, x0, y0, x1, y1, px, py, rad) {
-    const g = ctx.createRadialGradient(px, py, rad * 0.3, px, py, rad);
+    const r = rad * 0.6; // a pool of light: nearly black at 60 % of the headlamp's reach (M5: the old fall-off never got dark)
+    const g = ctx.createRadialGradient(px, py, r * 0.25, px, py, r);
     g.addColorStop(0, 'rgba(5,3,4,0)');
-    g.addColorStop(1, 'rgba(5,3,4,0.94)');
+    g.addColorStop(1, 'rgba(5,3,4,0.97)');
     ctx.fillStyle = g;
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
