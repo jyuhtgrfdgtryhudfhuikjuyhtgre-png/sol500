@@ -210,7 +210,7 @@
       cy += d[1] * step;
       return true;
     }
-    fc.addEventListener('pointerdown', e => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; fc.setPointerCapture(e.pointerId); });
+    fc.addEventListener('pointerdown', e => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, primary: !e.button }; fc.setPointerCapture(e.pointerId); });
     fc.addEventListener('pointermove', e => {
       if (!drag || drag.id !== e.pointerId) return;
       const z = ZOOMS[zi];
@@ -223,7 +223,7 @@
     const endDrag = () => { drag = null; };
     // A click that did not drag the map (under 5 px) pings the spot under it.
     fc.addEventListener('pointerup', e => {
-      const click = drag && drag.id === e.pointerId && drag.moved < 5;
+      const click = drag && drag.id === e.pointerId && drag.moved < 5 && drag.primary; // only the primary button (a pen and a finger report 0)
       endDrag();
       if (!click || !opts.onPing) return;
       const r = fc.getBoundingClientRect(), z = ZOOMS[zi], w = el.clientWidth, h = el.clientHeight;
