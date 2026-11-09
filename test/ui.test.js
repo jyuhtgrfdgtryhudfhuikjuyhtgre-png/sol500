@@ -1541,7 +1541,7 @@ test('a demo on the console tab and one that is a dialog leave the stored tab al
   const pg = showPage(realDevice());
   await settle();
   const before = Object.assign({}, pg.ls);
-  click(pg.byKey('show:food'));
+  click(pg.byKey('show:isru'));
   pg.flush();
   assert.equal(pg.UI.store.opsView, 'console');
   click(pg.byKey('show-back'));
@@ -1574,4 +1574,69 @@ test('Show me asks the surface for the card\'s moment; a scene that throws shows
     assert.equal(pg.UI.store.demo, null);
     assert.equal(pg.UI.store.mission, real);
   }
+});
+
+// ---------- M5 Task 4 fix round 1: the demo is a Quick mission, and the cards' hooks ----------
+
+test('the demo is a Quick mission: the flare card has its flare (20 s left), the rover card a rover, the oxygen card its rupture', async () => {
+  const pg = showPage();
+  await settle();
+  click(pg.byKey('show:flare'));
+  const m = pg.UI.store.mission;
+  assert.equal(m.quick, true);
+  assert.equal(m.schedule[0].spe, true, 'the flare is due in round 1');
+  assert.equal(m.expedition.flare.end - pg.got.scenes[0].clock, 20, 'the warning is running, and 20 s are left');
+  click(pg.byKey('show-back'));
+  click(pg.byKey('show:rover'));
+  assert.ok(pg.UI.store.mission.modules.rover.count >= 1, 'a rover in the kit');
+});
+
+test('the prepare of a card runs once on the demo mission before the surface opens, and a throw from it shows show.failed', async () => {
+  const pg = showPage(realDevice()), calls = [];
+  await settle();
+  const real = pg.UI.store.mission;
+  pg.win.SolShowcase.CARDS.push({ id: 'ok', source: null, view: 'surface', prepare: (s, R) => calls.push([s, !!R.Z]) }, { id: 'bad', source: null, view: 'surface', prepare: () => { throw new Error('no'); } });
+  pg.UI.render();
+  click(pg.byKey('show:ok'));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], pg.UI.store.mission);
+  assert.equal(calls[0][0].seed, pg.win.SolShowcase.CODE);
+  assert.equal(calls[0][1], true);
+  click(pg.byKey('show-back'));
+  click(pg.byKey('show:bad'));
+  assert.equal(pg.UI.store.toast, en('show.failed'));
+  assert.equal(pg.UI.store.screen, 'showcase');
+  assert.equal(pg.UI.store.demo, null);
+  assert.equal(pg.UI.store.mission, real);
+});
+
+test('a card with steps shows Next in the bar; Next asks the surface for the next step and wraps round', async () => {
+  const pg = showPage();
+  await settle();
+  pg.win.SolShowcase.CARDS.push({ id: 'walk', source: null, view: 'surface', at: [1, 2], steps: [[1, 2], [3, 4], [5, 6]] });
+  pg.UI.render();
+  click(pg.byKey('show:walk'));
+  assert.ok(pg.all().some(n => n.textContent === en('show.next')));
+  for (let i = 0; i < 3; i++) click(pg.byKey('show-next'));
+  assert.deepEqual(plain(pg.got.scenes.map(o => o.at)), [[1, 2], [3, 4], [5, 6], [1, 2]]);
+  click(pg.byKey('show-back'));
+  click(pg.byKey('show:flare'));
+  assert.equal(pg.byKey('show-next'), undefined, 'a card without steps has no Next');
+});
+
+test('Why Mars opens on its first page every time', async () => {
+  const pg = showPage();
+  await settle();
+  pg.UI.store.storyPage = 3;
+  click(pg.byKey('show:story'));
+  assert.equal(pg.UI.store.storyPage, 0);
+});
+
+test('a surface that throws when asked for its probe fails the scene cleanly', async () => {
+  const pg = showPage();
+  await settle();
+  pg.win.SolSurface.probe = () => { throw new Error('boom'); };
+  click(pg.byKey('show:flare'));
+  assert.equal(pg.UI.store.toast, en('show.failed'));
+  assert.equal(pg.UI.store.demo, null);
 });
