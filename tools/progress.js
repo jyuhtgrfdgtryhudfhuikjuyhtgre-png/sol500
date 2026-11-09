@@ -29,9 +29,10 @@ function parseChecklist(md) {
   return { milestones, features };
 }
 
-// node --test --test-reporter=tap ends with "# tests 107", "# pass 107", "# fail 0".
+// node --test --test-reporter=tap ends with "# tests 107", "# pass 107", "# fail 0". When the tests could not run there is no
+// summary, and every count is null (the Project tab reads that as "n/a", not as 0 tests).
 function parseTap(text) {
-  const num = k => { const m = String(text).match(new RegExp('^# ' + k + ' (\\d+)', 'm')); return m ? Number(m[1]) : 0; };
+  const num = k => { const m = String(text).match(new RegExp('^# ' + k + ' (\\d+)', 'm')); return m ? Number(m[1]) : null; };
   return { total: num('tests'), pass: num('pass'), fail: num('fail') };
 }
 

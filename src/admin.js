@@ -115,14 +115,22 @@
     }
     let j = null;
     try { j = await r.json(); } catch (e) { j = null; }
-    if (r.status === 401 && MODE === 'local') { S.problem = 'stale'; render(); return { error: 'stale' }; }
-    if (MODE === 'lan' && (r.status === 401 || r.status === 404)) {
-      const who = r.status === 401 ? 401 : await whoamiStatus();
-      if (who === 401 || who === 404) { logout(who === 404 ? 'admin.login.off' : 'admin.login.ended'); return { error: 'loggedOut' }; }
-    }
+    const lost = await authLost(r.status);
+    if (lost) return { error: lost };
     if (S.problem === 'network') S.problem = null;
     if (!r.ok) return Object.assign({ status: r.status }, j, { error: (j && j.error) || 'http' + r.status });
     return j || {};
+  }
+
+  // A 401 (or a 404 with the session gone) means the key is stale or the session ended: show the banner or the login screen.
+  // Returns the error to give back, or null when the answer was an ordinary one.
+  async function authLost(status) {
+    if (status === 401 && MODE === 'local') { S.problem = 'stale'; render(); return 'stale'; }
+    if (MODE === 'lan' && (status === 401 || status === 404)) {
+      const who = status === 401 ? 401 : await whoamiStatus();
+      if (who === 401 || who === 404) { logout(who === 404 ? 'admin.login.off' : 'admin.login.ended'); return 'loggedOut'; }
+    }
+    return null;
   }
 
   function logout(reason) {
@@ -217,7 +225,12 @@
   function sorted(list) {
     const c = COLS.find(x => x.key === S.sort.key) || COLS[0];
     const val = c.sortVal || (r => r[c.key]);
-    return list.slice().sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * S.sort.dir; });
+    const none = v => v == null || v === '';
+    return list.slice().sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (none(x) || none(y)) return none(x) && none(y) ? 0 : none(x) ? 1 : -1; // "—" rows last, whichever way it sorts
+      return (x < y ? -1 : x > y ? 1 : 0) * S.sort.dir;
+    });
   }
   function setSort(c) {
     S.sort = { key: c.key, dir: S.sort.key === c.key ? -S.sort.dir : (c.num || c.key === 'endedAt' ? -1 : 1) };
@@ -279,8 +292,8 @@
 
   async function downloadCsv() {
     let r;
-    try { r = await fetch('/api/admin/history.csv', { headers: { 'X-Admin-Key': S.token || '' }, cache: 'no-store' }); } catch (e) { flash(t('admin.error')); return; }
-    if (!r.ok) { flash(t('admin.error')); return; }
+    try { r = await fetch('/api/admin/history.csv', { headers: { 'X-Admin-Key': S.token || '' }, cache: 'no-store' }); } catch (e) { S.problem = 'network'; render(); return; }
+    if (!r.ok) { if (!(await authLost(r.status))) flash(t('admin.csvFailed')); return; }
     const url = URL.createObjectURL(await r.blob());
     const a = h('a', { href: url, download: 'sol500-history-' + new Date().toISOString().slice(0, 10) + '.csv' });
     document.body.appendChild(a);
@@ -591,6 +604,12 @@
     const lines = [h('p', { class: 'muted' }, t('admin.w.body')), h('p', { class: 'adm-warn' }, ico('warn', 16), t('admin.w.warn'))];
     if (S.role !== 'local') return panel(t('admin.w.title'), [...lines, h('p', { class: 'hint' }, t('admin.w.managed'))]);
     const msg = m => { S.wifiMsg = m; render(); };
+    // A refused form keeps what was typed: the render rebuilds the fields, so the two passwords are put back.
+    const refuse = m => {
+      const v = [p1.value, p2.value];
+      msg(m);
+      ['wifi-pw1', 'wifi-pw2'].forEach((id, i) => { const el = document.getElementById(id); if (el) el.value = v[i]; });
+    };
     const setEnabled = async on => {
       const r = await api('POST', '/api/admin/wifi', { enabled: on });
       if (r.error === 'noPassword') { msg({ k: 'admin.w.needPassword', tone: 'crit' }); return; }
@@ -604,10 +623,10 @@
       h('button', { class: 'btn', type: 'submit' }, ico('lock', 14), t('admin.w.save')));
     form.addEventListener('submit', async e => {
       e.preventDefault();
-      if (p1.value.length < 8 || p1.value.length > 64) { msg({ k: 'admin.w.short', tone: 'crit' }); return; }
-      if (p1.value !== p2.value) { msg({ k: 'admin.w.mismatch', tone: 'crit' }); return; }
+      if (p1.value.length < 8 || p1.value.length > 64) { refuse({ k: 'admin.w.short', tone: 'crit' }); return; }
+      if (p1.value !== p2.value) { refuse({ k: 'admin.w.mismatch', tone: 'crit' }); return; }
       const r = await api('POST', '/api/admin/wifi', { password: p1.value });
-      if (r.error) { msg({ k: r.error === 'badPassword' ? 'admin.w.short' : 'admin.error', tone: 'crit' }); return; }
+      if (r.error) { refuse({ k: r.error === 'badPassword' ? 'admin.w.short' : 'admin.error', tone: 'crit' }); return; }
       S.wifi = r;
       msg({ k: 'admin.w.saved', tone: 'ok' });
     });
@@ -684,7 +703,7 @@
     const features = P.features || [];
     const milestones = P.milestones && P.milestones.length ? P.milestones : [...new Set(features.map(f => f.milestone))].map(id => ({ id, title: '' }));
     const done = features.filter(f => f.done).length;
-    const tests = P.tests || { total: 0, pass: 0, fail: 0 };
+    const tests = P.tests || { total: null, pass: null, fail: null };
     const files = (P.code && P.code.files) || [];
     const sources = (P.sources || []).filter(s => /^https:\/\//.test(s.url));
     const biggest = h('div');
@@ -696,7 +715,7 @@
       h('div', { class: 'adm-tools' }, h('span', { class: 'hint' }, t('admin.p.generated', { date: dateTime(P.generatedAt) })), refresh),
       h('div', { class: 'stats' },
         stat(t('admin.p.features'), t('admin.p.done', { n: done, m: features.length })),
-        stat(t('admin.p.tests'), nf(tests.pass) + ' / ' + nf(tests.total),
+        stat(t('admin.p.tests'), tests.total == null ? t('admin.p.na') : nf(tests.pass) + ' / ' + nf(tests.total),
           tests.fail ? h('span', { class: 'chip crit' }, ico('crit', 12), t('admin.p.failing', { n: tests.fail })) : null),
         stat(t('admin.p.commits'), nf((P.commits && P.commits.count) || 0)),
         stat(t('admin.p.lines'), nf((P.code && P.code.total) || 0))),

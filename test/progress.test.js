@@ -30,7 +30,7 @@ test('the real spec has a checklist for every milestone and M1 is all done', () 
 test('test counts come from the TAP summary', () => {
   const tap = 'TAP version 13\n# Subtest: a\nok 1 - a\n1..120\n# tests 120\n# suites 0\n# pass 118\n# fail 2\n# cancelled 0\n';
   assert.deepEqual(parseTap(tap), { total: 120, pass: 118, fail: 2 });
-  assert.deepEqual(parseTap(''), { total: 0, pass: 0, fail: 0 });
+  assert.deepEqual(parseTap(''), { total: null, pass: null, fail: null }, 'tests that could not run read n/a, not 0');
 });
 
 test('commits keep tabs inside their subject', () => {
