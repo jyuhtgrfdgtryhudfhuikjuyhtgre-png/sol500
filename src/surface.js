@@ -1011,16 +1011,15 @@
       p.car = null; // parked: S.roverHeading keeps the way it faces
       refreshWorld(m);
       if (hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
-      S.eva.act('park', p, { driven: S.eva.report().driven }); // with the last bit of driving, so the battery is saved right
-      return;
+      return S.eva.act('park', p, { driven: S.eva.report().driven }); // with the last bit of driving, so the battery is saved right
     }
-    if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
-    if (S.eva.collapsed(S.data.controlId)) return; // down (co-op): you can't get in, not even until the server says no
+    if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return Promise.resolve({ error: 'noRover' }); }
+    if (S.eva.collapsed(S.data.controlId)) return Promise.resolve({ error: 'collapsed' }); // down (co-op): you can't get in, not even until the server says no
     p.inRover = true; // at once, so it feels immediate; in co-op the server may say someone else has it
     p.car = { heading: S.roverHeading || 0, speed: 0 }; // it faces the way it was left
     S.hintUntil = S.time + 12; // the rover's own key hint
     refreshWorld(m);
-    S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } });
+    return S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } return r; });
   }
   // The nearest open spot to stand on, within 3 tiles of (x, y) (world px), for getting out of the rover by a rock.
   function freeSpot(x, y) {
@@ -1406,5 +1405,16 @@
     clock(s) { S.eva.qaClock(s); }, // solo: jump the round's clock (a flare's warning, its end)
   };
 
-  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});
+  // The Showcase's scene (ui.js asks once the world is up): stand on a tile, get into the rover by the real rule (the E key's
+  // toggleRover, which asks the rules to board), and set the suit and the round clock. Throws when there is nothing to set up.
+  function scene(o) {
+    if (!S || !S.player) throw new Error('the surface is not ready');
+    if (o.at) qa.teleport(o.at[0], o.at[1]);
+    if (o.suit != null) qa.suit(o.suit);
+    if (o.clock != null) qa.clock(o.clock);
+    if (!o.board || S.player.inRover) return Promise.resolve();
+    return toggleRover().then(r => { if (r && r.error) throw new Error('the rover cannot be boarded: ' + r.error); }); // the rules' answer, not the optimistic one
+  }
+
+  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, scene, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});
 })(typeof self !== 'undefined' ? self : this);

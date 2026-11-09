@@ -217,6 +217,8 @@
       kitChange: { rover: 1, waterwall: 0, water: 1, o2: 1 }, // the reference kit swaps the water wall for a rover and carries less water and oxygen (8 rounds need less)
       grades: [['S', 1355], ['A', 1200], ['B', 1000], ['C', 800]],
     },
+    // The Showcase's demo game: a Quick mission (the only one that takes a scheduled moment and has a rover in its kit).
+    SHOWCASE: { difficulty: 'commander', crewSize: 5, waitTries: 30, waitMs: 100 }, // the surface gets 30 x 100 ms to be ready
     GLOBAL_STORM_CHANCE: 0.4,
     GLOBAL_STORM_TURNS: [10, 15],
     GLOBAL_STORM_LENGTH: 3,

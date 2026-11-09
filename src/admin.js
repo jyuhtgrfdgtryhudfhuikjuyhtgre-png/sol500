@@ -372,6 +372,7 @@
       h('div', { class: 'brand' }, h('b', null, 'SOL 500'), h('span', null, t('admin.title'))),
       h('div', { class: 'topbar-actions' },
         h('span', { class: 'chip info' }, ico(MODE === 'local' ? 'lock' : 'wifi', 14), t(MODE === 'local' ? 'admin.modeLocal' : 'admin.modeLan')),
+        MODE === 'local' ? h('a', { class: 'btn btn-sm', href: '/?showcase=1', 'data-k': 'admin-showcase' }, t('show.open')) : null, // the host's own page only
         h('a', { class: 'btn btn-ghost btn-sm', href: '/', 'data-k': 'admin-back' }, t('admin.back')),
         langSeg()));
   }

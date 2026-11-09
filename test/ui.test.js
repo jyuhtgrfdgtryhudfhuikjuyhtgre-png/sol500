@@ -12,7 +12,7 @@ const vm = require('node:vm');
 const I = require('../src/i18n.js');
 
 const T = 64;
-const SOURCES = ['data.js', 'engine.js', 'i18n.js', 'art.js', 'charts.js', 'worldgen.js', 'fog.js', 'expedition.js', 'goals.js', 'dangers.js', 'saves.js', 'ui.js']
+const SOURCES = ['data.js', 'engine.js', 'i18n.js', 'art.js', 'charts.js', 'worldgen.js', 'fog.js', 'expedition.js', 'goals.js', 'dangers.js', 'saves.js', 'showcase.js', 'ui.js']
   .map(f => [f, fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')]);
 const en = (k, p) => I.t('en', k, p);
 const plain = v => JSON.parse(JSON.stringify(v));
@@ -42,7 +42,7 @@ const click = n => { for (const fn of n.listeners.click) fn({ target: n, current
 
 // ui.js booted on a device whose localStorage holds `stored` (keys without the "sol500." prefix), with `globals` added to its
 // window (a stub SolNet). Timers wait for flush().
-function page(stored, globals) {
+function page(stored, globals, search) {
   const ls = {}, timers = [], app = new El('div'), surface = { hooks: null, data: null };
   for (const [k, v] of Object.entries(stored || {})) ls['sol500.' + k] = JSON.stringify(v);
   const win = {
@@ -51,8 +51,8 @@ function page(stored, globals) {
       addEventListener() {}, head: new El('head'), documentElement: new El('html'), activeElement: null, querySelector: () => null,
     },
     localStorage: { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: k => { delete ls[k]; } },
-    navigator: { language: 'en-US' }, location: { search: '', hostname: 'localhost', protocol: 'http:' },
-    addEventListener() {}, scrollTo() {}, Intl, console, setTimeout: fn => timers.push(fn), clearTimeout() {},
+    navigator: { language: 'en-US' }, location: { search: search || '', hostname: 'localhost', protocol: 'http:' },
+    addEventListener() {}, scrollTo() {}, Intl, URLSearchParams, console, setTimeout: fn => timers.push(fn), clearTimeout() {},
     SolSurface: { mount: hooks => { surface.hooks = hooks; return new El('div'); }, update: data => { surface.data = data; }, isMounted: () => false },
   };
   win.window = win.self = win;
@@ -1445,4 +1445,209 @@ test('after a Resume on the other slot, the 4 s save timer writes the mission to
   assert.equal(stored(pg, 'saveQuick').mission.expedition.suits.minh, 77, 'the quick slot has the new state');
   assert.ok(stored(pg, 'saveQuick').mission.quick);
   assert.deepEqual(stored(pg, 'save'), saves.save, 'the full slot is not overwritten');
+});
+
+// ---------- M5 Task 4: the Showcase (reached from the Admin page, a demo game that records nothing) ----------
+
+const showNet = (info, recorded) => ({ info: () => Promise.resolve(info), restore: () => null, recordSolo: (...a) => { recorded.push(a); } });
+const settle = () => new Promise(r => setImmediate(r));
+// A page opened at /?showcase=1 whose surface keeps the hooks of its last mount and the scenes it was asked for.
+function showPage(stored, { info = { adminHere: true }, scene, search = '?showcase=1' } = {}) {
+  const got = { hooks: null, scenes: [], recorded: [] };
+  const SolSurface = {
+    mount: hooks => { got.hooks = hooks; return new El('div'); }, update() {}, isMounted: () => false, reset() {},
+    probe: () => ({ world: {} }), scene: scene || (o => { got.scenes.push(o); return Promise.resolve(); }),
+  };
+  return Object.assign(page(stored, { SolNet: showNet(info, got.recorded), SolSurface }, search), { got });
+}
+const galleryKeys = pg => pg.all().map(n => n.attrs['data-k']).filter(k => /^show:/.test(k || ''));
+// A device that holds a real saved game, a badge, a seen-once list and an Operations tab choice.
+function realDevice() {
+  const seed = page(), m = seed.mission({ seed: 'REAL-1' });
+  return { save: { mission: m, plan: seed.E.defaultPlan(m) }, badges: ['landing'], regionsSeen: { key: 'REAL-1|solo', list: ['plains'], kinds: [] }, opsView: 'console' };
+}
+
+test('?showcase=1 opens the gallery with its 12 cards when this page is the host\'s own (adminHere)', async () => {
+  const pg = showPage();
+  await settle();
+  assert.equal(pg.UI.store.screen, 'showcase');
+  assert.equal(galleryKeys(pg).length, 12);
+  assert.equal(galleryKeys(pg)[0], 'show:flare');
+  assert.ok(pg.all().some(n => n.textContent === en('show.title')));
+  assert.equal(pg.UI.store.demo, null);
+});
+
+test('?showcase=1 through a share link or another device (adminHere false) shows the title', async () => {
+  const pg = showPage(null, { info: { lan: true, adminHere: false } });
+  await settle();
+  assert.equal(pg.UI.store.screen, 'title');
+  assert.deepEqual(galleryKeys(pg), []);
+});
+
+test('?showcase=1 in the offline file, with no server and no lanInfo, shows the title', async () => {
+  const none = showPage(null, { info: null });
+  const noNet = page(null, null, '?showcase=1');
+  await settle();
+  for (const pg of [none, noNet]) {
+    assert.equal(pg.UI.store.screen, 'title');
+    assert.deepEqual(galleryKeys(pg), []);
+  }
+});
+
+test('a page without ?showcase=1 never opens the gallery, adminHere or not', async () => {
+  const pg = showPage(null, { search: '' });
+  await settle();
+  assert.equal(pg.UI.store.screen, 'title');
+});
+
+test('a demo writes no save, no regionsSeen, no opsView and no badges, even advanced to its debrief; the real mission is back after', async () => {
+  const pg = showPage(realDevice());
+  await settle();
+  const real = pg.UI.store.mission;
+  assert.equal(real.seed, 'REAL-1');
+  // A save is pending when the demo starts: the real mission is written first, and no timer is left to write a demo.
+  Object.assign(pg.UI.store, { screen: 'ops', opsView: 'surface' });
+  pg.UI.render();
+  pg.got.hooks.suit({ suit: 80, driven: null, clock: 5, at: { x: 640, y: 200 } });
+  Object.assign(pg.UI.store, { screen: 'showcase', opsView: 'console' });
+  pg.UI.render();
+  click(pg.byKey('show:flare'));
+  pg.flush();
+  const snap = Object.assign({}, pg.ls), seen = plain(pg.UI.store.regionsSeen), badges = [...pg.UI.store.badges];
+  assert.equal(JSON.parse(snap['sol500.save']).mission.expedition.suits.minh, 80, 'the pending save of the real mission was written at the start');
+  assert.deepEqual(plain(pg.UI.store.demo), { id: 'flare' });
+  assert.equal(pg.UI.store.screen, 'ops');
+  assert.equal(pg.UI.store.mission.seed, require('../src/showcase.js').CODE);
+  const h = pg.got.hooks;
+  h.suit({ suit: 50, driven: null, clock: 9, at: { x: 700, y: 210 } });
+  h.enterRegion('plains');
+  h.card({ type: 'region', id: 'dunes' });
+  h.card({ type: 'log', id: 'S0,0', kind: 'weather' });
+  await h.exp('collect', {}, at(1, 1));
+  for (let i = 0; i < 30 && pg.UI.store.mission.status === 'active'; i++) { const st = pg.UI.store; st.plan.answered = Object.fromEntries((st.mission.events || []).map(e => [e.type, true])); pg.got.hooks.advance(); pg.UI.store.modal = null; pg.UI.render(); pg.flush(); }
+  assert.notEqual(pg.UI.store.mission.status, 'active', 'advanced to its debrief');
+  pg.UI.render();
+  pg.UI.store.modal = 'badges';
+  pg.UI.render();
+  pg.UI.store.modal = null;
+  pg.flush();
+  const same = label => {
+    assert.deepEqual(pg.ls, snap, label + ': localStorage');
+    assert.deepEqual(plain(pg.UI.store.regionsSeen), seen, label + ': regionsSeen in memory');
+    assert.deepEqual([...pg.UI.store.badges], badges, label + ': badges');
+    assert.equal(pg.got.recorded.length, 0, label + ': no history record');
+  };
+  same('at the debrief');
+  assert.ok(pg.UI.store.demo, 'still the demo');
+  click(pg.byKey('show-back'));
+  pg.flush();
+  same('back on the gallery');
+  assert.equal(pg.UI.store.screen, 'showcase');
+  assert.equal(pg.UI.store.demo, null);
+  assert.equal(pg.UI.store.mission, real, 'the presenter\'s mission is the one in memory');
+  assert.equal(pg.UI.store.opsView, 'console', 'and the Operations tab they were on');
+});
+
+test('a demo on the console tab and one that is a dialog leave the stored tab alone; a dialog card returns to the gallery when closed', async () => {
+  const pg = showPage(realDevice());
+  await settle();
+  const before = Object.assign({}, pg.ls);
+  click(pg.byKey('show:isru'));
+  pg.flush();
+  assert.equal(pg.UI.store.opsView, 'console');
+  click(pg.byKey('show-back'));
+  const modalId = require('../src/showcase.js').CARDS.find(c => c.view === 'modal').id;
+  click(pg.byKey('show:' + modalId));
+  pg.flush();
+  assert.ok(pg.dialog(), 'the card opens its dialog');
+  click(pg.byKey('modal-close'));
+  assert.equal(pg.UI.store.screen, 'showcase');
+  assert.equal(pg.UI.store.demo, null);
+  assert.deepEqual(pg.ls, before);
+});
+
+test('Show me asks the surface for the card\'s moment; a scene that throws shows show.failed, stays on the gallery and keeps the real mission', async () => {
+  const ok = showPage();
+  await settle();
+  click(ok.byKey('show:flare'));
+  ok.flush();
+  await settle();
+  const c = require('../src/showcase.js').card('flare');
+  assert.deepEqual(plain(ok.got.scenes), [plain({ at: c.at, board: c.board, suit: c.suit, clock: c.clock })]);
+  for (const scene of [() => { throw new Error('no world'); }, () => Promise.reject(new Error('no rover'))]) {
+    const pg = showPage(realDevice(), { scene });
+    await settle();
+    const real = pg.UI.store.mission;
+    click(pg.byKey('show:flare'));
+    await settle();
+    assert.equal(pg.UI.store.toast, en('show.failed'));
+    assert.equal(pg.UI.store.screen, 'showcase');
+    assert.equal(pg.UI.store.demo, null);
+    assert.equal(pg.UI.store.mission, real);
+  }
+});
+
+// ---------- M5 Task 4 fix round 1: the demo is a Quick mission, and the cards' hooks ----------
+
+test('the demo is a Quick mission: the flare card has its flare (20 s left), the rover card a rover, the oxygen card its rupture', async () => {
+  const pg = showPage();
+  await settle();
+  click(pg.byKey('show:flare'));
+  const m = pg.UI.store.mission;
+  assert.equal(m.quick, true);
+  assert.equal(m.schedule[0].spe, true, 'the flare is due in round 1');
+  assert.equal(m.expedition.flare.end - pg.got.scenes[0].clock, 20, 'the warning is running, and 20 s are left');
+  click(pg.byKey('show-back'));
+  click(pg.byKey('show:rover'));
+  assert.ok(pg.UI.store.mission.modules.rover.count >= 1, 'a rover in the kit');
+});
+
+test('the prepare of a card runs once on the demo mission before the surface opens, and a throw from it shows show.failed', async () => {
+  const pg = showPage(realDevice()), calls = [];
+  await settle();
+  const real = pg.UI.store.mission;
+  pg.win.SolShowcase.CARDS.push({ id: 'ok', source: null, view: 'surface', prepare: (s, R) => calls.push([s, !!R.Z]) }, { id: 'bad', source: null, view: 'surface', prepare: () => { throw new Error('no'); } });
+  pg.UI.render();
+  click(pg.byKey('show:ok'));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], pg.UI.store.mission);
+  assert.equal(calls[0][0].seed, pg.win.SolShowcase.CODE);
+  assert.equal(calls[0][1], true);
+  click(pg.byKey('show-back'));
+  click(pg.byKey('show:bad'));
+  assert.equal(pg.UI.store.toast, en('show.failed'));
+  assert.equal(pg.UI.store.screen, 'showcase');
+  assert.equal(pg.UI.store.demo, null);
+  assert.equal(pg.UI.store.mission, real);
+});
+
+test('a card with steps shows Next in the bar; Next asks the surface for the next step and wraps round', async () => {
+  const pg = showPage();
+  await settle();
+  pg.win.SolShowcase.CARDS.push({ id: 'walk', source: null, view: 'surface', at: [1, 2], steps: [[1, 2], [3, 4], [5, 6]] });
+  pg.UI.render();
+  click(pg.byKey('show:walk'));
+  assert.ok(pg.all().some(n => n.textContent === en('show.next')));
+  for (let i = 0; i < 3; i++) click(pg.byKey('show-next'));
+  assert.deepEqual(plain(pg.got.scenes.map(o => o.at)), [[1, 2], [3, 4], [5, 6], [1, 2]]);
+  click(pg.byKey('show-back'));
+  click(pg.byKey('show:flare'));
+  assert.equal(pg.byKey('show-next'), undefined, 'a card without steps has no Next');
+});
+
+test('Why Mars opens on its first page every time', async () => {
+  const pg = showPage();
+  await settle();
+  pg.UI.store.storyPage = 3;
+  click(pg.byKey('show:story'));
+  assert.equal(pg.UI.store.storyPage, 0);
+});
+
+test('a surface that throws when asked for its probe fails the scene cleanly', async () => {
+  const pg = showPage();
+  await settle();
+  pg.win.SolSurface.probe = () => { throw new Error('boom'); };
+  click(pg.byKey('show:flare'));
+  assert.equal(pg.UI.store.toast, en('show.failed'));
+  assert.equal(pg.UI.store.demo, null);
 });

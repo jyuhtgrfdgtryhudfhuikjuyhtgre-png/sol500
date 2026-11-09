@@ -5,7 +5,7 @@
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, SV = window.SolSaves, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers, G = window.SolGoals;
+  const D = window.SolData, E = window.SolEngine, SV = window.SolSaves, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers, G = window.SolGoals, SH = window.SolShowcase;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -13,9 +13,11 @@
     get(k, d) {
       try { const v = localStorage.getItem('sol500.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; }
     },
-    set(k, v) { try { localStorage.setItem('sol500.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
-    del(k) { try { localStorage.removeItem('sol500.' + k); } catch (e) { /* ignore */ } },
+    // A Showcase demo writes nothing of the game's: only the language and the Display settings (the presenter's own choices) reach the disk.
+    set(k, v) { if (store.demo && !DEMO_KEYS.includes(k)) return; try { localStorage.setItem('sol500.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
+    del(k) { if (store.demo && !DEMO_KEYS.includes(k)) return; try { localStorage.removeItem('sol500.' + k); } catch (e) { /* ignore */ } },
   };
+  const DEMO_KEYS = ['lang', 'settings'];
 
   // ---------- state ----------
   const store = {
@@ -34,6 +36,7 @@
     advice: null,
     badges: new Set(LS.get('badges', [])),
     newBadges: [],
+    demo: null,           // the Showcase's demo game: null, or { id } of the card being shown
     lanInfo: null,
     lan: null,
     room: null,
@@ -190,7 +193,7 @@
 
   // ---------- persistence ----------
   function saveSolo() {
-    if (lanOn()) return;
+    if (lanOn() || store.demo) return;
     if (!store.mission) return;
     if (store.mission.status === 'active') LS.set(SV.slotOf(store.mission), { mission: store.mission, plan: store.plan });
     else LS.del(SV.slotOf(store.mission));
@@ -200,7 +203,7 @@
   // Exploring changes the mission every second, so its save is written at most every few seconds (and on leaving).
   let saveTimer = null;
   function saveSoloSoon() {
-    if (saveTimer) return;
+    if (saveTimer || store.demo) return;
     saveTimer = setTimeout(() => { saveTimer = null; saveSolo(); }, 4000);
   }
   // Phones and installed apps often skip pagehide when the OS kills a backgrounded page, so a hidden page flushes too.
@@ -210,6 +213,7 @@
 
   // ---------- actions ----------
   function go(screen) {
+    if (store.demo && screen === 'title') { leaveDemo(); return; }
     store.screen = screen;
     store.buildType = null;
     render();
@@ -302,6 +306,7 @@
   }
 
   function checkBadges(state) {
+    if (store.demo) return;
     const got = E.achievements(state);
     const fresh = got.filter(b => !store.badges.has(b));
     fresh.forEach(b => store.badges.add(b));
@@ -319,7 +324,7 @@
     store.advice = null;
     checkBadges(state);
     // Served by a SOL 500 server (not the offline file): the host's admin panel records the finished mission.
-    if (state.status !== 'active' && store.lanInfo && N) N.recordSolo(state, store.lanForm.name || '');
+    if (state.status !== 'active' && store.lanInfo && N && !store.demo) N.recordSolo(state, store.lanForm.name || '');
     store.modal = 'report';
     saveSolo();
     render();
@@ -334,6 +339,7 @@
   }
 
   function flyAgain() {
+    if (store.demo) { leaveDemo(); return; }
     const s = mission();
     if (lanOn()) { N.act('restart'); return; }
     store.seed = s.seed;
@@ -349,6 +355,7 @@
   }
 
   function newMission() {
+    if (store.demo) { leaveDemo(); return; }
     if (lanOn()) { N.act('restart'); return; }
     if (store.mission) LS.del(SV.slotOf(store.mission));
     store.mission = null;
@@ -712,8 +719,10 @@
   // With a `kind` (a story log's or a fact's), also only the first of its kind: there are 6 log texts and 7 facts.
   function firstTime(id, kind) {
     const key = missionKey();
-    if (store.regionsSeen.key !== key) store.regionsSeen = { key, list: [] };
-    const rs = store.regionsSeen, kinds = rs.kinds || (rs.kinds = []);
+    // A demo keeps its own list, in memory: the device's list is neither read nor changed.
+    let rs = store.demo ? demoSeen : store.regionsSeen;
+    if (rs.key !== key) { rs = { key, list: [] }; if (store.demo) demoSeen = rs; else store.regionsSeen = rs; }
+    const kinds = rs.kinds || (rs.kinds = []);
     const newId = !rs.list.includes(id), newKind = !kind || !kinds.includes(kind);
     if (newId) rs.list.push(id);
     if (kind && newKind) kinds.push(kind);
@@ -2227,6 +2236,7 @@
   }
 
   function render() {
+    if (store.demo && !store.modal && SH.card(store.demo.id).view === 'modal') { leaveDemo(); return; } // a dialog card ends with its dialog
     const active = document.activeElement;
     const focusKey = active && active.getAttribute ? active.getAttribute('data-k') : null;
     const focusId = active && active.id && active.tagName === 'INPUT' ? active.id : null;
@@ -2237,11 +2247,13 @@
     else if (name === 'ops') view = mission() && mission().status === 'active' ? viewOps() : viewDebrief();
     else if (name === 'debrief') view = viewDebrief();
     else if (name === 'lobby') view = viewLobby();
+    else if (name === 'showcase') view = viewShowcase();
     else view = viewTitle();
     const root = h('main', { class: store.prevScreen !== name ? 'screen-in' : '' }, view);
     const nodes = [root];
     const m = store.modal ? renderModal() : null;
     if (m) nodes.push(m);
+    if (store.demo) nodes.push(demoBar());
     if (store.toast) nodes.push(h('div', { class: 'toast', role: 'status' }, store.toast));
     app.replaceChildren(...nodes);
     store.prevScreen = name;
@@ -2261,6 +2273,85 @@
       render();
     }
   });
+
+  // ---------- the Showcase (spec M5 §5) ----------
+  // The presenter's gallery of 12 cards, reached from the Admin page (/?showcase=1, honoured only on the host's own page).
+  // Show me builds a throwaway mission on SH.CODE and swaps it for the presenter's own in memory; store.demo marks it, and while
+  // it is set nothing is saved, recorded or remembered (see LS, saveSolo, checkBadges, firstTime). Leaving puts the presenter's
+  // mission, plan and tab back as they were.
+  let demoKeep = null, demoSeen = null, demoStep = 0;
+  function viewShowcase() {
+    return [
+      h('header', { class: 'topbar' },
+        h('div', { class: 'brand' }, h('b', null, 'SOL 500'), h('span', null, t('show.open'))),
+        h('div', { class: 'topbar-actions' }, h('a', { class: 'btn btn-ghost btn-sm', href: '/admin', 'data-k': 'show-exit' }, t('show.exit')), langSeg())),
+      h('section', { class: 'show' },
+        h('h1', null, t('show.title')),
+        h('div', { class: 'show-grid' }, SH.CARDS.map(c => h('article', { class: 'panel show-card' },
+          h('h2', null, t('show.card.' + c.id + '.name')),
+          h('p', null, t('show.card.' + c.id + '.why')),
+          c.source ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(I.SOURCES[c.source])) : null,
+          h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'show:' + c.id, onclick: () => showScene(c.id) }, t('show.me')))))),
+    ];
+  }
+  // The bar over the stage: back to the gallery, and the card's purpose on one line.
+  function demoBar() {
+    const why = t('show.card.' + store.demo.id + '.why'), steps = SH.card(store.demo.id).steps;
+    const next = () => {
+      demoStep = (demoStep + 1) % steps.length;
+      try { Promise.resolve(window.SolSurface.scene({ at: steps[demoStep] })).catch(() => toast(t('show.failed'))); } catch (e) { toast(t('show.failed')); }
+    };
+    return h('div', { class: 'show-bar' },
+      h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'show-back', onclick: leaveDemo }, t('show.back')),
+      steps ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'show-next', onclick: next }, t('show.next')) : null,
+      h('p', { class: 'show-cap', title: why }, h('b', null, t('show.why') + ': '), why));
+  }
+  function showScene(id) {
+    const c = SH.card(id);
+    if (!c || lanOn() || store.demo) return;
+    flushSolo(); // a save already waiting is the presenter's, and goes to disk now; the demo starts with no timer pending
+    demoKeep = { mission: store.mission, plan: store.plan, report: store.report, advice: store.advice, opsView: store.opsView };
+    const sc = D.SHOWCASE;
+    let s;
+    try {
+      s = E.createMission({
+        seed: SH.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, true), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
+        pilot: D.CREW.find(x => x.role === 'commander').id, quick: true, schedulePatch: c.schedule,
+      });
+      G.pick(s);
+      if (c.prepare) c.prepare(s, { Z, X });
+    } catch (e) { demoKeep = null; toast(t('show.failed')); return; }
+    held = [];
+    demoStep = 0;
+    demoSeen = { key: '', list: [] };
+    Object.assign(store, { demo: { id }, mission: s, plan: E.defaultPlan(s), report: null, advice: null, card: null, opsView: c.view === 'console' ? 'console' : 'surface', modal: c.view === 'modal' ? c.modal : null, storyPage: 0 });
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
+    go('ops');
+    if (c.view === 'surface' && (c.at || c.board || c.suit != null || c.clock != null)) setUpScene(c, 0);
+  }
+  // The surface builds its world on the render that mounts it; the scene waits for it (about 3 s at most), then asks once.
+  function setUpScene(c, tries) {
+    if (!store.demo || store.demo.id !== c.id) return;
+    const SS = window.SolSurface, fail = () => { if (store.demo && store.demo.id === c.id) { leaveDemo(); toast(t('show.failed')); } };
+    try {
+      const p = SS && SS.probe && SS.probe();
+      if (!p || !p.world) { if (tries >= D.SHOWCASE.waitTries) fail(); else setTimeout(() => setUpScene(c, tries + 1), D.SHOWCASE.waitMs); return; }
+      Promise.resolve(SS.scene({ at: c.at, board: c.board, suit: c.suit, clock: c.clock })).catch(fail);
+    } catch (e) { fail(); }
+  }
+  function leaveDemo() {
+    const keep = demoKeep;
+    demoKeep = demoSeen = null;
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    held = [];
+    store.demo = null;
+    setCard(null);
+    store.modal = null;
+    if (keep) Object.assign(store, keep);
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
+    go('showcase');
+  }
 
   // ---------- installable app ----------
   let installEvt = null;
@@ -2299,9 +2390,10 @@
         store.lanInfo = info;
         const s = N.restore();
         // Opened from a friend's "Join game" (…/?join=CODE): go straight to the join dialog with the code filled in.
-        let joinCode = null;
-        try { joinCode = new URLSearchParams(location.search).get('join'); } catch (e) { /* no query */ }
+        let joinCode = null, showcase = false;
+        try { joinCode = new URLSearchParams(location.search).get('join'); showcase = info.adminHere === true && new URLSearchParams(location.search).get('showcase') === '1'; } catch (e) { /* no query */ }
         const invited = !s && !!joinCode && /^[A-Za-z]{1,6}$/.test(joinCode);
+        if (showcase) { store.screen = 'showcase'; render(); return; } // the host's own page only; no co-op session is resumed for it
         if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing); }
         else if (invited) { store.lanForm.code = joinCode.toUpperCase(); store.modal = 'lan'; }
         render();
