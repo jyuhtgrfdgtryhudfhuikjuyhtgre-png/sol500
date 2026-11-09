@@ -122,6 +122,7 @@
     S.worldSeed = null;
     S.remote = {}; // the last room's players: this room's (if any) come with its next positions
     S.eva.reset(); // and the exploring layer: the old mission's suit, battery and collapse stay with it
+    if (S.menuOpen) closeMenu(); // an open menu was the old mission's
   }
 
   // The base's own blockers (the HQ, the reactor, the lander, rocks on the build grid) and the grid lookups.

@@ -910,6 +910,20 @@ const menuButtons = pg => {
     return [txt.children[0].textContent, txt.children[1] ? txt.children[1].textContent : '', b.disabled, b];
   });
 };
+test('a menu left open does not survive a new mission', () => {
+  const m = mission({ seed: 'HQ-MENU' }), pg = page(m, 'minh');
+  const hq = m.layout.find(k => k.type === 'hab');
+  pg.qa.teleport(hq.x + W.BASE_RECT.x, hq.y + W.BASE_RECT.y - 0.65);
+  pg.step(0.2);
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  assert.equal(pg.probe().menu, 'hq', 'the HQ menu is open');
+  pg.reset();
+  pg.show(mission({ seed: 'HQ-MENU-2' }));
+  pg.step(0.2);
+  assert.equal(pg.probe().menu, null, "the new mission starts with no menu");
+});
+
 test("the HQ's menu builds a relay beacon kit, as it adds a shield layer: its cost, or why not", () => {
   const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh');
   const hq = m.layout.find(k => k.type === 'hab');
