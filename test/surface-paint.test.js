@@ -103,6 +103,20 @@ test("a far explored chunk's mini image is queued, and building it never pushes 
   assert.deepEqual(world.liveKeys().sort(), ['0,0', '1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '7,0']);
 });
 
+test('a mini drawn this frame is never evicted: past 512 explored chunks the map does not rebuild them every frame', () => {
+  const world = SW.create('PAINT-MINI', { cap: 700 });
+  const p = P.createPainter(world, { canvas, now: () => 0 });
+  const keys = [];
+  for (let i = 0; i < 540; i++) { const cx = i % 30, cy = Math.floor(i / 30); world.get(cx, cy); world.reveal(cx * 32 + 5, cy * 32 + 5, 3); keys.push([cx, cy]); }
+  const frame = () => { p.workMinis(Infinity); for (const [cx, cy] of keys) p.mini(cx, cy); };
+  frame();
+  frame();
+  const renders = p.stats().renders;
+  frame();
+  assert.equal(p.stats().renders, renders, 'a third frame of the same view builds nothing');
+  assert.ok(p.stats().minis >= 540, 'all of the frame stays cached: ' + p.stats().minis);
+});
+
 // A context that records every call, in order, as [name, ...args].
 function recorder() {
   const calls = [];

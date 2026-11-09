@@ -83,7 +83,7 @@ function element(tag) {
 // `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet).
 function page(m, me, opts) {
   const o = opts || {};
-  let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7;
+  let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7, resized = null;
   const on = {}, sent = [], calls = [], walks = [], queued = [];
   const { painter, seen } = stubPainter(() => clock);
   const win = {
@@ -92,6 +92,7 @@ function page(m, me, opts) {
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
     location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: function () {},
     matchMedia: () => ({ matches: false }),
+    ResizeObserver: function (fn) { this.observe = () => { resized = fn; }; }, // the page's `pg.resize()` is the browser telling it the stage changed
     addEventListener: (type, fn) => { (on[type] = on[type] || []).push(fn); },
     requestAnimationFrame: fn => { raf = fn; },
   };
@@ -126,7 +127,7 @@ function page(m, me, opts) {
   show(m);
   return {
     sent, calls, walks, queued, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
-    canvas, overlay: root.children[1], seen, setGfx(g) { gfx = g; show(cur); },
+    canvas, overlay: root.children[1], seen, resize: () => resized(), setGfx(g) { gfx = g; show(cur); },
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
     // `secs` of frames at `hz` with synthetic timestamps, as requestAnimationFrame gives them (the clock is the frame's exact time;
     // the timestamp wobbles by up to ±`jitter` ms); returns how many of them drew the ground.
@@ -591,6 +592,25 @@ test('a new quality is drawn at once, even under an FPS limit: the resize cleare
   assert.equal(one(), 1, 'the callback 14 ms after it draws: the new quality resized the canvas, which cleared it');
 });
 
+test('a resize asks for the next draw at once, even under an FPS limit: it cleared the canvas', () => {
+  const m = mission({ seed: 'CAP-4' });
+  const pg = page(m, 'minh', { gfx: { fpsCap: 30 } });
+  const one = () => pg.frames(144, 1 / 144);
+  pg.frames(144, 0.5);
+  let n = 0;
+  while (!one()) assert.ok(++n < 5, 'a frame is drawn at least every five callbacks');
+  assert.equal(one(), 0, 'the callback 7 ms after a drawn frame is skipped');
+  pg.resize(); // a window drag
+  assert.equal(one(), 1, 'the next callback draws');
+});
+
+test('Fast never draws more pixels than Best on a zoomed-out browser (ratio 0.5), and is still 1 at 3', () => {
+  const m = mission({ seed: 'GFX-2' });
+  const px = (dpr, quality) => { const pg = page(m, 'minh', { dpr, gfx: { quality } }); pg.step(0.1); return pg.canvas.width * pg.canvas.height; };
+  assert.ok(px(0.5, 'fast') <= px(0.5, 'best'), 'ratio 0.5: ' + px(0.5, 'fast') + ' against ' + px(0.5, 'best'));
+  assert.equal(px(3, 'fast'), 960 * 640, 'ratio 3: Fast stays at 1');
+});
+
 test('the FPS limit does not slow the game: a skipped callback leaves its time to the next frame; the fps reading is the rate actually drawn', () => {
   const m = mission({ seed: 'CAP-2' });
   const run = cap => {
@@ -767,6 +787,30 @@ test("E where a relay beacon cannot go opens no menu: the prompt has already sai
   assert.equal(pg.probe().menu, null, 'no menu');
 });
 
+// Every element under `n` whose class list holds `cls`.
+const findAll = (n, cls) => [n].concat(...(n.children || []).map(c => findAll(c, cls))).filter(c => c && String(c.className || '').split(' ').includes(cls));
+test('a refused beacon spot shows no key cap; a spot where E works does', () => {
+  const m = mission({ seed: 'KIT-E' });
+  m.expedition.carried.minh = [E.kitItem()];
+  const pg = page(m, 'minh');
+  pg.qa.teleport(6, 9); // too close to the base for a beacon
+  pg.step(0.2);
+  const prompt = () => findAll(pg.overlay, 'sf-prompt')[0];
+  assert.equal(pg.probe().focus, 'beacon');
+  assert.equal(prompt().children.some(c => c.tagName === 'KBD'), false, 'no key cap where E does nothing');
+  const [x, y] = openSpotFor(m);
+  pg.qa.teleport(x, y);
+  pg.step(0.2);
+  assert.equal(pg.probe().focus, 'beacon');
+  assert.equal(prompt().children.some(c => c.tagName === 'KBD'), true, 'the key cap where a beacon can go');
+});
+// A tile far enough from the base for a beacon, where nothing else is in reach.
+function openSpotFor(m) {
+  const w = SW.create(m.seed);
+  for (let x = 14; x < 80; x++) if ([0, 1, 2].every(d => !w.isBlocked(x + d, 9)) && !X.inBaseZone({ x: (x + 0.5) * T, y: 9.5 * T })) return [x, 9];
+  return null;
+}
+
 const pingsOf = pg => plain(pg.probe().marks).filter(k => k.ping).map(k => [k.x, k.y, k.label]);
 test('P pings where you stand: solo shows it on your own maps at once, without the network; at most one a second', () => {
   const pg = page(mission({ seed: 'PING-1' }), 'minh');
@@ -866,6 +910,20 @@ const menuButtons = pg => {
     return [txt.children[0].textContent, txt.children[1] ? txt.children[1].textContent : '', b.disabled, b];
   });
 };
+test('a menu left open does not survive a new mission', () => {
+  const m = mission({ seed: 'HQ-MENU' }), pg = page(m, 'minh');
+  const hq = m.layout.find(k => k.type === 'hab');
+  pg.qa.teleport(hq.x + W.BASE_RECT.x, hq.y + W.BASE_RECT.y - 0.65);
+  pg.step(0.2);
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  assert.equal(pg.probe().menu, 'hq', 'the HQ menu is open');
+  pg.reset();
+  pg.show(mission({ seed: 'HQ-MENU-2' }));
+  pg.step(0.2);
+  assert.equal(pg.probe().menu, null, "the new mission starts with no menu");
+});
+
 test("the HQ's menu builds a relay beacon kit, as it adds a shield layer: its cost, or why not", () => {
   const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh');
   const hq = m.layout.find(k => k.type === 'hab');
@@ -1056,6 +1114,56 @@ test('a rover driven into a wall stops dead: no speed is left for the HUD, the c
   assert.ok(p.x < wx * T, 'it stops short of the wall: ' + p.x);
   assert.equal(p.speed, 0, 'and stands still, not at ' + p.speed + ' px/s');
   pg.key('KeyD', false);
+});
+
+// The drawn rover reaches about 61 px past its middle, which is drawn 10 px above its feet (F13).
+const FRONT = 61;
+// A column of n open tiles, away from the base, that ends at a wall to its north: [x, wall tile row, row of the south end].
+function colToWall(seed, n) {
+  const w = SW.create(seed), open = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y);
+  for (let x = 8; x < 300; x++) for (let y = 400, run = 0; y > 8; y--) {
+    if (open(x, y) && open(x - 1, y) && open(x + 1, y)) run++;
+    else { if (run >= n && w.isBlocked(x, y, true)) return [x, y, y + run]; run = 0; }
+  }
+  return null;
+}
+test('the nose probe stops the rover before the drawn front reaches a wall, east and north', () => {
+  const { m, pg } = inRover('WALL-1');
+  const [, y, wx] = rowToWall(m.seed, 14);
+  pg.qa.teleport(wx - 12, y);
+  pg.step(0.2);
+  pg.key('KeyD');
+  pg.step(4);
+  let p = pg.probe().player;
+  assert.ok(p.x + FRONT <= wx * T, 'east: the front is at ' + (p.x + FRONT) + ', the wall at ' + wx * T);
+  pg.key('KeyD', false);
+  const c = colToWall(m.seed, 14);
+  assert.ok(c, 'a column ending at a wall');
+  const [cx, wy, sy] = c;
+  pg.qa.teleport(cx, sy - 2);
+  pg.step(0.2);
+  pg.key('KeyW');
+  pg.step(6);
+  p = pg.probe().player;
+  assert.ok(p.y - 10 - FRONT >= (wy + 1) * T, 'north: the front is at ' + (p.y - 10 - FRONT) + ', the wall ends at ' + (wy + 1) * T);
+  pg.key('KeyW', false);
+});
+
+test('a rover still drives north through a 1-tile gap between two rocks with the longer nose', () => {
+  const w = SW.create('GAP-1'), open = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y) && !w.isBlocked(x, y, true);
+  let gap = null;
+  for (let x = 12; x < 300 && !gap; x++) for (let y = 12; y < 300; y++) {
+    if (open(x, y) && w.isBlocked(x - 1, y, true) && w.isBlocked(x + 1, y, true) && [-2, -1, 1, 2].every(d => open(x, y + d))) { gap = [x, y]; break; }
+  }
+  assert.ok(gap, 'a 1-tile gap in this seed');
+  const { pg } = inRover('GAP-1');
+  pg.qa.teleport(gap[0], gap[1] + 2);
+  pg.step(0.2);
+  pg.key('KeyW');
+  pg.step(5);
+  const p = pg.probe().player;
+  assert.ok(p.y < (gap[1] - 1) * T, 'through the gap (tile row ' + gap[1] + '), now at row ' + p.y / T);
+  pg.key('KeyW', false);
 });
 
 test('click-to-drive to a spot by a wall ends there, not pushing at the wall for ever', () => {

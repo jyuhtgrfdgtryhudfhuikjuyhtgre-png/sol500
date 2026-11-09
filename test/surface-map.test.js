@@ -186,6 +186,21 @@ test('on the full map a click that does not drag pings the spot under it; a drag
   assert.equal(pinged.length, 1, 'a drag of 15 px: no ping');
 });
 
+test('only the primary button pings on the full map: a right or middle click does not', () => {
+  const pinged = [];
+  const { map } = setup('MAP-PING-4', { onPing: (x, y) => pinged.push([x, y]) });
+  map.open({ px: 0, py: 0, crew: [] });
+  const fc = map.el.children[0];
+  for (const button of [1, 2]) {
+    fire(fc, 'pointerdown', { pointerId: 1, clientX: 110, clientY: 50, button });
+    fire(fc, 'pointerup', { pointerId: 1, clientX: 110, clientY: 50, button });
+  }
+  assert.equal(pinged.length, 0, 'the middle and right buttons: no ping');
+  fire(fc, 'pointerdown', { pointerId: 1, clientX: 110, clientY: 50, button: 0 });
+  fire(fc, 'pointerup', { pointerId: 1, clientX: 110, clientY: 50, button: 0 });
+  assert.equal(pinged.length, 1, 'the primary button (a pen or a finger reports 0)');
+});
+
 test("the maps draw a ping as a ring in the sender's colour with their name, and a mark's or a line's alpha as its faintness", () => {
   const { map } = setup('MAP-PING-3');
   const calls = [];

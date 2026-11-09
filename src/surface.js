@@ -31,7 +31,7 @@
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
   const SPEED = 150, SPRINT_X = 1.75, NPC_SPEED = 115; // the rover's top speed is src/physics.js's ROVER.top (390 px/s)
-  const NOSE = 40; // px ahead of the rover's middle: its nose, kept out of walls so the drawn rover never drives into one
+  const NOSE = 61; // px ahead of the drawn rover's middle (10 px above its feet): its front, kept out of walls so the drawn rover never drives into one
   const PUSH_TIME = 0.25; // seconds a dust devil's throw takes (a slide that stops at walls)
   const WALK_GAP = 0.15; // seconds between two walking samples (the walk hook), about co-op's position cadence (110 ms or more)
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -122,6 +122,7 @@
     S.worldSeed = null;
     S.remote = {}; // the last room's players: this room's (if any) come with its next positions
     S.eva.reset(); // and the exploring layer: the old mission's suit, battery and collapse stay with it
+    if (S.menuOpen) closeMenu(); // an open menu was the old mission's
   }
 
   // The base's own blockers (the HQ, the reactor, the lander, rocks on the build grid) and the grid lookups.
@@ -235,13 +236,14 @@
   const groundScale = () => (S.gfx.quality === 'best' ? 2 : 1);
   function resize() {
     const r = S.el.getBoundingClientRect();
-    const dpr = S.gfx.quality === 'fast' ? 1 : Math.min(4, window.devicePixelRatio || 1);
+    const dpr = Math.min(S.gfx.quality === 'fast' ? 1 : 4, window.devicePixelRatio || 1);
     S.view.w = r.width;
     S.view.h = r.height;
     S.view.dpr = dpr;
     S.view.zoom = clamp(r.width / (T * 10.5), 0.62, 1.55);
     S.canvas.width = Math.max(1, Math.round(r.width * dpr));
     S.canvas.height = Math.max(1, Math.round(r.height * dpr));
+    S.nextDraw = 0; // the next callback draws, even under a limit: the resize cleared the canvas
   }
 
   function t(k, p) { return S.data ? S.data.t(k, p) : k; }
@@ -421,7 +423,6 @@
     if (!changed) return;
     resize();
     if (S.painter) S.painter.setScale(groundScale());
-    S.nextDraw = 0; // the next callback draws, even under a limit: the resize cleared the canvas
   }
 
   function update(data) {
@@ -667,7 +668,7 @@
       if (step > 0) {
         const hx = Math.cos(p.car.heading), hy = Math.sin(p.car.heading), mx = p.x + hx * step, my = p.y + hy * step;
         const stuck = hitsWall(p.x, p.y, true);
-        const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !hitsWall(x + hx * NOSE, y + hy * NOSE, true))) && S.eva.canMove(p, x, y));
+        const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !isBlocked(Math.floor((x + hx * NOSE) / T), Math.floor((y - 10 + hy * NOSE) / T), true))) && S.eva.canMove(p, x, y));
         // A move along an axis the rover isn't heading on is no move, so it can't count as allowed: head-on into a wall,
         // both are refused and the rover stops dead, with no speed left to show, send or turn with.
         const okX = Math.abs(hx) > 1e-6 && ok(mx, p.y);
@@ -980,8 +981,8 @@
       if (S.prompt.dataset.label !== label) {
         S.prompt.dataset.label = label;
         S.prompt.textContent = '';
-        const k = el('kbd', null, S.touch ? '◉' : 'E');
-        S.prompt.append(k, document.createTextNode(' ' + label));
+        const k = f.kind === 'beacon' && !S.eva.holdable(f) ? null : el('kbd', null, S.touch ? '◉' : 'E'); // no key cap where E does nothing
+        S.prompt.append(...(k ? [k] : []), document.createTextNode((k ? ' ' : '') + label));
       }
     }
     const hintKey = S.player && S.player.inRover ? (S.touch ? 'sf.hintRoverTouch' : 'sf.hintRover') : (S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
@@ -997,7 +998,7 @@
     if (!S.focus) return;
     if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
     if (S.focus.kind === 'rover') { toggleRover(); return; }
-    if (S.focus.kind === 'beacon') return; // where a beacon cannot go: the prompt says why, and there is no menu
+    if (S.focus.kind === 'beacon' || S.focus.kind === 'drop') return; // where a beacon cannot go, or a load will not fit: the prompt says why, and there is no menu
     openMenu();
   }
 

@@ -167,6 +167,7 @@
     fogOut = {};
     fogSent = [];
     store.launchSeen = null;
+    setCard(null); // and the old mission's card
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
   }
   const mission = () => (lanOn() ? store.room.mission : store.mission);
@@ -258,6 +259,7 @@
     });
     G.pick(s); // round 1's goals; each advance picks the next round's
     held = [];
+    setCard(null); // the last mission's card ("Fly again" reuses the code)
     store.mission = s;
     store.plan = E.defaultPlan(s);
     store.report = null;
@@ -904,6 +906,7 @@
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
     card: c => showCard(c),
+    cardUp: () => !!store.card, // the surface says the round brief again once the card over it closes
     // This round's goals for the surface's HUD column (spec §3.9): [{ text, done, frac }], frac 0-1; empty when there are none.
     // The HUD asks twice a second, so the Expedition panel beside it follows here too (followGoals).
     goals: () => followGoals(goalsOf(mission())).map(g => ({

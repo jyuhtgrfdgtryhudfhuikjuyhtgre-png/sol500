@@ -81,6 +81,7 @@
     let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [], refillAt = -1e9, inPod = null;
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
+    let briefed = null;                            // the round brief while its note runs: { until, covered } (a card over the HUD hid it)
     let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
     let asked = {};                                // landmark id → when its discovery was answered (Infinity while asked)
     let told = [];                                 // the beacons and pods whose "already refilled" was said this round
@@ -222,7 +223,7 @@
       if (benched()) return { text: t('eva.benched'), cls: 'warn' };
       if (p && p.inRover && driven >= XD.roverRange) return { text: t('eva.flat'), cls: 'warn' };
       const atBase = !!p && X.inBaseZone(p);
-      if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t('eva.full'), cls: '' };
+      if (live() && pack().length >= X.capacity(mission(), me) && pack().some(i => !E.isKit(i)) && !atBase) return { text: t('eva.full'), cls: '' };
       if (live() && suit <= XD.suit * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
       const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
       if (cover) return { text: t(cover), cls: 'ok' };
@@ -283,7 +284,8 @@
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
       prop('pk', items.map(i => i.res + (i.canister ? '*' : '')).join(',') + '|' + cap + '|' + (shown.lang || ''), () => {
         packEl.textContent = '';
-        packEl.setAttribute('aria-label', t('eva.pack', { n: items.length, m: cap }));
+        const kitN = items.filter(E.isKit).length; // a kit is counted apart from the loads
+        packEl.setAttribute('aria-label', kitN ? t('eva.packKit', { n: items.length - kitN, k: kitN, m: cap }) : t('eva.pack', { n: items.length, m: cap }));
         for (let i = 0; i < cap; i++) {
           const it = items[i], slot = node('span', 'slot' + (it ? ' full' : ''));
           if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = E.isKit(it) ? t('mod.kit') : t('haul.' + it.res, { n: it.amount }); }
@@ -344,6 +346,7 @@
     function brief(m) {
       const params = { storm: { n: Z.viewTiles(m, false) } };
       const list = Z.outside(m).map(k => t('eva.brief.' + k, params[k]));
+      briefed = list.length ? { until: now + 8, covered: false } : null;
       if (list.length) say(t('eva.brief', { list: list.join(', ') }), 'warn', 8);
     }
 
@@ -356,7 +359,7 @@
       const id = d.controlId || null;
       let round = false, fresh = false;
       if (m.turn !== turn || id !== me) {
-        const first = turn == null;
+        const first = turn == null, newRound = !first && m.turn !== turn;
         round = !first && m.turn !== turn && id === me;
         fresh = !round;
         turn = m.turn;
@@ -370,7 +373,7 @@
         if (round) soloClock = 0;
         else if (first) soloClock = Z.clockOf(m); // a reload picks the round's clock up where it was saved
         warned = !!(m.expedition.flare && clock() >= m.expedition.flare.warn); // a warning already under way is not said again
-        if (first || round) brief(m);
+        if (first || newRound) brief(m); // at an advance whoever's seat it is
       }
       const down = !!(me && m.expedition.collapsed[me]);
       if (wasDown && !down && me) { suit = X.suitOf(m, me); say(t('eva.revived', { s: XD.reviveSuit }), 'ok', 4); }
@@ -384,7 +387,7 @@
     // A new mission or room (SolSurface.reset): nothing of the last one's exploring carries over, so the next sync is a
     // fresh look even with the same astronaut in the same round.
     function reset() {
-      data = me = turn = hold = note = coopClock = peek = null;
+      data = me = turn = hold = note = coopClock = peek = briefed = null;
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
       driven = soloClock = 0;
@@ -412,6 +415,12 @@
       now += dt;
       peek = world.peek;
       const m = mission();
+      if (briefed) { // a card over the HUD hides the note: say it again when the card closes
+        const h = env.hooks(), up = !!(h && h.cardUp && h.cardUp());
+        if (up) briefed.covered = true; // seen only once the card is gone, however long it stays
+        else if (now >= briefed.until && !briefed.covered) briefed = null;
+        else if (briefed.covered && m) brief(m);
+      }
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
         const x = m.expedition, atBase = X.inBaseZone(p), out = !atBase && !collapsed(me) && !benched();
@@ -555,7 +564,7 @@
     // Every hold's seconds come from the rules' one function (X.holdSeconds), with your role's skill (spec §3.3).
     const holdKind = f => (f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : f.kind === 'beacon' ? 'beacon' : 'revive');
     const hold0 = f => X.holdSeconds(holdKind(f), crew() && crew().role);
-    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
+    const holdable = f => !!f && (f.kind === 'find' || (f.kind === 'drop' && hasRoom()) || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
     // A relay beacon by its id "B<i>": "Beacon <i + 1>".
     const beaconName = id => t('eva.beaconName', { n: Number(String(id).slice(1)) + 1 });
     // Where the relay beacon you carry would go (spec §3.8): the tile under you, as the rules judge it (X.beaconSpot changes
@@ -605,7 +614,7 @@
         const what = t('find.' + f.find.kind) + (f.find.sub ? ' · ' + t('sci.' + f.find.sub) : '');
         return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role)) });
       }
-      if (f.kind === 'drop') return t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
+      if (f.kind === 'drop') return !hasRoom() ? t('eva.err.full') : t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
       if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role)) });
       if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
       if (f.kind === 'rover') return t('sf.boardRover');

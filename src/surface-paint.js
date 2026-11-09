@@ -420,7 +420,7 @@
     const minis = new Map();  // "cx,cy" → { c, stamp, used }
     const miniWant = new Set();
     const times = [];
-    let queue = [], view = null, need = 0, tick = 0, renders = 0, scale = o.scale || 1;
+    let queue = [], view = null, need = 0, tick = 0, frameTick = 0, renders = 0, scale = o.scale || 1;
 
     const inView = e => !!view && e.ix >= view[0] && e.ix <= view[2] && e.iy >= view[1] && e.iy <= view[3];
     // The cap never pushes out a chunk the current view needs: a very wide window just keeps more.
@@ -532,13 +532,15 @@
       miniWant.delete(k);
       while (minis.size > MINI_CAP) {
         let oldest = null, oldestKey = null;
-        for (const [mk, me] of minis) if (!oldest || me.used < oldest.used) { oldest = me; oldestKey = mk; }
+        for (const [mk, me] of minis) if (me.used <= frameTick && (!oldest || me.used < oldest.used)) { oldest = me; oldestKey = mk; } // never one drawn this frame
+        if (!oldestKey) break;
         minis.delete(oldestKey);
       }
       return e.c;
     }
     // Builds queued mini images (far explored chunks the map wants) until the deadline, at least one per call.
     function workMinis(deadline) {
+      frameTick = tick; // the map's frame starts here: a mini used from now on stays
       let n = 0;
       for (const k of [...miniWant]) {
         if (n > 0 && now() >= deadline) break;

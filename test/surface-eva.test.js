@@ -51,6 +51,7 @@ function setup(opts) {
     },
     suit: r => reports.push(JSON.parse(JSON.stringify(r))),
     card: c => cards.push(JSON.parse(JSON.stringify(c))),
+    cardUp: () => o.cardUp ? o.cardUp() : false,
     goals: o.goals, // ui.js's goals hook (the hud branch adds it): o.goals() → [{ text, done, frac }]
   };
   const eva = sandbox.SolEva.create({
@@ -562,6 +563,38 @@ test('the round brief says what is waiting outside: a solar flare, dust devils, 
   const quiet = setup({ t: say });
   tick(quiet, NEAR(0, 1), 0.1);
   assert.equal(noteOf(quiet), '', 'nothing to say in a quiet round');
+});
+
+test('the round brief shows after a seat change at an advance, too', () => {
+  const s = setup({ t: say });
+  tick(s, NEAR(0, 1), 9); // round 1's note is gone
+  const next = E.resolveTurn(s.m, E.defaultPlan(s.m)).state;
+  Object.assign(next.schedule[next.turn], { spe: true });
+  const other = next.crew.find(c => c.id !== 'minh' && c.status === 'active').id;
+  s.eva.sync({ mission: next, controlId: other, lang: 'en' }); // a takeover at the advance: another seat in the next round
+  tick(s, NEAR(0, 1), 0.1);
+  assert.match(noteOf(s), /^eva\.brief /, 'the new round is briefed');
+});
+
+test('a card over the HUD hides the round brief: it is said again when the card closes', () => {
+  let up = false;
+  const m = E.createMission({ seed: 'EVA-BRIEF', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' });
+  Object.assign(m.schedule[m.turn], { spe: true });
+  const s = setup({ mission: m, t: say, cardUp: () => up });
+  tick(s, NEAR(0, 1), 0.1);
+  assert.match(noteOf(s), /^eva.brief /);
+  up = true; // a region's card opens over the note
+  tick(s, NEAR(0, 1), 15); // for its 15 s, longer than the note
+  up = false;
+  tick(s, NEAR(0, 1), 0.1);
+  assert.match(noteOf(s), /^eva.brief /, 'the note comes back');
+  tick(s, NEAR(0, 1), 9);
+  assert.equal(noteOf(s), '', 'and goes, once, after its 8 s');
+  const seen = setup({ mission: m, t: say, cardUp: () => up });
+  tick(seen, NEAR(0, 1), 9); // no card over it: nothing to repeat
+  up = true; up = false;
+  tick(seen, NEAR(0, 1), 1);
+  assert.equal(noteOf(seen), '');
 });
 
 // ---------- paths no earlier test reached (M4a follow-ups) ----------
@@ -1177,4 +1210,34 @@ test("the rover's battery counts each tile boosted or driven over rocks twice (a
   assert.equal(s.eva.report().driven, 50, 'five boosted over rocks count twenty');
   const phys = s.eva.el.children.find(n => / batt$/.test(n.className)).children[3].textContent;
   assert.equal(phys, '22 km/h · stops in 2.8 m (on Earth: 1.1 m)', 'Mars needs 2.6 times as far to stop');
+});
+
+// ---------- M5 polish ----------
+test('with a full backpack the pickup prompt says so and offers no hold', () => {
+  const s = setup({ t: say });
+  const drop = { kind: 'drop', key: 'd:1', id: 1, x: 0, y: 0 };
+  assert.equal(s.eva.holdable(drop), true, 'room: a hold');
+  assert.match(s.eva.label(drop), /^eva\.pickup/);
+  s.m.expedition.carried.minh = Array.from({ length: X.capacity(s.m, 'minh') }, METAL);
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(s.eva.holdable(drop), false, 'a full backpack: no hold');
+  assert.equal(s.eva.label(drop), 'eva.err.full', 'the prompt says it is full');
+  assert.equal(s.eva.start(drop), false);
+});
+
+test('a pack with a kit counts the kit apart, and a pack of only kits is not "full"', () => {
+  const s = setup({ t: say });
+  const cap = X.capacity(s.m, 'minh'), pack = () => s.eva.el.children.find(n => n.className === 'sf-pack');
+  s.m.expedition.carried.minh = [METAL(), E.kitItem()];
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(pack().attrs['aria-label'], 'eva.packKit ' + JSON.stringify({ n: 1, k: 1, m: cap }), 'one load and one kit, not "2 of ' + cap + ' loads"');
+  s.m.expedition.carried.minh = [METAL()];
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(pack().attrs['aria-label'], 'eva.pack ' + JSON.stringify({ n: 1, m: cap }), 'no kit: as before');
+  s.m.expedition.carried.minh = Array.from({ length: cap }, E.kitItem);
+  tick(s, outside(9, 1), 0.1);
+  assert.notEqual(noteOf(s), 'eva.full', 'a pack of only kits is not the "bring it back" full');
+  s.m.expedition.carried.minh = [E.kitItem(), ...Array.from({ length: cap - 1 }, METAL)];
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(noteOf(s), 'eva.full', 'with loads in it, full is full');
 });
