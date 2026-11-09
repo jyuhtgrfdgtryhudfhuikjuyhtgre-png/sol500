@@ -1058,6 +1058,56 @@ test('a rover driven into a wall stops dead: no speed is left for the HUD, the c
   pg.key('KeyD', false);
 });
 
+// The drawn rover reaches about 61 px past its middle, which is drawn 10 px above its feet (F13).
+const FRONT = 61;
+// A column of n open tiles, away from the base, that ends at a wall to its north: [x, wall tile row, row of the south end].
+function colToWall(seed, n) {
+  const w = SW.create(seed), open = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y);
+  for (let x = 8; x < 300; x++) for (let y = 400, run = 0; y > 8; y--) {
+    if (open(x, y) && open(x - 1, y) && open(x + 1, y)) run++;
+    else { if (run >= n && w.isBlocked(x, y, true)) return [x, y, y + run]; run = 0; }
+  }
+  return null;
+}
+test('the nose probe stops the rover before the drawn front reaches a wall, east and north', () => {
+  const { m, pg } = inRover('WALL-1');
+  const [, y, wx] = rowToWall(m.seed, 14);
+  pg.qa.teleport(wx - 12, y);
+  pg.step(0.2);
+  pg.key('KeyD');
+  pg.step(4);
+  let p = pg.probe().player;
+  assert.ok(p.x + FRONT <= wx * T, 'east: the front is at ' + (p.x + FRONT) + ', the wall at ' + wx * T);
+  pg.key('KeyD', false);
+  const c = colToWall(m.seed, 14);
+  assert.ok(c, 'a column ending at a wall');
+  const [cx, wy, sy] = c;
+  pg.qa.teleport(cx, sy - 2);
+  pg.step(0.2);
+  pg.key('KeyW');
+  pg.step(6);
+  p = pg.probe().player;
+  assert.ok(p.y - 10 - FRONT >= (wy + 1) * T, 'north: the front is at ' + (p.y - 10 - FRONT) + ', the wall ends at ' + (wy + 1) * T);
+  pg.key('KeyW', false);
+});
+
+test('a rover still drives north through a 1-tile gap between two rocks with the longer nose', () => {
+  const w = SW.create('GAP-1'), open = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y) && !w.isBlocked(x, y, true);
+  let gap = null;
+  for (let x = 12; x < 300 && !gap; x++) for (let y = 12; y < 300; y++) {
+    if (open(x, y) && w.isBlocked(x - 1, y, true) && w.isBlocked(x + 1, y, true) && [-2, -1, 1, 2].every(d => open(x, y + d))) { gap = [x, y]; break; }
+  }
+  assert.ok(gap, 'a 1-tile gap in this seed');
+  const { pg } = inRover('GAP-1');
+  pg.qa.teleport(gap[0], gap[1] + 2);
+  pg.step(0.2);
+  pg.key('KeyW');
+  pg.step(5);
+  const p = pg.probe().player;
+  assert.ok(p.y < (gap[1] - 1) * T, 'through the gap (tile row ' + gap[1] + '), now at row ' + p.y / T);
+  pg.key('KeyW', false);
+});
+
 test('click-to-drive to a spot by a wall ends there, not pushing at the wall for ever', () => {
   const { m, pg } = inRover('WALL-1');
   const [, y, wx] = rowToWall(m.seed, 14);

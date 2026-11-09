@@ -31,7 +31,7 @@
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
   const SPEED = 150, SPRINT_X = 1.75, NPC_SPEED = 115; // the rover's top speed is src/physics.js's ROVER.top (390 px/s)
-  const NOSE = 40; // px ahead of the rover's middle: its nose, kept out of walls so the drawn rover never drives into one
+  const NOSE = 61; // px ahead of the drawn rover's middle (10 px above its feet): its front, kept out of walls so the drawn rover never drives into one
   const PUSH_TIME = 0.25; // seconds a dust devil's throw takes (a slide that stops at walls)
   const WALK_GAP = 0.15; // seconds between two walking samples (the walk hook), about co-op's position cadence (110 ms or more)
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -667,7 +667,7 @@
       if (step > 0) {
         const hx = Math.cos(p.car.heading), hy = Math.sin(p.car.heading), mx = p.x + hx * step, my = p.y + hy * step;
         const stuck = hitsWall(p.x, p.y, true);
-        const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !hitsWall(x + hx * NOSE, y + hy * NOSE, true))) && S.eva.canMove(p, x, y));
+        const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !isBlocked(Math.floor((x + hx * NOSE) / T), Math.floor((y - 10 + hy * NOSE) / T), true))) && S.eva.canMove(p, x, y));
         // A move along an axis the rover isn't heading on is no move, so it can't count as allowed: head-on into a wall,
         // both are refused and the rover stops dead, with no speed left to show, send or turn with.
         const okX = Math.abs(hx) > 1e-6 && ok(mx, p.y);
