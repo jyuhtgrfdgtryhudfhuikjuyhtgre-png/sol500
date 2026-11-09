@@ -6,7 +6,7 @@
  *   source: the I.SOURCES key the purpose line rests on, or null when it is about the game's own rule
  *   prepare(s, { Z, X }): runs once on the demo mission before the surface opens (Z the dangers, X the expedition rules); a throw
  *     shows show.failed · steps: [[tx, ty], ...]: the bar gets a Next button that moves the astronaut to the next one, round
- *   schedule: { turn: patch } for E.createMission's schedulePatch · at: [tx, ty] tile · board · suit · clock: SolSurface.scene's
+ *   line(t, X) → text: a second line under the caption (X the expedition rules) · schedule: { turn: patch } for E.createMission's schedulePatch · at: [tx, ty] tile · board · suit · clock: SolSurface.scene's
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'));
@@ -44,8 +44,9 @@
     // 18 tiles out (the devils keep 16 from the HQ); at 6 s a formed devil is 3.8 tiles away.
     { id: 'devils', source: 'devilTracks', view: 'surface', schedule: { 0: { devil: true, weather: 'regional' } }, at: [18, -15], clock: 6 },
     { id: 'isru', source: 'veggie', view: 'console' },
-    // At the weather station's door (13, 48): its hold is 6 s, 3 for the Engineer; the pilot is the commander, so his aura shows.
-    { id: 'crew', source: null, view: 'surface', at: [13, 49] },
+    // At the weather station's door (13, 48): the prompt shows the pilot's (the Commander's) hold, and line puts the Engineer's beside
+    // it, both from the rules. The pilot is the commander, out on the map, so his aura shows too.
+    { id: 'crew', source: null, view: 'surface', at: [13, 49], line: (t, X) => t('show.crew.holds', { a: X.holdSeconds('weather', 'commander'), b: X.holdSeconds('weather', 'engineer') }) },
     { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     { id: 'guide', source: null, view: 'modal', modal: 'guide' },
   ];
