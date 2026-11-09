@@ -267,7 +267,7 @@ test('the Plains fact has a second source that says what Jezero means; the five 
 });
 
 test('help.11 takes its numbers from the data, and the summed report lines read right for any count', () => {
-  for (const lang of ['en', 'vi']) assert.deepEqual([...I.STR[lang]['help.11'].matchAll(/{(w+)}/g)].map(m => m[1]).sort(), ['c', 'd', 's'], lang);
-  assert.doesNotMatch(I.STR.en['haul.spares'] + I.STR.en['haul.o2'], /spare kit(?!s)|(a canister)/);
-  assert.doesNotMatch(I.STR.en['eva.cond.flare'] + I.STR.en['eva.cond.flareHit'], /first of you|each/);
+  for (const lang of ['en', 'vi']) assert.deepEqual([...I.STR[lang]['help.11'].matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort(), ['c', 'd', 's'], lang);
+  assert.doesNotMatch(I.STR.en['haul.spares'] + I.STR.en['haul.o2'], /spare kit\b(?!s)|\(a canister\)/);
+  assert.doesNotMatch(I.STR.en['eva.cond.flare'] + I.STR.en['eva.cond.flareHit'], /first of you|\beach\b/);
 });
