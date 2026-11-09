@@ -122,8 +122,8 @@
 
   function referenceKit(difficulty, crewSize, quick) {
     const kit = Object.assign({}, D.REFERENCE_KITS[difficultyOf(difficulty)]);
-    if (crewSizeOf(crewSize) === 5) for (const k of Object.keys(D.CREW5_EXTRA)) kit[k] += D.CREW5_EXTRA[k];
     if (quick) Object.assign(kit, D.QUICK.kitChange);
+    if (crewSizeOf(crewSize) === 5) for (const k of Object.keys(D.CREW5_EXTRA)) kit[k] += D.CREW5_EXTRA[k];
     return kit;
   }
 

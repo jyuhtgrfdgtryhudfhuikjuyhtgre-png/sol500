@@ -105,3 +105,13 @@ test('every reference quick kit fits its budget and holds the rover', () => {
     assert.ok(v.ok, level + ' ' + crew + ': ' + v.errors.join(','));
   }
 });
+
+test('the five-crew quick kit carries one more o2 than the four-crew one, and the full kit is untouched', () => {
+  for (const level of ['cadet', 'commander', 'veteran']) {
+    assert.equal(E.referenceKit(level, 5, true).o2, E.referenceKit(level, 4, true).o2 + D.CREW5_EXTRA.o2);
+    assert.ok(E.validateLoadout(E.referenceKit(level, 5, true), level, 5, true).ok);
+    const full = E.referenceKit(level, 5);
+    assert.equal(full.o2, D.REFERENCE_KITS[level].o2 + D.CREW5_EXTRA.o2);
+    assert.equal(full.rover, D.REFERENCE_KITS[level].rover);
+  }
+});
