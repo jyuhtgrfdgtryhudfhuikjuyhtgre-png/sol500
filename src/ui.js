@@ -2296,7 +2296,7 @@
   }
   // The bar over the stage: back to the gallery, and the card's purpose on one line.
   function demoBar() {
-    const why = t('show.card.' + store.demo.id + '.why'), steps = SH.card(store.demo.id).steps;
+    const why = t('show.card.' + store.demo.id + '.why'), card = SH.card(store.demo.id), steps = card.steps, extra = card.line ? card.line(t, X) : null;
     const next = () => {
       demoStep = (demoStep + 1) % steps.length;
       try { Promise.resolve(window.SolSurface.scene({ at: steps[demoStep] })).catch(() => toast(t('show.failed'))); } catch (e) { toast(t('show.failed')); }
@@ -2304,7 +2304,9 @@
     return h('div', { class: 'show-bar' },
       h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'show-back', onclick: leaveDemo }, t('show.back')),
       steps ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'show-next', onclick: next }, t('show.next')) : null,
-      h('p', { class: 'show-cap', title: why }, h('b', null, t('show.why') + ': '), why));
+      h('div', { class: 'show-text' },
+        h('p', { class: 'show-cap', title: why }, h('b', null, t('show.why') + ': '), why),
+        extra ? h('p', { class: 'show-line', 'data-k': 'show-line' }, extra) : null));
   }
   function showScene(id) {
     const c = SH.card(id);

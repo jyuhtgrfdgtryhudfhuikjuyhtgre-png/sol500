@@ -675,4 +675,6 @@ p { margin: 0; }
 .show-card h2 { margin: 0; font-size: var(--fs-lg, 1.15rem); }
 .show-card p { margin: 0; }
 .show-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 110; width: min(900px, calc(100% - 24px)); display: flex; align-items: center; gap: 10px; background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+.show-text { flex: 1; min-width: 0; }
+.show-line { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted, inherit); }
 .show-cap { margin: 0; min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-sm); }
