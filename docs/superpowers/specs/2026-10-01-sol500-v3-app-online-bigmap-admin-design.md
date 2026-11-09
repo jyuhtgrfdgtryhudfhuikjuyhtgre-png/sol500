@@ -1,6 +1,6 @@
 # SOL 500 v3 — Desktop App · Online Share Link · Endless World · Admin Panel
 
-**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3, M4a, M4b and M4c shipped (v3.5.0); M4d and M5 to do
+**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 and M4a–M4d shipped (v3.6.0); M5 to do
 **Builds on:** `2026-09-30-sol500-mars-outpost-design.md` (v1/v2: engine, roles, LAN co-op, walkable outpost)
 **Branches:** one `feat/…` branch per milestone, off `master`
 
@@ -40,9 +40,10 @@
    - The debrief shows what was found and by whom.
    - Balance bots over 1,000 seeds keep the v2 targets: the naive bot succeeds < 35 % and the balanced bot > 70 %, both with and without exploring.
    - Exploring raises the "sloppy player, recommended kit" bot's success rate by 10–25 points.
-   - An endless map can't be farmed: the per-round haul is capped by suit charges and backpack space, and the explorer bot's haul per round must plateau.
+   - An endless map can't be farmed: the per-round haul is capped by suit charges and backpack space, and the explorer bot's haul must plateau per suit charge. Once refills come in (beacons and pods refill once a round each), the reach per round grows by design, as §3.8 says.
+   - The score counts the map's science (finds, sites, landmarks and goals' science) apart: a tenth of it, up to 55 points (`D.SCORE.map = { share: 0.1, cap: 55 }`), tallied in `expedition.science`. *(M4d, §13.12)*
 5. **One astronaut:** in solo play you choose your astronaut once. There is no switching; the AI walks the others. If your astronaut dies you take over a surviving crewmate.
-6. **Run length:** a solo mission without exploring still fits in 10–20 minutes. With full exploring it fits in about 30–40 minutes.
+6. **Run length:** a solo mission without exploring still fits in 10–20 minutes. *(M4d, as measured, §13.12:)* with one suit charge a round it takes about 45–60 minutes. Full exploring with beacons, pods and goals takes about 2 hours, over several sittings (solo saves at every advance and every 4 s while exploring).
 7. **Admin:**
    - Every finished mission (solo, LAN or online) is recorded.
    - The live view updates within 2 s.
@@ -161,7 +162,7 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
 - Being inside the base zone (within 2 tiles of the habitat) **pauses** the drain but **does not refill** the suit.
 - Sprinting doubles the drain. In the rover it's halved. The Icy Plains add 10 % (cold).
 - **Refills outside the base:** a relay beacon (§3.8) or an abandoned hab pod (§3.7), each **once per crew member per round**.
-- An **O₂ canister** from a pod gives a choice: use it now (+45 s suit time) or carry it home (+30 kg base O₂).
+- An **O₂ canister** from a pod gives a choice: use it now (+45 s suit time) or carry it home (+10 kg of base O₂; it was 30 until M4d's rebalance, §13.12).
 - **At 0 s you collapse:**
   - In co-op, a teammate revives you by holding E for 4 s (2 s for the Medic). You get +30 s and stand up.
   - If nobody revives you before the round advances, a **collapse incident** is recorded: −20 health and −3 morale at advance. Anything you were carrying drops on that spot as a recoverable find.
@@ -175,6 +176,8 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
 | Biologist | sees ice deposits and methane vents on the minimap from 16 tiles (others 8); collects ice in half the time |
 | Medic | revives in half the time |
 | Commander | pings draw a route line for everyone; crew within 5 tiles move 10 % faster |
+
+*As built (M4d):* the aura also reaches crew on foot while the commander drives the rover; the driver gets none, because the aura speeds foot movement only. A 4-crew mission has no commander (`D.CREW_SIZES` is `[4, 5]`), so no aura and no route line.
 
 ### 3.4 Survival events on the map
 - **Solar flare:** in rounds whose schedule has `spe`, a warning starts 30 s after the first crew member steps outside, timed by the server in co-op. A **60 s countdown** follows.
@@ -256,6 +259,7 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
 
 ### 3.9 Expedition goals
 - Each round shows **1 goal** in rounds 1–4 and **2 goals** from round 5. Goals are picked deterministically from the seed, the round and the state, and only from goals that can be achieved.
+- *As built (M4d, `D.GOALS`, `src/goals.js`):* a haul is **4 loads**, a chunks goal **4 new chunks**, goals are looked for within **150 tiles** of the base, and a structure goal takes a **wreck, a solar array, a weather station or a comms mast** (not a supply cache or a hab pod).
 
 | Goal | Reward |
 |---|---|
@@ -292,10 +296,13 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
   carried:    { crewId: [{ kind, amount, siteId }] },
   drops:      [{ x, y, items }],
   banked:     { water, materials, spares, food, o2, science, morale, lines: [...] },
-  goals:      [{ id, kind, params, progress, done }],
+  goals:      [{ id, kind, params, need, base, progress, done, reward }],  // this round's
+  goalsDone:  [{ id, kind, round, params }],                  // every goal paid out this mission
+  science:    <n>,                                            // the map's science, for the score (D.SCORE.map)
+  bestFind:   null | { crewId, kind, res, amount, region },
   incidents:  [{ crewId, kind: 'collapse'|'flare' }],
   forecastUntil: <round> | -1,                               // the last round a repaired weather station forecasts the next round's weather
-  stats:      { crewId: { distance, finds: { ice, metal, pod, science }, structures, landmarks } } }
+  stats:      { crewId: { distance, finds: { ice, metal, pod, science }, structures, landmarks, pods, flareHit, flareCover } } }
 ```
 
 - **`resolveTurn`** applies the banked haul, goal rewards and incidents before simulating, and adds them to the report. Then it resets those, the refills and the goals, and picks the next round's goals. The carried items, stats and world changes persist. The engine only reads these numbers and doesn't depend on `worldgen.js`; goal checks that need the world run in `expedition.js`.
@@ -313,11 +320,14 @@ Tile codes are a `Uint8Array` with about 20 codes: regolith, sand, dune, boulder
 - `reveal(m, chunkKey, bits)`
 - `interact(m, crewId, structId, pos)` → `{ ok, done: 'used' | 'repaired', items, left, fog }` *(M4c)*: a Kestrel structure after its hold; the loads that don't fit in the backpack wait at the door as a drop, and `fog` is what a weather station revealed
 - `discover(m, crewId, landmarkId, pos)` → `{ ok, landmark, science }` *(M4c)*: the first sighting of a landmark's centre, claimed from up to 15.5 tiles (§3.6)
-- `placeBeacon(m, crewId, pos)`
-- `refill(m, crewId, podId, pos)` → `{ ok, suit }` *(M4c, hab pods; beacons join in M4d)*: a full suit inside a pod, once per pod for each crew member each round
+- `takeKit(m, crewId, pos)`, `returnKit(m, crewId, pos)` *(M4d)*: a beacon kit into the backpack at the base, and back
+- `beaconSpot(m, crewId, pos)`, `placeBeacon(m, crewId, pos)`, `routeHome(m)` *(M4d)*: whether a beacon may go here, placing one, and the dashed chain of beacons to the base
+- `refill(m, crewId, id, pos)` → `{ ok, suit }` *(M4c pods, M4d beacons)*: a full suit at a hab pod or a beacon (`id` is the pod's or the beacon's), once per pod or beacon for each crew member each round
+- `holdSeconds(kind, role)`, `commanderOut(m, positions)`, `speedFactor(m, crewId, positions)`, `addDistance(m, crewId, from, to, dt)` *(M4d)*: the role's hold time, the commander's aura and route line, and the tiles walked
 - `forecastAhead(m)` *(M4c)*: next round's weather while a repaired weather station forecasts it, else `null`
 - `mastMarks(m)` → `[{ id, x, y, kind }]` *(M4c)*: what the repaired comms masts mark on the maps, in world tiles; worked out from the world each time, never stored
-- `goalProgress(m)`
+
+`src/goals.js` *(M4d)* holds the goals: `G.pick`, `G.offered`, `G.make`, `G.update(m)` (progress, run by the server and by solo play) and `G.advance`. It replaces the `goalProgress(m)` this section once planned.
 
 Each looks up the world with `worldgen.chunk(seed, …)`, checks distance (1.5 tiles of tolerance), loads left and backpack space, and returns `{ error }` or `{ state }`. Pings aren't mission state: they travel as short-lived WebSocket messages (§5).
 
@@ -343,7 +353,8 @@ Each looks up the world with `worldgen.chunk(seed, …)`, checks distance (1.5 t
 | server→client | `room` | full public room on change |
 | server→client | `pos` | all positions + suit level + carried count, throttled to 80 ms |
 | server→client | `fog` | `{ "<cx>,<cy>": base64 }` diffs, OR-merged, throttled to 500 ms |
-| server→client | `event` | `flare` (start time), `ping` (x, y, from), `discover` (landmark, by, science), `kicked`, `closed` |
+| server→client | `ping` | `{ t: 'ping', d: { x, y, by } }`: its own frame, not an `event`; `by` is the sender's crew id *(M4d)* |
+| server→client | `event` | `flare` (start time), `discover` (landmark, by, science), `kicked`, `closed` |
 | client→server | `pos` | at most every 110 ms; coordinates are unbounded integers |
 | client→server | `reveal` | newly seen cells, per chunk |
 | client→server | `ping` | x, y; at most 1 per second per player |
@@ -425,7 +436,7 @@ Requests fall into three classes in `lib/limits.js`:
   - a corrupt file is moved aside as `history.corrupt-<ts>.json`;
   - capped at 2,000 records, oldest dropped first;
   - `dataDir` is the app's `userData` folder, or `./data/` when running from source (git-ignored).
-- **Record:** `{ id, endedAt, mode: solo|lan|online, missionCode, difficulty, crewSize, players: [{ name, crewId, role }], outcome, cause, score, grade, sols, finds: { crewId: {...} }, distance: { crewId: m }, explore: { regions, landmarks, structures, beacons, goals }, achievements: [] }`. Fields before M4 hold `{}` or 0.
+- **Record:** `{ id, endedAt, mode: solo|lan|online, missionCode, difficulty, crewSize, players: [{ name, crewId, role }], outcome, cause, score, grade, sols, finds: { crewId: {...} }, distance: { crewId: tiles }, explore: { regions, landmarks, structures, beacons, goals }, achievements: [] }`. Fields before M4 hold `{}` or 0 (this now applies only to records written before 3.6.0).
 - **`mode`:** `online` if any player connected through the tunnel.
 - **Who records what:**
   - **Co-op games:** the server records them when the room's mission ends.
@@ -606,11 +617,11 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] Display settings: graphics Best or Fast, an FPS limit and an FPS readout (M4b)
 - [x] Landmarks with discovery cards (M4c)
 - [x] Random structures and natural formations (M4c)
-- [ ] Relay beacons and the route home (M4d)
-- [ ] Expedition goals (M4d)
-- [ ] Role skills on the map and pings (M4d)
-- [ ] Debrief Expedition section and ISRU lesson (M4d)
-- [ ] Rebalanced with explorer bots (M4d)
+- [x] Relay beacons and the route home (M4d)
+- [x] Expedition goals (M4d)
+- [x] Role skills on the map and pings (M4d)
+- [x] Debrief Expedition section and ISRU lesson (M4d)
+- [x] Rebalanced with explorer bots (M4d)
 
 ### M5 — Polish
 - [ ] English + Vietnamese for every new screen
@@ -657,6 +668,12 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
    - **Pings work in solo too:** P marks a spot on your own maps for 10 s. The commander's route line and speed aura count only while the commander (the 5th crew member) is outside.
    - **Beacons aren't flare cover.** §3.4's shelter list doesn't name them: they refill and reveal (§3.8).
    - **M4d is one milestone and one release (3.6.0),** built the way M4c was: a dry run, then the plan, then the build.
+   - **Decided after the dry run's measurements (2026-11-02):**
+     - **An O₂ canister carried home gives 10 kg of base O₂, not 30** (`D.EXPEDITION.canister.o2`, §3.2). On veteran the canisters were most of what exploring added for a sloppy player (about 30 points); at 10 kg it adds about 22, inside the 10–25 target.
+     - **The map's science counts a tenth in the score, up to 55 points** (`D.SCORE.map`, §1.4). Without it nearly every thoughtful explorer got an S; now about 292 of 1,000 do on commander, and fewer than 100 of 1,000 sloppy explorers.
+     - **The run length is as §1.6 says:** about 45–60 minutes with one suit charge a round, about 2 hours with full exploring. A mission with fewer rounds would change a §1 non-goal and the balance, so it waits for the user.
+     - **`D.SCIENCE.eva` stays at 20,** for the user to decide. It carries the rover kit's grades without exploring, which are 3.2.0's.
+   - **3.6.0 also ships the NASA photo floor, the rover physics, the "Why Mars?" story and the field guide** (the floor's branch, rebased onto M4d's), so the release gives the installed beta nothing less. Their design is in `docs/superpowers/specs/2026-11-03-sol500-rover-drive-design.md`.
 
 ## 14. Risks
 
