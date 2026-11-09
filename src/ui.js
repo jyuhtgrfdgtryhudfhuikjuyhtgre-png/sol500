@@ -236,7 +236,8 @@
     flushSolo();
     if (!(store.mission && store.mission.status === 'active' && SV.slotOf(store.mission) === key)) {
       const r = loadSlot(key);
-      if (!r) { render(); return; }
+      if (!r) { toast(t('title.resumeDamaged')); return; } // the slot was damaged and is dropped; the title redraws without it
+      setCard(null); clearTimeout(holdTimer); holdTimer = null; held = []; // the other mission's card does not stay up over this one
       store.mission = r.mission;
       store.plan = r.plan;
       store.report = null;

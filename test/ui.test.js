@@ -1695,3 +1695,29 @@ test('each mission length keeps its own seen-once list: a region read on Full do
   const again = page({ regionsSeen: JSON.parse(pg.ls['sol500.regionsSeen']), regionsSeenQuick: JSON.parse(pg.ls['sol500.regionsSeenQuick']) });
   assert.deepEqual([again.UI.store.regionsSeen.list, again.UI.store.regionsSeenQuick.list].map(l => l.length > 0), [true, true], 'both come back after a reload');
 });
+
+test('Resume on the other mission closes the card the first one left up and drops the cards it held', () => {
+  const saves = twoSaves(), pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+  pg.play(pg.UI.store.mission);
+  pg.surface.hooks.enterRegion('icy');
+  assert.ok(pg.UI.store.card, 'a card is up on the Full mission');
+  pg.UI.store.screen = 'title';
+  pg.UI.render();
+  click(pg.byKey('resume:saveQuick'));
+  assert.equal(pg.UI.store.mission.quick, true);
+  assert.equal(pg.UI.store.card, null);
+  pg.flush();
+  assert.equal(pg.UI.store.card, null, 'and nothing it held comes up later');
+});
+
+test('Resume on a damaged slot says so, in both languages, and the slot is gone', () => {
+  for (const lang of ['en', 'vi']) {
+    const saves = twoSaves(), pg = page({ save: saves.save, saveQuick: saves.saveQuick, lang });
+    pg.ls['sol500.saveQuick'] = '{"mission":{"seed":"x"}}';
+    click(pg.byKey('resume:saveQuick'));
+    assert.equal(pg.UI.store.toast, I.t(lang, 'title.resumeDamaged'));
+    assert.notEqual(I.t(lang, 'title.resumeDamaged'), 'title.resumeDamaged');
+    assert.equal(pg.byKey('resume:saveQuick'), undefined, 'the title no longer offers it');
+    assert.equal(pg.UI.store.mission.seed, 'FULL-1', 'the mission on screen stays');
+  }
+});
