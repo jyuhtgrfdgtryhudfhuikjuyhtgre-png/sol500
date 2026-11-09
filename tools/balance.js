@@ -12,6 +12,7 @@ const G = require('../src/goals.js');
 const { haulRound } = require('./explorer.js');
 
 const RUNS = Number(process.argv[2]) || 1000;
+const QUICK = !!process.env.QUICK; // QUICK=1: every kit is a Quick kit and every mission a Quick mission
 
 const LOADOUTS = {
   naive: { solar: 5, battery: 1, recycler: 1, lab: 1, rover: 1, food: 8, o2: 6, water: 4 },
@@ -115,13 +116,23 @@ function sloppyPlan(s) {
 }
 
 let DIFF = 'commander';
+
+// A Quick kit: the loadout plus D.QUICK.kitChange, then trimmed (the cheapest things first) until it fits D.QUICK.budget.
+function quickKit(kit, level) {
+  const k = Object.assign({}, kit, D.QUICK.kitChange);
+  for (const id of ['materials', 'spares', 'battery', 'solar', 'food', 'water', 'o2']) {
+    while (E.loadoutMass(k) > D.QUICK.budget[level] && k[id] > 0) k[id]--;
+  }
+  return k;
+}
 const EXPLORER = 'diego'; // with exploring on, the scientist is the astronaut the player walks as
 
 // `haul` collects the loads delivered in each round (sum and missions still running), for the plateau check; `tally`
 // (optional) the science banked from the map, the loads and the seconds outside on the rounds' clocks (the run length).
 function play(loadoutName, planner, seed, explore, haul, level, tally) {
-  const kit = loadoutName === 'reference' ? D.REFERENCE_KITS[level || DIFF] : LOADOUTS[loadoutName];
-  let s = E.createMission({ seed, loadout: kit, difficulty: level || DIFF, pilot: explore ? EXPLORER : undefined });
+  let kit = loadoutName === 'reference' ? D.REFERENCE_KITS[level || DIFF] : LOADOUTS[loadoutName];
+  if (QUICK) kit = quickKit(kit, level || DIFF);
+  let s = E.createMission({ seed, loadout: kit, difficulty: level || DIFF, pilot: explore ? EXPLORER : undefined, quick: QUICK });
   if (explore) G.pick(s);
   while (s.status === 'active') {
     if (explore) {
@@ -141,7 +152,7 @@ function play(loadoutName, planner, seed, explore, haul, level, tally) {
 }
 
 function run(label, loadoutName, planner, explore) {
-  const v = E.validateLoadout(LOADOUTS[loadoutName], DIFF);
+  const v = E.validateLoadout(QUICK ? quickKit(LOADOUTS[loadoutName], DIFF) : LOADOUTS[loadoutName], DIFF, undefined, QUICK);
   if (!v.ok) throw new Error(label + ': ' + v.errors.join(','));
   let wins = 0, score = 0, sci = 0, deaths = 0, grounded = 0, goals = 0, beacons = 0, outside = 0;
   const causes = {}, grades = {}, badges = {};
