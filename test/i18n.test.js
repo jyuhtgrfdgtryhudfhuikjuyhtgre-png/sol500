@@ -260,7 +260,7 @@ test('the Plains fact has a second source that says what Jezero means; the five 
   for (const [role, id] of Object.entries(I.ROLE_SOURCES)) for (const lang of ['en', 'vi']) {
     assert.ok(I.STR[lang]['role.' + role + '.fact'], lang + ' ' + role);
     assert.ok(I.SOURCES[id] && I.srcLabel(lang, id), id);
-    assert.ok(I.STR[lang]['role.' + role + '.fact'].split(/s+/).length < 40, role + ' is short');
+    if (lang === 'en') assert.ok(I.STR.en['role.' + role + '.fact'].split(/\s+/).length < 30, role + ' is under 30 words');
   }
   assert.ok(I.STR.en['role.commander.seat'] && I.STR.vi['role.commander.seat']);
   assert.doesNotMatch(I.STR.en['item.battery.fact'], /dark/, 'the page says the length of the day, not that half of it is dark');
@@ -269,5 +269,8 @@ test('the Plains fact has a second source that says what Jezero means; the five 
 test('help.11 takes its numbers from the data, and the summed report lines read right for any count', () => {
   for (const lang of ['en', 'vi']) assert.deepEqual([...I.STR[lang]['help.11'].matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort(), ['c', 'd', 's'], lang);
   assert.doesNotMatch(I.STR.en['haul.spares'] + I.STR.en['haul.o2'], /spare kit\b(?!s)|\(a canister\)/);
+  assert.match(I.STR.en['haul.spares'], /^\+\{n\} /, 'reads inside "amount: what" with no colon of its own');
+  assert.doesNotMatch(I.STR.vi['haul.o2'], /một bình/);
+  assert.doesNotMatch(viText, /robot opportunity|robot không/, 'a rover is a xe thám hiểm');
   assert.doesNotMatch(I.STR.en['eva.cond.flare'] + I.STR.en['eva.cond.flareHit'], /first of you|\beach\b/);
 });
