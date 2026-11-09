@@ -584,9 +584,9 @@ test('a card over the HUD hides the round brief: it is said again when the card 
   tick(s, NEAR(0, 1), 0.1);
   assert.match(noteOf(s), /^eva.brief /);
   up = true; // a region's card opens over the note
-  tick(s, NEAR(0, 1), 5);
-  up = false; // and closes with the note still due 3 s
-  tick(s, NEAR(0, 1), 5);
+  tick(s, NEAR(0, 1), 15); // for its 15 s, longer than the note
+  up = false;
+  tick(s, NEAR(0, 1), 0.1);
   assert.match(noteOf(s), /^eva.brief /, 'the note comes back');
   tick(s, NEAR(0, 1), 9);
   assert.equal(noteOf(s), '', 'and goes, once, after its 8 s');

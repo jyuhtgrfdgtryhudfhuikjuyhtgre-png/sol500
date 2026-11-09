@@ -417,8 +417,8 @@
       const m = mission();
       if (briefed) { // a card over the HUD hides the note: say it again when the card closes
         const h = env.hooks(), up = !!(h && h.cardUp && h.cardUp());
-        if (now >= briefed.until) briefed = null;
-        else if (up) briefed.covered = true;
+        if (up) briefed.covered = true; // seen only once the card is gone, however long it stays
+        else if (now >= briefed.until && !briefed.covered) briefed = null;
         else if (briefed.covered && m) brief(m);
       }
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
