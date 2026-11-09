@@ -1264,6 +1264,12 @@ test("a goal's science is a reward, not a find; a find carried over to the next 
   assert.equal(E.resolveTurn(last, E.defaultPlan(last)).state.expedition.bestFind.amount, 80, 'the final advance banks it first');
 });
 
+test('a saved bank line that is no record is dropped: the goals read those lines on every frame', () => {
+  const s = calm(), line = { late: true, res: 'water', amount: 1 };
+  s.expedition.banked.lines = [null, 7, line];
+  assert.deepEqual(E.upgradeMission(s, {}).expedition.banked.lines, [line]);
+});
+
 test("a saved best find, flare count or pod visit count with the wrong shape is dropped, so the debrief and the notes never meet one", () => {
   const good = { crewId: 'minh', kind: 'landmark', res: 'science', amount: 120, region: 1 };
   const keep = calm();

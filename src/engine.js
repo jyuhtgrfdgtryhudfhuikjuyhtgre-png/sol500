@@ -293,7 +293,7 @@
     }
     repairStats(x.stats);
     for (const k of BANK_RES) if (!Number.isFinite(x.banked[k])) x.banked[k] = 0;
-    if (!Array.isArray(x.banked.lines)) x.banked.lines = [];
+    x.banked.lines = Array.isArray(x.banked.lines) ? x.banked.lines.filter(isMap) : [];
     // A flare whose times are not numbers never ends: drop it (the next step outside starts a new one).
     if (x.flare && !(Number.isFinite(x.flare.warn) && Number.isFinite(x.flare.end))) x.flare = null;
     if (x.flare && !Array.isArray(x.flare.hit)) x.flare.hit = [];

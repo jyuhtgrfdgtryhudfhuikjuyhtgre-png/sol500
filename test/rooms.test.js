@@ -938,6 +938,23 @@ test("co-op: a relay beacon is placed through the server where it last saw you, 
   assert.equal(say(R, room, host, 'refill', { beacon: 'B0' }).body.error, 'refilled', 'once a round');
 });
 
+test('a fault in a socket message or a timer is logged and leaves the server running', t => {
+  const log = t.mock.method(console, 'error', () => {});
+  const R = createRooms();
+  for (const name of ['position', 'reveal', 'ping', 'attach', 'detach']) assert.doesNotThrow(() => R[name](null, null, null), name);
+  assert.equal(log.mock.callCount(), 5);
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const { room, player: host } = R.create('Host');
+  const { player: guest } = R.join(room.code, 'Guest');
+  const hc = fakeClient(), gc = fakeClient();
+  R.attach(room, host, hc);
+  R.attach(room, guest, gc);
+  R.detach(room, guest, gc);
+  hc.send = () => { throw new Error('boom'); };
+  assert.doesNotThrow(() => t.mock.timers.tick(60000), 'the timer that tells everyone a player has gone');
+  assert.equal(log.mock.callCount(), 6);
+});
+
 test('a co-op job or difficulty named like a property every object has, or not a string, is refused', () => {
   const { R, room, guest } = inMission();
   const job = room.plan.jobs.minh;
