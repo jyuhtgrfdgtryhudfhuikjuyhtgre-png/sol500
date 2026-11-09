@@ -98,3 +98,10 @@ test('a quick mission lands with landing_quick', () => {
 test('the full schedule is the same as 3.6.0', () => {
   for (const [seed, sha] of PINNED) assert.equal(hash(JSON.stringify(E.createMission({ seed, loadout: E.referenceKit('commander', 4), difficulty: 'commander', crewSize: 4 }).schedule)), sha);
 });
+
+test('every reference quick kit fits its budget and holds the rover', () => {
+  for (const level of ['cadet', 'commander', 'veteran']) for (const crew of [4, 5]) {
+    const v = E.validateLoadout(E.referenceKit(level, crew, true), level, crew, true);
+    assert.ok(v.ok, level + ' ' + crew + ': ' + v.errors.join(','));
+  }
+});

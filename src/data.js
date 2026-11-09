@@ -214,8 +214,8 @@
     QUICK: {
       turns: 8, flareTurn: 2, oxygenTurn: 4, // zero-based round indices
       budget: { cadet: 32, commander: 30, veteran: 28 },
-      kitChange: { rover: 1, waterwall: 0 }, // the reference kit swaps the water wall for a rover
-      grades: [['S', 1400], ['A', 1200], ['B', 1000], ['C', 800]],
+      kitChange: { rover: 1, waterwall: 0, water: 1, o2: 1 }, // the reference kit swaps the water wall for a rover and carries less water and oxygen (8 rounds need less)
+      grades: [['S', 1355], ['A', 1200], ['B', 1000], ['C', 800]],
     },
     GLOBAL_STORM_CHANCE: 0.4,
     GLOBAL_STORM_TURNS: [10, 15],
