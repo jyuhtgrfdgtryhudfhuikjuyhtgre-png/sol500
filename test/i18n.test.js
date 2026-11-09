@@ -91,13 +91,13 @@ test('"Driving on Mars" gives the rover\'s mass in kilograms and its weight in n
 test('the Plains fact cites a page from after the landing and claims nothing that page does not say', () => {
   // https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/ (Feb. 18, 2021) says
   // "has touched down at Jezero Crater", "Some 28 miles (45 kilometers) wide" and "3.5 billion years ago the crater had its
-  // own river delta and was filled with water". It does not say what the word "Jezero" means.
+  // X
   assert.match(I.SOURCES.jezero.url, /\/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet\/$/);
   for (const lang of ['en', 'vi']) {
     const fact = I.STR[lang]['region.fact.plains'];
     assert.match(fact, /45/, lang + ': the width');
     assert.match(fact, /3[.,]5/, lang + ': the age');
-    assert.doesNotMatch(fact, /slav/i, lang + ': the meaning of the name is not on that page');
+    assert.match(fact, /slav/i, lang + ': the meaning of the name, which the second source says');
   }
 });
 
@@ -210,4 +210,75 @@ test('the "Why Mars?" story has the same pages and sources in both languages, ev
     assert.ok(p.title && p.body.length > 100, lang + ': ' + p.title);
     for (const id of p.src) assert.match(I.SOURCES[id].url, /^https:\/\/([a-z0-9-]+\.)*nasa\.gov\//, id); // nasa.gov, science., jpl., ntrs.
   }
+});
+
+// M5 words: the check that fails on an empty value or a missing key, and one word for each thing in Vietnamese.
+const allText = lang => [...Object.values(I.STR[lang]), ...I.NOTES[lang].flatMap(n => [n.title, n.body]), ...I.STORY[lang].flatMap(n => [n.title, n.body])];
+const viText = allText('vi').join('\n').toLowerCase();
+
+test('every key exists in both languages, and no value is empty', () => {
+  for (const lang of ['en', 'vi']) {
+    const other = lang === 'en' ? 'vi' : 'en';
+    assert.deepEqual(Object.keys(I.STR[lang]).filter(k => !(k in I.STR[other])), [], 'missing in ' + other);
+    assert.deepEqual(Object.keys(I.STR[lang]).filter(k => typeof I.STR[lang][k] !== 'string' || !I.STR[lang][k].trim()), [], 'empty in ' + lang);
+    for (const list of [I.NOTES[lang], I.STORY[lang]]) for (const p of list) assert.ok(p.title.trim() && p.body.trim(), lang + ': ' + p.title);
+  }
+  assert.equal(I.NOTES.en.length, I.NOTES.vi.length);
+  assert.equal(I.STORY.en.length, I.STORY.vi.length);
+});
+
+test('every {placeholder} in English is in the Vietnamese', () => {
+  const ph = s => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort();
+  for (const k of Object.keys(I.STR.en)) assert.deepEqual(ph(I.STR.vi[k] || ''), ph(I.STR.en[k]), k);
+});
+
+test('the Vietnamese says xe thám hiểm, never xe tự hành', () => assert.ok(!viText.includes('xe tự hành')));
+
+test('the Vietnamese has one word each for the base, the beacon and methane', () => {
+  for (const w of ['trụ sở', 'trạm tiếp sóng', 'mê-tan']) assert.ok(!viText.includes(w), w);
+});
+
+test('"Regions of Mars" comes before "What is simplified" in both languages', () => {
+  for (const lang of ['en', 'vi']) {
+    const titles = I.NOTES[lang].map(n => n.title), i = titles.findIndex(x => /^(Regions of Mars|Các vùng của sao Hỏa)$/.test(x)), j = titles.findIndex(x => /^(What is simplified|Điều gì đã được đơn giản hóa)$/.test(x));
+    assert.ok(i >= 0 && j >= 0 && i < j, lang);
+    assert.equal(j, titles.length - 1, lang + ': the disclaimer stays last');
+  }
+});
+
+test('every I.SOURCES label has a Vietnamese form', () => {
+  assert.deepEqual(Object.keys(I.SOURCES).filter(id => !(I.SOURCE_VI[id] || '').trim()), []);
+  assert.deepEqual(Object.keys(I.SOURCE_VI).filter(id => !I.SOURCES[id]), [], 'no stray ids');
+  assert.equal(I.srcLabel('vi', 'jezero'), I.SOURCE_VI.jezero);
+  assert.equal(I.srcLabel('en', 'jezero'), I.SOURCES.jezero.label);
+});
+
+test('the Plains fact has a second source that says what Jezero means; the five role facts each have a source', () => {
+  // https://science.nasa.gov/resource/how-does-nasa-name-things-on-mars-mars-report-june-2023/ says "Jezero ... which means lake in many Slavic languages".
+  assert.equal(I.REGION_EXTRA_SOURCES.plains, 'marsNames');
+  assert.match(I.SOURCES.marsNames.url, /how-does-nasa-name-things-on-mars-mars-report-june-2023\/$/);
+  for (const [role, id] of Object.entries(I.ROLE_SOURCES)) for (const lang of ['en', 'vi']) {
+    assert.ok(I.STR[lang]['role.' + role + '.fact'], lang + ' ' + role);
+    assert.ok(I.SOURCES[id] && I.srcLabel(lang, id), id);
+    if (lang === 'en') assert.ok(I.STR.en['role.' + role + '.fact'].split(/\s+/).length < 30, role + ' is under 30 words');
+  }
+  assert.ok(I.STR.en['role.commander.seat'] && I.STR.vi['role.commander.seat']);
+  assert.doesNotMatch(I.STR.en['item.battery.fact'], /dark/, 'the page says the length of the day, not that half of it is dark');
+});
+
+test('help.11 takes its numbers from the data, and the summed report lines read right for any count', () => {
+  for (const lang of ['en', 'vi']) assert.deepEqual([...I.STR[lang]['help.11'].matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort(), ['c', 'd', 's'], lang);
+  const hl = (lang, res, n) => I.t(lang, 'haul.' + res, { n });
+  assert.equal(hl('en', 'spares', 1), '+1 spare kit');
+  assert.equal(hl('en', 'spares', 2), '+2 spare kits');
+  assert.equal(hl('en', 'spares', '1'), '+1 spare kit', 'the report passes a formatted string');
+  assert.equal(hl('en', 'kit', 1), '+1 relay beacon kit');
+  assert.equal(hl('en', 'kit', 2), '+2 relay beacon kits');
+  assert.equal(hl('en', 'o2', 60), '+60 kg O₂ in canisters');
+  assert.equal(hl('vi', 'spares', 1), '+1 bộ phụ tùng');
+  assert.equal(hl('vi', 'kit', 2), '+2 bộ trạm chuyển tiếp');
+  assert.match(I.STR.en['haul.spares'], /^\+\{n\} /, 'reads inside "amount: what" with no colon of its own');
+  assert.doesNotMatch(I.STR.vi['haul.o2'], /một bình/);
+  assert.doesNotMatch(viText, /robot opportunity|robot không/, 'a rover is a xe thám hiểm');
+  assert.doesNotMatch(I.STR.en['eva.cond.flare'] + I.STR.en['eva.cond.flareHit'], /first of you|\beach\b/);
 });

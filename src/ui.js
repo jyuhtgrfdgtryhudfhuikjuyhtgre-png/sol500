@@ -71,6 +71,8 @@
 
   // ---------- helpers ----------
   const t = (k, p) => I.t(store.lang, k, p);
+  // A source link in the language of the moment (the sources table is I.SOURCES; the label has a Vietnamese form).
+  const srcA = src => h('a', { href: src.url, target: '_blank', rel: 'noopener' }, I.srcLabel(store.lang, Object.keys(I.SOURCES).find(k => I.SOURCES[k] === src)));
   const locale = () => (store.lang === 'vi' ? 'vi-VN' : 'en-US');
   const nf = (n, d) => new Intl.NumberFormat(locale(), { maximumFractionDigits: d || 0, minimumFractionDigits: d || 0 }).format(n);
   const signed = (n, d) => (n > 0.0001 ? '+' : n < -0.0001 ? '−' : '±') + nf(Math.abs(n), d);
@@ -607,6 +609,8 @@
           h('b', null, crewName(c.id)),
           h('span', { class: 'role-tag', style: 'color:' + A.ROLE[c.role] }, t('role.' + c.role)),
           h('span', { class: 'hint' }, t('role.' + c.role + '.skill')),
+          c.role === 'commander' ? h('span', { class: 'hint' }, t('role.commander.seat')) : null,
+          h('span', { class: 'hint role-fact' }, t('role.' + c.role + '.fact') + ' (' + I.srcLabel(store.lang, I.ROLE_SOURCES[c.role]) + ')'),
           h('span', { class: 'btn btn-primary btn-sm' }, t('pilot.pick', { name: crewName(c.id) }))))),
         h('div', { class: 'setup-actions' },
           h('button', { class: 'btn btn-ghost', type: 'button', 'data-k': 'pilot-back', onclick: () => go('manifest') }, t('pilot.back')))),
@@ -735,7 +739,7 @@
   // What a card says, in the language of the moment: { cls, eyebrow, title, meta, body, src } (meta: a discovery's reward
   // and finder; src: a real fact's source, when the sources table has it).
   function cardText(c) {
-    if (c.type === 'region') return { cls: '', eyebrow: t(c.again ? 'region.note' : 'region.new'), title: t('region.' + c.id), body: t('region.fact.' + c.id), src: I.SOURCES[I.REGION_SOURCES[c.id]] };
+    if (c.type === 'region') return { cls: '', eyebrow: t(c.again ? 'region.note' : 'region.new'), title: t('region.' + c.id), body: t('region.fact.' + c.id), src2: I.REGION_EXTRA_SOURCES[c.id] ? I.SOURCES[I.REGION_EXTRA_SOURCES[c.id]] : null, src: I.SOURCES[I.REGION_SOURCES[c.id]] };
     if (c.type === 'landmark') {
       const stem = D.LANDMARKS.kinds[c.kind].fact, meta = [c.science != null ? t('haul.science', { n: nf(c.science) }) : null, c.by ? t('disc.by', { name: crewName(c.by) }) : null];
       const src = I.LANDMARK_SOURCES ? I.SOURCES[I.LANDMARK_SOURCES[c.kind]] : null;
@@ -750,7 +754,7 @@
   }
   function surfaceCard() {
     if (!store.card) return null;
-    const { cls, eyebrow, title, meta, body, src } = cardText(store.card);
+    const { cls, eyebrow, title, meta, body, src, src2 } = cardText(store.card);
     const card = h('aside', {
       class: 'region-card' + cls, role: 'status', 'aria-live': 'polite',
       onpointerleave: e => { if (e.pointerType === 'mouse') armCardTimer(); },
@@ -762,7 +766,7 @@
       h('h3', null, title),
       meta ? h('p', { class: 'meta' }, meta) : null,
       h('p', null, body),
-      src ? h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null);
+      src ? h('p', { class: 'src' }, t('region.source') + ': ', srcA(src), src2 ? [' · ', srcA(src2)] : null) : null);
     return card;
   }
 
@@ -804,12 +808,12 @@
     const cards = foundCards(s);
     return h('article', { class: 'note found' }, h('h3', null, t('notes.found')),
       cards.length ? h('ul', { class: 'found-list' }, cards.map(c => {
-        const { cls, eyebrow, title, meta, body, src } = cardText(c);
+        const { cls, eyebrow, title, meta, body, src, src2 } = cardText(c);
         const k = c.type + ':' + c.id;
         return h('li', { class: cls.trim() || null }, h('details', { open: foundOpen.has(k), ontoggle: e => { if (e.target.open) foundOpen.add(k); else foundOpen.delete(k); } },
           h('summary', { 'data-k': 'found:' + k }, h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null),
           h('p', null, body),
-          src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
+          src ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(src), src2 ? [' · ', srcA(src2)] : null) : null));
       })) : h('p', null, t('notes.foundNone')));
   }
 
@@ -1733,7 +1737,7 @@
           panel(t('deb.lessons'), h('div', { class: 'lessons' }, lessonsFor(s).map(([k, src]) => h('article', { class: 'lesson' },
             h('h3', null, t('lesson.' + k + '.title')),
             h('p', null, t('lesson.' + k + '.body')),
-            src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label)))))),
+            src.map(id => srcA(I.SOURCES[id])))))),
           panel(t('deb.badges'), h('div', { class: 'badges' }, earned.length
             ? earned.map(b => badgeCard(b, true, store.newBadges.includes(b)))
             : h('p', { class: 'hint' }, t('ach.locked'))))),
@@ -2044,7 +2048,7 @@
           const e = guideEntry(id), src = e.src && I.SOURCES[e.src];
           return h('li', { class: 'guide-item', 'data-k': 'guide:' + id }, h('span', { class: 'guide-art', html: e.art }),
             h('div', null, h('b', null, e.name), h('p', { class: 'muted' }, e.desc), e.fact ? h('p', { class: 'guide-fact' }, e.fact) : null,
-              src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
+              src ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(src)) : null));
         })))),
       ], null, true);
     }
@@ -2055,7 +2059,7 @@
         h('span', { class: 'eyebrow' }, t('story.step', { n: n + 1, m: pages.length })),
         h('h3', { class: 'story-h' }, p.title),
         h('p', { class: 'story-p' }, p.body),
-        h('div', { class: 'src' }, t('region.source') + ': ', p.src.map((id, i) => [i ? ' · ' : null, h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label)])),
+        h('div', { class: 'src' }, t('region.source') + ': ', p.src.map((id, i) => [i ? ' · ' : null, srcA(I.SOURCES[id])])),
       ], [
         n > 0 ? h('button', { class: 'btn', type: 'button', 'data-k': 'story-back', onclick: () => turn(-1) }, t('story.back')) : null,
         n < pages.length - 1
@@ -2065,7 +2069,7 @@
     }
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'win'].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'win'].map(i => h('li', { style: 'display:list-item' }, t('help.' + i, { c: D.DANGERS.flare.countdown, d: D.DANGERS.flare.dose, s: D.DANGERS.devils.suit })))));
     }
     if (m === 'notes') {
       const s = mission(), isru = { title: t('lesson.isruMars.title'), body: t('lesson.isruMars.body'), src: ISRU_SOURCES }; // the debrief's lesson, with its sources
@@ -2074,7 +2078,7 @@
         h('p', null, h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'notes-guide', onclick: () => { store.modal = 'guide'; render(); } }, ico('science', 14), t('guide.open'))),
         h('div', { class: 'notes-list' }, s ? foundNote(s) : null, I.NOTES[store.lang].concat([isru]).map(n => h('article', { class: 'note' },
           h('h3', null, n.title), h('p', null, n.body),
-          n.src.length ? h('div', { class: 'src' }, n.src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label))) : null))),
+          n.src.length ? h('div', { class: 'src' }, n.src.map(id => srcA(I.SOURCES[id]))) : null))),
       ], null, true);
     }
     if (m === 'badges') {
