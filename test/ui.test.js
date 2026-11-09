@@ -1049,3 +1049,105 @@ test('the field guide labels every piece of cargo, building and gear and says wh
     assert.equal(pg.dialog(), null);
   }
 });
+
+// ---------- the console and co-op fixes (M5) ----------
+const holdPage = () => {
+  const clock = clockOf(), pg = page(null, clock.globals);
+  pg.play(pg.mission({ seed: 'PAINT-QA-1' }));
+  return { clock, pg, hooks: pg.surface.hooks, up: () => (pg.UI.store.card ? pg.UI.store.card.id : null) };
+};
+
+test('a card arriving while you read another waits its turn, even when its 8 s are long over', () => {
+  const { clock, pg, hooks, up } = holdPage();
+  let hover = true;
+  pg.win.matchMedia = () => ({ matches: true });
+  pg.win.document.querySelector = sel => (sel === '.region-card' ? { matches: q => q === ':hover' && hover, contains: () => true } : null);
+  hooks.card(POD);
+  clock.advance(10000); // the 8 s are over; the player is reading
+  hooks.card(DELTA(null));
+  assert.equal(up(), 'S4,-1', 'the log is being read: it stays');
+  hover = false;
+  pg.win.document.querySelector = () => null;
+  clock.advance(8000);
+  assert.equal(up(), 'L0,1', 'and the discovery opens when the reading is done');
+});
+
+test('a held card is dropped when the mission ends or a new one launches', () => {
+  let t = holdPage();
+  t.hooks.card(POD);
+  t.hooks.card(DELTA(null));
+  t.pg.UI.store.mission.status = 'won';
+  t.clock.advance(8000);
+  assert.notEqual(t.up(), 'L0,1', 'the mission is over: nothing opens behind the debrief');
+  t = holdPage();
+  t.hooks.card(POD);
+  t.hooks.card(DELTA(null));
+  Object.assign(t.pg.UI.store, { loadout: t.pg.E.referenceKit('commander', 4), seed: 'PAINT-QA-1', screen: 'pilot' });
+  t.pg.UI.render();
+  click(t.pg.byKey('pilot:minh'));
+  t.pg.UI.store.opsView = 'surface';
+  t.clock.advance(8000);
+  assert.notEqual(t.up(), 'L0,1', "a card from the old mission does not open in the new one, though its code is the same");
+});
+
+test('reopening a region card does not show its waiting first-time card again', () => {
+  const { pg, hooks, up } = holdPage();
+  hooks.card(POD);
+  hooks.enterRegion('icy'); // its first-time card waits
+  hooks.reopenRegion('icy');
+  assert.equal(up(), 'icy');
+  pg.UI.render();
+  click(pg.byKey('region-close'));
+  assert.equal(up(), null, 'closed once: it does not come a second time');
+});
+
+test('the forecast counts a goal met this render', () => {
+  const pg = page(), m = withGoals(pg, pg.mission({ seed: 'UI-FCGOAL' }), ['landmark']);
+  m.expedition.landmarks['L1,0'] = { by: 'minh', round: 0 }; // discovered, but nobody has judged the goal yet
+  const orig = pg.E.forecast;
+  let done = null;
+  pg.E.forecast = (s, p) => { done = s.expedition.goals[0].done; return orig(s, p); };
+  pg.play(m);
+  assert.equal(done, true);
+});
+
+test('a held card does not expire while the console is showing', () => {
+  const { clock, pg, hooks, up } = holdPage();
+  hooks.card(POD);
+  hooks.card(DELTA(null));
+  pg.UI.store.opsView = 'console';
+  clock.advance(60000);
+  assert.equal(up(), 'S4,-1', 'nothing opened or closed unseen');
+  pg.UI.store.opsView = 'surface';
+  clock.advance(15000);
+  assert.equal(up(), 'L0,1', 'back on the surface the held card is still there to be read');
+});
+
+test('solo reads seen regions from the mission, not the global slot', () => {
+  const pg = page({ regionsSeen: { key: 'PAINT-QA-1|solo', list: ['icy'] } }), m = pg.mission({ seed: 'PAINT-QA-1' });
+  pg.play(m);
+  pg.surface.hooks.enterRegion('icy');
+  assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'icy', "this mission has not been in the region: the slot is another session's");
+  click((pg.UI.render(), pg.byKey('region-close')));
+  pg.surface.hooks.enterRegion('icy');
+  assert.equal(pg.UI.store.card, null, 'and a region it has been in shows no first-time card again');
+});
+
+test('fog sent just before a socket drops is sent again when it reopens', async () => {
+  const { got, net, pg } = surfacePage(), sent = [];
+  net.sendReveal = map => { sent.push(Object.keys(map)); return true; };
+  pg.win.performance = { now: () => 0 };
+  pg.win.SolSurface.reset = () => {};
+  await new Promise(r => setImmediate(r));
+  const F = pg.win.SolFog, bits = F.empty();
+  F.set(bits, 1, 1);
+  const room = { mission: pg.mission({ coop: true }), players: [{ id: 'p1', crewId: 'minh', connected: true }], settings: { names: {} }, hostId: 'p1', launch: 1 };
+  pg.play(room.mission);
+  net.h[0](room);
+  got.hooks.reveal({ '2,2': F.encode(bits) });
+  assert.deepEqual(sent, [['2,2']]);
+  net.h[1]('error'); // the socket dropped; the message was in a half-open one
+  net.h[1]('open');
+  net.h[0](room);
+  assert.deepEqual(sent, [['2,2'], ['2,2']], 'sent again once the room frame names the mission');
+});
