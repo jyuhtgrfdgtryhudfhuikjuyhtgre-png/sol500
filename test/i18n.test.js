@@ -211,3 +211,44 @@ test('the "Why Mars?" story has the same pages and sources in both languages, ev
     for (const id of p.src) assert.match(I.SOURCES[id].url, /^https:\/\/([a-z0-9-]+\.)*nasa\.gov\//, id); // nasa.gov, science., jpl., ntrs.
   }
 });
+
+// M5 words: the check that fails on an empty value or a missing key, and one word for each thing in Vietnamese.
+const allText = lang => [...Object.values(I.STR[lang]), ...I.NOTES[lang].flatMap(n => [n.title, n.body]), ...I.STORY[lang].flatMap(n => [n.title, n.body])];
+const viText = allText('vi').join('\n').toLowerCase();
+
+test('every key exists in both languages, and no value is empty', () => {
+  for (const lang of ['en', 'vi']) {
+    const other = lang === 'en' ? 'vi' : 'en';
+    assert.deepEqual(Object.keys(I.STR[lang]).filter(k => !(k in I.STR[other])), [], 'missing in ' + other);
+    assert.deepEqual(Object.keys(I.STR[lang]).filter(k => typeof I.STR[lang][k] !== 'string' || !I.STR[lang][k].trim()), [], 'empty in ' + lang);
+    for (const list of [I.NOTES[lang], I.STORY[lang]]) for (const p of list) assert.ok(p.title.trim() && p.body.trim(), lang + ': ' + p.title);
+  }
+  assert.equal(I.NOTES.en.length, I.NOTES.vi.length);
+  assert.equal(I.STORY.en.length, I.STORY.vi.length);
+});
+
+test('every {placeholder} in English is in the Vietnamese', () => {
+  const ph = s => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort();
+  for (const k of Object.keys(I.STR.en)) assert.deepEqual(ph(I.STR.vi[k] || ''), ph(I.STR.en[k]), k);
+});
+
+test('the Vietnamese says xe thám hiểm, never xe tự hành', () => assert.ok(!viText.includes('xe tự hành')));
+
+test('the Vietnamese has one word each for the base, the beacon and methane', () => {
+  for (const w of ['trụ sở', 'trạm tiếp sóng', 'mê-tan']) assert.ok(!viText.includes(w), w);
+});
+
+test('"Regions of Mars" comes before "What is simplified" in both languages', () => {
+  for (const lang of ['en', 'vi']) {
+    const titles = I.NOTES[lang].map(n => n.title), i = titles.findIndex(x => /^(Regions of Mars|Các vùng của sao Hỏa)$/.test(x)), j = titles.findIndex(x => /^(What is simplified|Điều gì đã được đơn giản hóa)$/.test(x));
+    assert.ok(i >= 0 && j >= 0 && i < j, lang);
+    assert.equal(j, titles.length - 1, lang + ': the disclaimer stays last');
+  }
+});
+
+test('every I.SOURCES label has a Vietnamese form', () => {
+  assert.deepEqual(Object.keys(I.SOURCES).filter(id => !(I.SOURCE_VI[id] || '').trim()), []);
+  assert.deepEqual(Object.keys(I.SOURCE_VI).filter(id => !I.SOURCES[id]), [], 'no stray ids');
+  assert.equal(I.srcLabel('vi', 'jezero'), I.SOURCE_VI.jezero);
+  assert.equal(I.srcLabel('en', 'jezero'), I.SOURCES.jezero.label);
+});
