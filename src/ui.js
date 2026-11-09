@@ -1142,7 +1142,7 @@
           h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: D.TURNS }))),
         track,
         h('div', { class: 'topbar-actions' },
-          h('span', { class: 'chip' }, t(seasonKey(season.ls)) + ' · Ls ' + Math.round(season.ls) + '°'),
+          h('span', { class: 'chip', title: t(seasonKey(season.ls)) }, t(seasonKey(season.ls) + '.short') + ' · Ls ' + Math.round(season.ls) + '°'),
           h('span', { class: 'wxs' }, // this round's weather, with a repaired weather station's forecast stacked under it
             h('span', { class: 'chip ' + wx(weather) }, t('weather.' + weather)),
             next ? h('span', { class: 'chip fc ' + wx(next), title: t('eva.forecastBy') }, t('eva.forecast', { w: t('weather.' + next) })) : null),

@@ -1195,3 +1195,18 @@ test('the page loads with no font request when offline or in the single file, an
   assert.equal(fonts(page(null, { navigator: { language: 'en-US', onLine: false } })).length, 0, 'offline');
   assert.equal(fonts(page(null, { SOL_APP: false })).length, 0, 'the single file');
 });
+
+test('the season chip in the top bar is short, with the full wording as its tooltip; the dust seasons still say so, in both languages', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-SEASON' });
+  pg.play(m);
+  const chip = () => pg.all().find(n => n.attrs.title && / · Ls \d+°$/.test(n.textContent));
+  const c = chip();
+  assert.ok(c, 'the chip');
+  for (const lang of ['en', 'vi']) for (const s of ['spring', 'summer', 'autumn', 'winter']) {
+    const short = I.t(lang, 'season.' + s + '.short'), full = I.t(lang, 'season.' + s);
+    assert.notEqual(short, 'season.' + s + '.short');
+    assert.ok(short.length < full.length, lang + ' ' + s + ' is shorter');
+    if (s === 'autumn' || s === 'winter') assert.match(short, lang === 'en' ? /dust season/ : /mùa bão bụi/, lang + ' ' + s + ' still says dust season');
+  }
+  assert.ok(c.attrs.title.length > c.textContent.length - 8, 'the tooltip carries the full wording');
+});
