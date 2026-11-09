@@ -73,9 +73,19 @@
     percySamples: { label: 'NASA Science: Perseverance’s Mars rock samples', url: 'https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples/' },
     relayJpl: { label: "NASA JPL (2021): The Mars Relay Network connects us to NASA's Martian explorers", url: 'https://www.jpl.nasa.gov/news/the-mars-relay-network-connects-us-to-nasas-martian-explorers/' },
     jonesKliss: { label: 'Jones & Kliss, NASA Ames (2010): Developing an advanced life support system for the flexible path into deep space', url: 'https://ntrs.nasa.gov/citations/20100036823' },
+    // M5 words: the second source of the Plains fact ("Jezero" means lake) and the sources of the five role facts.
+    marsNames: { label: 'NASA Mars Report (June 2023): How does NASA name things on Mars?', url: 'https://science.nasa.gov/resource/how-does-nasa-name-things-on-mars-mars-report-june-2023/' },
+    chapea: { label: "NASA (2024): Voyagers of Mars: The First CHAPEA Crew's Yearlong Journey", url: 'https://www.nasa.gov/missions/voyagers-of-mars-the-first-chapea-crews-yearlong-journey/' },
+    schmitt: { label: 'NASA: Former astronaut Harrison Schmitt', url: 'https://www.nasa.gov/former-astronaut-harrison-schmitt/' },
+    ams: { label: 'NASA: Alpha Magnetic Spectrometer hits ten years of space station research', url: 'https://www.nasa.gov/general/alpha-magnetic-spectrometer-hits-ten-years-of-space-station-research/' },
+    cmo: { label: 'NASA: 5.0 Training (Crew Medical Officer)', url: 'https://www.nasa.gov/reference/5-0-training/' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
+  // A second page for a region's fact, where one sentence needs it.
+  const REGION_EXTRA_SOURCES = { plains: 'marsNames' };
+  // The source of each role's fact in "Choose your astronaut" (role.<role>.fact).
+  const ROLE_SOURCES = { commander: 'chapea', scientist: 'schmitt', engineer: 'ams', biologist: 'veggie', medic: 'cmo' };
   const REGION_SOURCES = { plains: 'jezero', dunes: 'bagnold', craters: 'dichotomy', canyons: 'valles', icy: 'iceMap', volcanic: 'skylights' };
   // Likewise for the landmarks and formations (the id of the kind in src/data.js).
   const LANDMARK_SOURCES = { delta: 'wildcat', tube: 'pitCrater', crater: 'centralPeak', methane: 'methane', scarp: 'iceScarps', stardune: 'starDunes' };
@@ -193,6 +203,12 @@
     'crew.four': '4 astronauts',
     'crew.five': '5 astronauts',
     'crew.fiveHint': 'Adds a commander. The lander gets 2 t more, but five people eat and breathe more.',
+    'role.commander.fact': "In NASA's 378-day Mars simulation, the commander's role was pivotal in maintaining crew morale and ensuring the success of daily operations.",
+    'role.scientist.fact': "Harrison “Jack” Schmitt, a geologist and the Apollo 17 lunar module pilot, was the first scientist to step on the Moon.",
+    'role.engineer.fact': "Four spacewalks in 2019 and 2020 replaced the failing cooling pumps of the space station's AMS-02, which was not designed to be repaired.",
+    'role.biologist.fact': "To date, NASA's Veggie has grown plants in space including three types of lettuce, Chinese cabbage, mizuna mustard, a red kale and zinnia flowers.",
+    'role.medic.fact': "A NASA Crew Medical Officer is a crew member assigned as a mission's medical expert. NASA requires at least two trained per vehicle or platform.",
+    'role.commander.seat': "Comes with the fifth seat: a mission with 4 crew has no commander.",
     'role.engineer.skill': 'Maintain and Build ×1.5. When spare kits run out, jury-rigs one repair per round from 100 kg of materials.',
     'role.scientist.skill': 'Lab and EVA ×1.5. Finds discoveries more often on EVA.',
     'role.biologist.skill': 'Farm ×1.5: keeps 3 hydroponics bays tended instead of 2.',
@@ -249,7 +265,7 @@
     'item.solar.fact': 'Mars receives about 43 % of the sunlight Earth does.',
     'item.battery.name': 'Battery bank',
     'item.battery.desc': 'Stores daytime power for the night. Covers 2 arrays; uncovered arrays give half.',
-    'item.battery.fact': 'A Mars sol lasts 24 h 39 min, so half of every sol is dark.',
+    'item.battery.fact': 'A Mars sol lasts 24 h 39 min.',
     'item.reactor.name': 'Fission reactor',
     'item.reactor.desc': '10 kW day and night, dust storm or not. Heavy. Sits 2+ tiles from the HQ.',
     'item.reactor.fact': 'In 2018 NASA tested a prototype Kilopower reactor, a design that scales up to 10 kW for Mars.',
@@ -951,7 +967,7 @@
     'region.note': 'Region note',
     'region.reread': '{name}: read about this region',
     'region.source': 'Source',
-    'region.fact.plains': 'Like the floor of Jezero Crater, where Perseverance landed. About 3.5 billion years ago this 45-km crater had its own river delta and was filled with water.',
+    'region.fact.plains': 'Like the floor of Jezero Crater, where Perseverance landed. About 3.5 billion years ago this 45-km crater had its own river delta and was filled with water. “Jezero” means “lake” in many Slavic languages.',
     'region.fact.dunes': 'Like the Bagnold Dunes at the foot of Mount Sharp, which Curiosity set out to study in 2015. No one had ever visited active dunes anywhere but Earth. Seen from orbit, some of them move as much as about 1 m every Earth year.',
     'region.fact.craters': 'Like the southern highlands. Mars has two faces: its southern half is ancient, cratered ground, while the north is younger and smoother and was influenced by extensive volcanism.',
     'region.fact.canyons': 'Like Valles Marineris, the Grand Canyon of Mars: about 3,870 km long, up to 600 km across, and about 9.3 km deep at its deepest.',
@@ -1291,6 +1307,12 @@
     'crew.four': '4 phi hành gia',
     'crew.five': '5 phi hành gia',
     'crew.fiveHint': 'Thêm một chỉ huy trưởng. Tàu chở thêm 2 tấn, nhưng năm người ăn và thở nhiều hơn.',
+    'role.commander.fact': "Trong cuộc mô phỏng sao Hỏa 378 ngày của NASA, vai trò của chỉ huy trưởng là then chốt trong việc giữ tinh thần phi hành đoàn và bảo đảm các hoạt động hằng ngày diễn ra thành công.",
+    'role.scientist.fact': "Harrison “Jack” Schmitt, nhà địa chất và phi công module đổ bộ của Apollo 17, là nhà khoa học đầu tiên đặt chân lên Mặt Trăng.",
+    'role.engineer.fact': "Bốn chuyến đi bộ ngoài không gian năm 2019 và 2020 đã thay các máy bơm làm mát đang hỏng của AMS-02 trên trạm vũ trụ, thiết bị vốn không được thiết kế để sửa chữa.",
+    'role.biologist.fact': "Đến nay, Veggie của NASA đã trồng trong không gian ba loại xà lách, cải thảo, cải mizuna, một loại cải xoăn đỏ và hoa cúc zinnia.",
+    'role.medic.fact': "Sĩ quan y tế của phi hành đoàn (CMO) của NASA là thành viên được giao làm chuyên gia y tế cho một nhiệm vụ. NASA yêu cầu huấn luyện ít nhất hai người cho mỗi phương tiện hoặc nền tảng.",
+    'role.commander.seat': "Đi kèm chỗ ngồi thứ năm: nhiệm vụ 4 người không có chỉ huy trưởng.",
     'role.engineer.skill': 'Bảo trì và Xây dựng ×1,5. Khi hết phụ tùng, tự chế một lần sửa mỗi vòng bằng 100 kg vật liệu.',
     'role.scientist.skill': 'Thí nghiệm và EVA ×1,5. Hay có phát hiện hơn khi ra ngoài.',
     'role.biologist.skill': 'Trồng trọt ×1,5: chăm được 3 nhà thủy canh thay vì 2.',
@@ -1347,7 +1369,7 @@
     'item.solar.fact': 'Sao Hỏa nhận khoảng 43 % ánh sáng Mặt Trời so với Trái Đất.',
     'item.battery.name': 'Cụm pin lưu trữ',
     'item.battery.desc': 'Trữ điện ban ngày cho ban đêm. Mỗi cụm phục vụ 2 dàn pin; dàn không có pin chỉ cho một nửa.',
-    'item.battery.fact': 'Một sol dài 24 giờ 39 phút, nên nửa sol là bóng tối.',
+    'item.battery.fact': 'Một sol dài 24 giờ 39 phút.',
     'item.reactor.name': 'Lò phản ứng phân hạch',
     'item.reactor.desc': '10 kW cả ngày lẫn đêm, kể cả trong bão bụi. Nặng. Đặt cách HQ từ 2 ô trở lên.',
     'item.reactor.fact': 'Năm 2018, NASA thử nghiệm lò Kilopower nguyên mẫu; thiết kế này có thể mở rộng tới 10 kW cho sao Hỏa.',
@@ -1613,7 +1635,7 @@
     'ev.spe.title': 'Bão hạt Mặt Trời',
     'ev.spe.body': 'Một vụ bùng nổ Mặt Trời đang bắn proton năng lượng cao tới. Chỉ có vài phút để quyết định.',
     'ev.spe.shelter': 'Vào nơi trú ẩn',
-    'ev.spe.shelter.hint': 'Mọi người vào lõi được che chắn: ít việc hơn, chỉ vài mSv. Ai đang ở ngoài căn cứ, trên mặt đất sao Hỏa, vẫn phải tìm nơi trú ẩn khỏi bão hạt Mặt Trời.',
+    'ev.spe.shelter.hint': 'Mọi người vào lõi được che chắn: ít việc hơn, chỉ vài mSv. Ai đang ở ngoài căn cứ, trên bề mặt sao Hỏa, vẫn phải tìm nơi trú ẩn khỏi bão hạt Mặt Trời.',
     'ev.spe.work': 'Tiếp tục làm việc',
     'ev.spe.work.hint': 'Làm đủ việc, mỗi người tới +40 mSv và có thể bị nhiễm xạ.',
     'ev.o2_rupture.title': 'Vỡ ống dẫn oxy',
@@ -2047,7 +2069,7 @@
     'region.note': 'Ghi chú về vùng',
     'region.reread': '{name}: đọc về vùng này',
     'region.source': 'Nguồn',
-    'region.fact.plains': 'Giống như đáy hố Jezero, nơi tàu Perseverance hạ cánh. Khoảng 3,5 tỷ năm trước, hố rộng 45 km này từng có châu thổ sông riêng và chứa đầy nước.',
+    'region.fact.plains': 'Giống như đáy hố Jezero, nơi tàu Perseverance hạ cánh. Khoảng 3,5 tỷ năm trước, hố rộng 45 km này từng có châu thổ sông riêng và chứa đầy nước. “Jezero” nghĩa là “hồ” trong nhiều ngôn ngữ Slav.',
     'region.fact.dunes': 'Giống như cồn cát Bagnold dưới chân núi Sharp, nơi tàu Curiosity bắt đầu nghiên cứu năm 2015. Trước đó chưa ai từng đến một cồn cát đang di chuyển ở bất kỳ đâu ngoài Trái Đất. Nhìn từ quỹ đạo, một số cồn cát dịch chuyển lên tới khoảng 1 m mỗi năm Trái Đất.',
     'region.fact.craters': 'Giống như vùng cao nguyên phía nam. Sao Hỏa có hai bộ mặt: nửa phía nam là vùng đất cổ xưa có nhiều hố va chạm, còn phía bắc trẻ hơn, bằng phẳng hơn và chịu ảnh hưởng của hoạt động núi lửa trên diện rộng.',
     'region.fact.canyons': 'Giống như Valles Marineris, "Grand Canyon của sao Hỏa": dài khoảng 3.870 km, rộng tới 600 km và sâu khoảng 9,3 km ở chỗ sâu nhất.',
@@ -2339,6 +2361,73 @@
     ],
   };
 
+  // Each source's label in Vietnamese (the page titles are English; the label says what the page is).
+  const SOURCE_VI = {
+    hassler: "Hassler và cộng sự, Science 343 (2014): bức xạ trên bề mặt sao Hỏa, máy đo RAD của Curiosity",
+    zeitlin: "Zeitlin và cộng sự, Science 340 (2013): bức xạ trong chuyến bay tới sao Hỏa",
+    ochmo: "NASA OCHMO: Bản tóm tắt kỹ thuật về bảo vệ khỏi bức xạ (giới hạn 600 mSv cả sự nghiệp)",
+    bvad: "NASA: Tài liệu Giá trị và Giả định Cơ sở của hệ thống hỗ trợ sự sống (BVAD)",
+    water98: "NASA (2023): Cột mốc thu hồi nước trên ISS đạt 98 %",
+    moxie: "NASA (2023): MOXIE hoàn thành nhiệm vụ trên sao Hỏa",
+    kilopower: "NASA (2018): Thử nghiệm lò phản ứng Kilopower / KRUSTY",
+    fsp: "NASA: Dự án Điện phân hạch trên bề mặt (Fission Surface Power)",
+    opportunity: "NASA (2019): Nhiệm vụ của xe thám hiểm Opportunity kết thúc",
+    spirit: "NASA JPL: Spirit được tiếp thêm năng lượng nhờ tấm pin mặt trời sạch hơn",
+    perchlorate: "NASA NTRS: Perchlorat trên sao Hỏa, tổng quan và hệ quả",
+    conjunction: "NASA JPL: Giao hội Mặt Trời của sao Hỏa là gì và vì sao nó quan trọng?",
+    veggie: "NASA: Trồng cây trong không gian (Veggie)",
+    dra5: "NASA (Drake, Hoffman & Beaty): Khám phá sao Hỏa có người, Kiến trúc tham chiếu 5.0 (bản tóm tắt của SP-2009-566)",
+    jezero: "NASA JPL (2021): Hạ cánh! Xe thám hiểm Perseverance của NASA đáp an toàn xuống Hành tinh Đỏ",
+    bagnold: "NASA JPL (2015): Xe thám hiểm Curiosity của NASA tiến về các cồn cát đang hoạt động",
+    dichotomy: "NASA Astrobiology (2018): Kim loại hiếm trên sao Hỏa và Trái Đất cho thấy những vụ va chạm khổng lồ",
+    valles: "NASA Science: Valles Marineris, Hẻm núi lớn của sao Hỏa",
+    iceMap: "NASA JPL (2019): Bản đồ kho báu băng nước trên sao Hỏa của NASA",
+    isru: "NASA: Tổng quan về khai thác tài nguyên tại chỗ (ISRU)",
+    moxieInstruments: "NASA Science: Các thiết bị khoa học của Perseverance (MOXIE)",
+    lroIce: "NASA Science (2024): LRO phát hiện băng trên Mặt Trăng phân bố rộng (chỉ cho phần hóa học tách nước)",
+    protonCeramics: "NASA (2017): Tạo mêtan và oxy trên sao Hỏa bằng gốm dẫn proton (một dự án học bổng nghiên cứu)",
+    skylights: "NASA JPL (2007): Bảy cửa sổ hang động có thể có trên sao Hỏa (PIA09929)",
+    wildcat: "NASA JPL (2022): Xe thám hiểm Perseverance của NASA khảo sát vùng đất giàu địa chất trên sao Hỏa",
+    pitCrater: "NASA (2020): Hố sụt và những ngọn núi lửa khổng lồ (PIA24149)",
+    centralPeak: "NASA (2011): Đỉnh trung tâm nhiều màu trong một hố va chạm chưa có tên (PIA14890)",
+    methane: "NASA JPL (2021): Thấy rồi lại mất: các nhà khoa học tiến gần hơn tới lời giải cho bí ẩn mêtan trên sao Hỏa",
+    iceScarps: "NASA JPL (2018): Những sườn dốc trên sao Hỏa lộ ra cấu trúc băng chôn vùi",
+    starDunes: "NASA (2017): Cồn cát đối nghịch, gió đối nghịch (PIA21934)",
+    rockBridge: "NASA (2006): Rãnh hẹp ở Tartarus Colles (PIA09383)",
+    yardangs: "NASA (2003): Các yardang ở Medusae Fossae (PIA04464)",
+    hoodoos: "NASA (2017): Các cột đá hoodoo của sao Hỏa (PIA21883)",
+    uprightBoulder: "NASA JPL (2014): Một tảng đá dựng đứng, hình thù bất thường trên sao Hỏa (PIA18594)",
+    gatorBack: "NASA (2022): Toàn cảnh 360 độ của Curiosity về những tảng đá lưng cá sấu ở Greenheugh (PIA25176)",
+    becquerel: "NASA (2008): Lớp trầm tích tuần hoàn trong hố Becquerel, sao Hỏa (PIA11443)",
+    devilTracks: "NASA (2008): Vệt lốc bụi ở phía nam lòng chảo Schiaparelli (PIA10226)",
+    photoJezero: "NASA/JPL-Caltech (2021): Ảnh màu đầu tiên chụp từ trên không trên sao Hỏa, do Ingenuity chụp (PIA24593)",
+    photoCastell: "NASA/JPL-Caltech (2023): “Castell Henllys” nhìn từ trên cao, do Ingenuity chụp (PIA25890)",
+    photoSand: "NASA/JPL-Caltech (2024): Ingenuity thấy bóng cánh quạt bị hỏng của chính nó (PIA26243)",
+    photoDust: "NASA/JPL-Caltech (2021): Cảnh nhìn từ chuyến bay thứ năm của Ingenuity (PIA24650)",
+    photoGrains: "NASA/JPL-Caltech/MSSS (2015): Cận cảnh một cồn cát trên sao Hỏa, do Curiosity chụp (PIA20171)",
+    photoPhoenix: "NASA/JPL-Caltech/Đại học Arizona/Đại học Texas A&M (2008): Cảnh nhìn về phía tây bắc của Phoenix (PIA10713)",
+    designerPlants: "NASA (2013): Cây trồng “thiết kế” cho sao Hỏa",
+    osdr: "NASA Open Science Data Repository (OSDR): các nghiên cứu sinh học không gian",
+    osdrCara: "NASA OSDR, OSD-678 (CARA, ISS 2014): Ánh sáng đóng vai trò chính trong phản ứng phiên mã của cây Arabidopsis với môi trường bay vào vũ trụ",
+    marsTrek: "NASA Mars Trek: khám phá sao Hỏa bằng dữ liệu thật của tàu vũ trụ",
+    marsGlance: "NASA JPL: Sao Hỏa trong một cái nhìn (hồ sơ báo chí InSight)",
+    percyRover: "NASA Science: Các bộ phận của xe thám hiểm Perseverance",
+    climateEvidence: "NASA Science: Bằng chứng về biến đổi khí hậu",
+    apollo11: "NASA: Apollo 11 (20 tháng 7 năm 1969)",
+    artemis: "NASA: Artemis, trở lại Mặt Trăng và tiến tới sao Hỏa",
+    hazards: "NASA Human Research Program: Năm mối nguy của chuyến bay vũ trụ có người",
+    nasaAbout: "NASA: Giới thiệu về NASA (sứ mệnh của NASA)",
+    nasaValues: "NASA Careers: Cuộc sống tại NASA (các giá trị cốt lõi)",
+    percySamples: "NASA Science: Các mẫu đá sao Hỏa của Perseverance",
+    relayJpl: "NASA JPL (2021): Mạng chuyển tiếp sao Hỏa kết nối chúng ta với các nhà thám hiểm của NASA",
+    jonesKliss: "Jones & Kliss, NASA Ames (2010): Phát triển hệ thống hỗ trợ sự sống tiên tiến cho con đường linh hoạt vào không gian sâu",
+    marsNames: "NASA Mars Report (tháng 6 năm 2023): NASA đặt tên cho các địa danh trên sao Hỏa như thế nào?",
+    chapea: "NASA (2024): Các nhà du hành sao Hỏa, hành trình dài một năm của phi hành đoàn CHAPEA đầu tiên",
+    schmitt: "NASA: Cựu phi hành gia Harrison Schmitt",
+    ams: "NASA: Máy quang phổ từ Alpha (AMS) tròn mười năm nghiên cứu trên trạm vũ trụ",
+    cmo: "NASA: Huấn luyện 5.0 (Sĩ quan y tế của phi hành đoàn)",
+  };
+
   const STR = { en, vi };
 
   function t(lang, key, params) {
@@ -2350,9 +2439,14 @@
     return s;
   }
 
+  // A source's label in the language of the moment.
+  function srcLabel(lang, id) {
+    return (lang === 'vi' && SOURCE_VI[id]) || SOURCES[id].label;
+  }
+
   function has(lang, key) {
     return (STR[lang] && STR[lang][key] != null) || en[key] != null;
   }
 
-  return { t, has, STR, SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, STORY, LANGS: ['en', 'vi'] };
+  return { t, has, srcLabel, STR, SOURCES, SOURCE_VI, REGION_EXTRA_SOURCES, ROLE_SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, STORY, LANGS: ['en', 'vi'] };
 });

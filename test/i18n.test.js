@@ -91,13 +91,13 @@ test('"Driving on Mars" gives the rover\'s mass in kilograms and its weight in n
 test('the Plains fact cites a page from after the landing and claims nothing that page does not say', () => {
   // https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/ (Feb. 18, 2021) says
   // "has touched down at Jezero Crater", "Some 28 miles (45 kilometers) wide" and "3.5 billion years ago the crater had its
-  // own river delta and was filled with water". It does not say what the word "Jezero" means.
+  // X
   assert.match(I.SOURCES.jezero.url, /\/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet\/$/);
   for (const lang of ['en', 'vi']) {
     const fact = I.STR[lang]['region.fact.plains'];
     assert.match(fact, /45/, lang + ': the width');
     assert.match(fact, /3[.,]5/, lang + ': the age');
-    assert.doesNotMatch(fact, /slav/i, lang + ': the meaning of the name is not on that page');
+    assert.match(fact, /slav/i, lang + ': the meaning of the name, which the second source says');
   }
 });
 
@@ -251,4 +251,17 @@ test('every I.SOURCES label has a Vietnamese form', () => {
   assert.deepEqual(Object.keys(I.SOURCE_VI).filter(id => !I.SOURCES[id]), [], 'no stray ids');
   assert.equal(I.srcLabel('vi', 'jezero'), I.SOURCE_VI.jezero);
   assert.equal(I.srcLabel('en', 'jezero'), I.SOURCES.jezero.label);
+});
+
+test('the Plains fact has a second source that says what Jezero means; the five role facts each have a source', () => {
+  // https://science.nasa.gov/resource/how-does-nasa-name-things-on-mars-mars-report-june-2023/ says "Jezero ... which means lake in many Slavic languages".
+  assert.equal(I.REGION_EXTRA_SOURCES.plains, 'marsNames');
+  assert.match(I.SOURCES.marsNames.url, /how-does-nasa-name-things-on-mars-mars-report-june-2023\/$/);
+  for (const [role, id] of Object.entries(I.ROLE_SOURCES)) for (const lang of ['en', 'vi']) {
+    assert.ok(I.STR[lang]['role.' + role + '.fact'], lang + ' ' + role);
+    assert.ok(I.SOURCES[id] && I.srcLabel(lang, id), id);
+    assert.ok(I.STR[lang]['role.' + role + '.fact'].split(/s+/).length < 40, role + ' is short');
+  }
+  assert.ok(I.STR.en['role.commander.seat'] && I.STR.vi['role.commander.seat']);
+  assert.doesNotMatch(I.STR.en['item.battery.fact'], /dark/, 'the page says the length of the day, not that half of it is dark');
 });
