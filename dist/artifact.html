@@ -2,6 +2,8 @@
 <meta name="description" content="Run a Mars outpost for 500 sols: balance life support, radiation shielding, power and food. Real NASA numbers, English and Vietnamese, LAN co-op for up to 5 players.">
 <meta name="theme-color" content="#1b1417">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23b4532f'/%3E%3Ccircle cx='24' cy='24' r='5' fill='%237a3623'/%3E%3Ccircle cx='40' cy='38' r='7' fill='%237a3623'/%3E%3C/svg%3E">
+
+
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>window.SOL_APP = false;</script>
@@ -1188,7 +1190,7 @@ p { margin: 0; }
   }
 
   function difficultyOf(level) {
-    return D.DIFFICULTY[level] ? level : D.DEFAULT_DIFFICULTY;
+    return own(D.DIFFICULTY, level) ? level : D.DEFAULT_DIFFICULTY;
   }
 
   function crewSizeOf(n) {
@@ -1376,7 +1378,7 @@ p { margin: 0; }
     }
     repairStats(x.stats);
     for (const k of BANK_RES) if (!Number.isFinite(x.banked[k])) x.banked[k] = 0;
-    if (!Array.isArray(x.banked.lines)) x.banked.lines = [];
+    x.banked.lines = Array.isArray(x.banked.lines) ? x.banked.lines.filter(isMap) : [];
     // A flare whose times are not numbers never ends: drop it (the next step outside starts a new one).
     if (x.flare && !(Number.isFinite(x.flare.warn) && Number.isFinite(x.flare.end))) x.flare = null;
     if (x.flare && !Array.isArray(x.flare.hit)) x.flare.hit = [];
@@ -1534,7 +1536,7 @@ p { margin: 0; }
     if (!prev) return p;
     for (const c of s.crew) {
       const job = (prev.jobs || {})[c.id];
-      if (D.JOBS[job] && !(c.grounded && D.OUTDOOR_JOBS.includes(job))) p.jobs[c.id] = job;
+      if (own(D.JOBS, job) && !(c.grounded && D.OUTDOOR_JOBS.includes(job))) p.jobs[c.id] = job;
     }
     Object.assign(p.modulesOn, prev.modulesOn || {});
     if (prev.rations) p.rations = prev.rations;
@@ -1553,8 +1555,8 @@ p { margin: 0; }
     return x.beacons.length + x.kits + carried;
   }
 
-  // A build or a module is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
-  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  // A build, a module, a job or a difficulty is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
+  const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
   function canBuild(s, type, pending) {
     if (!own(D.BUILDS, type)) return { ok: false, reason: 'unknown' };
     const spec = D.BUILDS[type], pend = pending || [];
@@ -1712,7 +1714,7 @@ p { margin: 0; }
     const jobOf = {};
     for (const c of s.crew) {
       let job = plan.jobs[c.id];
-      if (!D.JOBS[job]) job = 'medical';
+      if (!own(D.JOBS, job)) job = 'medical';
       if (c.grounded && D.OUTDOOR_JOBS.includes(job)) job = 'science';
       jobOf[c.id] = job;
     }
@@ -2479,7 +2481,7 @@ p { margin: 0; }
     perchlorate: { label: 'NASA NTRS: Perchlorate on Mars — overview and implications', url: 'https://ntrs.nasa.gov/citations/20190028297' },
     conjunction: { label: "NASA JPL: What's Mars solar conjunction, and why does it matter?", url: 'https://www.jpl.nasa.gov/news/whats-mars-solar-conjunction-and-why-does-it-matter/' },
     veggie: { label: 'NASA: Growing plants in space (Veggie)', url: 'https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/' },
-    dra5: { label: 'NASA SP-2009-566: Human Exploration of Mars, Design Reference Architecture 5.0', url: 'https://ntrs.nasa.gov/citations/20090040343' },
+    dra5: { label: 'NASA (Drake, Hoffman & Beaty): Human Exploration of Mars, Design Reference Architecture 5.0 (a summary of SP-2009-566)', url: 'https://ntrs.nasa.gov/citations/20090040343' },
     jezero: { label: "NASA JPL (2021): Touchdown! NASA's Mars Perseverance rover safely lands on Red Planet", url: 'https://www.jpl.nasa.gov/news/touchdown-nasas-mars-perseverance-rover-safely-lands-on-red-planet/' },
     bagnold: { label: "NASA JPL (2015): NASA's Curiosity Mars rover heads toward active dunes", url: 'https://www.jpl.nasa.gov/news/nasas-curiosity-mars-rover-heads-toward-active-dunes/' },
     dichotomy: { label: 'NASA Astrobiology (2018): Rare metals on Mars and Earth implicate colossal impacts', url: 'https://astrobiology.nasa.gov/news/rare-metals-on-mars-and-earth-implicate-colossal-impacts/' },
@@ -2526,9 +2528,10 @@ p { margin: 0; }
     hazards: { label: 'NASA Human Research Program: The five hazards of human spaceflight', url: 'https://www.nasa.gov/hrp/hazards/' },
     nasaAbout: { label: 'NASA: About NASA (its mission)', url: 'https://www.nasa.gov/about/' },
     nasaValues: { label: 'NASA Careers: Life at NASA (its core values)', url: 'https://www.nasa.gov/careers/life-at-nasa/' },
-    // The field guide's facts (src/ui.js GUIDE).
-    marsFacts: { label: 'NASA Science: Mars facts', url: 'https://science.nasa.gov/mars/facts/' },
+    // The field guide's facts (src/ui.js GUIDE_SOURCES).
     percySamples: { label: 'NASA Science: Perseverance’s Mars rock samples', url: 'https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples/' },
+    relayJpl: { label: "NASA JPL (2021): The Mars Relay Network connects us to NASA's Martian explorers", url: 'https://www.jpl.nasa.gov/news/the-mars-relay-network-connects-us-to-nasas-martian-explorers/' },
+    jonesKliss: { label: 'Jones & Kliss, NASA Ames (2010): Developing an advanced life support system for the flexible path into deep space', url: 'https://ntrs.nasa.gov/citations/20100036823' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
@@ -2601,12 +2604,12 @@ p { margin: 0; }
     'guide.habitat.fact': 'NASA counts isolation and confinement among the five hazards of human spaceflight: small, shared rooms wear on a crew over months.',
     'guide.medbay.fact': 'Far from Earth, the crew must look after itself: NASA counts the distance from Earth among the five hazards, as medical care and supplies get harder to receive.',
     'guide.workshop.fact': 'NASA lists the distance from Earth among the five hazards of spaceflight: new supplies get harder to receive, so a Mars crew must repair what it has.',
-    'guide.comms.fact': 'About every two years the Sun sits between Earth and Mars, and NASA stops sending commands for about two weeks.',
+    'guide.comms.fact': 'About every two years the Sun sits between Earth and Mars, and NASA’s Mars missions are on their own for a few weeks: engineers hold off on sending them commands.',
     'guide.shelter.fact': 'NASA calls space radiation one of the most dangerous parts of spaceflight. In the game, the crew rides out a solar storm in the shelter.',
     'guide.shield.fact': 'Mars has no global magnetic field and a thin atmosphere, so cosmic rays reach the ground: Curiosity measured about 0.64 mSv a sol at Gale Crater.',
     'guide.suit.fact': 'Mars’ thin air is mostly carbon dioxide, nitrogen and argon, at under 1/100th of Earth’s pressure: outside, you breathe only what your suit carries.',
     'guide.pack.fact': 'Perseverance brought 43 tubes to Mars, 38 of them for samples of rock, soil and air, to be returned to Earth by a future mission for study in labs.',
-    'guide.canister.fact': 'NASA’s life-support baseline is about 0.84 kg of oxygen for each person every day.',
+    'guide.canister.fact': 'NASA life-support engineers plan for about 0.84 kg of oxygen for each person every day.',
     'title.training': 'Training mission',
     'title.trainingHint': 'No random events or breakdowns. Learn the systems first.',
     'title.resume': 'Resume · sol {sol}',
@@ -2708,7 +2711,7 @@ p { margin: 0; }
     'item.battery.fact': 'A Mars sol lasts 24 h 39 min, so half of every sol is dark.',
     'item.reactor.name': 'Fission reactor',
     'item.reactor.desc': '10 kW day and night, dust storm or not. Heavy. Sits 2+ tiles from the HQ.',
-    'item.reactor.fact': 'NASA’s Kilopower test in 2018 ran a 10 kW-class reactor design for Mars.',
+    'item.reactor.fact': 'In 2018 NASA tested a prototype Kilopower reactor, a design that scales up to 10 kW for Mars.',
     'item.recycler.name': 'Water recycler',
     'item.recycler.desc': 'Recovers 93 % of used water. 1 kW. Without it the crew uses 700 kg per round.',
     'item.recycler.fact': 'The ISS reached 98 % water recovery in 2023.',
@@ -3699,12 +3702,12 @@ p { margin: 0; }
     'guide.habitat.fact': 'NASA xếp sự cô lập và gò bó vào năm mối nguy của chuyến bay vũ trụ có người: những căn phòng nhỏ, dùng chung làm phi hành đoàn mệt mỏi qua nhiều tháng.',
     'guide.medbay.fact': 'Ở xa Trái Đất, phi hành đoàn phải tự chăm sóc mình: NASA xếp khoảng cách xa Trái Đất vào năm mối nguy, vì việc chữa bệnh và tiếp tế khó khăn hơn.',
     'guide.workshop.fact': 'NASA xếp khoảng cách xa Trái Đất vào năm mối nguy của chuyến bay vũ trụ: tiếp tế mới khó tới hơn, nên phi hành đoàn trên sao Hỏa phải tự sửa những gì mình có.',
-    'guide.comms.fact': 'Khoảng hai năm một lần, Mặt Trời nằm giữa Trái Đất và sao Hỏa, và NASA ngừng gửi lệnh trong khoảng hai tuần.',
+    'guide.comms.fact': 'Khoảng hai năm một lần, Mặt Trời nằm giữa Trái Đất và sao Hỏa, và các sứ mệnh sao Hỏa của NASA phải tự xoay xở trong vài tuần: các kỹ sư tạm ngừng gửi lệnh cho chúng.',
     'guide.shelter.fact': 'NASA gọi bức xạ vũ trụ là một trong những phần nguy hiểm nhất của chuyến bay vũ trụ. Trong trò chơi, phi hành đoàn trú bão Mặt Trời trong hầm trú ẩn.',
     'guide.shield.fact': 'Sao Hỏa không có từ trường toàn cầu và khí quyển mỏng, nên tia vũ trụ xuống tới mặt đất: Curiosity đo được khoảng 0,64 mSv mỗi sol ở hố Gale.',
     'guide.suit.fact': 'Không khí loãng của sao Hỏa chủ yếu là carbon dioxide, nitơ và argon, với áp suất chưa bằng 1/100 của Trái Đất: ra ngoài, bạn chỉ thở được những gì bộ đồ mang theo.',
     'guide.pack.fact': 'Perseverance mang 43 ống tới sao Hỏa, 38 ống để lấy mẫu đá, đất và không khí, sẽ được một sứ mệnh sau này đưa về Trái Đất để nghiên cứu trong phòng thí nghiệm.',
-    'guide.canister.fact': 'Theo mức chuẩn hỗ trợ sự sống của NASA, mỗi người cần khoảng 0,84 kg oxy mỗi ngày.',
+    'guide.canister.fact': 'Các kỹ sư hỗ trợ sự sống của NASA tính khoảng 0,84 kg oxy cho mỗi người mỗi ngày.',
     'title.training': 'Nhiệm vụ huấn luyện',
     'title.trainingHint': 'Không có sự kiện ngẫu nhiên hay hỏng hóc. Làm quen với các hệ thống trước.',
     'title.resume': 'Tiếp tục · sol {sol}',
@@ -3806,7 +3809,7 @@ p { margin: 0; }
     'item.battery.fact': 'Một sol dài 24 giờ 39 phút, nên nửa sol là bóng tối.',
     'item.reactor.name': 'Lò phản ứng phân hạch',
     'item.reactor.desc': '10 kW cả ngày lẫn đêm, kể cả trong bão bụi. Nặng. Đặt cách HQ từ 2 ô trở lên.',
-    'item.reactor.fact': 'Năm 2018, NASA thử nghiệm lò Kilopower loại 10 kW dành cho sao Hỏa.',
+    'item.reactor.fact': 'Năm 2018, NASA thử nghiệm lò Kilopower nguyên mẫu; thiết kế này có thể mở rộng tới 10 kW cho sao Hỏa.',
     'item.recycler.name': 'Máy tái chế nước',
     'item.recycler.desc': 'Thu hồi 93 % nước đã dùng. 1 kW. Không có nó, mỗi vòng tốn 700 kg nước.',
     'item.recycler.fact': 'Năm 2023, Trạm Vũ trụ Quốc tế đạt mức thu hồi 98 % nước.',
@@ -4771,7 +4774,7 @@ p { margin: 0; }
       { title: 'What is simplified', body: 'Rounds are 25 sols long. Shielding percentages, build times, breakdown rates and science points are game values, chosen so that the trade-offs behave like the real ones.', src: [] },
       { title: 'Regions of Mars', body: 'The six regions of the endless map are modelled on real places: the floor of Jezero Crater (Plains), the Bagnold Dunes (Dune Sea), the cratered southern highlands (Crater Field), Valles Marineris (Canyon Lands), the shallow ice of Arcadia Planitia (Icy Plains) and the possible cave skylights of Arsia Mons (Volcanic Flanks). You can fly over these places yourself in NASA’s Mars Trek, an online map of Mars built from real spacecraft data.', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights', 'marsTrek'] },
       { title: 'The ground you walk on', body: 'The ground in the game is painted with real NASA photos. The Plains, Crater Field, Dune Sea and Canyon Lands use pictures the Ingenuity helicopter took in Jezero Crater between 2021 and 2024. The Volcanic Flanks use Curiosity’s close-up of dark grains on a sand dune in Gale Crater, and the Icy Plains use the Phoenix lander’s photo of the polygon-cracked ground round it, on the icy plains of Mars’ far north.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
-      { title: 'Driving on Mars', body: 'Mars’ gravity is only 38 % as strong as Earth’s, so a rover presses on the ground with 38 % of its Earth weight. Grip is friction, and friction grows with that push: on Mars a rover can speed up, brake and turn only 38 % as hard as on Earth. In the game it needs about 2.6 times as far to stop, and the faster it goes, the wider it has to turn. The air pressure is less than 1/100th of Earth’s, so the air hardly slows it. The game’s rover weighs what Perseverance does, 1,025 kg, but it is far faster: Perseverance tops out at 152 metres an hour on flat, hard ground.', src: ['marsGlance', 'percyRover'] },
+      { title: 'Driving on Mars', body: 'Mars’ gravity is only 38 % as strong as Earth’s, so a rover presses on the ground with 38 % of its Earth weight. Grip is friction, and friction grows with that push: on Mars a rover can speed up, brake and turn only 38 % as hard as on Earth. In the game it needs about 2.6 times as far to stop, and the faster it goes, the wider it has to turn. The air pressure is less than 1/100th of Earth’s, so the air hardly slows it. The game’s rover has the mass of Perseverance, 1,025 kg, so it weighs about 3,800 newtons on Mars and 10,000 on Earth. It is far faster, though: Perseverance tops out at 152 metres an hour on flat, hard ground.', src: ['marsGlance', 'percyRover'] },
     ],
     vi: [
       { title: 'Bức xạ trên bề mặt', body: 'Thiết bị RAD trên Curiosity đo được khoảng 0,64 mSv mỗi sol tại hố Gale. Sao Hỏa không có từ trường toàn cầu và khí quyển mỏng, nên tia vũ trụ xuống tới mặt đất. SOL 500 dùng con số này, giảm đi nhờ lớp che chắn của bạn.', src: ['hassler'] },
@@ -4791,7 +4794,7 @@ p { margin: 0; }
       { title: 'Điều gì đã được đơn giản hóa', body: 'Mỗi vòng dài 25 sol. Phần trăm che chắn, thời gian xây, tỉ lệ hỏng hóc và điểm khoa học là giá trị của trò chơi, được chọn để các sự đánh đổi diễn ra giống thực tế.', src: [] },
       { title: 'Các vùng của sao Hỏa', body: 'Sáu vùng trên bản đồ vô tận được mô phỏng theo những nơi có thật: đáy hố Jezero (Đồng bằng), cồn cát Bagnold (Biển cồn cát), cao nguyên phía nam có nhiều hố va chạm (Cánh đồng hố va chạm), Valles Marineris (Vùng hẻm núi), lớp băng nông ở đồng bằng Arcadia (Đồng bằng băng) và các cửa sổ hang động có thể có trên núi Arsia Mons (Sườn núi lửa). Bạn có thể tự bay qua những nơi này trên Mars Trek của NASA, bản đồ sao Hỏa trực tuyến dựng từ dữ liệu thật của các tàu vũ trụ.', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights', 'marsTrek'] },
       { title: 'Mặt đất dưới chân bạn', body: 'Mặt đất trong trò chơi được vẽ bằng ảnh thật của NASA. Đồng bằng, Cánh đồng hố va chạm, Biển cồn cát và Vùng hẻm núi dùng ảnh do trực thăng Ingenuity chụp ở hố Jezero từ năm 2021 đến 2024. Sườn núi lửa dùng ảnh cận cảnh của Curiosity chụp những hạt cát sẫm màu trên một cồn cát ở hố Gale, còn Đồng bằng băng dùng ảnh tàu đổ bộ Phoenix chụp nền đất nứt thành các đa giác quanh nó, trên vùng đồng bằng băng giá ở cực bắc sao Hỏa.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
-      { title: 'Lái xe trên sao Hỏa', body: 'Trọng lực sao Hỏa chỉ bằng 38 % Trái Đất, nên xe tự hành ép xuống mặt đất với 38 % trọng lượng của nó trên Trái Đất. Độ bám là lực ma sát, và ma sát tăng theo lực ép đó: trên sao Hỏa, xe chỉ có thể tăng tốc, phanh và rẽ mạnh bằng 38 % so với trên Trái Đất. Trong trò chơi, xe cần quãng đường dài gấp khoảng 2,6 lần để dừng lại, và càng chạy nhanh thì càng phải rẽ rộng. Áp suất không khí chưa bằng 1/100 của Trái Đất, nên không khí gần như không làm xe chậm lại. Xe trong trò chơi nặng bằng Perseverance, 1.025 kg, nhưng nhanh hơn nhiều: Perseverance chạy tối đa 152 mét mỗi giờ trên nền đất phẳng và cứng.', src: ['marsGlance', 'percyRover'] },
+      { title: 'Lái xe trên sao Hỏa', body: 'Trọng lực sao Hỏa chỉ bằng 38 % Trái Đất, nên xe tự hành ép xuống mặt đất với 38 % trọng lượng của nó trên Trái Đất. Độ bám là lực ma sát, và ma sát tăng theo lực ép đó: trên sao Hỏa, xe chỉ có thể tăng tốc, phanh và rẽ mạnh bằng 38 % so với trên Trái Đất. Trong trò chơi, xe cần quãng đường dài gấp khoảng 2,6 lần để dừng lại, và càng chạy nhanh thì càng phải rẽ rộng. Áp suất không khí chưa bằng 1/100 của Trái Đất, nên không khí gần như không làm xe chậm lại. Xe trong trò chơi có khối lượng bằng Perseverance, 1.025 kg, nên trọng lượng của nó khoảng 3.800 niutơn trên sao Hỏa và 10.000 niutơn trên Trái Đất. Nhưng nó nhanh hơn nhiều: Perseverance chạy tối đa 152 mét mỗi giờ trên nền đất phẳng và cứng.', src: ['marsGlance', 'percyRover'] },
     ],
   };
 
@@ -7648,7 +7651,8 @@ p { margin: 0; }
  *
  * Mars' gravity is 38 % of Earth's (NASA JPL, "Mars at a glance"). Grip is friction, and friction is a share (GRIP) of how
  * hard the wheels press on the ground, its weight: so on Mars a rover can speed up, brake and turn only 38 % as hard as on
- * Earth, and it needs 2.6 times as far to stop. The air is under 1/100th as thick as Earth's, so there is no air drag.
+ * Earth, and it needs 2.6 times as far to stop. The air's pressure is under 1/100th of Earth's (its density about 1/60th),
+ * so air drag is left out. The grip is shared: what the wheels use to push or brake is not there to turn with.
  * The rover's mass is Perseverance's (1,025 kg); its motor and its top speed are game values, far above Perseverance's
  * 152 m an hour, so that exploring stays fun (src/i18n.js, the "Driving on Mars" note, says so).
  *
@@ -7687,22 +7691,30 @@ p { margin: 0; }
     const R = ROVER, g = (o && o.g) || MARS_G, m = R.mass, boost = !!(o && o.boost), rough = !!(o && o.rough);
     const v = car.speed / PX_PER_M, top = R.top * (boost ? R.boost : 1) * (rough ? R.roughTop : 1);
     const n = Math.hypot(input.x, input.y), Fgrip = grip(g) * m;
-    let throttle = 0, brake = 1;
+    let throttle = 0, brake = 1, d = 0;
     if (n > 0.05) {
-      const d = wrap(Math.atan2(input.y, input.x) - car.heading);
-      // Turning pushes the rover sideways: the wheels hold at most grip(g), so the faster it goes, the slower it can turn.
-      const w = Math.min(R.turn, grip(g) / Math.max(v, 0.5));
-      car.heading = wrap(car.heading + clamp(d, -w * dt, w * dt));
+      d = wrap(Math.atan2(input.y, input.x) - car.heading);
       const c = Math.cos(d);
       throttle = Math.min(1, n) * Math.max(0, c); // ease off while turning
-      brake = c < 0.5 ? (0.5 - c) * Math.min(1, v / R.top) : 0; // and brake into a sharp turn, the harder the faster it goes
+      brake = c < 0.5 ? Math.min(1, (0.5 - c) * Math.min(1, v / R.top)) : 0; // and brake into a sharp turn, the harder the faster it goes
     }
     // Newton's second law along the heading: the motor's push (no more than the wheels' grip, and no more than its power
     // allows at this speed) against rolling resistance and the brakes.
     const Fmotor = throttle > 0 && v <= top ? Math.min(Fgrip, R.power / Math.max(v, 0.5)) * throttle : 0; // at the governor it holds
-    const Fresist = v > 0 ? (rough ? R.rollRough : R.roll) * m * g + brake * Fgrip : 0;
+    const Fbrake = v > 0 ? brake * Fgrip : 0;
+    let side = 0; // the sideways push the turn takes, m/s²
+    if (d) {
+      // Turning pushes the rover sideways, and the wheels hold at most grip(g) in all (a friction circle): the grip the motor
+      // or the brakes use along the heading is not there for the turn. So the faster it goes, the slower it can turn.
+      const along = Math.abs(Fmotor - Fbrake) / m, left = Math.sqrt(Math.max(0, grip(g) * grip(g) - along * along));
+      const w = Math.min(R.turn, left / Math.max(v, 0.5)), turn = clamp(d, -w * dt, w * dt);
+      car.heading = wrap(car.heading + turn);
+      side = dt > 0 ? v * Math.abs(turn) / dt : 0;
+    }
+    const Fresist = v > 0 ? (rough ? R.rollRough : R.roll) * m * g + Fbrake : 0;
     let next = Math.max(0, v + (Fmotor - Fresist) / m * dt);
-    if (v > top) next = Math.max(top, Math.min(next, v - Fgrip / m * dt)); // over the governor: it brakes down to it
+    // Over the governor it brakes down to it, with the grip the turn leaves.
+    if (v > top) next = Math.max(top, Math.min(next, v - Math.sqrt(Math.max(0, grip(g) * grip(g) - side * side)) * dt));
     else next = Math.min(next, top);
     car.speed = next * PX_PER_M;
     return car.speed * dt;
@@ -8704,22 +8716,21 @@ p { margin: 0; }
   const DIR_ANGLE = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
   function roverWheel(ctx, x, y, odo) {
     ctx.fillStyle = '#262122';
-    ctx.beginPath(); ctx.roundRect(x - 14, y - 7.5, 28, 15, 5); ctx.fill();
+    roundRect(ctx, x - 14, y - 7.5, 28, 15, 5); ctx.fill();
     ctx.save();
-    ctx.beginPath(); ctx.roundRect(x - 14, y - 7.5, 28, 15, 5); ctx.clip();
+    roundRect(ctx, x - 14, y - 7.5, 28, 15, 5); ctx.clip();
     const off = ((odo % 6) + 6) % 6;
     ctx.strokeStyle = 'rgba(120,110,105,.6)'; ctx.lineWidth = 2;
     for (let k = -20; k < 20; k += 6) { ctx.beginPath(); ctx.moveTo(x + k - off, y - 7.5); ctx.lineTo(x + k - off, y + 7.5); ctx.stroke(); }
     ctx.restore();
     ctx.fillStyle = 'rgba(255,255,255,.18)';
-    ctx.beginPath(); ctx.roundRect(x - 12, y - 6.5, 24, 3, 2); ctx.fill();
+    roundRect(ctx, x - 12, y - 6.5, 24, 3, 2); ctx.fill();
   }
   function drawRoverTop(ctx, x, y, heading, odo, moving, color) {
-    ctx.save();
-    ctx.filter = 'blur(5px)'; // its shadow, thrown south-east by the low sun, like the rocks'
-    ctx.fillStyle = 'rgba(10,4,2,.45)';
+    ctx.save(); // its shadow, thrown south-east by the low sun, like the rocks': a soft edge from two layers (a blur filter costs a layer a frame)
     ctx.translate(x + 9, y + 11); ctx.rotate(heading);
-    ctx.beginPath(); ctx.roundRect(-64, -46, 128, 92, 18); ctx.fill();
+    ctx.fillStyle = 'rgba(10,4,2,.2)'; roundRect(ctx, -64, -46, 128, 92, 18); ctx.fill();
+    ctx.fillStyle = 'rgba(10,4,2,.3)'; roundRect(ctx, -58, -40, 116, 80, 14); ctx.fill();
     ctx.restore();
     ctx.save();
     ctx.translate(x, y); ctx.rotate(heading);
@@ -8728,16 +8739,16 @@ p { margin: 0; }
       ctx.beginPath(); ctx.moveTo(-46, s * 37); ctx.lineTo(-20, s * 27); ctx.lineTo(0, s * 37); ctx.moveTo(-20, s * 27); ctx.lineTo(18, s * 27); ctx.lineTo(46, s * 37); ctx.stroke();
       for (const wx of [-46, 0, 46]) roverWheel(ctx, wx, s * 39, odo);
     }
-    ctx.fillStyle = '#55595f'; ctx.beginPath(); ctx.roundRect(-72, -13, 26, 26, 6); ctx.fill(); // the power unit, finned
+    ctx.fillStyle = '#55595f'; roundRect(ctx, -72, -13, 26, 26, 6); ctx.fill(); // the power unit, finned
     ctx.strokeStyle = '#3a3d42'; ctx.lineWidth = 2;
     for (let k = -10; k <= 10; k += 5) { ctx.beginPath(); ctx.moveTo(-72, k); ctx.lineTo(-46, k); ctx.stroke(); }
     const body = ctx.createLinearGradient(-44, -28, 44, 28);
     body.addColorStop(0, '#ffffff'); body.addColorStop(1, '#bfc3c8');
-    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(-44, -28, 92, 56, 9); ctx.fill();
+    ctx.fillStyle = body; roundRect(ctx, -44, -28, 92, 56, 9); ctx.fill();
     ctx.strokeStyle = 'rgba(80,85,92,.45)'; ctx.lineWidth = 1.2; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-10, -28); ctx.lineTo(-10, 28); ctx.moveTo(22, -28); ctx.lineTo(22, 28); ctx.stroke();
-    ctx.fillStyle = '#c99a3c'; ctx.beginPath(); ctx.roundRect(-6, -20, 24, 16, 3); ctx.fill(); // gold foil
-    ctx.fillStyle = color || '#ff9a5c'; ctx.beginPath(); ctx.roundRect(-44, -28, 92, 5, 3); ctx.fill(); // the crew stripe
+    ctx.fillStyle = '#c99a3c'; roundRect(ctx, -6, -20, 24, 16, 3); ctx.fill(); // gold foil
+    ctx.fillStyle = color || '#ff9a5c'; roundRect(ctx, -44, -28, 92, 5, 3); ctx.fill(); // the crew stripe
     ctx.fillStyle = '#e9eaec'; ctx.strokeStyle = '#8f9399'; ctx.lineWidth = 1.5; // the dish
     ctx.beginPath(); ctx.arc(-26, 14, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.beginPath(); for (let k = 0; k < 6; k++) { ctx.moveTo(-26, 14); ctx.lineTo(-26 + Math.cos(k) * 11, 14 + Math.sin(k) * 11); } ctx.stroke();
@@ -8745,7 +8756,7 @@ p { margin: 0; }
     ctx.beginPath(); ctx.moveTo(40, 18); ctx.lineTo(58, 10); ctx.lineTo(56, -2); ctx.stroke();
     ctx.fillStyle = '#55595f'; ctx.beginPath(); ctx.arc(56, -2, 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#d6d8db'; ctx.beginPath(); ctx.arc(30, -14, 7, 0, Math.PI * 2); ctx.fill(); // the mast and its cameras
-    ctx.fillStyle = '#2a2e35'; ctx.beginPath(); ctx.roundRect(30, -22, 15, 16, 3); ctx.fill();
+    ctx.fillStyle = '#2a2e35'; roundRect(ctx, 30, -22, 15, 16, 3); ctx.fill();
     ctx.fillStyle = '#5fa8ff';
     for (const yy of [-18, -10]) { ctx.beginPath(); ctx.arc(43, yy, 2.2, 0, Math.PI * 2); ctx.fill(); }
     for (const s of [-1, 1]) { // the headlights, and their beams on the ground while it drives
@@ -9838,7 +9849,8 @@ p { margin: 0; }
           }
           // A beacon or a hab pod that has already refilled your suit this round says so, once each a round (R27): the rules'
           // 'refilled' is a quiet answer the surface never asks for, and a low suit there should know why nothing comes.
-          const spent = id ? null : reach.concat(pod ? [pod.id] : []).find(k => had.includes(k) && !told.includes(k));
+          // Not while a refill just asked for is on its way back: in co-op the room frame can show it spent before the answer lands.
+          const spent = id || now - refillAt <= 2 ? null : reach.concat(pod ? [pod.id] : []).find(k => had.includes(k) && !told.includes(k));
           if (spent) {
             told.push(spent);
             say(spent[0] === 'B' ? t('eva.refillUsed', { name: beaconName(spent) }) : t('eva.refillUsedPod'), 'warn', 5);
@@ -10271,6 +10283,14 @@ p { margin: 0; }
     return steps && steps.map(([x, y]) => center(x, y));
   }
 
+  // On a route, a rover lets go once it needs all the road left to stop, so it stops at the end of it, not past it. Letting
+  // go brakes with the wheels' full grip plus rolling resistance, a little more than PH.stopDistance counts: it stops short.
+  function brakesNow(p, d) {
+    let left = d;
+    for (let i = 1; i < p.path.length; i++) left += Math.hypot(p.path[i][0] - p.path[i - 1][0], p.path[i][1] - p.path[i - 1][1]);
+    return PH.stopDistance(p.car.speed) * PH.PX_PER_M * S.eva.speed(p) * S.qa.speed >= left - 8;
+  }
+
   function spotNear(gx, gy, rnd) {
     const [wx, wy] = gx == null ? [0, 0] : gridToWorld(gx, gy);
     const options = [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1]].map(([dx, dy]) => [wx + dx, wy + dy]).filter(([x, y]) => !isBlocked(x, y));
@@ -10561,7 +10581,7 @@ p { margin: 0; }
       // A reload (or a new seat) mid-round: back where you stood (the solo save, or where the server last saw you), not a free
       // walk home. After a solo collapse you are already home, where you sit out the round.
       if (back && !S.eva.state().benched) place(back);
-      if (S.eva.driving()) S.player.inRover = true; // back in the seat you left (a reload while driving)
+      if (S.eva.driving()) { S.player.inRover = true; S.player.car = null; } // back in the seat you left (a reload while driving), from rest
     }
     if (down) S.player.inRover = false; // a collapse parks the rover where you fell (X.collapse): you are never left in it
     S.canvas.setAttribute('aria-label', t('sf.aria'));
@@ -10582,9 +10602,10 @@ p { margin: 0; }
     for (const p of list || []) {
       if (!p.crewId || (S.data && p.crewId === S.data.controlId)) continue;
       const prev = S.remote[p.crewId];
-      // A rover's heading comes from how its relayed position moves (no new network field); standing still keeps it.
+      // A rover's heading comes from how its relayed position moves (no new network field); standing still keeps it, and a
+      // crewmate who has just got in is drawn the way the rover was parked.
       const shift = prev && prev.rover && p.rover ? Math.hypot(p.x - prev.tx, p.y - prev.ty) : 0;
-      const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : prev && p.rover ? prev.heading : null;
+      const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : p.rover ? (prev && prev.heading != null ? prev.heading : S.roverHeading) : null;
       if (p.rover && heading != null) S.roverHeading = heading; // so it is parked as its driver left it
       next[p.crewId] = {
         x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, odo: prev ? prev.odo || 0 : 0,
@@ -10755,7 +10776,7 @@ p { margin: 0; }
             }
             if (p.autoFocus) { S.pendingAuto = p.autoFocus; p.autoFocus = null; }
           }
-        } else { vx = dx / d; vy = dy / d; }
+        } else if (!(p.inRover && p.car && brakesNow(p, d))) { vx = dx / d; vy = dy / d; }
       }
     } else {
       p.path = null;
@@ -10780,12 +10801,14 @@ p { margin: 0; }
         const hx = Math.cos(p.car.heading), hy = Math.sin(p.car.heading), mx = p.x + hx * step, my = p.y + hy * step;
         const stuck = hitsWall(p.x, p.y, true);
         const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !hitsWall(x + hx * NOSE, y + hy * NOSE, true))) && S.eva.canMove(p, x, y));
-        const okX = ok(mx, p.y);
+        // A move along an axis the rover isn't heading on is no move, so it can't count as allowed: head-on into a wall,
+        // both are refused and the rover stops dead, with no speed left to show, send or turn with.
+        const okX = Math.abs(hx) > 1e-6 && ok(mx, p.y);
         if (okX) p.x = mx;
-        const okY = ok(p.x, my);
+        const okY = Math.abs(hy) > 1e-6 && ok(p.x, my);
         if (okY) p.y = my;
         if (!okX && !okY) { p.car.speed = 0; moving = false; p.path = null; } // against a wall, or the battery is flat
-        p.odo = (p.odo || 0) + step;
+        p.odo = (p.odo || 0) + Math.hypot(p.x - ox, p.y - oy); // the wheels turn as far as it really went
       }
       if (step > 0 || p.car.heading !== turnedFrom) { // you face the way it does once it turns or moves (E acts there)
         const c = Math.cos(p.car.heading), s = Math.sin(p.car.heading);
@@ -10907,13 +10930,14 @@ p { margin: 0; }
   // under Mars' gravity (src/physics.js); the tracks, two lines of the last TRACKS points, fade as newer ones are laid.
   const TRACKS = 240, TRACK_GAP = 8;
   function roverFx(dt) {
-    const fx = S.fx, list = [];
+    const fx = S.fx, list = [], due = fx.due || (fx.due = {});
     if (S.player.inRover && S.player.car) list.push(['me', S.player.x, S.player.y, S.player.car.heading, S.player.moving]);
     for (const [id, r] of Object.entries(S.remote)) if (r.rover && r.heading != null) list.push([id, r.x, r.y, r.heading, r.moving]);
     for (const [id, x, y, h, moving] of list) {
       if (!moving) continue;
       const c = Math.cos(h), s = Math.sin(h), at = (lx, ly) => [x + c * lx - s * ly, y - 10 + s * lx + c * ly];
-      if (fx.dust.length < 160) for (const side of [-1, 1]) {
+      // A grain from each back wheel 60 times a second, whatever the frame rate (the same dust on a 30 Hz and a 144 Hz screen).
+      for (due[id] = Math.min((due[id] || 0) + dt * 60, 4); due[id] >= 1 && fx.dust.length < 160; due[id]--) for (const side of [-1, 1]) {
         const [dx, dy] = at(-58, side * 39);
         fx.dust.push({ x: dx, y: dy, z: 0.01, vx: -c * 40 + (Math.random() - 0.5) * 50, vy: -s * 40 + (Math.random() - 0.5) * 50, vz: 0.5 + Math.random(), r: 3 + Math.random() * 3, age: 0 });
       }
@@ -11042,12 +11066,14 @@ p { margin: 0; }
     const crew = avatars().find(a => !a.you && !a.remote && Math.hypot(a.x - lx, a.y - ly) < 30);
     if (crew) f = { kind: 'crew', key: 'c:' + crew.id, id: crew.id };
     const ef = S.eva.focusAt(lx, ly, p, S.world); // a find, a dropped load, a crewmate down outside, the parked rover
-    if (!f) f = ef;
+    if (!f && !(ef && ef.kind === 'beacon')) f = ef;
     if (!f) f = focusAt(Math.floor(lx / T), Math.floor(ly / T));
     if (!f || f.kind === 'empty') {
       const under = focusAt(Math.floor(p.x / T), Math.floor((p.y - 4) / T));
       if (under && (!f || under.kind !== 'empty' || !f)) f = under || f;
     }
+    // A beacon can't stand near the base, so its prompt comes only when the surface itself has nothing here (the brief's "only when nothing else is in reach").
+    if (!f && ef) f = ef;
     // In the rover, E gets you out, unless there is work right there: a crewmate to revive, or a find or a dropped load your
     // backpack has room for (you step out to work on it and get back in). A full backpack never keeps you in a flat rover.
     if (p.inRover) f = ef && S.eva.holdable(ef) && (ef.kind === 'revive' || S.eva.hasRoom()) ? ef : { kind: 'rover', key: 'rover-exit', driving: true };
@@ -11197,7 +11223,7 @@ p { margin: 0; }
           { disabled: !chk.ok || !here, icon: A.module(ty, 34) })));
       }
       body.appendChild(grid);
-      note(t('hud.materials') + ': ' + Math.round(m.resources.materials) + ' kg', 'faint');
+      note(t('hud.materials') + ': ' + nf(m.resources.materials) + ' kg', 'faint');
       return;
     }
     if (f.kind === 'queued') {
@@ -11262,7 +11288,7 @@ p { margin: 0; }
       const on = (plan.modulesOn || {})[ty] !== false;
       if (consumer) {
         const running = fc.power.running[ty];
-        note((running ? t('sys.running', { n: running }) : t('sf.unpowered')) + ' · ' + D.MODULES[ty].kw + ' kW', running ? 'ok' : 'warn');
+        note((running ? t('sys.running', { n: running }) : t('sf.unpowered')) + ' · ' + nf(D.MODULES[ty].kw, 1) + ' kW', running ? 'ok' : 'warn');
         body.appendChild(numbered(mbtn(t('sf.switch') + ': ' + (on ? t('common.on') : t('common.off')), t('mod.' + ty) + ' ×' + mod.count,
           () => { H.toggleModule(ty); renderMenu(); }, { on, icon: A.icon('power_off', 18) })));
       } else if (ty === 'solar') {
@@ -11487,7 +11513,7 @@ p { margin: 0; }
       tile: [tx, ty], region: S.region == null ? null : W.REGIONS[S.region], fps: Math.round(S.fps), mapOpen: S.map.isOpen(),
       world: S.world && S.world.stats(), paint: S.painter && S.painter.stats(), seen: (x, y) => S.world.seen(x, y),
       eva: S.eva.state(), focusKey: S.focus && S.focus.key, view: S.eva.view(S.player), push: S.player.push ? Object.assign({}, S.player.push) : null,
-      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
+      hint: !S.hint.hidden, alert: S.eva.alerting(), dust: S.particles.length, roverDust: S.fx ? S.fx.dust.length : 0, dustX: S.particles.map(q => q.x), dustY: S.particles.map(q => q.y),
       pois: JSON.parse(JSON.stringify(S.pois || [])), tube: S.tube ? S.tube.id : null, // the last frame's points of interest
       marks: JSON.parse(JSON.stringify(mapState().marks)), // what the maps mark
       lines: JSON.parse(JSON.stringify(mapState().lines)), team: JSON.parse(JSON.stringify(team())), // the maps' lines; who counts for the aura
@@ -12305,13 +12331,15 @@ p { margin: 0; }
   // The note: each entry is the card's own words (eyebrow, title, fact or log, source), so the notes and the cards cannot differ.
   // An entry is a native <details>, closed (R29): its summary is the eyebrow, title and meta, and the fact or log and its
   // source open under it, so a long mission's list stays a list of titles to open.
+  const foundOpen = new Set(); // the entries the player has open: render() rebuilds the note, and co-op renders on every frame
   function foundNote(s) {
     const cards = foundCards(s);
     return h('article', { class: 'note found' }, h('h3', null, t('notes.found')),
       cards.length ? h('ul', { class: 'found-list' }, cards.map(c => {
         const { cls, eyebrow, title, meta, body, src } = cardText(c);
-        return h('li', { class: cls.trim() || null }, h('details', null,
-          h('summary', null, h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null),
+        const k = c.type + ':' + c.id;
+        return h('li', { class: cls.trim() || null }, h('details', { open: foundOpen.has(k), ontoggle: e => { if (e.target.open) foundOpen.add(k); else foundOpen.delete(k); } },
+          h('summary', { 'data-k': 'found:' + k }, h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null),
           h('p', null, body),
           src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
       })) : h('p', null, t('notes.foundNone')));
@@ -13498,22 +13526,30 @@ p { margin: 0; }
   }
 
   // The field guide (the project brief's item annotations): every piece of cargo, building and gear, with its name, what it
-  // does in the game and a real fact, and the fact's source where SOURCES has one. Cargo uses the packing screen's words,
-  // buildings the build menu's, gear and the facts the build menu lacks the guide's own (guide.*).
+  // does in the game and a real fact with the source that states it. Cargo uses the packing screen's words, buildings the
+  // build menu's, gear and the facts the build menu lacks the guide's own (guide.*).
   const GUIDE = [
     ['guide.cargo', ['solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse', 'waterwall', 'lab', 'rover', 'spares', 'materials', 'food', 'o2', 'water']],
     ['guide.buildings', ['hab', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield']],
     ['guide.gear', ['suit', 'pack', 'canister', 'kit']],
   ];
-  const GUIDE_SOURCES = { hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler', suit: 'marsFacts', pack: 'percySamples', canister: 'bvad', rover: 'percyRover' };
+  // Each page checked to say the fact as the game words it. An entry with none shows no fact line: lab's and spares' are
+  // mottos, and no page checked says solar's 43 %, the water wall's "best shield per kilogram", baked regolith bricks or
+  // water's 7 kg a day.
+  const GUIDE_SOURCES = {
+    battery: 'marsGlance', reactor: 'kilopower', recycler: 'water98', oxygen: 'moxie', icedrill: 'iceMap', greenhouse: 'veggie', rover: 'dra5', food: 'bvad', o2: 'jonesKliss',
+    hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler',
+    suit: 'marsGlance', pack: 'percySamples', canister: 'jonesKliss', kit: 'relayJpl',
+  };
   const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
   function guideEntry(id) {
-    const k = key => (I.STR.en[key] ? t(key) : null);
+    // The guide's own words (guide.<id>.*) win: a borrowed string is called here without its params (bld.kit's {base}…).
+    const k = key => (I.STR.en[key] ? t(key) : null), own = part => k('guide.' + id + '.' + part), src = GUIDE_SOURCES[id] || null;
     return {
-      name: k('item.' + id + '.name') || k('mod.' + id) || k('guide.' + id + '.name'),
-      desc: k('item.' + id + '.desc') || k('bld.' + id) || k('guide.' + id + '.desc'),
-      fact: k('item.' + id + '.fact') || k('guide.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null),
-      src: GUIDE_SOURCES[id] || null,
+      name: own('name') || k('item.' + id + '.name') || k('mod.' + id),
+      desc: own('desc') || k('item.' + id + '.desc') || k('bld.' + id),
+      fact: src && (own('fact') || k('item.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
+      src,
       art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
     };
   }
