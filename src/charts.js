@@ -209,7 +209,9 @@
       const y = top + (BAND - BAR) / 2;
       const w = len(r.value);
       const label = el('text', { x: LW - 10, y: y + BAR / 2 + 4, 'text-anchor': 'end', fill: 'var(--fg-2)', 'font-size': 12 }, svg);
-      label.textContent = r.label;
+      const full = String(r.label), short = full.length > 22 ? full.slice(0, 21) + '…' : full; // a long label (Vietnamese) must not run off the left edge
+      label.textContent = short;
+      if (short !== full) el('title', {}, label).textContent = full;
       if (w > 0) {
         const rr = Math.min(4, w, BAR / 2);
         const x2 = LW + w;

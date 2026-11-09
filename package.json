@@ -25,6 +25,7 @@
   "build": {
     "appId": "com.sol500.marsoutpost",
     "productName": "SOL 500",
+    "copyright": "Copyright © 2026 Tung Son",
     "artifactName": "SOL500-Setup-${version}.${ext}",
     "directories": {
       "output": "dist-app"
@@ -44,7 +45,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "icons/icon-512.png"
+      "icon": "icons/icon.ico",
+      "publisherName": "Tung Son"
     },
     "nsis": {
       "oneClick": true,

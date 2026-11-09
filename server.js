@@ -17,16 +17,18 @@ const MAX_SOCKETS = 100;
 const { clientIp, createLimiter, requestClass } = require('./lib/limits.js');
 const { send, readBody } = require('./lib/http.js');
 const { createAdmin } = require('./lib/admin.js');
+const { privateIPv4 } = require('./app/join.js');
 const { createHistory } = require('./lib/history.js');
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8', '.png': 'image/png',
 };
 
-function lanAddresses(port) {
+// Only addresses the app's own Join accepts (private ranges): VPN ones (Radmin, Hamachi, Tailscale) would be refused there.
+function lanAddresses(port, ifaces = os.networkInterfaces()) {
   const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) out.push(`http://${a.address}:${port}`);
+  for (const list of Object.values(ifaces)) {
+    for (const a of list || []) if (a.family === 'IPv4' && !a.internal && privateIPv4(a.address)) out.push(`http://${a.address}:${port}`);
   }
   return out;
 }
@@ -123,7 +125,7 @@ function createServer(opts = {}) {
   return server;
 }
 
-module.exports = { createServer };
+module.exports = { createServer, lanAddresses };
 
 if (require.main === module) {
   const port = Number(process.env.PORT) || 5050;

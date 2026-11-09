@@ -44,6 +44,7 @@
 .adm-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .adm-feats { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: var(--fs-sm); color: var(--fg-2); }
 .adm-feats li { display: flex; gap: 8px; align-items: flex-start; }
+.adm-feats li .ico-i { flex: none; }
 .adm-feats li.done { color: var(--fg); }
 .adm-feats li.done .ico-i { color: var(--ok); }
 .adm-milestones { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; }

@@ -42,4 +42,4 @@ function joinUrl(address, code) {
   return origin + '/' + (clean ? '?join=' + clean : '');
 }
 
-module.exports = { normalizeHostAddress, joinUrl };
+module.exports = { normalizeHostAddress, joinUrl, privateIPv4 };

@@ -3,7 +3,7 @@
  * SOL 500 desktop app: starts the game server inside the app, then shows the game in its own window.
  * Friends on the same Wi-Fi (or through the share link) connect to this same server.
  */
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { createServer } = require('../server.js');
@@ -11,6 +11,8 @@ const { pickPort } = require('./port.js');
 const QRCode = require('qrcode');
 const tunnel = require('./tunnel.js');
 const { joinUrl } = require('./join.js');
+const { clampSize } = require('./size.js');
+const I18N = require('../src/i18n.js');
 
 let win = null;
 let server = null;
@@ -112,9 +114,9 @@ function fromGame(e) {
 }
 
 function createWindow() {
-  const size = loadSize();
+  const size = clampSize(loadSize());
   win = new BrowserWindow({
-    width: size ? size.width : 1280, height: size ? size.height : 800, minWidth: 960, minHeight: 600,
+    width: size.width, height: size.height, minWidth: 960, minHeight: 600,
     backgroundColor: '#1b1417', title: 'SOL 500', show: false,
     icon: path.join(__dirname, '..', 'icons', 'icon-512.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false },
@@ -141,7 +143,7 @@ if (!app.requestSingleInstanceLock()) {
     try {
       await startServer();
     } catch (e) {
-      dialog.showErrorBox('SOL 500', 'The game server could not start: ' + e.message);
+      dialog.showErrorBox('SOL 500', I18N.t(app.getLocale().startsWith('vi') ? 'vi' : 'en', 'app.startFail', { why: e.message }));
       app.exit(1);
       return;
     }
@@ -165,6 +167,7 @@ if (!app.requestSingleInstanceLock()) {
       try { await shell.openExternal(url); } catch (err) { return { error: 'openFailed' }; }
       return { ok: true };
     });
+    Menu.setApplicationMenu(null); // no menu: its Ctrl+R would reload the page and wipe the online state, Ctrl+Shift+I opens DevTools
     createWindow();
     if (process.env.SOL_SMOKE) require('./smoke.js').run({ win, port, app, startOnline: uiStartOnline });
   });

@@ -1049,7 +1049,7 @@
     return panel(t(own ? 'seat.lost' : 'seat.none'), [
       h('p', { class: 'muted' }, t(free.length ? 'seat.pick' : 'seat.watch')),
       free.length ? h('div', { class: 'seat-list' }, free.map(c => h('button', {
-        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => N.act('claim', { crewId: c.id }),
+        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => claimSeat(c.id),
       }, t('seat.take', { name: crewName(c.id), role: t('role.' + c.role) })))) : null,
     ]);
   }
@@ -1807,7 +1807,7 @@
         h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
           h('button', {
             class: 'btn btn-sm', type: 'button', 'data-k': 'online-copy',
-            onclick: () => navigator.clipboard.writeText(o.url).then(() => toast(t('online.copied')), () => {}),
+            onclick: () => navigator.clipboard.writeText(o.url).then(() => toast(t('online.copied')), () => toast(t('online.copyFailed'))),
           }, t('online.copy')),
           h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-stop', onclick: () => window.solApp.stopOnline() }, t('online.stop'))),
         h('img', { src: o.qr, alt: t('online.qr'), width: 160, height: 160, style: 'border-radius:8px;background:#fff;padding:6px' }),
@@ -1817,7 +1817,7 @@
         h('p', { class: 'muted' }, t(o.state === 'downloading' ? 'online.downloading' : 'online.starting')),
         h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-cancel', onclick: () => window.solApp.stopOnline() }, t('online.cancel')));
     } else {
-      if (o.error) body.push(h('p', { class: 'crit' }, t('online.error')));
+      if (o.error) body.push(h('p', { class: 'crit' }, t(o.error === 'hashMismatch' ? 'online.errorHash' : 'online.error')));
       body.push(h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'online-start', onclick: () => startOnline(false) }, ico('wifi', 16), t('online.start')));
     }
     return body;
@@ -1883,7 +1883,7 @@
             mineSlot
               ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => N.act('claim', { crewId: null }) }, t('lan.leave'))
               // A seat whose player has gone (closed tab, old share link) can be taken back.
-              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!(owner && owner.connected), onclick: () => N.act('claim', { crewId: c.id }) }, t('lan.take')));
+              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!(owner && owner.connected), onclick: () => claimSeat(c.id) }, t('lan.take')));
         })))),
       h('div', { class: 'deb-actions' },
         h('button', { class: 'btn btn-ghost', type: 'button', onclick: leaveRoom }, t('lan.leave'))),
@@ -1945,9 +1945,16 @@
     render();
   }
 
+  // A seat claim the server refused says why (a dead astronaut, a seat just taken), instead of failing in silence.
+  function claimSeat(crewId) {
+    return N.act('claim', { crewId }).then(r => {
+      if (r && r.error) toast(t(r.error === 'deadCrew' ? 'lan.deadCrew' : r.error === 'taken' ? 'lan.seatTaken' : 'eva.err.' + (I.has(store.lang, 'eva.err.' + r.error) ? r.error : 'net')));
+    });
+  }
+
   async function hostRoom(name) {
     const r = await N.create(name);
-    if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
+    if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
     N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing);
@@ -2058,7 +2065,7 @@
     }
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'win'].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
     }
     if (m === 'notes') {
       const s = mission(), isru = { title: t('lesson.isruMars.title'), body: t('lesson.isruMars.body'), src: ISRU_SOURCES }; // the debrief's lesson, with its sources

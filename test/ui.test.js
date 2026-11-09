@@ -1151,3 +1151,43 @@ test('fog sent just before a socket drops is sent again when it reopens', async 
   net.h[0](room);
   assert.deepEqual(sent, [['2,2'], ['2,2']], 'sent again once the room frame names the mission');
 });
+
+// ---------- M5 task 7: the title and the lobby ----------
+
+test('a failed host shows words, never the raw key lan.network', async () => {
+  for (const lang of ['en', 'vi']) {
+    const pg = page({ lang }, { SolNet: { info: () => Promise.resolve(null), restore: () => null, create: () => Promise.resolve({ error: 'network' }) } });
+    pg.UI.store.modal = 'lan';
+    pg.UI.render();
+    click(pg.byKey('lan-host'));
+    await new Promise(r => setImmediate(r));
+    const err = pg.UI.store.lanError;
+    assert.ok(err && !/^lan\./.test(err), lang + ': ' + err);
+    assert.equal(err, I.t(lang, 'lan.network'));
+  }
+});
+
+test('noRoom and slowDown have their own messages, not "No answer from the server"', async () => {
+  for (const error of ['noRoom', 'slowDown']) {
+    const net = { info: () => Promise.resolve(null), restore: () => null, act: () => Promise.resolve({ error }) };
+    const pg = page(null, { SolNet: net });
+    pg.play(pg.mission({ seed: 'UI-ERR' }));
+    Object.assign(pg.UI.store, { lan: { code: 'ABCD' }, room: { mission: pg.mission({ seed: 'UI-ERR', coop: true }), players: [], settings: { names: {} } } });
+    const r = await pg.surface.hooks.exp('collect', {}, at(1, 1));
+    assert.equal(r.error, error);
+    assert.notEqual(en('eva.err.' + error), en('eva.err.net'));
+  }
+});
+
+test('a refused seat claim shows lan.deadCrew', async () => {
+  const net = { info: () => Promise.resolve(null), restore: () => null, act: () => Promise.resolve({ error: 'deadCrew' }) };
+  const pg = page(null, { SolNet: net });
+  const m = pg.mission({ seed: 'UI-SEAT', coop: true });
+  Object.assign(pg.UI.store, { lan: { code: 'ABCD', playerId: 'p1' }, room: { mission: m, plan: pg.E.defaultPlan(m), hostId: 'p1', phase: 'ops', players: [{ id: 'p1', name: 'Me', crewId: null, connected: true }], settings: { names: {} } }, mission: m, plan: pg.E.defaultPlan(m), screen: 'ops', opsView: 'surface', modal: null });
+  pg.UI.render();
+  const btn = pg.all().find(n => /^seat:/.test(n.attrs['data-k'] || ''));
+  assert.ok(btn, 'a free seat is offered');
+  click(btn);
+  await new Promise(r => setImmediate(r));
+  assert.equal(pg.UI.store.toast, en('lan.deadCrew'));
+});
