@@ -938,6 +938,19 @@ test("co-op: a relay beacon is placed through the server where it last saw you, 
   assert.equal(say(R, room, host, 'refill', { beacon: 'B0' }).body.error, 'refilled', 'once a round');
 });
 
+test('a co-op job or difficulty named like a property every object has, or not a string, is refused', () => {
+  const { R, room, guest } = inMission();
+  const job = room.plan.jobs.minh;
+  const { room: lobby, player: host } = R.create('Host');
+  const level = lobby.settings.difficulty;
+  for (const bad of ['__proto__', 'toString', 'constructor', ['eva']]) {
+    assert.equal(say(R, room, guest, 'job', { crewId: 'minh', job: bad }).body.error, 'badJob', String(bad));
+    assert.equal(room.plan.jobs.minh, job, String(bad));
+    say(R, lobby, host, 'settings', { difficulty: bad });
+    assert.equal(lobby.settings.difficulty, level, String(bad));
+  }
+});
+
 test("a co-op plan can't queue, scrap or request a type named like a property every object has, nor a non-string one", () => {
   const { R, room, guest } = inMission();
   for (const bad of ['__proto__', 'toString', 'constructor', ['solar'], { toString: () => 'solar' }]) {

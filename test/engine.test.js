@@ -30,6 +30,20 @@ function advance(state, planFn, turns) {
   return s;
 }
 
+// ---------- jobs ----------
+
+test('a job or difficulty named like a property every object has, or not a string, is not one', () => {
+  const st = calm();
+  for (const bad of ['__proto__', 'toString', 'constructor', ['eva']]) {
+    const plan = E.defaultPlan(st);
+    plan.jobs[st.crew[0].id] = bad;
+    const next = E.resolveTurn(st, plan).state;
+    assert.ok(Number.isFinite(next.crew[0].dose), String(bad));
+    assert.notEqual(E.nextPlan(next, plan).jobs[next.crew[0].id], bad, String(bad));
+    assert.equal(E.difficultyOf(bad), D.DEFAULT_DIFFICULTY, String(bad));
+  }
+});
+
 // ---------- manifest ----------
 
 test('loadout mass is the fixed habitat plus every packed item', () => {

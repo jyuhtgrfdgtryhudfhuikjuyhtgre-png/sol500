@@ -105,7 +105,7 @@
   }
 
   function difficultyOf(level) {
-    return D.DIFFICULTY[level] ? level : D.DEFAULT_DIFFICULTY;
+    return own(D.DIFFICULTY, level) ? level : D.DEFAULT_DIFFICULTY;
   }
 
   function crewSizeOf(n) {
@@ -451,7 +451,7 @@
     if (!prev) return p;
     for (const c of s.crew) {
       const job = (prev.jobs || {})[c.id];
-      if (D.JOBS[job] && !(c.grounded && D.OUTDOOR_JOBS.includes(job))) p.jobs[c.id] = job;
+      if (own(D.JOBS, job) && !(c.grounded && D.OUTDOOR_JOBS.includes(job))) p.jobs[c.id] = job;
     }
     Object.assign(p.modulesOn, prev.modulesOn || {});
     if (prev.rations) p.rations = prev.rations;
@@ -470,7 +470,7 @@
     return x.beacons.length + x.kits + carried;
   }
 
-  // A build or a module is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
+  // A build, a module, a job or a difficulty is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
   const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
   function canBuild(s, type, pending) {
     if (!own(D.BUILDS, type)) return { ok: false, reason: 'unknown' };
@@ -629,7 +629,7 @@
     const jobOf = {};
     for (const c of s.crew) {
       let job = plan.jobs[c.id];
-      if (!D.JOBS[job]) job = 'medical';
+      if (!own(D.JOBS, job)) job = 'medical';
       if (c.grounded && D.OUTDOOR_JOBS.includes(job)) job = 'science';
       jobOf[c.id] = job;
     }
