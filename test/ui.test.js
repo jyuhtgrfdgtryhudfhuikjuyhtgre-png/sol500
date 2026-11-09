@@ -1166,3 +1166,42 @@ test('a quick mission names its length: the sol clock and the debrief tag', () =
   assert.ok(text.includes('on sol 200'), 'the lift-off is on the mission\'s last sol');
 });
 function walkText(pg) { return pg.all()[0].textContent; }
+
+test('the end sol in the manifest warnings and the debrief follows the mission: sol 500 on a Full mission, sol 200 on a Quick one', () => {
+  for (const [lang, k] of [['en', 'mwarn.o2_short'], ['vi', 'mwarn.o2_short']]) {
+    assert.ok(I.t(lang, k, { end: 200 }).includes('200') && !I.t(lang, k, { end: 200 }).includes('500'));
+    assert.ok(I.t(lang, k, { end: 500 }).includes('500'));
+  }
+  const pg = page({ settings: { length: 'quick' } });
+  click(pg.byKey('start'));
+  click(pg.byKey('empty')); // nothing packed but the rover: the supplies fall short
+  const quickText = pg.all()[0].textContent;
+  assert.ok(quickText.includes('before sol 200') && !/sol 500/.test(quickText), 'a Quick manifest says sol 200');
+});
+
+test("a Quick mission's round 3 says the flare is due, and no other round does", () => {
+  const saves = twoSaves();
+  const pg = page({ saveQuick: saves.saveQuick });
+  const m = pg.UI.store.mission;
+  assert.equal(m.quick, true);
+  pg.UI.store.screen = 'ops';
+  pg.UI.render();
+  assert.equal(pg.byKey('quick-flare'), undefined, 'round 1 has no such note');
+  m.turn = 2;
+  pg.UI.render();
+  assert.equal(pg.byKey('quick-flare').textContent, en('quick.flareHint'));
+  const full = page({ save: saves.save });
+  full.UI.store.mission.turn = 2;
+  full.UI.store.screen = 'ops';
+  full.UI.render();
+  assert.equal(full.byKey('quick-flare'), undefined);
+});
+
+test('a Quick manifest keeps its rover: the minus is disabled at 1 and Clear leaves one', () => {
+  const pg = page({ settings: { length: 'quick' } });
+  click(pg.byKey('start'));
+  assert.equal(pg.UI.store.loadout.rover, 1);
+  assert.equal(pg.byKey('dec:rover').attrs.disabled, '');
+  click(pg.byKey('empty'));
+  assert.equal(pg.UI.store.loadout.rover, 1);
+});

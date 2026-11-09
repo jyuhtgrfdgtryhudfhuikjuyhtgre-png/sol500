@@ -203,7 +203,7 @@
     : h('span', { class: 'chip crit' }, ico('crit', 12), t('admin.outcome.lost')));
   const COLS = [
     { key: 'endedAt', label: 'admin.col.date', cell: r => dateTime(r.endedAt) },
-    { key: 'mode', label: 'admin.col.mode', cell: r => h('span', { class: 'chip' }, t('admin.mode.' + r.mode)) },
+    { key: 'mode', label: 'admin.col.mode', cell: r => [h('span', { class: 'chip' }, t('admin.mode.' + r.mode)), r.quick ? h('span', { class: 'chip', 'data-k': 'quick-tag' }, t('quick.tag')) : null] },
     { key: 'missionCode', label: 'admin.col.code', cell: r => h('span', { class: 'num' }, r.missionCode), sm: true },
     { key: 'players', label: 'admin.col.players', cell: players, sortVal: players, sm: true },
     { key: 'outcome', label: 'admin.col.outcome', cell: r => outcomeChip(r.outcome) },
