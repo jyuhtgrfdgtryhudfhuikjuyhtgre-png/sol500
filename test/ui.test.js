@@ -520,7 +520,7 @@ test('the Expedition panel names a beacon kit in a backpack as it names a load, 
   pg.play(m);
   const text = expPanel(pg).textContent;
   assert.ok(!text.includes('haul.kit'), text);
-  assert.ok(text.includes(en('haul.kit', { n: 1 }) + ', ' + en('haul.materials', { n: 40 })), text);
+  assert.ok(text.includes('+1 relay beacon kit' + ', ' + en('haul.materials', { n: 40 })), text);
 });
 
 test("the Expedition panel lists this round's goals with their progress and reward, and ticks the done ones", () => {

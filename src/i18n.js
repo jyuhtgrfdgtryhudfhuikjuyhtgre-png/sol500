@@ -741,6 +741,8 @@
     'haul.food': '+{n} kg food',
     'haul.o2': '+{n} kg O₂ in canisters',
     'haul.spares': '+{n} spare kits',
+    'haul.spares1': '+{n} spare kit',
+    'haul.kit1': '+{n} relay beacon kit',
     'haul.kit': '+{n} relay beacon kits', // a carried kit (E.kitItem: res 'kit'), wherever a backpack is listed
     'haul.science': '+{n} science',
     'rep.haul': '{amount}: {what}, {region} ({name})',
@@ -1844,7 +1846,9 @@
     'haul.food': '+{n} kg thức ăn',
     'haul.o2': '+{n} kg O₂ trong bình',
     'haul.spares': '+{n} bộ phụ tùng',
+    'haul.spares1': '+{n} bộ phụ tùng',
     'haul.kit': '+{n} bộ trạm chuyển tiếp',
+    'haul.kit1': '+{n} bộ trạm chuyển tiếp',
     'haul.science': '+{n} điểm khoa học',
     'rep.haul': '{amount}: {what}, {region} ({name})',
     'rep.haulLate': '{amount}: {what}, {region} ({name}), gửi từ ba lô',
@@ -2432,6 +2436,7 @@
 
   function t(lang, key, params) {
     const table = STR[lang] || en;
+    if (params && /^haul./.test(key) && Number(params.n) === 1 && en[key + '1'] != null) key += '1'; // "+1 spare kit", "+2 spare kits"
     let s = table[key];
     if (s == null) s = en[key];
     if (s == null) return key;

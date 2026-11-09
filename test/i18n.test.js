@@ -268,7 +268,15 @@ test('the Plains fact has a second source that says what Jezero means; the five 
 
 test('help.11 takes its numbers from the data, and the summed report lines read right for any count', () => {
   for (const lang of ['en', 'vi']) assert.deepEqual([...I.STR[lang]['help.11'].matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort(), ['c', 'd', 's'], lang);
-  assert.doesNotMatch(I.STR.en['haul.spares'] + I.STR.en['haul.o2'], /spare kit\b(?!s)|\(a canister\)/);
+  const hl = (lang, res, n) => I.t(lang, 'haul.' + res, { n });
+  assert.equal(hl('en', 'spares', 1), '+1 spare kit');
+  assert.equal(hl('en', 'spares', 2), '+2 spare kits');
+  assert.equal(hl('en', 'spares', '1'), '+1 spare kit', 'the report passes a formatted string');
+  assert.equal(hl('en', 'kit', 1), '+1 relay beacon kit');
+  assert.equal(hl('en', 'kit', 2), '+2 relay beacon kits');
+  assert.equal(hl('en', 'o2', 60), '+60 kg O₂ in canisters');
+  assert.equal(hl('vi', 'spares', 1), '+1 bộ phụ tùng');
+  assert.equal(hl('vi', 'kit', 2), '+2 bộ trạm chuyển tiếp');
   assert.match(I.STR.en['haul.spares'], /^\+\{n\} /, 'reads inside "amount: what" with no colon of its own');
   assert.doesNotMatch(I.STR.vi['haul.o2'], /một bình/);
   assert.doesNotMatch(viText, /robot opportunity|robot không/, 'a rover is a xe thám hiểm');
