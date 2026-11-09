@@ -52,7 +52,7 @@ function page(stored, globals, search) {
     },
     localStorage: { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: k => { delete ls[k]; } },
     navigator: { language: 'en-US' }, location: { search: search || '', hostname: 'localhost', protocol: 'http:' },
-    addEventListener() {}, scrollTo() {}, Intl, console, setTimeout: fn => timers.push(fn), clearTimeout() {},
+    addEventListener() {}, scrollTo() {}, Intl, URLSearchParams, console, setTimeout: fn => timers.push(fn), clearTimeout() {},
     SolSurface: { mount: hooks => { surface.hooks = hooks; return new El('div'); }, update: data => { surface.data = data; }, isMounted: () => false },
   };
   win.window = win.self = win;
@@ -1495,10 +1495,10 @@ test('a demo writes no save, no regionsSeen, no opsView and no badges, even adva
   const real = pg.UI.store.mission;
   assert.equal(real.seed, 'REAL-1');
   // A save is pending when the demo starts: the real mission is written first, and no timer is left to write a demo.
-  pg.UI.store.screen = 'ops';
+  Object.assign(pg.UI.store, { screen: 'ops', opsView: 'surface' });
   pg.UI.render();
   pg.got.hooks.suit({ suit: 80, driven: null, clock: 5, at: { x: 640, y: 200 } });
-  pg.UI.store.screen = 'showcase';
+  Object.assign(pg.UI.store, { screen: 'showcase', opsView: 'console' });
   pg.UI.render();
   click(pg.byKey('show:flare'));
   pg.flush();
@@ -1562,13 +1562,12 @@ test('Show me asks the surface for the card\'s moment; a scene that throws shows
   ok.flush();
   await settle();
   const c = require('../src/showcase.js').card('flare');
-  assert.deepEqual(plain(ok.got.scenes), [{ at: c.at, board: c.board, suit: c.suit, clock: c.clock }]);
+  assert.deepEqual(plain(ok.got.scenes), [plain({ at: c.at, board: c.board, suit: c.suit, clock: c.clock })]);
   for (const scene of [() => { throw new Error('no world'); }, () => Promise.reject(new Error('no rover'))]) {
     const pg = showPage(realDevice(), { scene });
     await settle();
     const real = pg.UI.store.mission;
     click(pg.byKey('show:flare'));
-    pg.flush();
     await settle();
     assert.equal(pg.UI.store.toast, en('show.failed'));
     assert.equal(pg.UI.store.screen, 'showcase');
