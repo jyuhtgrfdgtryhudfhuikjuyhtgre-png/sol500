@@ -1040,6 +1040,20 @@ test('a suit low enough for a refill, by a beacon or in a hab pod that has alrea
   assert.equal(p.calls.filter(c => c.type === 'refill').length, 1);
 });
 
+test('co-op: while a refill that worked is still on its way back, the room frame showing it spent brings no warning, and the once-a-round note is kept for later (R27)', async () => {
+  const s = withBeacon(), by2 = outside(s.bx, s.by + 2), used = say('eva.refillUsed', { name: beaconName(0) });
+  s.eva.qaSuit(60);
+  tick(s, by2, 0.3); // the rules have marked the refill, as the room frame does, and the answer that raises the suit has not landed
+  assert.notEqual(noteOf(s), used, 'no false warning');
+  await flush();
+  tick(s, by2, 0.1);
+  assert.equal(noteOf(s), say('eva.refilledBeacon', { name: beaconName(0), s: D.EXPEDITION.suit }));
+  tick(s, by2, 5);
+  s.eva.qaSuit(30);
+  tick(s, by2, 0.1);
+  assert.equal(noteOf(s), used, 'low again later: still told');
+});
+
 test("the maps always mark the relay beacons, fog or not, and draw the dashed route home: each beacon's link from X.routeHome, in world pixels", () => {
   const s = withBeacon();
   s.m.expedition.beacons.push({ x: s.bx + 11, y: s.by + 3, by: 'minh', round: 0 }); // B1 links to B0, its nearest

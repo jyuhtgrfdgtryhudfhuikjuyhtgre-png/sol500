@@ -939,9 +939,9 @@ test("in Vietnamese the surface's menus write a build's progress and a module's 
   const [gx, gy] = E.buildSpots(m, 'battery', [])[1];
   m.projects.push({ type: 'workshop', x: gx, y: gy, progress: 0.5, work: 1.5 });
   pg.show(m);
-  const notes = (tx, ty) => { // the menu's notes, facing the tile (tx, ty) of the base grid from the north
+  const notes = (tx, ty, off) => { // the menu's notes, facing the tile (tx, ty) of the base grid from the north
     pg.key('Escape');
-    pg.qa.teleport(tx + W.BASE_RECT.x, ty + W.BASE_RECT.y - 0.65);
+    pg.qa.teleport(tx + W.BASE_RECT.x, ty + W.BASE_RECT.y - (off || 0.65));
     pg.step(0.2);
     pg.key('KeyE');
     pg.key('KeyE', false);
@@ -952,4 +952,10 @@ test("in Vietnamese the surface's menus write a build's progress and a module's 
   const solar = m.layout.find(k => k.type === 'solar' && k.x === 3 && k.y === 1), reactor = m.layout.find(k => k.type === 'reactor');
   assert.match(notes(solar.x, solar.y)[0], /^\+\d+,\d kW · /, 'a solar array');
   assert.match(notes(reactor.x, reactor.y)[0], /^\+\d+,\d kW$/, 'the reactor');
+  const oxygen = m.layout.find(k => k.type === 'oxygen');
+  assert.match(notes(oxygen.x, oxygen.y)[0], / · 2,5 kW$/, 'a consumer: the oxygen plant');
+  m.resources.materials = 1234;
+  pg.show(m);
+  const [ex, ey] = E.buildSpots(m, 'battery', [])[0];
+  assert.equal(notes(ex, ey, 0.35).pop(), vi('hud.materials') + ': 1.234 kg', "the build grid's stock");
 });

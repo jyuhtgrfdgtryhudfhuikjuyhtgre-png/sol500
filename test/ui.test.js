@@ -857,6 +857,22 @@ const foundItems = d => walk(foundNote(d), []).filter(n => n.tagName === 'LI');
 const titleOf = li => walk(li, []).find(n => n.tagName === 'B').textContent;
 const linksOf = n => walk(n, []).filter(a => a.tagName === 'A').map(a => [a.attrs.href, a.textContent]);
 
+test('an opened entry of the Science note stays open, with its focus key, when the screen redraws, as co-op does on every frame (R29)', () => {
+  const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
+  m.expedition.regions = ['plains', 'icy'];
+  pg.play(m);
+  const entries = d => foundItems(d).map(li => li.children[0]);
+  const toggle = (n, open) => { n.open = open; n.listeners.toggle[0]({ target: n, currentTarget: n }); };
+  toggle(entries(notesOf(pg))[1], true);
+  pg.UI.render();
+  const shown = entries(pg.dialog());
+  assert.deepEqual(shown.map(n => 'open' in n.attrs), [false, true]);
+  assert.equal(shown[1].children[0].attrs['data-k'], 'found:region:icy');
+  toggle(shown[1], false);
+  pg.UI.render();
+  assert.deepEqual(entries(pg.dialog()).map(n => 'open' in n.attrs), [false, false], 'and closed stays closed');
+});
+
 test("the Science note lists every fact and story log the mission found with its source: regions, landmarks, formations surveyed, structures used, then the hab pods visited", () => {
   const pg = page(), m = pg.mission({ seed: 'PAINT-QA-1' });
   Object.assign(m.expedition, {

@@ -788,13 +788,15 @@
   // The note: each entry is the card's own words (eyebrow, title, fact or log, source), so the notes and the cards cannot differ.
   // An entry is a native <details>, closed (R29): its summary is the eyebrow, title and meta, and the fact or log and its
   // source open under it, so a long mission's list stays a list of titles to open.
+  const foundOpen = new Set(); // the entries the player has open: render() rebuilds the note, and co-op renders on every frame
   function foundNote(s) {
     const cards = foundCards(s);
     return h('article', { class: 'note found' }, h('h3', null, t('notes.found')),
       cards.length ? h('ul', { class: 'found-list' }, cards.map(c => {
         const { cls, eyebrow, title, meta, body, src } = cardText(c);
-        return h('li', { class: cls.trim() || null }, h('details', null,
-          h('summary', null, h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null),
+        const k = c.type + ':' + c.id;
+        return h('li', { class: cls.trim() || null }, h('details', { open: foundOpen.has(k), ontoggle: e => { if (e.target.open) foundOpen.add(k); else foundOpen.delete(k); } },
+          h('summary', { 'data-k': 'found:' + k }, h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null),
           h('p', null, body),
           src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
       })) : h('p', null, t('notes.foundNone')));

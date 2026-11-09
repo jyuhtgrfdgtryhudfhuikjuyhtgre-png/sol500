@@ -990,7 +990,7 @@
           { disabled: !chk.ok || !here, icon: A.module(ty, 34) })));
       }
       body.appendChild(grid);
-      note(t('hud.materials') + ': ' + Math.round(m.resources.materials) + ' kg', 'faint');
+      note(t('hud.materials') + ': ' + nf(m.resources.materials) + ' kg', 'faint');
       return;
     }
     if (f.kind === 'queued') {
@@ -1055,7 +1055,7 @@
       const on = (plan.modulesOn || {})[ty] !== false;
       if (consumer) {
         const running = fc.power.running[ty];
-        note((running ? t('sys.running', { n: running }) : t('sf.unpowered')) + ' · ' + D.MODULES[ty].kw + ' kW', running ? 'ok' : 'warn');
+        note((running ? t('sys.running', { n: running }) : t('sf.unpowered')) + ' · ' + nf(D.MODULES[ty].kw, 1) + ' kW', running ? 'ok' : 'warn');
         body.appendChild(numbered(mbtn(t('sf.switch') + ': ' + (on ? t('common.on') : t('common.off')), t('mod.' + ty) + ' ×' + mod.count,
           () => { H.toggleModule(ty); renderMenu(); }, { on, icon: A.icon('power_off', 18) })));
       } else if (ty === 'solar') {

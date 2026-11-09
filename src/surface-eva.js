@@ -478,7 +478,8 @@
           }
           // A beacon or a hab pod that has already refilled your suit this round says so, once each a round (R27): the rules'
           // 'refilled' is a quiet answer the surface never asks for, and a low suit there should know why nothing comes.
-          const spent = id ? null : reach.concat(pod ? [pod.id] : []).find(k => had.includes(k) && !told.includes(k));
+          // Not while a refill just asked for is on its way back: in co-op the room frame can show it spent before the answer lands.
+          const spent = id || now - refillAt <= 2 ? null : reach.concat(pod ? [pod.id] : []).find(k => had.includes(k) && !told.includes(k));
           if (spent) {
             told.push(spent);
             say(spent[0] === 'B' ? t('eva.refillUsed', { name: beaconName(spent) }) : t('eva.refillUsedPod'), 'warn', 5);
