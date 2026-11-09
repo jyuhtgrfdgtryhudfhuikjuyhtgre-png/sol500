@@ -56,8 +56,8 @@
   // A save that can't be read (damaged, or edited by hand) is dropped from its own slot, so the app still opens on its home screen.
   // The Full slot opens first; the Quick one is the one resumed when there is no Full mission.
   const loadSlot = key => {
-    const r = SV.load(LS, key, m => E.upgradeMission(m, { controlId: LS.get('controlId', null) }));
-    return r && { mission: r.mission, plan: r.plan || E.defaultPlan(r.mission) };
+    const r = SV.load(LS, key, m => E.upgradeMission(m, { controlId: LS.get('controlId', null) }), E.defaultPlan);
+    return r && { mission: r.mission, plan: r.plan };
   };
   const bootSave = loadSlot('save') || loadSlot('saveQuick');
   if (bootSave) { store.mission = bootSave.mission; store.plan = bootSave.plan; }
@@ -1219,7 +1219,7 @@
         }, h('b', null, t('ev.' + e.type + '.' + o)), h('span', null, t('ev.' + e.type + '.' + o + '.hint'))))))),
       infos.length ? h('div', { class: 'infos' }, infos.map(e => h('div', { class: 'info-ev' },
         h('b', null, eventText(e, 'title')), h('span', null, eventText(e, 'body'))))) : null,
-      flareDue ? h('p', { class: 'chip warn', 'data-k': 'quick-flare' }, t('quick.flareHint')) : null));
+      flareDue ? h('div', { class: 'info-ev', 'data-k': 'quick-flare' }, h('span', null, t('quick.flareHint'))) : null));
   }
 
   // ----- outpost map -----
@@ -1695,8 +1695,9 @@
     const charts = h('div', { class: 'charts' });
     const H = s.history;
     const pts = key => H.map(x => [x.sol, x[key]]);
+    const xMax = E.turnsOf(s) * D.TURN_SOLS; // the mission's own last sol (500 for a Full mission)
     C.lineChart(charts, {
-      title: t('ch.stocks'), unit: 'kg', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.stocks'),
+      xMax, title: t('ch.stocks'), unit: 'kg', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.stocks'),
       series: [
         { name: t('hud.o2'), color: STOCK_COLORS.o2, points: pts('o2') },
         { name: t('hud.water'), color: STOCK_COLORS.water, points: pts('water') },
@@ -1704,12 +1705,12 @@
       ],
     });
     C.lineChart(charts, {
-      title: t('ch.dose'), unit: 'mSv', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.dose'),
+      xMax, title: t('ch.dose'), unit: 'mSv', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.dose'),
       refLines: [{ y: D.DOSE_LIMIT, label: t('ch.limit') }],
       series: s.crew.map((c, i) => ({ name: crewName(c.id), color: CHART_ROLE[c.role], points: H.map(x => [x.sol, x.doses[i]]) })),
     });
     C.lineChart(charts, {
-      title: t('ch.power'), unit: 'kW', xLabel: t('ch.sol'), fmt: v => nf(v, 1), tableLabel: t('ch.power'),
+      xMax, title: t('ch.power'), unit: 'kW', xLabel: t('ch.sol'), fmt: v => nf(v, 1), tableLabel: t('ch.power'),
       series: [
         { name: t('ch.supply'), color: '#3987e5', points: H.filter(x => x.supply != null).map(x => [x.sol - D.TURN_SOLS, x.supply]) },
         { name: t('ch.load'), color: '#d95926', points: H.filter(x => x.load != null).map(x => [x.sol - D.TURN_SOLS, x.load]) },

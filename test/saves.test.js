@@ -50,3 +50,24 @@ test('summary gives each slot its sol, or null', () => {
   assert.deepEqual(S.summary(fakeLS({ saveQuick: QUICK })), { save: null, saveQuick: { sol: 40 } });
   assert.deepEqual(S.summary(fakeLS({ save: { mission: { status: 'lost', version: 2, sol: 9 } } })), { save: null, saveQuick: null });
 });
+
+test('a save with no plan gets one from the builder; a builder that throws drops that slot only', () => {
+  const noPlan = { mission: { status: 'active', version: 2, sol: 40, quick: true } };
+  const ls = fakeLS({ save: FULL, saveQuick: noPlan });
+  assert.deepEqual(S.load(ls, 'saveQuick', m => m, () => ({ built: true })).plan, { built: true });
+  const ls2 = fakeLS({ save: FULL, saveQuick: noPlan });
+  assert.equal(S.load(ls2, 'saveQuick', m => m, () => { throw new Error('bad crew'); }), null);
+  assert.equal(ls2.raw.saveQuick, undefined);
+  assert.deepEqual(ls2.raw.save, FULL);
+});
+
+test('a mission that does not belong in its slot is damaged: it is dropped and never reaches the other slot', () => {
+  const lostFlag = { mission: { status: 'active', version: 2, sol: 40 } }; // a Quick mission whose flag is gone, in saveQuick
+  const ls = fakeLS({ save: FULL, saveQuick: lostFlag });
+  assert.equal(S.load(ls, 'saveQuick', m => m), null);
+  assert.equal(ls.raw.saveQuick, undefined);
+  assert.deepEqual(ls.raw.save, FULL);
+  const ls2 = fakeLS({ save: QUICK });
+  assert.equal(S.load(ls2, 'save', m => m), null);
+  assert.equal(ls2.raw.save, undefined);
+});

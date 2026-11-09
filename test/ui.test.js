@@ -1205,3 +1205,32 @@ test('a Quick manifest keeps its rover: the minus is disabled at 1 and Clear lea
   click(pg.byKey('empty'));
   assert.equal(pg.UI.store.loadout.rover, 1);
 });
+
+// ---------- fix round 1: the slots at the end of a mission, and the timer ----------
+for (const [ending, other] of [['save', 'saveQuick'], ['saveQuick', 'save']]) {
+  test('ending a ' + (ending === 'save' ? 'full' : 'quick') + ' mission through the advance deletes its slot and leaves the ' + (other === 'save' ? 'full' : 'quick') + ' save as it was', () => {
+    const saves = twoSaves();
+    const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+    pg.UI.store.settings.length = ending === 'saveQuick' ? 'quick' : 'full';
+    click(pg.byKey('resume:' + ending));
+    const m = pg.UI.store.mission;
+    m.turn = pg.E.turnsOf(m) - 1;
+    pg.play(m);
+    pg.surface.hooks.advance();
+    assert.notEqual(pg.UI.store.mission.status, 'active', 'the mission ended');
+    assert.equal(stored(pg, ending), undefined, 'its own slot is deleted');
+    assert.deepEqual(stored(pg, other), saves[other], 'the other slot is untouched');
+  });
+}
+
+test('after a Resume on the other slot, the 4 s save timer writes the mission to its own slot', () => {
+  const saves = twoSaves();
+  const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+  click(pg.byKey('resume:saveQuick'));
+  pg.UI.render();
+  pg.surface.hooks.suit({ suit: 77, driven: null, clock: 9, at: { x: 640, y: 200 } }); // the exploring hook asks for a save a few seconds on
+  pg.flush();
+  assert.equal(stored(pg, 'saveQuick').mission.expedition.suits.minh, 77, 'the quick slot has the new state');
+  assert.ok(stored(pg, 'saveQuick').mission.quick);
+  assert.deepEqual(stored(pg, 'save'), saves.save, 'the full slot is not overwritten');
+});

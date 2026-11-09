@@ -330,7 +330,7 @@
       h('div', { class: 'stats' },
         stat(t('admin.h.missions'), nf(list.length)),
         stat(t('admin.h.winRate'), Math.round((wins / list.length) * 100) + ' %'),
-        stat(t('admin.h.best'), nf(Math.max(...list.map(r => r.score)))),
+        stat(t('admin.h.best'), list.some(r => !r.quick) ? nf(Math.max(...list.filter(r => !r.quick).map(r => r.score))) : '—'), // a Quick score never competes with a Full one
         stat(t('admin.h.finds'), nf(finds))),
       h('div', { class: 'adm-charts' },
         panel(t('admin.h.scoreChart'), scoreBox, 'wide'),

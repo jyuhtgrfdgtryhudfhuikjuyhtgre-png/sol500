@@ -12,12 +12,17 @@
   const usable = v => !!(v && v.mission && v.mission.status === 'active' && v.mission.version === 2);
 
   // The mission in a slot, repaired (and the repair written back), or null. A slot that can't be read is deleted, that slot only.
-  function load(ls, key, repair) {
+  // `makePlan(mission)` builds the plan a save without one gets; it runs inside the guard, so a throw drops this slot only.
+  // A mission that doesn't belong in the slot (a Quick one in 'save', or a lost quick flag in 'saveQuick') is damaged too:
+  // the next save would write it over the other slot.
+  function load(ls, key, repair, makePlan) {
     const v = ls.get(key, null);
     if (!usable(v)) return null;
     try {
+      if (slotOf(v.mission) !== key) throw new Error('mission does not belong in slot ' + key);
       const mission = repair(v.mission);
-      const plan = v.plan || null;
+      if (slotOf(mission) !== key) throw new Error('repaired mission does not belong in slot ' + key);
+      const plan = v.plan || (makePlan ? makePlan(mission) : null);
       ls.set(key, { mission, plan });
       return { mission, plan };
     } catch (e) {
