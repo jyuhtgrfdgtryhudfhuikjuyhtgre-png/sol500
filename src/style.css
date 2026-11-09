@@ -494,7 +494,7 @@ p { margin: 0; }
 .ops-tabs button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding-inline: 16px; }
 .sf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px; margin-top: 12px; align-items: start; }
 .sf-stage { min-width: 0; position: relative; }
-.region-card { position: absolute; left: 12px; top: 150px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
+.region-card { position: absolute; left: 12px; top: 150px; z-index: 2; width: min(380px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
 .region-card-h { display: flex; justify-content: space-between; align-items: center; }
 .region-card h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); }
 .region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
@@ -502,6 +502,7 @@ p { margin: 0; }
 .region-card a { color: var(--accent); }
 /* Wide screens: the card sits on the right, under the minimap and the FPS readout (top 180 px), clear of the HUD's column
    on the left, which the round's goals, the kit buttons and the aura make as tall as a round needs (R33). */
+.region-card { max-height: calc(100% - 220px); overflow-y: auto; } /* M5: a long card scrolls inside a short window */
 @media (min-width: 641px) { .region-card { top: 208px; left: auto; right: 12px; } }
 /* A Kestrel Survey story log: the programme's teal (its structures on the maps) and a log's monospace. */
 .region-card.log { border-left-color: #4a978e; }

@@ -77,7 +77,7 @@
     cobbles: { repeat: 280, gain: 1.5, tint: 0.30 },   // a field of rocks: the Crater Field, rims, ramps and cliffs
     sand: { repeat: 190, gain: 1.8, tint: 0.25 },      // windblown sand: the Dune Sea, sand and star dunes' crests
     dust: { repeat: 360, gain: 2.6, tint: 0.25 },      // fine dust: the Canyon Lands, crater and canyon floors, delta beds
-    grains: { repeat: 140, gain: 0.9, tint: 0.20 },    // dark basalt grains: the Volcanic Flanks and lava tubes
+    grains: { repeat: 200, gain: 0.9, tint: 0.20 },    // dark basalt grains: the Volcanic Flanks and lava tubes
     phoenix: { repeat: 300, gain: 1.5, tint: 0.25 },   // the polygon ground round the Phoenix lander: the Icy Plains
   };
   const REGION_PHOTO = ['flagstone', 'sand', 'cobbles', 'dust', 'phoenix', 'grains'];

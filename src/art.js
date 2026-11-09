@@ -240,7 +240,7 @@
           `<rect x="44" y="20" width="6" height="12" rx="3" fill="#86b8ea"/><circle cx="47" cy="34" r="1.3" fill="${LIT}"/><rect x="42" y="37" width="8" height="8" rx="1" fill="${KS}"/>` + dust('M26 46q6-5 12 0z', 0.5)
         : `<rect x="2" y="3" width="60" height="45" rx="9" fill="#c9bdad"/><rect x="2" y="12" width="60" height="13" fill="${KT}"/><rect x="2" y="33" width="60" height="6" fill="#b4a898"/>` +
           `<path d="M14 4v43M26 3v45M38 3v45M50 4v43" stroke="${KS}" stroke-width="0.8" opacity="0.7"/><rect x="40" y="14" width="12" height="8" rx="2" fill="${KS}"/><rect x="42" y="16" width="8" height="4" rx="1" fill="#837768"/>` +
-          dust('M6 22q7-4 14-1t12 0v3H6z', 0.3) + dust('M36 36q8-3 16 0v3H36z', 0.3) + `<path d="M10 12V2" stroke="${STRUT}" stroke-width="1.4"/>` + beacon(10, 2, false)),
+          dust('M6 22q7-4 14-1t12 0v3H6z', 0.3) + dust('M36 36q8-3 16 0v3H36z', 0.3) + `<path d="M10 12V2.4" stroke="${STRUT}" stroke-width="1.4"/>` + beacon(10, 2.4, false)),
     // a dusty solar array of three panels; salvaged, two panels are gone and the one left is wiped clean
     array: done => shadow(28) + [0, 1, 2].map(i => {
       const x = 6 + i * 18, gone = done && i > 0;
