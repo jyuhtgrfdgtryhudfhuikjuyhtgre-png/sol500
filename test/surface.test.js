@@ -1222,6 +1222,16 @@ test("a crewmate who boards the rover is drawn the way it was parked, not turned
   assert.equal(pg.probe().remote.diego.heading, parked, 'the rover still faces ' + parked);
 });
 
+test("a crewmate who leaves the rover forgets the angle it was drawn at, so boarding again does not swing it", () => {
+  const { pg } = inRover('DRIVE-8');
+  const r = (x, y, rover) => pg.remote([{ crewId: 'diego', x, y, rover, moving: rover, dir: 'down' }]);
+  r(640, 640, true); r(740, 640, true); r(740, 740, true);
+  pg.step(0.1);
+  assert.notEqual(pg.probe().remote.diego.shown, null, 'drawn at an angle while driving');
+  r(740, 740, false);
+  assert.equal(pg.probe().remote.diego.shown, null, 'on foot, no angle is kept');
+});
+
 test("the rover's dust is as thick at 30 fps as at 144: it is thrown up by the second, not by the frame", () => {
   const count = hz => {
     const { m, pg } = inRover('DRIVE-7');

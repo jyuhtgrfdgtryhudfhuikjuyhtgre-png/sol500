@@ -476,7 +476,7 @@
       const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : p.rover ? (prev && prev.heading != null ? prev.heading : S.roverHeading) : null;
       if (p.rover && heading != null) S.roverHeading = heading; // so it is parked as its driver left it
       next[p.crewId] = {
-        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, shown: prev ? prev.shown : null, odo: prev ? prev.odo || 0 : 0,
+        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, shown: prev && p.rover ? prev.shown : null, odo: prev ? prev.odo || 0 : 0,
         phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0, away: !!p.away,
       };
     }
