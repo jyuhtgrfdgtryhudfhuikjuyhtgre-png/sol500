@@ -2081,7 +2081,7 @@
   // build menu's, gear and the facts the build menu lacks the guide's own (guide.*).
   const GUIDE = [
     ['guide.cargo', ['solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse', 'waterwall', 'lab', 'rover', 'spares', 'materials', 'food', 'o2', 'water']],
-    ['guide.buildings', ['hab', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield']],
+    ['guide.buildings', ['hab', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield', 'garage', 'fabricator', 'launchpad', 'cabin', 'drone']],
     ['guide.gear', ['suit', 'pack', 'canister', 'kit']],
   ];
   // Each page checked to say the fact as the game words it. An entry with none shows no fact line: lab's and spares' are
@@ -2091,6 +2091,8 @@
     battery: 'marsGlance', reactor: 'kilopower', recycler: 'water98', oxygen: 'moxie', icedrill: 'iceMap', greenhouse: 'veggie', rover: 'dra5', food: 'bvad', o2: 'jonesKliss',
     hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler',
     suit: 'marsGlance', pack: 'percySamples', canister: 'jonesKliss', kit: 'relayJpl',
+    // M6, until Task 3 gives them their own sources: each with the source of the checked fact its guide.<id>.fact repeats.
+    garage: 'hazards', fabricator: 'moxie', launchpad: 'percySamples', cabin: 'dra5', drone: 'photoJezero',
   };
   const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
   function guideEntry(id) {
