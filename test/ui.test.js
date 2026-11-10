@@ -1831,6 +1831,63 @@ const D6 = require('../src/data.js');
 const rowsOf = pg => pg.all().filter(n => /^bld:/.test(n.attrs['data-k'] || '')).map(n => n.attrs['data-k'].slice(4));
 const rich = m => { m.resources.materials = 9000; m.resources.water = 9000; return m; };
 
+test('the build list shows only what the rank unlocks: the Garage at Outpost, its vehicles once one stands, the gear once a Fabricator stands, the launch at Colony; none of them in a Quick mission', () => {
+  const pg = page(), m = rich(pg.mission({ seed: 'UI-M6' }));
+  const M6 = ['garage', 'fabricator', 'launchpad', 'rover', 'cabin', 'drone', 'tanks', 'backpack', 'racks', 'tools', 'launch'];
+  consoleOf(pg, m);
+  assert.deepEqual(rowsOf(pg).filter(ty => M6.includes(ty)), [], 'a Camp shows none of them');
+  pg.E.grantRank(m, 1);
+  consoleOf(pg, m);
+  assert.ok(rowsOf(pg).includes('garage'), 'an Outpost shows the Garage');
+  assert.ok(!['rover', 'cabin', 'drone', 'fabricator'].some(ty => rowsOf(pg).includes(ty)), 'no vehicle before a Garage stands, no Fabricator before Station');
+  m.modules.garage.count = 1;
+  consoleOf(pg, m);
+  assert.ok(['rover', 'cabin', 'drone'].every(ty => rowsOf(pg).includes(ty)), 'the Garage group');
+  assert.ok(pg.byKey('bld:rover').textContent.includes(en('bld.cost', { kg: D6.BUILDS.rover.materials, w: D6.BUILDS.rover.work })));
+  pg.E.grantRank(m, 2);
+  consoleOf(pg, m);
+  assert.ok(rowsOf(pg).includes('fabricator') && !rowsOf(pg).includes('tanks'), 'no gear row until a Fabricator stands');
+  m.modules.fabricator.count = 1;
+  m.gear.backpack = 1;
+  consoleOf(pg, m);
+  for (const line of ['tanks', 'backpack', 'racks', 'tools']) assert.ok(rowsOf(pg).includes(line), line);
+  const tanks = D6.GEAR.tanks.levels[0], pack = D6.GEAR.backpack.levels[1];
+  assert.ok(pg.byKey('bld:tanks').textContent.includes(en('gear.level', { n: 0 })), 'level 0 / 2');
+  assert.ok(pg.byKey('bld:tanks').textContent.includes(en('bld.costWater', { kg: tanks.materials, water: tanks.water, w: tanks.work })), 'a cost with water says so');
+  assert.ok(pg.byKey('bld:backpack').textContent.includes(en('gear.level', { n: 1 })) &&
+    pg.byKey('bld:backpack').textContent.includes(en('bld.cost', { kg: pack.materials, w: pack.work })), "the next level's cost");
+  assert.ok(!rowsOf(pg).includes('launch') && !rowsOf(pg).includes('launchpad'));
+  pg.E.grantRank(m, 3);
+  consoleOf(pg, m);
+  assert.ok(rowsOf(pg).includes('launchpad') && rowsOf(pg).includes('launch'), 'Colony shows the pad and the launch');
+  assert.equal(pg.byKey('bld:launch').attrs.title, en('bld.why.needs', { module: en('mod.launchpad') }), 'the launch needs a working pad');
+  const q = rich(pg.mission({ seed: 'UI-M6Q', quick: true, loadout: pg.E.referenceKit('commander', 4, true) }));
+  pg.E.grantRank(q, 3);
+  Object.assign(q.modules.garage, { count: 1 });
+  Object.assign(q.modules.fabricator, { count: 1 });
+  consoleOf(pg, q);
+  assert.deepEqual(rowsOf(pg).filter(ty => M6.includes(ty) || ty === 'rankup'), [], 'a Quick mission has no M6 row');
+});
+
+test('the rank-up button shows the next rank, its cost and what it unlocks, and queues one rank-up; there is none at Colony or in a Quick mission', () => {
+  const pg = page(), m = rich(pg.mission({ seed: 'UI-RANKUP' })), R = D6.RANKS[1];
+  consoleOf(pg, m);
+  const btn = pg.byKey('bld:rankup');
+  for (const s of [en('rank.next', { rank: en('rank.outpost') }), en('bld.cost', { kg: R.materials, w: R.work }), en('mod.garage'), en('mod.cabin'), en('mod.drone')]) assert.ok(btn.textContent.includes(s), s);
+  click(btn);
+  assert.deepEqual(plain(pg.UI.store.plan.builds), [{ type: 'rankup' }]);
+  click(pg.byKey('bld:rankup'));
+  assert.deepEqual(plain(pg.UI.store.plan.builds), [{ type: 'rankup' }], 'one rank-up at a time');
+  assert.equal(pg.byKey('bld:rankup').attrs.disabled, '');
+  const queue = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('panel.build')).textContent;
+  assert.ok(queue.includes(en('mod.rankup') + ' −' + R.materials + ' kg'), 'in the queue under its name and its real cost: ' + queue);
+  pg.E.grantRank(m, 3);
+  consoleOf(pg, m);
+  assert.equal(pg.byKey('bld:rankup'), undefined, 'a Colony has no next rank');
+  consoleOf(pg, rich(pg.mission({ seed: 'UI-RANKQ', quick: true, loadout: pg.E.referenceKit('commander', 4, true) })));
+  assert.equal(pg.byKey('bld:rankup'), undefined, 'a Quick mission has no ranks');
+});
+
 test('the M6 cards have their words in both languages, each with a source the sources table has', () => {
   for (const lang of ['en', 'vi']) {
     for (const key of ['rank1', 'rank2', 'rank3', 'launch', 'colony', 'drone']) {

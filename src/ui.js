@@ -1409,24 +1409,63 @@
     return t('bld.kitStatus', { placed: x.beacons.length, max: D.EXPEDITION.beacon.max, kits: x.kits, out });
   }
 
+  // What a build costs after what the plan already queues (a gear line's next level, the next rank), with the water when a
+  // gear level takes some; and why it can't be built, naming the building it needs.
+  function costText(s, type, pending) {
+    const c = E.costOf(s, type, pending), w = nf(c.work, c.work % 1 ? 1 : 0);
+    return c.water > 0 ? t('bld.costWater', { kg: nf(c.materials), water: nf(c.water), w }) : t('bld.cost', { kg: nf(c.materials), w });
+  }
+  const whyNot = (type, chk) => (chk.reason === 'needs' ? t('bld.why.needs', { module: t('mod.' + D.BUILDS[type].needs) }) : t('bld.why.' + chk.reason));
+  // M6 (spec §3): a choice shows only once the rank unlocks it, never in a Quick mission or with its tier off; a vehicle once
+  // a Garage stands, a gear line once a Fabricator stands (the launch shows at Colony, saying it needs its pad).
+  function listed(s, type, pending) {
+    const r = E.canBuild(s, type, pending).reason, needs = D.BUILDS[type].needs;
+    return r !== 'rank' && r !== 'quick' && (!needs || type === 'launch' || s.modules[needs].count > 0);
+  }
+  const unlocksAt = r => Object.keys(D.BUILDS).filter(ty => E.unlockRank(ty) === r).map(ty => t('mod.' + ty)).join(', ');
+  // A gear line's next level as its help line says it: the suit's seconds, the loads, the hold time in % of today's.
+  function gearHelp(s, line, pending) {
+    const lv = D.GEAR[line].levels[(s.gear[line] || 0) + s.projects.concat(pending).filter(b => b.type === line).length];
+    return lv ? t('gear.' + line + '.help', { s: nf(lv.value), n: nf(lv.value), p: nf(lv.value * 100) }) : t('bld.why.max');
+  }
+  // A build's button: one with a tile (a module, a vehicle) picks its tile on the map; the rest are queued at once.
+  function buildRow(s, type, pending) {
+    const chk = E.canBuild(s, type, pending), gear = D.GEAR[type] ? s.gear[type] || 0 : null;
+    const maxed = gear != null && gear >= D.GEAR[type].levels.length;
+    return h('button', {
+      type: 'button', class: 'bld', 'data-k': 'bld:' + type, 'aria-pressed': String(store.buildType === type),
+      disabled: !chk.ok, title: !chk.ok ? whyNot(type, chk) : gear != null ? gearHelp(s, type, pending) : t('bld.' + type),
+      onclick: () => {
+        if (!D.PLACED.includes(type)) { if (chk.ok) patchPlan({ builds: pending.concat([{ type }]) }); return; }
+        store.buildType = store.buildType === type ? null : type;
+        render();
+      },
+    }, h('span', { html: A.module(type === 'shield' ? 'shelter' : type, 36) }),
+    h('span', null, h('span', { class: 't' }, t('mod.' + type)),
+      gear != null ? [h('br'), h('span', { class: 'c' }, t('gear.level', { n: gear }))] : null,
+      maxed ? null : [h('br'), h('span', { class: 'c' }, costText(s, type, pending))]));
+  }
+  // The rank-up (spec §3) takes no tile, like the kit: the next rank, its cost and what it unlocks. None at Colony or in Quick.
+  function rankButton(s, pending) {
+    const r = E.rankOf(s) + 1;
+    if (s.quick === true || !D.RANKS[r]) return null;
+    const chk = E.canBuild(s, 'rankup', pending), unlocks = t('rank.unlocks', { list: unlocksAt(r) });
+    return h('button', {
+      type: 'button', class: 'bld', 'data-k': 'bld:rankup', disabled: !chk.ok, title: chk.ok ? unlocks : whyNot('rankup', chk),
+      onclick: () => { if (chk.ok) patchPlan({ builds: pending.concat([{ type: 'rankup' }]) }); },
+    }, h('span', { html: A.module('rankup', 36) }),
+    h('span', null, h('span', { class: 't' }, t('rank.next', { rank: t('rank.' + D.RANKS[r].id) })), h('br'),
+      h('span', { class: 'c' }, costText(s, 'rankup', pending)), h('br'), h('span', { class: 'c' }, unlocks)));
+  }
+
   function buildPanel(s, p, f) {
     const pending = p.builds || [];
     const builders = f.points.construction > 0;
     const busy = s.projects.length + pending.length > 0;
-    const palette = h('div', { class: 'palette' }, D.BUILD_ORDER.map(type => {
-      const chk = E.canBuild(s, type, pending);
-      const spec = D.BUILDS[type];
-      return h('button', {
-        type: 'button', class: 'bld', 'data-k': 'bld:' + type, 'aria-pressed': String(store.buildType === type),
-        disabled: !chk.ok, title: chk.ok ? t('bld.' + type) : t('bld.why.' + chk.reason),
-        onclick: () => {
-          if (type === 'shield') { patchPlan({ builds: pending.concat([{ type: 'shield' }]) }); return; }
-          store.buildType = store.buildType === type ? null : type;
-          render();
-        },
-      }, h('span', { html: A.module(type === 'shield' ? 'shelter' : type, 36) }),
-      h('span', null, h('span', { class: 't' }, t('mod.' + type)), h('br'), h('span', { class: 'c' }, t('bld.cost', { kg: nf(spec.materials), w: nf(spec.work, spec.work % 1 ? 1 : 0) }))));
-    }).concat([kitButton(s, pending)]));
+    const rows = types => types.filter(ty => listed(s, ty, pending)).map(ty => buildRow(s, ty, pending));
+    const group = (name, types) => { const r = rows(types); return r.length ? [h('span', { class: 'eyebrow', style: 'grid-column:1/-1' }, t(name)), r] : null; };
+    const palette = h('div', { class: 'palette' }, rows(D.BUILD_ORDER), kitButton(s, pending), rankButton(s, pending),
+      group('mod.garage', ['rover', 'cabin', 'drone']), group('mod.fabricator', Object.keys(D.GEAR)), rows(['launch']));
     const sel = store.buildType;
     return panel(t('panel.build'), [
       h('p', { class: 'hint' }, t('bld.pick'), ' ', h('b', { class: 'num', style: 'color:var(--fg)' }, nf(s.resources.materials) + ' kg'), ' · ', t('hud.materials').toLowerCase()),
@@ -1437,7 +1476,7 @@
       pending.length ? h('div', { class: 'queue' }, h('span', { class: 'eyebrow' }, t('bld.queue')),
         pending.map((b, i) => h('div', { class: 'qrow' },
           h('span', { html: A.module(b.type === 'shield' ? 'shelter' : b.type, 26) }),
-          h('span', null, t('mod.' + b.type), ' ', h('span', { class: 'faint num' }, '−' + nf(D.BUILDS[b.type].materials) + ' kg')),
+          h('span', null, t('mod.' + b.type), ' ', h('span', { class: 'faint num' }, '−' + nf(E.costOf(s, b.type, pending.slice(0, i)).materials) + ' kg')),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'data-k': 'unq:' + i, onclick: () => patchPlan({ builds: pending.filter((_, j) => j !== i) }) }, t('bld.remove'))))) : null,
       s.projects.length ? h('div', { class: 'queue' }, h('span', { class: 'eyebrow' }, t('bld.projects')),
         s.projects.map(pr => h('div', { class: 'qrow' },
