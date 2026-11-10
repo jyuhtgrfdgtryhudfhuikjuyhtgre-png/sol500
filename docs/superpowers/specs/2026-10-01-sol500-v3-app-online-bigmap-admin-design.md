@@ -625,8 +625,8 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 
 ### M5 — Polish
 - [x] English + Vietnamese for every new screen
-- [ ] Offline single-file build updated
-- [ ] Final installer build tested
+- [x] Offline single-file build updated
+- [x] Final installer build tested
 
 ## 13. Refinements made while writing this spec (need the user's OK)
 
