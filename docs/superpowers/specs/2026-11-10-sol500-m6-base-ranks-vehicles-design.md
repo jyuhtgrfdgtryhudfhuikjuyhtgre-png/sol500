@@ -1,6 +1,6 @@
 # SOL 500 M6: base ranks, the Garage and the Fabricator
 
-**Date:** 2026-11-10 · **Status:** design, builder-checked, waiting for the user's approval
+**Date:** 2026-11-10 · **Status:** approved by the user on 2026-11-10
 **Builds on:** `2026-10-01-sol500-v3-app-online-bigmap-admin-design.md` (the game), `2026-11-09-sol500-m5-polish-quick-showcase-design.md` (the Quick mission and the Showcase)
 **Branch:** `feat/m6-base-ranks-vehicles`, off `master` (`d6a3cb9`, version 3.7.0, 805 tests)
 **Ships as:** 3.8.0 · **Deadline:** the judges see the game on **13 November 2026**
