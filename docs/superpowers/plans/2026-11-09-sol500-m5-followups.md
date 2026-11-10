@@ -54,6 +54,18 @@ Browser QA on `5270e7e` (report: `.superpowers/sdd/2026-11-09-sol500-m5-polish-q
 - **Quick play time:** about 27 to 43 minutes, estimated from measured parts (the QA run was scripted). Confirm it with a stopwatch.
 - **Words:** all 1,139 keys in both languages, no placeholder leaks, no "xe tự hành". VI screenshots for the native read: `.superpowers/sdd/m4d/qa/shots-m5/`.
 
+### Polish wave after QA (2026-11-10)
+
+Deferred items a player, presenter or judge can see, each fixed test first (805/805 after):
+- Boarding the rover again no longer swings it from the last driver's angle (`src/surface.js` `setRemote`).
+- A pack full of beacon kits says so: "Backpack full of relay beacon kits: place one, or put it back at the base." (`eva.fullKits`).
+- A note that comes while a card is up is no longer overwritten by the repeated round brief.
+- The rover's nose at the four diagonals and wall corners is now tested (no bug found).
+- A region card that Resume closed unread comes up again the next time the region is entered (in memory, not across a reload).
+- A card's 15 s are held while the Mission console shows and given back on the surface.
+- The food lesson gives a figure again, for the mission's own crew and length (`D.FOOD_PER_CREW` x crew x sols): about 3.6 t for 4 crew over 500 sols, 1.4 t over 200.
+- The pilot cards' sources are links, outside the Play button, and the four Play buttons line up (EN and VI checked in Chrome).
+
 ## For the user to decide
 
 - **The reference Quick kit's red `water_short` warning.** The reference Quick kit shows a red "Water runs out before sol {end}" on the manifest at every level, true for 169 of the 200 sols; the Full reference kit shows none. Water 1 is what the user accepted in Task 3, and softening a warning to look better would make it less honest, so it stays by ruling. If a judge should not see red on the default kit, the lever is a threshold on the warning or one more water in `D.QUICK.kitChange` (which moves the balance above).
@@ -228,6 +240,13 @@ Browser QA on `5270e7e` (report: `.superpowers/sdd/2026-11-09-sol500-m5-polish-q
 |---|---|---|
 | `admin.csvFailed` | The export failed: the server could not make the CSV file. | Xuất thất bại: máy chủ không tạo được tệp CSV. |
 | `admin.p.na` | n/a (the tests could not run) | n/a (không chạy được kiểm thử) |
+
+### Added by the polish wave
+
+| Key | English | Vietnamese |
+|---|---|---|
+| `eva.fullKits` | Backpack full of relay beacon kits: place one, or put it back at the base. | Ba lô đầy bộ trạm chuyển tiếp: hãy đặt một bộ, hoặc trả lại căn cứ. |
+| `lesson.food.body` | (now ends) about {tonnes} tonnes for this crew | khoảng {tonnes} tấn với phi hành đoàn này |
 
 ## Deferred minors
 

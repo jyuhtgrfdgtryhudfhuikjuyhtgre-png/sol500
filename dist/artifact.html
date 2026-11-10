@@ -355,6 +355,8 @@ p { margin: 0; }
 
 .advance { display: grid; gap: 8px; position: sticky; bottom: 12px; z-index: 5; }
 .advance .btn { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
+.advance { padding: 8px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line-2); } /* nothing shows through it over the side panel */
+.advance .btn:disabled { opacity: 1; background: var(--sunk); color: var(--fg-3); }
 
 /* ---------- modal ---------- */
 .modal-back { position: fixed; inset: 0; background: rgba(10, 6, 8, 0.72); z-index: 100; display: grid; place-items: center; padding: 16px; }
@@ -386,8 +388,8 @@ p { margin: 0; }
    draws one, a + that turns into − when open, and a focus ring for the keyboard (Enter or Space opens it). */
 .found-list summary { display: grid; gap: 3px; position: relative; padding-right: 28px; cursor: pointer; list-style: none; border-radius: 4px; }
 .found-list summary::-webkit-details-marker { display: none; }
-.found-list summary::after { content: '+'; position: absolute; top: 50%; right: 0; transform: translateY(-50%); width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: 50%; color: var(--fg-2); font: 600 var(--fs-sm)/1 var(--font-data); }
-.found-list details[open] > summary::after { content: '\2212'; }
+.found-list summary::after { content: '+'; content: '+' / ''; position: absolute; top: 50%; right: 0; transform: translateY(-50%); width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: 50%; color: var(--fg-2); font: 600 var(--fs-sm)/1 var(--font-data); }
+.found-list details[open] > summary::after { content: '\2212'; content: '\2212' / ''; }
 .found-list summary:hover::after { border-color: var(--accent); color: var(--accent); }
 .found-list summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .found-list details > p { margin-top: 6px; }
@@ -502,7 +504,7 @@ p { margin: 0; }
 .ops-tabs button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding-inline: 16px; }
 .sf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px; margin-top: 12px; align-items: start; }
 .sf-stage { min-width: 0; position: relative; }
-.region-card { position: absolute; left: 12px; top: 150px; z-index: 2; width: min(340px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
+.region-card { position: absolute; left: 12px; top: 150px; z-index: 2; width: min(380px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
 .region-card-h { display: flex; justify-content: space-between; align-items: center; }
 .region-card h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); }
 .region-card p { margin: 0; font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.45; }
@@ -510,6 +512,7 @@ p { margin: 0; }
 .region-card a { color: var(--accent); }
 /* Wide screens: the card sits on the right, under the minimap and the FPS readout (top 180 px), clear of the HUD's column
    on the left, which the round's goals, the kit buttons and the aura make as tall as a round needs (R33). */
+.region-card { max-height: calc(100% - 220px); overflow-y: auto; } /* M5: a long card scrolls inside a short window */
 @media (min-width: 641px) { .region-card { top: 208px; left: auto; right: 12px; } }
 /* A Kestrel Survey story log: the programme's teal (its structures on the maps) and a log's monospace. */
 .region-card.log { border-left-color: #4a978e; }
@@ -611,6 +614,8 @@ p { margin: 0; }
 .sf-map-head { position: absolute; left: 12px; right: 12px; top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(20, 14, 16, 0.88); border: 1px solid var(--line-2); border-radius: 10px; padding: 6px 8px 6px 12px; }
 .sf-map-head b { font-family: var(--font-display); margin-right: auto; }
 .sf-map-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: var(--fs-xs); color: var(--fg-2); }
+.sf-map-key { flex-basis: 100%; display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: var(--fs-xs); color: var(--fg-2); }
+.sf-map-key i { font-style: normal; font-weight: 700; margin-right: 4px; }
 .sf-map-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.2); }
 .sf-map-head button { min-width: 34px; min-height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--raised); color: var(--fg); font-weight: 700; cursor: pointer; }
 .sf-map-head button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -647,14 +652,17 @@ p { margin: 0; }
 .sf-side { display: grid; gap: 12px; min-width: 0; }
 .pilot { display: grid; gap: 14px; padding: 8px 0 24px; }
 .pilot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-.pilot-card { display: grid; grid-template-rows: auto auto auto 1fr auto; justify-items: center; gap: 6px; text-align: center; padding: 18px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--fg); cursor: pointer; font: inherit; }
-.pilot-card:hover, .pilot-card:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.pilot-card { display: grid; grid-template-rows: 1fr auto; gap: 6px; text-align: center; padding: 18px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--fg); }
+.pilot-pick { display: grid; grid-template-rows: auto auto auto auto 1fr auto; justify-items: center; gap: 6px; padding: 0; background: none; border: 0; color: inherit; cursor: pointer; font: inherit; text-align: center; }
+.pilot-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.pilot-card:hover, .pilot-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pilot-card .src { margin: 0; font-size: var(--fs-xs); min-height: 2lh; } /* two lines kept for every source, so the Play buttons line up */
 .seat-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .jobrows { display: grid; gap: 8px; }
 .jobrow { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--fs-sm); padding: 4px; border-radius: 8px; }
 .jobrow.me { background: var(--accent-soft); }
 .jobrow b { overflow-wrap: anywhere; }
-.jobrow select { background: var(--sunk); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; color: var(--fg); min-height: 36px; max-width: 150px; }
+.jobrow select { background: var(--sunk); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; color: var(--fg); min-height: 36px; max-width: 190px; }
 @media (max-width: 1100px) {
   .sf-layout { grid-template-columns: minmax(0, 1fr); }
   .sf-root { height: min(66vh, 640px); min-height: 380px; }
@@ -672,6 +680,19 @@ p { margin: 0; }
 .guide-item p { margin: 2px 0; }
 .guide-fact { font-style: italic; }
 .guide-art svg { width: 40px; height: 40px; }
+
+/* the Showcase: the gallery, and the bar over the demo game's stage */
+.show { display: grid; gap: 16px; padding-block: 16px; }
+.show-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.show-card { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.show-card > .btn { margin-top: auto; } /* every Show me on the card's bottom edge, with or without a Source line */
+.show-card h2 { margin: 0; font-size: var(--fs-lg, 1.15rem); }
+.show-card p { margin: 0; }
+.show-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 110; width: min(900px, calc(100% - 24px)); display: flex; align-items: center; gap: 10px; background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+.show-text { flex: 1; min-width: 0; }
+.show-line { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted, inherit); }
+.show-cap { margin: 0; min-width: 0; font-size: var(--fs-sm); } /* wraps: the judge reads the whole purpose */
+body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the bar, so Advance and the last rows can be reached */
 
 </style>
 <div id="app"></div>
@@ -807,6 +828,7 @@ p { margin: 0; }
     REGOLITH_PER_POINT: 100, // kg of materials from leftover construction work
     REPAIR_MATERIALS: 100, // kg per repair when there are no spare kits
 
+    TILE_PX: 64, // world pixels a tile spans (the surface, the rules and the Showcase all place things in tiles)
     GRID: { w: 9, h: 5, hq: [4, 2], ice: 3, rock: 4 },
 
     BREAKDOWN: {
@@ -887,6 +909,17 @@ p { margin: 0; }
     },
 
     CONJUNCTION_TURN: 10,
+
+    // The Quick mission: 8 rounds with set moments (the flare in round 3, the oxygen rupture in round 5). Its budget,
+    // kit change and grades are tuned against tools/balance.js.
+    QUICK: {
+      turns: 8, flareTurn: 2, oxygenTurn: 4, // zero-based round indices
+      budget: { cadet: 32, commander: 30, veteran: 28 },
+      kitChange: { rover: 1, waterwall: 0, water: 1, o2: 1 }, // the reference kit swaps the water wall for a rover and carries less water and oxygen (8 rounds need less)
+      grades: [['S', 1355], ['A', 1200], ['B', 1000], ['C', 800]],
+    },
+    // The Showcase's demo game: a Quick mission (the only one that takes a scheduled moment and has a rover in its kit).
+    SHOWCASE: { difficulty: 'commander', crewSize: 5, waitTries: 30, waitMs: 100 }, // the surface gets 30 x 100 ms to be ready
     GLOBAL_STORM_CHANCE: 0.4,
     GLOBAL_STORM_TURNS: [10, 15],
     GLOBAL_STORM_LENGTH: 3,
@@ -1197,20 +1230,26 @@ p { margin: 0; }
     return D.CREW_SIZES.includes(Number(n)) ? Number(n) : D.DEFAULT_CREW;
   }
 
-  function budgetFor(difficulty, crewSize) {
-    return D.DIFFICULTY[difficultyOf(difficulty)].budget + (crewSizeOf(crewSize) === 5 ? D.CREW5_BUDGET : 0);
+  // A mission's length is its schedule's: 20 rounds, or 8 in a Quick mission.
+  const turnsOf = s => s.schedule.length;
+
+  function budgetFor(difficulty, crewSize, quick) {
+    const base = quick ? D.QUICK.budget[difficultyOf(difficulty)] : D.DIFFICULTY[difficultyOf(difficulty)].budget;
+    return base + (crewSizeOf(crewSize) === 5 ? D.CREW5_BUDGET : 0);
   }
 
-  function referenceKit(difficulty, crewSize) {
+  function referenceKit(difficulty, crewSize, quick) {
     const kit = Object.assign({}, D.REFERENCE_KITS[difficultyOf(difficulty)]);
+    if (quick) Object.assign(kit, D.QUICK.kitChange);
     if (crewSizeOf(crewSize) === 5) for (const k of Object.keys(D.CREW5_EXTRA)) kit[k] += D.CREW5_EXTRA[k];
     return kit;
   }
 
-  function validateLoadout(loadout, difficulty, crewSize) {
-    const budget = budgetFor(difficulty, crewSize);
+  function validateLoadout(loadout, difficulty, crewSize, quick) {
+    const budget = budgetFor(difficulty, crewSize, quick);
     const L = normalizeLoadout(loadout);
     const errors = [];
+    if (quick && L.rover < 1) errors.push('needs_rover');
     for (const id of D.ITEM_ORDER) if (L[id] > D.ITEMS[id].max) errors.push('too_many:' + id);
     const mass = loadoutMass(L);
     if (mass > budget + 1e-9) errors.push('over_budget');
@@ -1218,8 +1257,9 @@ p { margin: 0; }
   }
 
   // ---------- event schedule ----------
-  function buildSchedule(seed, eventsOn, level) {
+  function buildSchedule(seed, eventsOn, level, quick) {
     const diff = D.DIFFICULTY[difficultyOf(level)];
+    if (quick) return buildQuickSchedule(seed, diff);
     const turns = [];
     for (let t = 0; t < D.TURNS; t++) {
       turns.push({ weather: 'clear', spe: false, devil: false, flavor: null, conjunction: t === D.CONJUNCTION_TURN });
@@ -1239,6 +1279,25 @@ p { margin: 0; }
       if (r() < D.EXTRA_SPE_CHANCE) turns[t].spe = true;
       if (r() < D.DUST_DEVIL_CHANCE && turns[t].weather === 'clear') turns[t].devil = true;
       if (r() < diff.flavor && t >= 2) turns[t].flavor = pickWeighted(r, D.FLAVOR_WEIGHTS);
+    }
+    return turns;
+  }
+
+  // The Quick schedule: rounds 1 and 2 calm, the flare and the oxygen rupture at set rounds, no conjunction and no global
+  // storm. The other rounds (4, 6, 7, 8) draw a regional storm, an extra flare, a devil and a flavour by the Full rules.
+  function buildQuickSchedule(seed, diff) {
+    const turns = [];
+    for (let t = 0; t < D.QUICK.turns; t++) turns.push({ weather: 'clear', spe: false, devil: false, flavor: null, conjunction: false });
+    turns[D.QUICK.flareTurn].spe = true;
+    turns[D.QUICK.oxygenTurn].flavor = 'o2_rupture';
+    const r = rng(seed, 'schedule-quick');
+    for (const t of [3, 5, 6, 7]) {
+      const season = seasonAt(t * D.TURN_SOLS);
+      const pStorm = season.dustSeason ? D.REGIONAL_STORM_CHANCE.season : D.REGIONAL_STORM_CHANCE.calm;
+      if (r() < pStorm) turns[t].weather = 'regional';
+      if (r() < D.EXTRA_SPE_CHANCE) turns[t].spe = true;
+      if (r() < D.DUST_DEVIL_CHANCE && turns[t].weather === 'clear') turns[t].devil = true;
+      if (r() < diff.flavor) turns[t].flavor = pickWeighted(r, D.FLAVOR_WEIGHTS);
     }
     return turns;
   }
@@ -1414,7 +1473,7 @@ p { margin: 0; }
     if (item.res === 'science' && amount > (bank.best ? bank.best.amount : 0)) bank.best = { crewId, kind: item.kind, res: 'science', amount, region: item.region };
   }
 
-  function buildState(loadout, seed, eventsOn, level, size) {
+  function buildState(loadout, seed, eventsOn, level, size, quick) {
     const difficulty = difficultyOf(level);
     const crewSize = crewSizeOf(size);
     const L = normalizeLoadout(loadout);
@@ -1457,7 +1516,7 @@ p { margin: 0; }
         built: 0, scrapped: 0, shelters: 0, salvages: 0, revives: 0, downs: 0, deaths: 0, dropsUsed: 0,
       },
       depot: { drops: D.DIFFICULTY[difficulty].drops, incoming: [] },
-      schedule: buildSchedule(String(seed), !!eventsOn, difficulty),
+      schedule: buildSchedule(String(seed), !!eventsOn, difficulty, quick),
       events: [],
       pending: { discovery: false, injuries: [], breakdowns: [] },
       history: [],
@@ -1472,9 +1531,14 @@ p { margin: 0; }
 
   function createMission(opts) {
     const o = opts || {};
-    const v = validateLoadout(o.loadout, o.difficulty, o.crewSize);
+    const quick = o.quick === true;
+    const v = validateLoadout(o.loadout, o.difficulty, o.crewSize, quick);
     if (!v.ok) throw new Error('Invalid loadout: ' + v.errors.join(', '));
-    const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false, o.difficulty, o.crewSize);
+    const s = buildState(o.loadout, o.seed || newMissionCode(), o.events !== false, o.difficulty, o.crewSize, quick);
+    if (quick) {
+      s.quick = true;
+      for (const t of Object.keys(o.schedulePatch || {})) if (s.schedule[t]) Object.assign(s.schedule[t], o.schedulePatch[t]);
+    }
     if (o.coop) s.coop = true;
     if (o.names) for (const c of s.crew) if (o.names[c.id]) c.name = String(o.names[c.id]).slice(0, 24);
     if (o.pilot != null) {
@@ -1573,7 +1637,7 @@ p { margin: 0; }
   function beginTurn(s) {
     const info = s.schedule[s.turn];
     const ev = [];
-    if (s.turn === 0) ev.push({ type: 'landing' });
+    if (s.turn === 0) ev.push({ type: s.quick ? 'landing_quick' : 'landing' });
     if (s.turn > 0) {
       const now = seasonAt(s.sol);
       const before = seasonAt(s.sol - D.TURN_SOLS);
@@ -2109,7 +2173,7 @@ p { margin: 0; }
     // The final advance has no next round to bank a backpack in (rollExpedition), so the last round's backpacks are banked
     // now, marked late, and count for the score and the debrief (spec §13.12). A co-op astronaut still collapsed outside
     // keeps theirs: rollExpedition leaves it where they fell.
-    if (s.turn === D.TURNS - 1) {
+    if (s.turn === turnsOf(s) - 1) {
       for (const id of Object.keys(x.carried || {})) {
         if (!Array.isArray(x.carried[id]) || (x.collapsed || {})[id]) continue;
         for (const it of x.carried[id]) if (isKit(it)) x.kits += 1; else bankItem(x.banked, id, it, true); // a kit is back at the base
@@ -2280,7 +2344,7 @@ p { margin: 0; }
       const last = s.crew.find(c => report.deaths.includes(c.id) || report.downs.includes(c.id)) || s.crew[0];
       s.status = 'lost';
       s.endCause = { type: 'crew', reason: last.harm || 'health', crewId: last.id, sol: s.sol };
-    } else if (s.turn >= D.TURNS) {
+    } else if (s.turn >= turnsOf(s)) {
       s.status = 'success';
     }
 
@@ -2340,7 +2404,7 @@ p { margin: 0; }
     const total = Object.values(parts).reduce((a, b) => a + b, 0);
     let grade = 'D';
     if (success) {
-      for (const [g, min] of D.SCORE.grades) {
+      for (const [g, min] of (s.quick ? D.QUICK.grades : D.SCORE.grades)) {
         if (total >= min) { grade = g; break; }
       }
     }
@@ -2349,6 +2413,7 @@ p { margin: 0; }
   }
 
   function achievements(s) {
+    if (s.quick) return [];
     const success = s.status === 'success';
     const got = new Set();
     const maxDose = Math.max(...s.crew.filter(c => c.status !== 'dead').map(c => c.dose), 0);
@@ -2376,7 +2441,7 @@ p { margin: 0; }
   // Engineering advice from Earth: the most urgent problems, in priority order.
   function advise(s, plan) {
     const f = forecast(s, plan);
-    const remaining = (D.TURNS - s.turn) * D.TURN_SOLS;
+    const remaining = (turnsOf(s) - s.turn) * D.TURN_SOLS;
     const out = [];
     if (f.power.habShort) out.push({ code: 'hab_cold' });
     if (f.hypoxia > 0) out.push({ code: 'o2_out' });
@@ -2387,7 +2452,7 @@ p { margin: 0; }
     else if (f.runway.food < remaining) out.push({ code: 'food_runway', sols: Math.floor(f.runway.food) });
     const down = s.crew.find(c => c.status === 'down');
     if (down && !f.revived.length) out.push({ code: 'crew_down', crewId: down.id });
-    const turnsLeft = D.TURNS - s.turn;
+    const turnsLeft = turnsOf(s) - s.turn;
     for (const c of f.crew) {
       const crew = s.crew.find(x => x.id === c.id);
       if (crew.status !== 'active' || crew.grounded) continue;
@@ -2397,7 +2462,7 @@ p { margin: 0; }
     const shed = D.SHED_ORDER.find(t => f.power.shed[t] > 0);
     if (shed) out.push({ code: 'power_shed', module: shed });
     const solarShare = f.power.supply > 0 ? f.power.solarKw / f.power.supply : 0;
-    if (s.turn < D.GLOBAL_STORM_TURNS[1] && solarShare > 0.6) out.push({ code: 'storm_risk' });
+    if (!s.quick && s.turn < D.GLOBAL_STORM_TURNS[1] && solarShare > 0.6) out.push({ code: 'storm_risk' });
     if (s.morale < 45) out.push({ code: 'morale' });
     if (s.resources.spares === 0 && activeCount(s, 'workshop') === 0) out.push({ code: 'spares' });
     if (!out.length) out.push({ code: 'all_good' });
@@ -2405,8 +2470,8 @@ p { margin: 0; }
   }
 
   // Manifest-screen forecast: steady-state numbers for a proposed loadout.
-  function summarizeLoadout(loadout, difficulty, crewSize) {
-    const budget = budgetFor(difficulty, crewSize);
+  function summarizeLoadout(loadout, difficulty, crewSize, quick) {
+    const budget = budgetFor(difficulty, crewSize, quick);
     const L = normalizeLoadout(loadout);
     const mass = loadoutMass(L);
     const s = buildState(L, 'MANIFEST', false, difficulty, crewSize);
@@ -2425,8 +2490,9 @@ p { margin: 0; }
     sols.water = wNet >= 0 ? Infinity : s.resources.water / -wNet;
     sols.waterWithWall = wNet >= 0 ? Infinity : (s.resources.water + s.wallWater) / -wNet;
     const S0 = shielding(s);
-    const doseIndoor = D.TURNS * D.TURN_SOLS * D.DOSE_RATE * (1 - S0);
-    const mission = D.TURNS * D.TURN_SOLS;
+    const length = quick ? D.QUICK.turns : D.TURNS;
+    const doseIndoor = length * D.TURN_SOLS * D.DOSE_RATE * (1 - S0);
+    const mission = length * D.TURN_SOLS;
     const warn = [];
     if (mass > budget + 1e-9) warn.push('over_budget');
     if (f.power.load < f.power.demand - 1e-9 || f.power.habShort) warn.push('power_short');
@@ -2447,7 +2513,7 @@ p { margin: 0; }
   }
 
   return {
-    createMission, resolveTurn, forecast, defaultPlan, scoreMission, achievements, advise,
+    createMission, turnsOf, resolveTurn, forecast, defaultPlan, scoreMission, achievements, advise,
     summarizeLoadout, validateLoadout, loadoutMass, normalizeLoadout,
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
@@ -2532,9 +2598,19 @@ p { margin: 0; }
     percySamples: { label: 'NASA Science: Perseverance’s Mars rock samples', url: 'https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples/' },
     relayJpl: { label: "NASA JPL (2021): The Mars Relay Network connects us to NASA's Martian explorers", url: 'https://www.jpl.nasa.gov/news/the-mars-relay-network-connects-us-to-nasas-martian-explorers/' },
     jonesKliss: { label: 'Jones & Kliss, NASA Ames (2010): Developing an advanced life support system for the flexible path into deep space', url: 'https://ntrs.nasa.gov/citations/20100036823' },
+    // M5 words: the second source of the Plains fact ("Jezero" means lake) and the sources of the five role facts.
+    marsNames: { label: 'NASA Mars Report (June 2023): How does NASA name things on Mars?', url: 'https://science.nasa.gov/resource/how-does-nasa-name-things-on-mars-mars-report-june-2023/' },
+    chapea: { label: "NASA (2024): Voyagers of Mars: The First CHAPEA Crew's Yearlong Journey", url: 'https://www.nasa.gov/missions/voyagers-of-mars-the-first-chapea-crews-yearlong-journey/' },
+    schmitt: { label: 'NASA: Former astronaut Harrison Schmitt', url: 'https://www.nasa.gov/former-astronaut-harrison-schmitt/' },
+    ams: { label: 'NASA: Alpha Magnetic Spectrometer hits ten years of space station research', url: 'https://www.nasa.gov/general/alpha-magnetic-spectrometer-hits-ten-years-of-space-station-research/' },
+    cmo: { label: 'NASA: 5.0 Training (Crew Medical Officer)', url: 'https://www.nasa.gov/reference/5-0-training/' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
+  // A second page for a region's fact, where one sentence needs it.
+  const REGION_EXTRA_SOURCES = { plains: 'marsNames' };
+  // The source of each role's fact in "Choose your astronaut" (role.<role>.fact).
+  const ROLE_SOURCES = { commander: 'chapea', scientist: 'schmitt', engineer: 'ams', biologist: 'veggie', medic: 'cmo' };
   const REGION_SOURCES = { plains: 'jezero', dunes: 'bagnold', craters: 'dichotomy', canyons: 'valles', icy: 'iceMap', volcanic: 'skylights' };
   // Likewise for the landmarks and formations (the id of the kind in src/data.js).
   const LANDMARK_SOURCES = { delta: 'wildcat', tube: 'pitCrater', crater: 'centralPeak', methane: 'methane', scarp: 'iceScarps', stardune: 'starDunes' };
@@ -2546,12 +2622,45 @@ p { margin: 0; }
     'app.install': 'Install app',
     'app.installHint': 'Adds SOL 500 to your Start menu or home screen. Works offline.',
     'app.installed': 'SOL 500 is installed.',
+    'title.resumeDamaged': 'That saved mission could not be read, so it was removed.',
     'app.tagline': 'Keep your crew alive on Mars for 500 sols. Every kilogram you land is a decision.',
     'lang.label': 'Language',
     'nav.notes': 'Science notes',
     'nav.help': 'How to play',
     'nav.achievements': 'Achievements',
     'nav.display': 'Display',
+    'show.title': 'What SOL 500 can do',
+    'show.open': 'Showcase',
+    'show.me': 'Show me', 'show.next': 'Next',
+    'show.back': '‹ Showcase',
+    'show.why': 'Why it\'s here',
+    'show.crew.holds': 'The same hold at the weather station: Commander {a} s, Engineer {b} s.',
+    'show.failed': 'That scene could not be set up. You are back on the gallery.',
+    'show.exit': 'Exit to Admin',
+    'show.card.flare.name': 'Solar flare',
+    'show.card.flare.why': 'NASA lists space radiation as one of the five hazards of human spaceflight. In the game a flare gives a short warning, and your dose depends on whether you reach cover in time.',
+    'show.card.rover.name': 'Physics rover',
+    'show.card.rover.why': 'Mars has weaker gravity than Earth, so the wheels grip less and the rover needs more room to stop. The readout shows both distances: brake early.',
+    'show.card.oxygen.name': 'Oxygen cut',
+    'show.card.oxygen.why': 'A rupture in the oxygen line leaves two choices: seal off and hide, or send a team out for the lander\'s tanks. Each has a real cost, and the rules show it.',
+    'show.card.beacons.name': 'Relay beacons',
+    'show.card.beacons.why': 'Most data from Mars rovers goes first to the orbiters overhead, which relay it to Earth. In the game, beacons placed away from the base mark the route home and refill your suit.',
+    'show.card.ground.name': 'NASA photo ground',
+    'show.card.ground.why': 'NASA\'s Ingenuity helicopter took the first color photo of Mars from the air. The game\'s ground is painted from NASA images like it, one look for each of the six regions.',
+    'show.card.landmark.name': 'Landmarks',
+    'show.card.landmark.why': 'NASA\'s Perseverance rover is studying an ancient delta, formed where a river met a lake. The game places real kinds of Martian landmark, and discovering one gives you its NASA facts.',
+    'show.card.tube.name': 'Lava tubes and caves',
+    'show.card.tube.why': 'NASA images show pit craters where the roof of a lava tube has collapsed, and empty tubes may criss-cross Mars\'s giant volcanoes. In the game, walk into a tube\'s mouth and into the dark.',
+    'show.card.devils.name': 'Dust devils and storms',
+    'show.card.devils.why': 'NASA photographs the dark tracks that dust devils scour into the surface of Mars. In the game, a dust-devil round costs suit time if one catches you in the open, and a storm shortens how far you see.',
+    'show.card.isru.name': 'Growing food and making oxygen',
+    'show.card.isru.why': 'NASA\'s Veggie garden on the space station adds fresh food to astronauts\' diets. The Console shows the game\'s greenhouse and the oxygen systems that keep the crew fed and breathing.',
+    'show.card.crew.name': 'Crew roles and skills',
+    'show.card.crew.why': 'Each crew member has a role with its own skill, so a job can take a different time for each: an Engineer works a weather station in half the time. The commander\'s aura speeds up the crew near him.',
+    'show.card.story.name': 'Why Mars?',
+    'show.card.story.why': 'In July 1969 Apollo 11 put the first two people on the Moon. The story follows that road on towards Mars.',
+    'show.card.guide.name': 'Field guide',
+    'show.card.guide.why': 'The guide explains every item and module in the game, with the facts behind each one.',
     'nav.quit': 'Leave mission',
     'nav.home': 'Title screen',
     'common.close': 'Close',
@@ -2613,6 +2722,14 @@ p { margin: 0; }
     'title.training': 'Training mission',
     'title.trainingHint': 'No random events or breakdowns. Learn the systems first.',
     'title.resume': 'Resume · sol {sol}',
+    'title.resumeQuick': 'Resume Quick · sol {sol}',
+    'title.length': 'Mission length',
+    'length.full': 'Full · 500 sols',
+    'length.quick': 'Quick · 200 sols',
+    'length.fullHint': '20 rounds. The whole mission, with every season, storm and decision.',
+    'length.quickHint': '8 rounds, solo only. Set moments: a solar flare in round 3 and an oxygen leak in round 5. A rover comes in place of the water wall. No training mode.',
+    'quick.tag': 'Quick mission',
+    'quick.flareHint': 'A solar flare is due this round. Step outside with the rover and get back under cover in time.',
     'title.code': 'Mission code',
     'title.codeHint': 'Same code, same map, storms and flares. Compare strategies with classmates.',
     'title.random': 'New code',
@@ -2632,7 +2749,7 @@ p { margin: 0; }
     'title.pack': 'Pack',
     'title.pack.body': 'Fit habitat, power, life support and supplies into one lander.',
     'title.operate': 'Operate',
-    'title.operate.body': 'Twenty rounds of 25 sols: assign the crew, build, answer emergencies.',
+    'title.operate.body': 'Rounds of 25 sols: assign the crew, build, answer emergencies.',
     'title.debrief': 'Debrief',
     'title.debrief.body': 'See why it worked or failed, and what real missions learned.',
     'title.fact1': 'radiation per sol on the surface, measured by Curiosity',
@@ -2652,6 +2769,12 @@ p { margin: 0; }
     'crew.four': '4 astronauts',
     'crew.five': '5 astronauts',
     'crew.fiveHint': 'Adds a commander. The lander gets 2 t more, but five people eat and breathe more.',
+    'role.commander.fact': "In NASA's 378-day Mars simulation, the commander's role was pivotal in maintaining crew morale and ensuring the success of daily operations.",
+    'role.scientist.fact': "Harrison “Jack” Schmitt, a geologist and the Apollo 17 lunar module pilot, was the first scientist to step on the Moon.",
+    'role.engineer.fact': "Four spacewalks in 2019 and 2020 replaced the failing cooling pumps of the space station's AMS-02, which was not designed to be repaired.",
+    'role.biologist.fact': "To date, NASA's Veggie has grown plants in space including three types of lettuce, Chinese cabbage, mizuna mustard, a red kale and zinnia flowers.",
+    'role.medic.fact': "A NASA Crew Medical Officer is a crew member assigned as a mission's medical expert. NASA requires at least two trained per vehicle or platform.",
+    'role.commander.seat': "Comes with the fifth seat: a mission with 4 crew has no commander.",
     'role.engineer.skill': 'Maintain and Build ×1.5. When spare kits run out, jury-rigs one repair per round from 100 kg of materials.',
     'role.scientist.skill': 'Lab and EVA ×1.5. Finds discoveries more often on EVA.',
     'role.biologist.skill': 'Farm ×1.5: keeps 3 hydroponics bays tended instead of 2.',
@@ -2695,9 +2818,9 @@ p { margin: 0; }
     'mwarn.power_short': 'Not enough power to run everything you packed.',
     'mwarn.storm_risk': 'A global dust storm would leave the HQ without enough power. Opportunity died this way in 2018.',
     'mwarn.no_recycler': 'No water recycler: the crew would use 700 kg of water every 25 sols.',
-    'mwarn.o2_short': 'Oxygen runs out before sol 500.',
-    'mwarn.water_short': 'Water runs out before sol 500, even after draining the water wall.',
-    'mwarn.food_short': 'Food runs out before sol 500 unless you grow or order more.',
+    'mwarn.o2_short': 'Oxygen runs out before sol {end}.',
+    'mwarn.water_short': 'Water runs out before sol {end}, even after draining the water wall.',
+    'mwarn.food_short': 'Food runs out before sol {end} unless you grow or order more.',
     'mwarn.dose_risk': 'Thin shielding: the crew will use most of their radiation budget just living here.',
     'mwarn.no_spares': 'No spare kits: the first breakdown will need materials or scrapped parts.',
     'mwarn.no_materials': 'No materials: you cannot build until the crew bakes regolith bricks or Earth sends some.',
@@ -2708,7 +2831,7 @@ p { margin: 0; }
     'item.solar.fact': 'Mars receives about 43 % of the sunlight Earth does.',
     'item.battery.name': 'Battery bank',
     'item.battery.desc': 'Stores daytime power for the night. Covers 2 arrays; uncovered arrays give half.',
-    'item.battery.fact': 'A Mars sol lasts 24 h 39 min, so half of every sol is dark.',
+    'item.battery.fact': 'A Mars sol lasts 24 h 39 min.',
     'item.reactor.name': 'Fission reactor',
     'item.reactor.desc': '10 kW day and night, dust storm or not. Heavy. Sits 2+ tiles from the HQ.',
     'item.reactor.fact': 'In 2018 NASA tested a prototype Kilopower reactor, a design that scales up to 10 kW for Mars.',
@@ -2786,6 +2909,11 @@ p { margin: 0; }
     'season.summer': 'Northern summer',
     'season.autumn': 'Northern autumn · dust season',
     'season.winter': 'Northern winter · dust season',
+    // M5: the top bar's short chip (the full wording above is its tooltip), so the co-op bar stays one row in dust season
+    'season.autumn.short': 'Autumn · dust season',
+    'season.winter.short': 'Winter · dust season',
+    'season.spring.short': 'Spring',
+    'season.summer.short': 'Summer',
     'weather.clear': 'Clear skies',
     'weather.regional': 'Regional dust storm',
     'weather.global': 'Global dust storm',
@@ -2903,7 +3031,7 @@ p { margin: 0; }
     'advice.food_out': 'Food runs out this round. Cut rations and request a food drop.',
     'advice.food_runway': 'Food lasts only about {sols} sols. Tend more hydroponics bays or request food.',
     'advice.crew_down': '{name} is down. Put the medic on Rest & care, or build a med bay, before time runs out.',
-    'advice.dose_projection': 'At this rate {name} passes the 300 mSv budget before sol 500. Build shield layers or move them indoors.',
+    'advice.dose_projection': 'At this rate {name} passes the 300 mSv budget before sol {end}. Build shield layers or move them indoors.',
     'advice.broken': 'The {module} is broken. Assign someone to Maintain and keep spare kits or materials on hand.',
     'advice.power_shed': 'Not enough power: the {module} is switched off automatically. Add generation or cut load.',
     'advice.storm_risk': 'Most of your power is solar and the dust season is coming. A global storm can last 75 sols. Build batteries and keep a reserve.',
@@ -2951,6 +3079,8 @@ p { margin: 0; }
     'ev.report': 'Report',
     'ev.landing.title': 'Touchdown',
     'ev.landing.body': 'The lander is down and the HQ is pressurized. Five hundred sols until the return window. Assign the crew, check the forecast, then advance.',
+    'ev.landing_quick.title': 'Touchdown',
+    'ev.landing_quick.body': 'The lander is down and the HQ is pressurized. Two hundred sols until the early return window. Eight rounds, and two moments you cannot skip. Assign the crew, check the forecast, then advance.',
     'ev.dust_season.title': 'Dust-storm season begins',
     'ev.dust_season.body': 'Mars is heading toward its closest point to the Sun. Southern summer drives the biggest dust storms. Keep power reserves.',
     'ev.winter.title': 'Northern winter',
@@ -3028,7 +3158,7 @@ p { margin: 0; }
 
     'deb.success': 'Mission complete',
     'deb.lost': 'Mission lost on sol {sol}',
-    'deb.successBody': '{n} of {m} crew lift off for home on sol 500.',
+    'deb.successBody': '{n} of {m} crew lift off for home on sol {end}.',
     'deb.grade': 'Grade',
     'deb.score': 'Score',
     'deb.charts': 'Mission telemetry',
@@ -3083,13 +3213,13 @@ p { margin: 0; }
     'lesson.storm_solar.title': 'Solar power has a weather problem',
     'lesson.storm_solar.body': 'A global dust storm hit while most of your power came from the Sun. In 2018 one of these storms blocked sunlight for months and ended the Opportunity rover. That is why NASA is developing fission surface power for crewed missions.',
     'lesson.spares.title': 'Spares are life support too',
-    'lesson.spares.body': 'Breakdowns are certain on a 500-sol mission. What matters is whether someone can fix them: a crew member on maintenance, spare kits, and materials to improvise with.',
+    'lesson.spares.body': 'Breakdowns are certain on a {end}-sol mission. What matters is whether someone can fix them: a crew member on maintenance, spare kits, and materials to improvise with.',
     'lesson.water.title': 'Close the water loop',
     'lesson.water.body': 'Four people use about 700 kg of water every 25 sols. Without recycling, no lander could carry enough. The ISS now recovers 98 % of its water for exactly this reason.',
     'lesson.o2.title': 'Oxygen margins',
     'lesson.o2.body': 'Each person breathes about 0.84 kg of oxygen a day. MOXIE proved oxygen can be made from Martian CO₂, but a plant that breaks without spares makes nothing.',
     'lesson.food.title': 'Food is mass',
-    'lesson.food.body': 'Packaged food for 500 sols weighs about 3.6 tonnes. Hydroponics trade mass for power and crew time, and the first harvest comes only after a crop cycle.',
+    'lesson.food.body': 'Packaged food for {end} sols weighs about {tonnes} tonnes for this crew. Hydroponics trade mass for power and crew time, and the first harvest comes only after a crop cycle.',
     'lesson.radiation.title': 'Shielding buys time outside',
     'lesson.radiation.body': 'Curiosity measured about 0.64 mSv per sol on the surface. Cruise to Mars and back adds about 660 mSv, which already passes NASA’s 600 mSv career limit. Every layer of shielding at the base gives crews more safe hours outside.',
     'lesson.spe.title': 'Take shelter from solar storms',
@@ -3182,9 +3312,11 @@ p { margin: 0; }
     'haul.water': '+{n} kg water',
     'haul.materials': '+{n} kg materials',
     'haul.food': '+{n} kg food',
-    'haul.o2': '+{n} kg O₂ (a canister)',
-    'haul.spares': '+{n} spare kit',
-    'haul.kit': '+{n} relay beacon kit', // a carried kit (E.kitItem: res 'kit'), wherever a backpack is listed
+    'haul.o2': '+{n} kg O₂ in canisters',
+    'haul.spares': '+{n} spare kits',
+    'haul.spares1': '+{n} spare kit',
+    'haul.kit1': '+{n} relay beacon kit',
+    'haul.kit': '+{n} relay beacon kits', // a carried kit (E.kitItem: res 'kit'), wherever a backpack is listed
     'haul.science': '+{n} science',
     'rep.haul': '{amount}: {what}, {region} ({name})',
     'rep.haulLate': '{amount}: {what}, {region} ({name}), banked from a backpack',
@@ -3206,6 +3338,7 @@ p { margin: 0; }
     'eva.tiles': 'tiles',
     'eva.tiles1': 'tile',
     'eva.pack': 'Backpack: {n} of {m} loads',
+    'eva.packKit': 'Backpack: {n} loads and {k} relay beacon kits, {m} slots',
     'eva.useCanister': 'Breathe an O₂ canister (+{s} s) · Q',
     'eva.breathed': '+{s} s of suit oxygen.',
     'eva.collect': 'Hold to collect: {what} · {s} s',
@@ -3217,6 +3350,7 @@ p { margin: 0; }
     'eva.delivered1': 'Delivered 1 load. It counts when the round advances.',
     'eva.delivered': 'Delivered {n} loads. They count when the round advances.',
     'eva.full': 'Backpack full: bring it back to the base.',
+    'eva.fullKits': 'Backpack full of relay beacon kits: place one, or put it back at the base.',
     'eva.low': 'Suit oxygen low: head back to the base!',
     'eva.flat': 'The rover battery is flat until tomorrow: press E to get out and walk.',
     'eva.collapsedCoop': 'Your suit is empty and you collapsed. Hold on: a crewmate can revive you.',
@@ -3233,6 +3367,8 @@ p { margin: 0; }
     'eva.err.noCanister': 'No O₂ canister in your backpack.',
     'eva.err.badPos': 'Waiting for your position to reach the server.',
     'eva.err.net': 'No answer from the server.',
+    'eva.err.noRoom': 'This room has closed.',
+    'eva.err.slowDown': 'Too many actions at once: wait a moment.',
     'eva.err.noFind': 'That find is gone.',
     'eva.err.noDrop': 'Someone already picked that up.',
     'eva.err.notCollapsed': 'They are already back on their feet.',
@@ -3306,9 +3442,9 @@ p { margin: 0; }
     'eva.brief.storm': 'a dust storm (you see {n} tiles)',
     'eva.brief.rupture': 'an O₂ leak at the base (bring canisters home)',
     'eva.cond.title': 'Outside this round',
-    'eva.cond.flare': 'Solar flare: {w} s after the first of you steps outside, a {c} s countdown starts. Be under cover when it ends (the base, a cave, a lava tube, a hab pod or the storm shelter), or take +{d} mSv.',
+    'eva.cond.flare': 'Solar flare: {w} s after anyone steps outside, a {c} s countdown starts. Be under cover when it ends (the base, a cave, a lava tube, a hab pod or the storm shelter), or take +{d} mSv.',
     'eva.cond.flareOn': 'The solar flare is on its way: watch the countdown on the surface.',
-    'eva.cond.flareHit': 'The solar flare caught {names} in the open: +{d} mSv each at the advance.',
+    'eva.cond.flareHit': 'The solar flare caught {names} in the open: +{d} mSv per person at the advance.',
     'eva.cond.flareSafe': 'The solar flare has passed. Everyone outside was under cover.',
     'eva.cond.devils': 'Dust devils: one that catches you on foot throws you {n} tiles and takes {s} s of suit. The rover is safe.',
     'eva.cond.storm': 'Dust storm: you can see {n} tiles around you.',
@@ -3329,7 +3465,8 @@ p { margin: 0; }
     'goal.morale': '+{n} morale',
     'goal.kits': '+{n} relay beacon kit',
     'goal.done': 'Done: it pays out when the round advances.',
-    'help.11': 'Dangers outside: a solar flare gives a 60 s warning. Be at the base, in a cave (a dark arch at the foot of a cliff), a lava tube, a hab pod or the storm shelter when it ends, or take +15 mSv. Dust devils throw you aside and take 10 s of suit, so walk round them (the rover is safe). A dust storm shrinks how far you can see.',
+    'help.11': 'Dangers outside: a solar flare gives a {c} s warning. Be at the base, in a cave (a dark arch at the foot of a cliff), a lava tube, a hab pod or the storm shelter when it ends, or take +{d} mSv. Dust devils throw you aside and take {s} s of suit, so walk round them (the rover is safe). A dust storm shrinks how far you can see.',
+    'help.win': 'Windows warnings (the desktop app): the installer is not signed, so SmartScreen may say "Windows protected your PC". Click "More info", then "Run anyway". The first time SOL 500 starts, the Windows Firewall asks whether to allow it on your network: allow it on private networks so friends on your Wi-Fi can join. The app installs for your user only, in %LOCALAPPDATA%\\Programs\\sol500.',
     'help.9': 'Explore: the world goes on in every direction. Walk or drive out of the base, and what you see stays on your map. Press M or tap ⤢ on the minimap to open the map. Each region of Mars looks different and comes with a real fact.',
 
     'notes.title': 'Science notes',
@@ -3380,8 +3517,13 @@ p { margin: 0; }
     'online.qr': 'QR code for the share link',
     'online.hint': 'Friends open the link, press "Play together", then join room {code}.',
     'online.error': 'The share link could not open or has stopped. Check the internet connection and try again.',
+    'online.errorHash': 'The link tool did not download correctly (its checksum failed). Try again; if it keeps failing, check the internet connection.',
+    'online.copyFailed': "Couldn't copy: select the link and copy it by hand.",
+    'app.startFail': 'The game server could not start: {why}',
     'lan.full': 'That room is full.',
     'lan.noRoom': 'No room with that code.',
+    'lan.network': "Couldn't reach the game server. Check the connection and try again.",
+    'lan.seatTaken': 'That seat was just taken.',
     'lan.onlyHost': 'Only the host can do that.',
     'lan.leave': 'Leave room',
     'lan.take': 'Take this seat',
@@ -3399,6 +3541,17 @@ p { margin: 0; }
     'sf.mapTitle': 'Explored map',
     'sf.mapHint': 'Drag or use the arrow keys to move · scroll or + − to zoom · click to ping a spot · M or Esc to close',
     'sf.zoomIn': 'Zoom in',
+    // M5 the map key: what each mark on the big map means
+    'sf.key.find': 'A find to collect',
+    'sf.key.cave': 'Cave mouth',
+    'sf.key.drop': 'Dropped load',
+    'sf.key.rover': 'Parked rover',
+    'sf.key.beacon': 'Relay beacon',
+    'sf.key.landmark': 'Landmark discovered',
+    'sf.key.structure': 'Structure used or repaired',
+    'sf.key.mast': 'Comms mast, not yet repaired',
+    'sf.key.base': 'The base',
+    'sf.key.you': 'You',
     'sf.zoomOut': 'Zoom out',
     'region.plains': 'Plains',
     'region.dunes': 'Dune Sea',
@@ -3410,7 +3563,7 @@ p { margin: 0; }
     'region.note': 'Region note',
     'region.reread': '{name}: read about this region',
     'region.source': 'Source',
-    'region.fact.plains': 'Like the floor of Jezero Crater, where Perseverance landed. About 3.5 billion years ago this 45-km crater had its own river delta and was filled with water.',
+    'region.fact.plains': 'Like the floor of Jezero Crater, where Perseverance landed. About 3.5 billion years ago this 45-km crater had its own river delta and was filled with water. “Jezero” means “lake” in many Slavic languages.',
     'region.fact.dunes': 'Like the Bagnold Dunes at the foot of Mount Sharp, which Curiosity set out to study in 2015. No one had ever visited active dunes anywhere but Earth. Seen from orbit, some of them move as much as about 1 m every Earth year.',
     'region.fact.craters': 'Like the southern highlands. Mars has two faces: its southern half is ancient, cratered ground, while the north is younger and smoother and was influenced by extensive volcanism.',
     'region.fact.canyons': 'Like Valles Marineris, the Grand Canyon of Mars: about 3,870 km long, up to 600 km across, and about 9.3 km deep at its deepest.',
@@ -3503,6 +3656,7 @@ p { margin: 0; }
     'admin.tab.project': 'Project progress',
     'admin.refresh': 'Refresh',
     'admin.error': "Couldn't reach the server. Is SOL 500 still running?",
+    'admin.csvFailed': 'The export failed: the server could not make the CSV file.',
     'admin.stale': 'The server restarted. Reload this page to keep going.',
     'admin.reload': 'Reload',
     'admin.loading': 'Loading…',
@@ -3626,6 +3780,7 @@ p { margin: 0; }
     'admin.p.features': 'Features done',
     'admin.p.done': '{n} of {m} done',
     'admin.p.tests': 'Tests passing',
+    'admin.p.na': 'n/a (the tests could not run)',
     'admin.p.failing': '{n} failing',
     'admin.p.commits': 'Commits',
     'admin.p.lines': 'Lines of code',
@@ -3644,12 +3799,45 @@ p { margin: 0; }
     'app.install': 'Cài đặt ứng dụng',
     'app.installHint': 'Thêm SOL 500 vào menu Start hoặc màn hình chính. Chạy được cả khi không có mạng.',
     'app.installed': 'Đã cài đặt SOL 500.',
+    'title.resumeDamaged': 'Không đọc được nhiệm vụ đã lưu này nên đã xóa nó.',
     'app.tagline': 'Giữ phi hành đoàn sống sót trên sao Hỏa trong 500 sol. Mỗi kilôgam bạn đưa xuống là một quyết định.',
     'lang.label': 'Ngôn ngữ',
     'nav.notes': 'Ghi chú khoa học',
     'nav.help': 'Cách chơi',
     'nav.achievements': 'Thành tích',
     'nav.display': 'Hiển thị',
+    'show.title': 'SOL 500 làm được gì',
+    'show.open': 'Trình diễn',
+    'show.me': 'Cho tôi xem', 'show.next': 'Tiếp',
+    'show.back': '‹ Trình diễn',
+    'show.why': 'Vì sao có tính năng này',
+    'show.crew.holds': 'Cùng một lần giữ phím ở trạm khí tượng: chỉ huy trưởng {a} giây, kỹ sư {b} giây.',
+    'show.failed': 'Không dựng được cảnh đó. Bạn đã quay lại thư viện.',
+    'show.exit': 'Thoát về trang Quản trị',
+    'show.card.flare.name': 'Bão mặt trời',
+    'show.card.flare.why': 'NASA xếp bức xạ vũ trụ là một trong năm mối nguy của chuyến bay vũ trụ có người. Trong game, bão mặt trời cho một lời cảnh báo ngắn, và liều bức xạ của bạn tùy việc bạn có kịp vào chỗ trú hay không.',
+    'show.card.rover.name': 'Xe thám hiểm theo vật lý',
+    'show.card.rover.why': 'Sao Hỏa có trọng lực yếu hơn Trái Đất, nên bánh xe bám đường kém hơn và xe thám hiểm cần nhiều chỗ để dừng hơn. Bảng đọc cho thấy cả hai quãng đường: hãy phanh sớm.',
+    'show.card.oxygen.name': 'Đứt đường oxy',
+    'show.card.oxygen.why': 'Đường oxy bị vỡ để lại hai lựa chọn: đóng kín rồi trú ẩn, hay cử người ra lấy bình dự trữ của tàu đổ bộ. Mỗi lựa chọn có một cái giá thật, và luật chơi cho bạn thấy.',
+    'show.card.beacons.name': 'Trạm chuyển tiếp',
+    'show.card.beacons.why': 'Phần lớn dữ liệu từ các xe thám hiểm sao Hỏa được gửi trước tiên lên các tàu quỹ đạo phía trên, rồi chúng chuyển về Trái Đất. Trong game, các trạm chuyển tiếp đặt xa căn cứ đánh dấu đường về và nạp lại bộ đồ của bạn.',
+    'show.card.ground.name': 'Mặt đất từ ảnh NASA',
+    'show.card.ground.why': 'Trực thăng Ingenuity của NASA đã chụp bức ảnh màu đầu tiên về sao Hỏa từ trên không. Mặt đất trong game được vẽ từ những ảnh NASA như vậy, mỗi vùng trong sáu vùng một vẻ.',
+    'show.card.landmark.name': 'Địa danh',
+    'show.card.landmark.why': 'Xe thám hiểm Perseverance của NASA đang nghiên cứu một châu thổ cổ, hình thành nơi một dòng sông gặp một cái hồ. Game đặt những loại địa danh thật của sao Hỏa, và khám phá một nơi sẽ cho bạn các dữ kiện của NASA về nó.',
+    'show.card.tube.name': 'Ống dung nham và hang động',
+    'show.card.tube.why': 'Ảnh NASA cho thấy những hố sụt nơi mái của một ống dung nham đã sập, và các ống rỗng có thể chạy ngang dọc dưới những ngọn núi lửa khổng lồ của sao Hỏa. Trong game, hãy đi tới miệng một ống và bước vào bóng tối.',
+    'show.card.devils.name': 'Lốc bụi và bão bụi',
+    'show.card.devils.why': 'NASA chụp được những vệt tối mà lốc bụi cày lên bề mặt sao Hỏa. Trong game, một vòng có lốc bụi làm hao bộ đồ nếu bạn bị bắt gặp ngoài trời, và bão bụi làm tầm nhìn hẹp lại.',
+    'show.card.isru.name': 'Trồng thực phẩm và tạo oxy',
+    'show.card.isru.why': 'Vườn Veggie của NASA trên trạm vũ trụ bổ sung thực phẩm tươi cho bữa ăn của phi hành gia. Bảng điều khiển cho thấy nhà kính và các hệ thống oxy trong game giúp phi hành đoàn có ăn và có thở.',
+    'show.card.crew.name': 'Vai trò và kỹ năng của phi hành đoàn',
+    'show.card.crew.why': 'Mỗi thành viên có một vai trò với kỹ năng riêng, nên một việc có thể mất thời gian khác nhau với từng người: kỹ sư sửa trạm khí tượng trong nửa thời gian. Hào quang của chỉ huy giúp cả đội gần anh ấy đi nhanh hơn.',
+    'show.card.story.name': 'Vì sao là sao Hỏa?',
+    'show.card.story.why': 'Tháng 7 năm 1969, Apollo 11 đưa hai người đầu tiên lên Mặt Trăng. Câu chuyện đi tiếp con đường đó về phía sao Hỏa.',
+    'show.card.guide.name': 'Sổ tay thực địa',
+    'show.card.guide.why': 'Sổ tay giải thích từng vật phẩm và mô-đun trong game, cùng những dữ kiện đằng sau mỗi thứ.',
     'nav.quit': 'Rời nhiệm vụ',
     'nav.home': 'Màn hình chính',
     'common.close': 'Đóng',
@@ -3694,10 +3882,10 @@ p { margin: 0; }
     'guide.suit.name': 'Bộ đồ du hành',
     'guide.suit.desc': 'Không khí của bạn khi ra ngoài: khoảng 150 giây oxy. Bộ đồ được nạp lại ở căn cứ, và hao nhanh hơn khi bạn chạy hoặc ở Đồng bằng băng lạnh giá.',
     'guide.pack.name': 'Ba lô mẫu vật',
-    'guide.pack.desc': 'Mang những gì bạn thu nhặt ngoài kia (băng, đá giàu kim loại, hàng hóa, mẫu khoa học) về căn cứ: 3 món khi đi bộ, 8 món khi lái xe tự hành.',
+    'guide.pack.desc': 'Mang những gì bạn thu nhặt ngoài kia (băng, đá giàu kim loại, hàng hóa, mẫu khoa học) về căn cứ: 3 món khi đi bộ, 8 món khi lái xe thám hiểm.',
     'guide.canister.name': 'Bình oxy',
     'guide.canister.desc': 'Một bình dự phòng tìm thấy trên bản đồ: hít nó để nạp thêm 45 giây vào bộ đồ.',
-    'guide.kit.desc': 'Được chế tạo ở HQ rồi mang ra ngoài: đặt xa căn cứ, trạm tiếp sóng nạp lại bộ đồ và đánh dấu đường về.',
+    'guide.kit.desc': 'Được chế tạo ở HQ rồi mang ra ngoài: đặt xa căn cứ, trạm chuyển tiếp nạp lại bộ đồ và đánh dấu đường về.',
     'guide.hab.fact': 'Kiến trúc tham chiếu 5.0 của NASA dự kiến khoảng 500 ngày trên bề mặt, nên khu ở là nhà của phi hành đoàn hơn một năm.',
     'guide.habitat.fact': 'NASA xếp sự cô lập và gò bó vào năm mối nguy của chuyến bay vũ trụ có người: những căn phòng nhỏ, dùng chung làm phi hành đoàn mệt mỏi qua nhiều tháng.',
     'guide.medbay.fact': 'Ở xa Trái Đất, phi hành đoàn phải tự chăm sóc mình: NASA xếp khoảng cách xa Trái Đất vào năm mối nguy, vì việc chữa bệnh và tiếp tế khó khăn hơn.',
@@ -3711,6 +3899,14 @@ p { margin: 0; }
     'title.training': 'Nhiệm vụ huấn luyện',
     'title.trainingHint': 'Không có sự kiện ngẫu nhiên hay hỏng hóc. Làm quen với các hệ thống trước.',
     'title.resume': 'Tiếp tục · sol {sol}',
+    'title.resumeQuick': 'Tiếp tục nhiệm vụ nhanh · sol {sol}',
+    'title.length': 'Độ dài nhiệm vụ',
+    'length.full': 'Đầy đủ · 500 sol',
+    'length.quick': 'Nhanh · 200 sol',
+    'length.fullHint': '20 vòng. Cả nhiệm vụ, với đủ mùa, bão và quyết định.',
+    'length.quickHint': '8 vòng, chỉ chơi một mình. Có các khoảnh khắc định sẵn: bão mặt trời ở vòng 3 và rò rỉ oxy ở vòng 5. Xe thám hiểm thay cho tường nước. Không có chế độ huấn luyện.',
+    'quick.tag': 'Nhiệm vụ nhanh',
+    'quick.flareHint': 'Vòng này sẽ có bão mặt trời. Hãy ra ngoài bằng xe thám hiểm và quay về chỗ trú kịp lúc.',
     'title.code': 'Mã nhiệm vụ',
     'title.codeHint': 'Cùng mã thì cùng bản đồ, cùng bão bụi và bão Mặt Trời. So chiến lược với bạn cùng lớp.',
     'title.random': 'Mã mới',
@@ -3730,7 +3926,7 @@ p { margin: 0; }
     'title.pack': 'Đóng gói',
     'title.pack.body': 'Xếp khu ở, nguồn điện, hệ thống sự sống và hàng tiếp tế vào một tàu đổ bộ.',
     'title.operate': 'Vận hành',
-    'title.operate.body': 'Hai mươi vòng, mỗi vòng 25 sol: phân công, xây dựng, xử lý sự cố.',
+    'title.operate.body': 'Mỗi vòng 25 sol: phân công, xây dựng, xử lý sự cố.',
     'title.debrief': 'Tổng kết',
     'title.debrief.body': 'Xem vì sao thành công hay thất bại, và các sứ mệnh thật đã học được gì.',
     'title.fact1': 'bức xạ mỗi sol trên bề mặt, do Curiosity đo được',
@@ -3750,6 +3946,12 @@ p { margin: 0; }
     'crew.four': '4 phi hành gia',
     'crew.five': '5 phi hành gia',
     'crew.fiveHint': 'Thêm một chỉ huy trưởng. Tàu chở thêm 2 tấn, nhưng năm người ăn và thở nhiều hơn.',
+    'role.commander.fact': "Trong cuộc mô phỏng sao Hỏa 378 ngày của NASA, vai trò của chỉ huy trưởng là then chốt trong việc giữ tinh thần phi hành đoàn và bảo đảm các hoạt động hằng ngày diễn ra thành công.",
+    'role.scientist.fact': "Harrison “Jack” Schmitt, nhà địa chất và phi công module đổ bộ của Apollo 17, là nhà khoa học đầu tiên đặt chân lên Mặt Trăng.",
+    'role.engineer.fact': "Bốn chuyến đi bộ ngoài không gian năm 2019 và 2020 đã thay các máy bơm làm mát đang hỏng của AMS-02 trên trạm vũ trụ, thiết bị vốn không được thiết kế để sửa chữa.",
+    'role.biologist.fact': "Đến nay, Veggie của NASA đã trồng trong không gian ba loại xà lách, cải thảo, cải mizuna, một loại cải xoăn đỏ và hoa cúc zinnia.",
+    'role.medic.fact': "Sĩ quan y tế của phi hành đoàn (CMO) của NASA là thành viên được giao làm chuyên gia y tế cho một nhiệm vụ. NASA yêu cầu huấn luyện ít nhất hai người cho mỗi phương tiện hoặc nền tảng.",
+    'role.commander.seat': "Đi kèm chỗ ngồi thứ năm: nhiệm vụ 4 người không có chỉ huy trưởng.",
     'role.engineer.skill': 'Bảo trì và Xây dựng ×1,5. Khi hết phụ tùng, tự chế một lần sửa mỗi vòng bằng 100 kg vật liệu.',
     'role.scientist.skill': 'Thí nghiệm và EVA ×1,5. Hay có phát hiện hơn khi ra ngoài.',
     'role.biologist.skill': 'Trồng trọt ×1,5: chăm được 3 nhà thủy canh thay vì 2.',
@@ -3791,11 +3993,11 @@ p { margin: 0; }
     'rev.clear': 'Không có cảnh báo đỏ. Bão và hỏng hóc vẫn có thể bất ngờ.',
     'mwarn.over_budget': 'Vượt ngân sách khối lượng: tàu không chở nổi.',
     'mwarn.power_short': 'Không đủ điện để chạy mọi thứ bạn mang theo.',
-    'mwarn.storm_risk': 'Một cơn bão bụi toàn cầu sẽ khiến HQ thiếu điện. Robot Opportunity đã chết như vậy năm 2018.',
+    'mwarn.storm_risk': 'Một cơn bão bụi toàn cầu sẽ khiến HQ thiếu điện. Xe thám hiểm Opportunity đã chết như vậy năm 2018.',
     'mwarn.no_recycler': 'Không có máy tái chế nước: phi hành đoàn sẽ dùng 700 kg nước mỗi 25 sol.',
-    'mwarn.o2_short': 'Oxy hết trước sol 500.',
-    'mwarn.water_short': 'Nước hết trước sol 500, kể cả khi xả tường nước.',
-    'mwarn.food_short': 'Thực phẩm hết trước sol 500 nếu không trồng hoặc đặt thêm.',
+    'mwarn.o2_short': 'Oxy hết trước sol {end}.',
+    'mwarn.water_short': 'Nước hết trước sol {end}, kể cả khi xả tường nước.',
+    'mwarn.food_short': 'Thực phẩm hết trước sol {end} nếu không trồng hoặc đặt thêm.',
     'mwarn.dose_risk': 'Che chắn mỏng: chỉ ở trong căn cứ thôi phi hành đoàn cũng đã dùng gần hết giới hạn bức xạ.',
     'mwarn.no_spares': 'Không có phụ tùng: lần hỏng đầu tiên sẽ phải dùng vật liệu hoặc tháo máy khác.',
     'mwarn.no_materials': 'Không có vật liệu: không thể xây gì cho tới khi nung gạch từ đất hoặc Trái Đất gửi tới.',
@@ -3806,7 +4008,7 @@ p { margin: 0; }
     'item.solar.fact': 'Sao Hỏa nhận khoảng 43 % ánh sáng Mặt Trời so với Trái Đất.',
     'item.battery.name': 'Cụm pin lưu trữ',
     'item.battery.desc': 'Trữ điện ban ngày cho ban đêm. Mỗi cụm phục vụ 2 dàn pin; dàn không có pin chỉ cho một nửa.',
-    'item.battery.fact': 'Một sol dài 24 giờ 39 phút, nên nửa sol là bóng tối.',
+    'item.battery.fact': 'Một sol dài 24 giờ 39 phút.',
     'item.reactor.name': 'Lò phản ứng phân hạch',
     'item.reactor.desc': '10 kW cả ngày lẫn đêm, kể cả trong bão bụi. Nặng. Đặt cách HQ từ 2 ô trở lên.',
     'item.reactor.fact': 'Năm 2018, NASA thử nghiệm lò Kilopower nguyên mẫu; thiết kế này có thể mở rộng tới 10 kW cho sao Hỏa.',
@@ -3884,6 +4086,10 @@ p { margin: 0; }
     'season.summer': 'Mùa hè bán cầu Bắc',
     'season.autumn': 'Mùa thu bán cầu Bắc · mùa bão bụi',
     'season.winter': 'Mùa đông bán cầu Bắc · mùa bão bụi',
+    'season.autumn.short': 'Mùa thu · mùa bão bụi',
+    'season.winter.short': 'Mùa đông · mùa bão bụi',
+    'season.spring.short': 'Mùa xuân',
+    'season.summer.short': 'Mùa hè',
     'weather.clear': 'Trời quang',
     'weather.regional': 'Bão bụi khu vực',
     'weather.global': 'Bão bụi toàn cầu',
@@ -3972,7 +4178,7 @@ p { margin: 0; }
     'bld.shieldAdd': 'Thêm lớp che chắn',
     // M4d hud: nút chế tạo bộ trạm chuyển tiếp (src/ui.js kitButton). bld.kitReal dịch sát câu trong sources.md B.
     'bld.kit': 'Một trạm chuyển tiếp đóng gói thành bộ. Mang nó ra cách căn cứ ít nhất {base} ô và cách mọi trạm khác {apart} ô, rồi giữ E trong {hold} giây để đặt. Vùng đất {reveal} ô quanh trạm sẽ hiện trên bản đồ; trạm nạp đầy bộ đồ của mỗi người trong phạm vi {refill} ô, mỗi vòng một lần, và nối vào đường về căn cứ. Tối đa {max} trạm mỗi nhiệm vụ.',
-    'bld.kitReal': 'Các xe tự hành thật trên sao Hỏa gửi phần lớn dữ liệu về Trái Đất qua các tàu quỹ đạo bay phía trên, gọi là Mạng chuyển tiếp sao Hỏa (Mars Relay Network); các trạm chuyển tiếp mặt đất trong trò chơi này là hư cấu.',
+    'bld.kitReal': 'Các xe thám hiểm thật trên sao Hỏa gửi phần lớn dữ liệu về Trái Đất qua các tàu quỹ đạo bay phía trên, gọi là Mạng chuyển tiếp sao Hỏa (Mars Relay Network); các trạm chuyển tiếp mặt đất trong trò chơi này là hư cấu.',
     'bld.why.maxKit': 'Cả {max} trạm chuyển tiếp đều đã đặt, đã chế tạo xong hoặc đang chờ chế tạo',
     'bld.kitStatus': 'Trạm chuyển tiếp: đã đặt {placed}/{max} · {kits} bộ ở căn cứ · {out} bộ trong ba lô',
     'map.ice': 'Băng',
@@ -4001,7 +4207,7 @@ p { margin: 0; }
     'advice.food_out': 'Thực phẩm sẽ hết trong vòng này. Giảm khẩu phần và yêu cầu chuyến hàng thực phẩm.',
     'advice.food_runway': 'Thực phẩm chỉ còn khoảng {sols} sol. Chăm thêm nhà thủy canh hoặc yêu cầu thực phẩm.',
     'advice.crew_down': '{name} đang ngã gục. Cho bác sĩ làm Nghỉ & chăm sóc hoặc xây trạm y tế trước khi quá muộn.',
-    'advice.dose_projection': 'Cứ đà này {name} sẽ vượt 300 mSv trước sol 500. Xây thêm lớp che chắn hoặc cho người đó làm việc trong nhà.',
+    'advice.dose_projection': 'Cứ đà này {name} sẽ vượt 300 mSv trước sol {end}. Xây thêm lớp che chắn hoặc cho người đó làm việc trong nhà.',
     'advice.broken': '{module} đang hỏng. Giao người Bảo trì và giữ sẵn phụ tùng hoặc vật liệu.',
     'advice.power_shed': 'Thiếu điện: {module} bị tự động ngắt. Thêm nguồn điện hoặc giảm tải.',
     'advice.storm_risk': 'Phần lớn điện đến từ Mặt Trời và mùa bão bụi sắp tới. Bão toàn cầu có thể kéo dài 75 sol. Hãy xây thêm pin lưu trữ và giữ dự phòng.',
@@ -4049,6 +4255,8 @@ p { margin: 0; }
     'ev.report': 'Báo cáo',
     'ev.landing.title': 'Chạm đất',
     'ev.landing.body': 'Tàu đã hạ cánh và HQ đã điều áp. Còn 500 sol đến cửa sổ trở về. Phân công phi hành đoàn, xem dự báo, rồi tiến lên.',
+    'ev.landing_quick.title': 'Chạm đất',
+    'ev.landing_quick.body': 'Tàu đã hạ cánh và HQ đã điều áp. Còn 200 sol đến cửa sổ trở về sớm. Tám vòng, và hai khoảnh khắc không thể bỏ qua. Phân công phi hành đoàn, xem dự báo, rồi tiến lên.',
     'ev.dust_season.title': 'Bắt đầu mùa bão bụi',
     'ev.dust_season.body': 'Sao Hỏa đang tiến gần Mặt Trời nhất. Mùa hè bán cầu Nam sinh ra những cơn bão bụi lớn nhất. Hãy giữ điện dự phòng.',
     'ev.winter.title': 'Mùa đông bán cầu Bắc',
@@ -4064,7 +4272,7 @@ p { margin: 0; }
     'ev.dust_regional.title': 'Bão bụi khu vực',
     'ev.dust_regional.body': 'Điện mặt trời giảm một nửa và bụi phủ dày lên tấm pin.',
     'ev.dust_global.title': 'Bão bụi toàn cầu',
-    'ev.dust_global.body': 'Bụi phủ kín cả hành tinh. Dàn pin chỉ còn khoảng 8 % công suất, có thể kéo dài ba vòng. Năm 2018, một cơn bão như vậy đã chấm dứt robot Opportunity.',
+    'ev.dust_global.body': 'Bụi phủ kín cả hành tinh. Dàn pin chỉ còn khoảng 8 % công suất, có thể kéo dài ba vòng. Năm 2018, một cơn bão như vậy đã chấm dứt xe thám hiểm Opportunity.',
     'ev.dust_devil.title': 'Lốc bụi',
     'ev.dust_devil.body': 'Một cơn lốc quét sạch bụi trên tấm pin. Spirit và Opportunity cũng từng may mắn như vậy.',
     'ev.conjunction.title': 'Giao hội Mặt Trời',
@@ -4072,7 +4280,7 @@ p { margin: 0; }
     'ev.spe.title': 'Bão hạt Mặt Trời',
     'ev.spe.body': 'Một vụ bùng nổ Mặt Trời đang bắn proton năng lượng cao tới. Chỉ có vài phút để quyết định.',
     'ev.spe.shelter': 'Vào nơi trú ẩn',
-    'ev.spe.shelter.hint': 'Mọi người vào lõi được che chắn: ít việc hơn, chỉ vài mSv. Ai đang ở ngoài bề mặt vẫn phải tìm nơi trú ẩn khỏi bão hạt Mặt Trời.',
+    'ev.spe.shelter.hint': 'Mọi người vào lõi được che chắn: ít việc hơn, chỉ vài mSv. Ai đang ở ngoài căn cứ, trên bề mặt sao Hỏa, vẫn phải tìm nơi trú ẩn khỏi bão hạt Mặt Trời.',
     'ev.spe.work': 'Tiếp tục làm việc',
     'ev.spe.work.hint': 'Làm đủ việc, mỗi người tới +40 mSv và có thể bị nhiễm xạ.',
     'ev.o2_rupture.title': 'Vỡ ống dẫn oxy',
@@ -4126,7 +4334,7 @@ p { margin: 0; }
 
     'deb.success': 'Hoàn thành nhiệm vụ',
     'deb.lost': 'Nhiệm vụ thất bại ở sol {sol}',
-    'deb.successBody': '{n}/{m} phi hành gia cất cánh về nhà vào sol 500.',
+    'deb.successBody': '{n}/{m} phi hành gia cất cánh về nhà vào sol {end}.',
     'deb.grade': 'Xếp hạng',
     'deb.score': 'Điểm',
     'deb.charts': 'Số liệu nhiệm vụ',
@@ -4179,15 +4387,15 @@ p { margin: 0; }
     'ch.load': 'Tải',
 
     'lesson.storm_solar.title': 'Điện mặt trời sợ thời tiết',
-    'lesson.storm_solar.body': 'Một cơn bão bụi toàn cầu ập đến khi phần lớn điện của bạn đến từ Mặt Trời. Năm 2018, một cơn bão như vậy che nắng nhiều tháng và chấm dứt robot Opportunity. Vì thế NASA đang phát triển lò phân hạch trên bề mặt cho các sứ mệnh có người.',
+    'lesson.storm_solar.body': 'Một cơn bão bụi toàn cầu ập đến khi phần lớn điện của bạn đến từ Mặt Trời. Năm 2018, một cơn bão như vậy che nắng nhiều tháng và chấm dứt xe thám hiểm Opportunity. Vì thế NASA đang phát triển lò phân hạch trên bề mặt cho các sứ mệnh có người.',
     'lesson.spares.title': 'Phụ tùng cũng là hệ thống sự sống',
-    'lesson.spares.body': 'Hỏng hóc là chắc chắn trong 500 sol. Điều quan trọng là có ai sửa được không: một người làm bảo trì, phụ tùng, và vật liệu để tự chế.',
+    'lesson.spares.body': 'Hỏng hóc là chắc chắn trong {end} sol. Điều quan trọng là có ai sửa được không: một người làm bảo trì, phụ tùng, và vật liệu để tự chế.',
     'lesson.water.title': 'Khép kín vòng tuần hoàn nước',
     'lesson.water.body': 'Bốn người dùng khoảng 700 kg nước mỗi 25 sol. Không tái chế thì không tàu nào chở đủ. ISS giờ thu hồi 98 % nước cũng vì lý do đó.',
     'lesson.o2.title': 'Dự phòng oxy',
     'lesson.o2.body': 'Mỗi người thở khoảng 0,84 kg oxy mỗi ngày. MOXIE chứng minh có thể tạo oxy từ CO₂ sao Hỏa, nhưng một trạm hỏng mà không có phụ tùng thì chẳng tạo được gì.',
     'lesson.food.title': 'Thực phẩm là khối lượng',
-    'lesson.food.body': 'Đồ ăn đóng gói cho 500 sol nặng khoảng 3,6 tấn. Thủy canh đổi khối lượng lấy điện và công sức, và vụ đầu tiên chỉ có sau một chu kỳ trồng.',
+    'lesson.food.body': 'Đồ ăn đóng gói cho {end} sol nặng khoảng {tonnes} tấn với phi hành đoàn này. Thủy canh đổi khối lượng lấy điện và công sức, và vụ đầu tiên chỉ có sau một chu kỳ trồng.',
     'lesson.radiation.title': 'Che chắn mua thêm thời gian ngoài trời',
     'lesson.radiation.body': 'Curiosity đo được khoảng 0,64 mSv mỗi sol trên bề mặt. Chuyến bay tới sao Hỏa và trở về thêm khoảng 660 mSv, đã vượt giới hạn cả sự nghiệp 600 mSv của NASA. Mỗi lớp che chắn ở căn cứ cho phi hành đoàn thêm giờ an toàn bên ngoài.',
     'lesson.spe.title': 'Trú ẩn khi có bão Mặt Trời',
@@ -4200,7 +4408,7 @@ p { margin: 0; }
     'lesson.margin.body': 'Bạn giữ dự phòng điện, oxy, nước và liều bức xạ, nên bất ngờ chỉ là vấn đề cần giải quyết chứ không thành thảm họa.',
     // M4d hud: bài học ISRU (hiện khi nhiệm vụ có thám hiểm), dịch sát sources.md A; các con số giữ nguyên như bản tiếng Anh.
     'lesson.isruMars.title': 'Dùng những gì sao Hỏa đã có sẵn',
-    'lesson.isruMars.body': 'ISRU, hay khai thác tài nguyên tại chỗ (in-situ resource utilization), nghĩa là làm ra những thứ phi hành gia cần từ vật liệu tại chỗ thay vì mang theo số lượng lớn từ Trái Đất. MOXIE, một thí nghiệm trên xe tự hành Perseverance của NASA, đã tạo ra 122 gam oxy từ khí CO₂ trong bầu khí quyển mỏng của sao Hỏa qua 16 lần chạy từ năm 2021 đến 2023. Lúc tốt nhất, nó tạo ra 12 gam oxy mỗi giờ, với độ tinh khiết từ 98% trở lên. Băng nước nằm dưới lòng đất khắp các vùng vĩ độ trung bình của sao Hỏa; các phi hành đoàn có thể khai thác băng để làm nước uống, hoặc tách nó thành hydro và oxy để làm nhiên liệu tên lửa và khí thở. Trong trò chơi, băng và kim loại bạn mang về cũng là ISRU: nguồn cung tìm thấy trên sao Hỏa, chứ không phải phóng lên từ Trái Đất.',
+    'lesson.isruMars.body': 'ISRU, hay khai thác tài nguyên tại chỗ (in-situ resource utilization), nghĩa là làm ra những thứ phi hành gia cần từ vật liệu tại chỗ, thay vì mang theo số lượng lớn từ Trái Đất. MOXIE, một thí nghiệm trên xe thám hiểm Perseverance của NASA, đã tạo ra 122 gam oxy từ khí CO₂ trong bầu khí quyển mỏng của sao Hỏa qua 16 lần chạy từ năm 2021 đến 2023. Lúc tốt nhất, nó tạo ra 12 gam oxy mỗi giờ, với độ tinh khiết từ 98% trở lên. Băng nước nằm dưới lòng đất ở khắp các vùng vĩ độ trung bình của sao Hỏa; các phi hành đoàn có thể khai thác băng để làm nước uống, hoặc tách nó thành hydro và oxy để làm nhiên liệu tên lửa và khí thở. Trong trò chơi, băng và kim loại bạn mang về cũng là ISRU: nguồn cung tìm thấy trên sao Hỏa, chứ không phải phóng lên từ Trái Đất.',
     'lesson.death.title': 'Mỗi thành viên đều quý giá',
     'lesson.death.body': 'Mất một người là mất kỹ năng của người đó. Người bị thương hoặc ngã gục cần bác sĩ hoặc trạm y tế, thật nhanh.',
     'lesson.revive.title': 'Năng lực y tế đã cứu một mạng người',
@@ -4255,18 +4463,18 @@ p { margin: 0; }
     'help.6': 'Hết HP, phi hành gia sẽ ngã gục. Bác sĩ làm Nghỉ & chăm sóc, hoặc bất kỳ ai khi có trạm y tế, có thể cứu trong vòng 5 vòng. Ngã gục lần thứ hai là mãi mãi.',
     'help.7': 'Mỗi phi hành gia có giới hạn 300 mSv trên bề mặt. Vượt qua sẽ bị cấm ra ngoài và nhiệm vụ mất nhiều điểm.',
     'help.8': 'Trái Đất có thể thả thực phẩm, nước hoặc vật liệu từ quỹ đạo vài lần mỗi nhiệm vụ, và Trung tâm điều khiển trả lời một câu hỏi mỗi vòng.',
-    'help.10': 'Mang về căn cứ: băng, đá giàu kim loại, khoang hàng bị rơi và địa điểm khoa học nằm rải rác trên bản đồ. Đứng cạnh và giữ phím E (hoặc nút hành động) để chất vào ba lô (3 phần, 8 phần khi đi xe tự hành), rồi đi vào trong ô vuông nét đứt quanh trụ sở để giao hàng. Bộ đồ du hành có 150 giây oxy bên ngoài mỗi vòng và tạm dừng khi ở căn cứ; nếu hết oxy bạn sẽ ngã gục. Hàng giao sẽ được tính khi sang vòng mới.',
+    'help.10': 'Mang về căn cứ: băng, đá giàu kim loại, khoang hàng bị rơi và địa điểm khoa học nằm rải rác trên bản đồ. Đứng cạnh và giữ phím E (hoặc nút hành động) để chất vào ba lô (3 phần, 8 phần khi đi xe thám hiểm), rồi đi vào trong ô vuông nét đứt quanh căn cứ để giao hàng. Bộ đồ du hành có 150 giây oxy bên ngoài mỗi vòng và tạm dừng khi ở căn cứ; nếu hết oxy bạn sẽ ngã gục. Hàng giao sẽ được tính khi sang vòng mới.',
     'find.ice': 'Mỏ băng',
     'find.metal': 'Đá giàu kim loại',
     'find.pod': 'Khoang hàng bị rơi',
     'find.cache': 'Thùng tiếp tế',
-    'find.wreck': 'Xác xe tự hành trinh sát',
+    'find.wreck': 'Xác xe thám hiểm trinh sát',
     'find.weather': 'Trạm khí tượng',
     'find.array': 'Dàn pin mặt trời phủ bụi',
     'find.landmark': 'Khám phá địa danh',
     'find.science': 'Địa điểm khoa học',
     'sci.delta': 'châu thổ sông cổ',
-    'sci.vent': 'lỗ thoát khí mê-tan',
+    'sci.vent': 'lỗ thoát khí mêtan',
     'sci.crater': 'đỉnh trung tâm hố va chạm',
     'sci.arch': 'vòm đá',
     'sci.yardang': 'dải gờ yardang',
@@ -4279,9 +4487,11 @@ p { margin: 0; }
     'haul.water': '+{n} kg nước',
     'haul.materials': '+{n} kg vật liệu',
     'haul.food': '+{n} kg thức ăn',
-    'haul.o2': '+{n} kg O₂ (một bình)',
+    'haul.o2': '+{n} kg O₂ trong bình',
     'haul.spares': '+{n} bộ phụ tùng',
+    'haul.spares1': '+{n} bộ phụ tùng',
     'haul.kit': '+{n} bộ trạm chuyển tiếp',
+    'haul.kit1': '+{n} bộ trạm chuyển tiếp',
     'haul.science': '+{n} điểm khoa học',
     'rep.haul': '{amount}: {what}, {region} ({name})',
     'rep.haulLate': '{amount}: {what}, {region} ({name}), gửi từ ba lô',
@@ -4294,15 +4504,16 @@ p { margin: 0; }
     'eva.banked': 'Đã giao trong vòng này',
     'eva.carrying': 'Trong ba lô',
     'eva.counts': 'Sẽ được tính khi sang vòng mới.',
-    'eva.nothing': 'Chưa có gì. Hãy đi ra khỏi căn cứ: băng, đá giàu kim loại, khoang hàng và địa điểm khoa học nằm trên bản đồ. Giữ phím E bên cạnh để chất hàng, rồi mang về trong ô vuông nét đứt quanh trụ sở.',
+    'eva.nothing': 'Chưa có gì. Hãy đi ra khỏi căn cứ: băng, đá giàu kim loại, khoang hàng và địa điểm khoa học nằm trên bản đồ. Giữ phím E bên cạnh để chất hàng, rồi mang về trong ô vuông nét đứt quanh căn cứ.',
     'eva.suit': 'O₂ bộ đồ',
     'eva.secs': '{s} s',
     'eva.paused': '{v} · tạm dừng',
-    'eva.battery': 'Pin xe tự hành',
+    'eva.battery': 'Pin xe thám hiểm',
     'eva.drive': '{kmh} km/h · dừng sau {m} m (trên Trái Đất: {e} m)',
     'eva.tiles': 'ô',
     'eva.tiles1': 'ô',
     'eva.pack': 'Ba lô: {n} trên {m} phần',
+    'eva.packKit': 'Ba lô: {n} phần hàng và {k} bộ trạm chuyển tiếp, {m} ngăn',
     'eva.useCanister': 'Thở một bình O₂ (+{s} giây) · Q',
     'eva.breathed': '+{s} giây oxy cho bộ đồ.',
     'eva.collect': 'Giữ để thu thập: {what} · {s} giây',
@@ -4314,8 +4525,9 @@ p { margin: 0; }
     'eva.delivered1': 'Đã giao 1 phần hàng. Sẽ được tính khi sang vòng mới.',
     'eva.delivered': 'Đã giao {n} phần hàng. Sẽ được tính khi sang vòng mới.',
     'eva.full': 'Ba lô đã đầy: hãy mang về căn cứ.',
+    'eva.fullKits': 'Ba lô đầy bộ trạm chuyển tiếp: hãy đặt một bộ, hoặc trả lại căn cứ.',
     'eva.low': 'Oxy bộ đồ sắp hết: quay về căn cứ ngay!',
-    'eva.flat': 'Pin xe tự hành đã cạn đến ngày mai: nhấn E để xuống xe và đi bộ.',
+    'eva.flat': 'Pin xe thám hiểm đã cạn đến ngày mai: nhấn E để xuống xe và đi bộ.',
     'eva.collapsedCoop': 'Bộ đồ hết oxy và bạn đã ngã gục. Cố lên: đồng đội có thể cứu bạn.',
     'eva.collapsedSolo': 'Bộ đồ hết oxy và bạn đã ngã gục. Phi hành đoàn đưa bạn về căn cứ; hàng của bạn vẫn nằm ở chỗ bạn ngã.',
     'eva.benched': 'Bộ đồ hết oxy cho đến vòng sau.',
@@ -4324,12 +4536,14 @@ p { margin: 0; }
     'eva.err.tooFar': 'Quá xa: hãy lại gần hơn.',
     'eva.err.full': 'Ba lô của bạn đã đầy.',
     'eva.err.empty': 'Ở đây không còn gì.',
-    'eva.err.taken': 'Người khác đang lái xe tự hành.',
-    'eva.err.flat': 'Pin xe tự hành đã cạn đến ngày mai.',
-    'eva.err.noRover': 'Xe tự hành đang không hoạt động.',
+    'eva.err.taken': 'Người khác đang lái xe thám hiểm.',
+    'eva.err.flat': 'Pin xe thám hiểm đã cạn đến ngày mai.',
+    'eva.err.noRover': 'Xe thám hiểm đang không hoạt động.',
     'eva.err.noCanister': 'Không có bình O₂ nào trong ba lô.',
     'eva.err.badPos': 'Đang chờ vị trí của bạn gửi tới máy chủ.',
     'eva.err.net': 'Máy chủ không phản hồi.',
+    'eva.err.noRoom': 'Phòng này đã đóng.',
+    'eva.err.slowDown': 'Thao tác quá nhanh: hãy đợi một chút.',
     'eva.err.noFind': 'Vật đó không còn nữa.',
     'eva.err.noDrop': 'Đã có người nhặt rồi.',
     'eva.err.notCollapsed': 'Họ đã đứng dậy rồi.',
@@ -4339,9 +4553,9 @@ p { margin: 0; }
     'eva.err.badPhase': 'Chưa được lúc này.',
     'eva.err.noCrew': 'Hãy nhận một thành viên trước.',
     'eva.err.solo': 'Không ai có thể cứu bạn trong nhiệm vụ một người.',
-    'eva.err.notAtBase': 'Việc này chỉ làm được trong ô vuông nét đứt quanh trụ sở.',
+    'eva.err.notAtBase': 'Việc này chỉ làm được trong ô vuông nét đứt quanh căn cứ.',
     'eva.err.atBase': 'Bộ đồ tạm dừng khi ở căn cứ.',
-    'eva.err.notDriving': 'Bạn đang không lái xe tự hành.',
+    'eva.err.notDriving': 'Bạn đang không lái xe thám hiểm.',
     'eva.err.badAction': 'Chưa được lúc này.',
     'eva.err.suitFull': 'Chưa cần: hãy thở bình O₂ khi bộ đồ còn {s} giây trở xuống để không phí chút oxy nào.',
     'eva.flare.run': '☢ Bão hạt Mặt Trời sắp tới: hãy vào nơi trú ẩn ở căn cứ, trong hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão',
@@ -4402,7 +4616,7 @@ p { margin: 0; }
     'eva.brief.storm': 'bão bụi (bạn nhìn thấy {n} ô)',
     'eva.brief.rupture': 'rò rỉ O₂ ở căn cứ (hãy mang bình O₂ về)',
     'eva.cond.title': 'Bên ngoài vòng này',
-    'eva.cond.flare': 'Bão hạt Mặt Trời: {w} giây sau khi người đầu tiên bước ra ngoài, đồng hồ đếm ngược {c} giây bắt đầu. Hãy ở nơi trú ẩn khi hết giờ (căn cứ, hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão), nếu không sẽ nhận +{d} mSv.',
+    'eva.cond.flare': 'Bão hạt Mặt Trời: {w} giây sau khi có người bước ra ngoài, đồng hồ đếm ngược {c} giây bắt đầu. Hãy ở nơi trú ẩn khi hết giờ (căn cứ, hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão), nếu không sẽ nhận +{d} mSv.',
     'eva.cond.flareOn': 'Bão hạt Mặt Trời đang tới: hãy theo dõi đồng hồ đếm ngược trên bề mặt.',
     'eva.cond.flareHit': 'Bão hạt Mặt Trời bắt gặp {names} ngoài trời: mỗi người +{d} mSv khi sang vòng mới.',
     'eva.cond.flareSafe': 'Bão hạt Mặt Trời đã qua. Mọi người bên ngoài đều đã ở nơi trú ẩn.',
@@ -4412,7 +4626,7 @@ p { margin: 0; }
     // M4d hud: mục tiêu thám hiểm của vòng này (src/goals.js), trong bảng Thám hiểm của bảng điều khiển và cột HUD ngoài bề mặt.
     'goal.title': 'Mục tiêu vòng này',
     'goal.survey': 'Khảo sát một địa điểm khoa học cách căn cứ ít nhất {tiles} ô',
-    'goal.haul': 'Mang về {n} phần băng hoặc kim loại',
+    'goal.haul': 'Mang về {n} phần hàng băng hoặc kim loại',
     'goal.region': 'Đi vào một kiểu vùng mà phi hành đoàn chưa từng đến',
     'goal.landmark': 'Khám phá một địa danh',
     'goal.structure': 'Sửa hoặc tháo dỡ một công trình của Khảo sát Kestrel',
@@ -4425,7 +4639,8 @@ p { margin: 0; }
     'goal.morale': '+{n} tinh thần',
     'goal.kits': '+{n} bộ trạm chuyển tiếp',
     'goal.done': 'Xong: nhận thưởng khi sang vòng mới.',
-    'help.11': 'Nguy hiểm bên ngoài: bão hạt Mặt Trời báo trước 60 giây. Hãy ở căn cứ, trong hang (vòm tối dưới chân vách đá), ống dung nham, khoang sinh hoạt hoặc hầm trú bão khi hết giờ, nếu không sẽ nhận +15 mSv. Lốc bụi hất bạn sang bên và lấy 10 giây oxy bộ đồ, nên hãy đi vòng qua (xe thám hiểm thì an toàn). Bão bụi làm bạn nhìn thấy gần hơn.',
+    'help.11': 'Nguy hiểm bên ngoài: bão hạt Mặt Trời báo trước {c} giây. Hãy ở căn cứ, trong hang (vòm tối dưới chân vách đá), ống dung nham, khoang sinh hoạt hoặc hầm trú bão khi hết giờ, nếu không sẽ nhận +{d} mSv. Lốc bụi hất bạn sang bên và lấy {s} giây oxy bộ đồ, nên hãy đi vòng qua (xe thám hiểm thì an toàn). Bão bụi làm bạn nhìn thấy gần hơn.',
+    'help.win': 'Cảnh báo của Windows (ứng dụng máy tính): bộ cài chưa được ký số nên SmartScreen có thể báo "Windows protected your PC". Hãy bấm "More info", rồi "Run anyway". Lần đầu SOL 500 chạy, Windows Firewall sẽ hỏi có cho phép dùng mạng không: hãy cho phép trên mạng riêng (Private) để bạn bè cùng Wi-Fi vào được. Ứng dụng chỉ cài cho tài khoản của bạn, trong %LOCALAPPDATA%\\Programs\\sol500.',
     'help.9': 'Khám phá: thế giới trải dài về mọi hướng. Hãy đi bộ hoặc lái xe ra khỏi căn cứ, những gì bạn nhìn thấy sẽ ở lại trên bản đồ. Nhấn M hoặc chạm ⤢ trên bản đồ nhỏ để mở bản đồ. Mỗi vùng của sao Hỏa trông khác nhau và đi kèm một sự thật khoa học.',
 
     'notes.title': 'Ghi chú khoa học',
@@ -4476,8 +4691,13 @@ p { margin: 0; }
     'online.qr': 'Mã QR của link chia sẻ',
     'online.hint': 'Bạn bè mở link, bấm "Chơi cùng nhau", rồi vào phòng {code}.',
     'online.error': 'Không mở được link chia sẻ hoặc link đã dừng. Hãy kiểm tra kết nối mạng rồi thử lại.',
+    'online.errorHash': 'Công cụ tạo link tải về không đúng (sai mã kiểm tra). Hãy thử lại; nếu vẫn lỗi, hãy kiểm tra kết nối mạng.',
+    'online.copyFailed': 'Không sao chép được: hãy chọn link rồi tự sao chép.',
+    'app.startFail': 'Không khởi động được máy chủ trò chơi: {why}',
     'lan.full': 'Phòng đã đầy.',
     'lan.noRoom': 'Không có phòng với mã này.',
+    'lan.network': 'Không kết nối được máy chủ trò chơi. Hãy kiểm tra kết nối rồi thử lại.',
+    'lan.seatTaken': 'Chỗ này vừa có người chọn.',
     'lan.onlyHost': 'Chỉ chủ phòng mới làm được việc này.',
     'lan.leave': 'Rời phòng',
     'lan.take': 'Nhận vai này',
@@ -4486,8 +4706,8 @@ p { margin: 0; }
     'sf.aria': "Bề mặt tiền đồn. Di chuyển bằng WASD hoặc phím mũi tên, nhấn E để tương tác, C để mở bảng điều khiển.",
     'sf.hintKeys': "WASD hoặc phím mũi tên để đi · Shift để chạy · E để tương tác (giữ phím khi đứng cạnh vật tìm được) · P để đánh dấu chỗ bạn đứng · M mở bản đồ · C mở bảng điều khiển · bấm xuống đất để đi tới đó",
     'sf.hintTouch': "Kéo cần điều khiển để đi · giữ » để chạy · chạm E để tương tác (giữ khi đứng cạnh vật tìm được) · chạm bản đồ nhỏ để đánh dấu một điểm, ⤢ để mở bản đồ · chạm xuống đất để đi tới đó",
-    'sf.hintRover': 'Trên xe tự hành: lái bằng WASD hoặc phím mũi tên · giữ Shift để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · E để xuống xe',
-    'sf.hintRoverTouch': 'Trên xe tự hành: kéo cần điều khiển để lái · giữ » để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · chạm E để xuống xe',
+    'sf.hintRover': 'Trên xe thám hiểm: lái bằng WASD hoặc phím mũi tên · giữ Shift để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · E để xuống xe',
+    'sf.hintRoverTouch': 'Trên xe thám hiểm: kéo cần điều khiển để lái · giữ » để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · chạm E để xuống xe',
     'sf.minimap': 'Bản đồ nhỏ. Bấm vào một điểm để đánh dấu cho cả đội; Enter hoặc M mở bản đồ lớn.',
     // M4d eva: góc mở bản đồ lớn của bản đồ nhỏ, vì giờ chạm vào bản đồ nhỏ là đánh dấu, và nút chế tạo bộ trạm ở menu căn cứ.
     'sf.openMap': 'Mở bản đồ lớn (M)',
@@ -4495,6 +4715,16 @@ p { margin: 0; }
     'sf.mapTitle': 'Bản đồ đã khám phá',
     'sf.mapHint': 'Kéo hoặc dùng phím mũi tên để di chuyển · cuộn chuột hoặc + − để phóng to, thu nhỏ · bấm để đánh dấu một điểm · M hoặc Esc để đóng',
     'sf.zoomIn': 'Phóng to',
+    'sf.key.find': 'Vật cần thu thập',
+    'sf.key.cave': 'Miệng hang',
+    'sf.key.drop': 'Hàng đã bỏ lại',
+    'sf.key.rover': 'Xe thám hiểm đang đỗ',
+    'sf.key.beacon': 'Trạm chuyển tiếp',
+    'sf.key.landmark': 'Địa danh đã khám phá',
+    'sf.key.structure': 'Công trình đã dùng hoặc sửa',
+    'sf.key.mast': 'Cột liên lạc, chưa sửa',
+    'sf.key.base': 'Căn cứ',
+    'sf.key.you': 'Bạn',
     'sf.zoomOut': 'Thu nhỏ',
     'region.plains': 'Đồng bằng',
     'region.dunes': 'Biển cồn cát',
@@ -4506,7 +4736,7 @@ p { margin: 0; }
     'region.note': 'Ghi chú về vùng',
     'region.reread': '{name}: đọc về vùng này',
     'region.source': 'Nguồn',
-    'region.fact.plains': 'Giống như đáy hố Jezero, nơi tàu Perseverance hạ cánh. Khoảng 3,5 tỷ năm trước, hố rộng 45 km này từng có châu thổ sông riêng và chứa đầy nước.',
+    'region.fact.plains': 'Giống như đáy hố Jezero, nơi tàu Perseverance hạ cánh. Khoảng 3,5 tỷ năm trước, hố rộng 45 km này từng có châu thổ sông riêng và chứa đầy nước. “Jezero” nghĩa là “hồ” trong nhiều ngôn ngữ Slav.',
     'region.fact.dunes': 'Giống như cồn cát Bagnold dưới chân núi Sharp, nơi tàu Curiosity bắt đầu nghiên cứu năm 2015. Trước đó chưa ai từng đến một cồn cát đang di chuyển ở bất kỳ đâu ngoài Trái Đất. Nhìn từ quỹ đạo, một số cồn cát dịch chuyển lên tới khoảng 1 m mỗi năm Trái Đất.',
     'region.fact.craters': 'Giống như vùng cao nguyên phía nam. Sao Hỏa có hai bộ mặt: nửa phía nam là vùng đất cổ xưa có nhiều hố va chạm, còn phía bắc trẻ hơn, bằng phẳng hơn và chịu ảnh hưởng của hoạt động núi lửa trên diện rộng.',
     'region.fact.canyons': 'Giống như Valles Marineris, "Grand Canyon của sao Hỏa": dài khoảng 3.870 km, rộng tới 600 km và sâu khoảng 9,3 km ở chỗ sâu nhất.',
@@ -4540,7 +4770,7 @@ p { margin: 0; }
     'fm.deviltracks.fact': 'Ở phía nam lòng chảo Schiaparelli, những vệt tối hình thành khi lốc bụi quét đi lớp bụi sáng mỏng phủ trên mặt đất, làm lộ ra lớp đá tối màu bên dưới. Lốc bụi trên sao Hỏa có thể lớn ngang những cơn lốc xoáy trên Trái Đất, với cột bụi cao tới 9 km.',
     'ks.cache.name': 'Thùng tiếp tế',
     'ks.cache.log': 'Sol 96. Đã đặt và niêm phong thùng tiếp tế: bình O₂, bộ phụ tùng và thực phẩm cho phi hành đoàn. Nắp vẫn kín; 50 sol nữa kiểm tra lại. Trung tâm điều khiển Kestrel: "Làm tốt lắm. Phi hành đoàn sẽ khởi hành sau 300 sol nữa."',
-    'ks.wreck.name': 'Xác xe tự hành trinh sát',
+    'ks.wreck.name': 'Xác xe thám hiểm trinh sát',
     'ks.wreck.log': 'Sol 458. Đang chạy về khoang sinh hoạt gần nhất theo lệnh, nhưng giữa trưa mà trời gần như tối đen, camera hầu như không thấy gì. Trượt xuống một cồn cát và lật nghiêng: bánh số 4 nứt, tấm pin vùi trong cát, pin còn 9 %. Đã lưu bản đồ tuyến đường cho phi hành đoàn; sẽ gửi khi vệ tinh chuyển tiếp bay qua lần tới.',
     'ks.weather.name': 'Trạm khí tượng',
     'ks.weather.log': 'Sol 455. Lượng bụi trong không khí đã tăng gấp ba sau 5 sol, và trạm nào cũng báo như nhau: một cơn bão bụi toàn cầu đang kéo đến. Tất cả thiết bị: sạc đầy pin và chuẩn bị ngủ đông cho đến khi bão tan. Các xe trinh sát: chạy về khoang sinh hoạt gần nhất và đỗ lại.',
@@ -4599,6 +4829,7 @@ p { margin: 0; }
     'admin.tab.project': 'Tiến độ dự án',
     'admin.refresh': 'Làm mới',
     'admin.error': 'Không kết nối được máy chủ. SOL 500 có còn đang chạy không?',
+    'admin.csvFailed': 'Xuất thất bại: máy chủ không tạo được tệp CSV.',
     'admin.stale': 'Máy chủ đã khởi động lại. Hãy tải lại trang này để tiếp tục.',
     'admin.reload': 'Tải lại',
     'admin.loading': 'Đang tải…',
@@ -4722,6 +4953,7 @@ p { margin: 0; }
     'admin.p.features': 'Tính năng đã xong',
     'admin.p.done': 'Xong {n}/{m}',
     'admin.p.tests': 'Bài kiểm thử đạt',
+    'admin.p.na': 'n/a (không chạy được kiểm thử)',
     'admin.p.failing': '{n} bài lỗi',
     'admin.p.commits': 'Lần commit',
     'admin.p.lines': 'Dòng mã',
@@ -4771,10 +5003,10 @@ p { margin: 0; }
       { title: 'Designer plants', body: 'NASA reported in 2013 that its Institute for Advanced Concepts was funding scientists at North Carolina State University to design plants for a greenhouse on Mars. There they would face strong ultraviolet light by day, temperatures well below freezing at night and soil poor in nutrients. As a first step, the team put a gene from Pyrococcus furiosus, a microbe from the scalding water of deep-sea vents, into tobacco cells, and it worked without harming them. Such plants could give astronauts oxygen, fresh food and even medicine.', src: ['designerPlants'] },
       { title: 'Plants in space, gene by gene', body: 'NASA’s Open Science Data Repository (OSDR) gives open access to the data of biology experiments from spaceflight, so others can study them again. In the CARA experiment, flown to the ISS in 2014, small Arabidopsis plants grew for 11 days in the light or in the dark. Their leaves changed the activity of more genes than their root tips did, and in one variety the leaves of plants grown in the light changed ten times as many genes as those grown in the dark. Light shapes how plants cope with spaceflight.', src: ['osdr', 'osdrCara'] },
       { title: 'Mission length', body: 'NASA’s Design Reference Architecture 5.0 plans a conjunction-class mission with about 500 days on the surface while Earth and Mars line up again for the trip home. Cargo landers go ahead of the crew, which inspired the orbital supply drops.', src: ['dra5'] },
-      { title: 'What is simplified', body: 'Rounds are 25 sols long. Shielding percentages, build times, breakdown rates and science points are game values, chosen so that the trade-offs behave like the real ones.', src: [] },
       { title: 'Regions of Mars', body: 'The six regions of the endless map are modelled on real places: the floor of Jezero Crater (Plains), the Bagnold Dunes (Dune Sea), the cratered southern highlands (Crater Field), Valles Marineris (Canyon Lands), the shallow ice of Arcadia Planitia (Icy Plains) and the possible cave skylights of Arsia Mons (Volcanic Flanks). You can fly over these places yourself in NASA’s Mars Trek, an online map of Mars built from real spacecraft data.', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights', 'marsTrek'] },
       { title: 'The ground you walk on', body: 'The ground in the game is painted with real NASA photos. The Plains, Crater Field, Dune Sea and Canyon Lands use pictures the Ingenuity helicopter took in Jezero Crater between 2021 and 2024. The Volcanic Flanks use Curiosity’s close-up of dark grains on a sand dune in Gale Crater, and the Icy Plains use the Phoenix lander’s photo of the polygon-cracked ground round it, on the icy plains of Mars’ far north.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
       { title: 'Driving on Mars', body: 'Mars’ gravity is only 38 % as strong as Earth’s, so a rover presses on the ground with 38 % of its Earth weight. Grip is friction, and friction grows with that push: on Mars a rover can speed up, brake and turn only 38 % as hard as on Earth. In the game it needs about 2.6 times as far to stop, and the faster it goes, the wider it has to turn. The air pressure is less than 1/100th of Earth’s, so the air hardly slows it. The game’s rover has the mass of Perseverance, 1,025 kg, so it weighs about 3,800 newtons on Mars and 10,000 on Earth. It is far faster, though: Perseverance tops out at 152 metres an hour on flat, hard ground.', src: ['marsGlance', 'percyRover'] },
+      { title: 'What is simplified', body: 'Rounds are 25 sols long. Shielding percentages, build times, breakdown rates and science points are game values, chosen so that the trade-offs behave like the real ones.', src: [] },
     ],
     vi: [
       { title: 'Bức xạ trên bề mặt', body: 'Thiết bị RAD trên Curiosity đo được khoảng 0,64 mSv mỗi sol tại hố Gale. Sao Hỏa không có từ trường toàn cầu và khí quyển mỏng, nên tia vũ trụ xuống tới mặt đất. SOL 500 dùng con số này, giảm đi nhờ lớp che chắn của bạn.', src: ['hassler'] },
@@ -4783,7 +5015,7 @@ p { margin: 0; }
       { title: 'Tái chế nước', body: 'ISS giờ thu hồi 98 % nước từ hơi ẩm và nước tiểu. Trò chơi dùng 93 %, thấp hơn kết quả tốt nhất một chút, vì bụi và trọng lực sao Hỏa thêm rủi ro.', src: ['water98'] },
       { title: 'Oxy từ không khí', body: 'MOXIE trên Perseverance đã tách oxy từ CO₂ sao Hỏa 16 lần, tổng cộng 122 g và tối đa 12 g mỗi giờ. Trạm tạo oxy trong trò chơi là một MOXIE phóng to.', src: ['moxie'] },
       { title: 'Điện hạt nhân', body: 'Năm 2018, NASA thử lò Kilopower được thiết kế cho 1 đến 10 kW trong ít nhất 10 năm. Dự án Fission Surface Power hiện nhắm tới 40 kW cho Mặt Trăng và sau đó là sao Hỏa.', src: ['kilopower', 'fsp'] },
-      { title: 'Bão bụi', body: 'Tháng 6/2018, một cơn bão bụi toàn cầu che nắng trên Opportunity suốt nhiều tháng. Pin năng lượng mặt trời cạn dần và robot không bao giờ tỉnh lại. Trong trò chơi, bão toàn cầu giảm điện mặt trời còn khoảng 8 %.', src: ['opportunity'] },
+      { title: 'Bão bụi', body: 'Tháng 6/2018, một cơn bão bụi toàn cầu che nắng trên Opportunity suốt nhiều tháng. Pin năng lượng mặt trời cạn dần và xe thám hiểm không bao giờ tỉnh lại. Trong trò chơi, bão toàn cầu giảm điện mặt trời còn khoảng 8 %.', src: ['opportunity'] },
       { title: 'Lốc bụi', body: 'Tấm pin của Spirit và Opportunity bám bụi dần, nhưng thỉnh thoảng lốc xoáy thổi sạch và làm điện tăng lên. Trò chơi mô phỏng bụi là sự hao hụt chậm, được bảo trì và lốc bụi xóa đi.', src: ['spirit'] },
       { title: 'Perchlorat', body: 'Tàu Phoenix tìm thấy muối perchlorat chiếm khoảng 0,5 % khối lượng đất. Chúng độc với con người và phải được rửa sạch trước khi dùng đất trồng cây.', src: ['perchlorate'] },
       { title: 'Giao hội Mặt Trời', body: 'Khoảng hai năm một lần, Mặt Trời nằm giữa Trái Đất và sao Hỏa. NASA ngừng gửi lệnh khoảng hai tuần vì plasma Mặt Trời có thể làm hỏng tín hiệu vô tuyến.', src: ['conjunction'] },
@@ -4791,17 +5023,85 @@ p { margin: 0; }
       { title: 'Cây trồng “thiết kế” cho sao Hỏa', body: 'Năm 2013, NASA cho biết Viện Ý tưởng Tiên tiến (NIAC) của mình đang tài trợ cho các nhà khoa học ở Đại học bang North Carolina thiết kế cây trồng cho một nhà kính trên sao Hỏa. Ở đó, ban ngày cây phải chịu tia cực tím mạnh, ban đêm nhiệt độ xuống thấp hơn nhiều so với điểm đóng băng, và đất thì nghèo dinh dưỡng. Bước đầu tiên, nhóm đưa một gen của Pyrococcus furiosus, một vi sinh vật sống trong dòng nước nóng bỏng từ các miệng phun dưới đáy biển sâu, vào tế bào cây thuốc lá, và gen này hoạt động mà không làm hại tế bào. Những cây như vậy có thể cho phi hành gia oxy, thực phẩm tươi và cả thuốc chữa bệnh.', src: ['designerPlants'] },
       { title: 'Cây trồng trong không gian, từng gen một', body: 'Kho dữ liệu khoa học mở OSDR của NASA cho phép mọi người truy cập dữ liệu các thí nghiệm sinh học trong chuyến bay vũ trụ, để người khác có thể nghiên cứu lại. Trong thí nghiệm CARA, được đưa lên ISS năm 2014, những cây Arabidopsis nhỏ được trồng 11 ngày trong ánh sáng hoặc trong bóng tối. Lá của chúng thay đổi hoạt động của nhiều gen hơn đầu rễ, và ở một giống cây, lá của cây trồng trong ánh sáng thay đổi số gen nhiều gấp mười lần so với cây trồng trong bóng tối. Ánh sáng định hình cách cây thích nghi với chuyến bay vũ trụ.', src: ['osdr', 'osdrCara'] },
       { title: 'Độ dài nhiệm vụ', body: 'Kiến trúc tham chiếu 5.0 của NASA dự kiến nhiệm vụ kiểu giao hội với khoảng 500 ngày trên bề mặt, chờ Trái Đất và sao Hỏa thẳng hàng lại để trở về. Các tàu chở hàng đi trước phi hành đoàn, và đó là cảm hứng cho các chuyến hàng từ quỹ đạo.', src: ['dra5'] },
-      { title: 'Điều gì đã được đơn giản hóa', body: 'Mỗi vòng dài 25 sol. Phần trăm che chắn, thời gian xây, tỉ lệ hỏng hóc và điểm khoa học là giá trị của trò chơi, được chọn để các sự đánh đổi diễn ra giống thực tế.', src: [] },
       { title: 'Các vùng của sao Hỏa', body: 'Sáu vùng trên bản đồ vô tận được mô phỏng theo những nơi có thật: đáy hố Jezero (Đồng bằng), cồn cát Bagnold (Biển cồn cát), cao nguyên phía nam có nhiều hố va chạm (Cánh đồng hố va chạm), Valles Marineris (Vùng hẻm núi), lớp băng nông ở đồng bằng Arcadia (Đồng bằng băng) và các cửa sổ hang động có thể có trên núi Arsia Mons (Sườn núi lửa). Bạn có thể tự bay qua những nơi này trên Mars Trek của NASA, bản đồ sao Hỏa trực tuyến dựng từ dữ liệu thật của các tàu vũ trụ.', src: ['jezero', 'bagnold', 'dichotomy', 'valles', 'iceMap', 'skylights', 'marsTrek'] },
       { title: 'Mặt đất dưới chân bạn', body: 'Mặt đất trong trò chơi được vẽ bằng ảnh thật của NASA. Đồng bằng, Cánh đồng hố va chạm, Biển cồn cát và Vùng hẻm núi dùng ảnh do trực thăng Ingenuity chụp ở hố Jezero từ năm 2021 đến 2024. Sườn núi lửa dùng ảnh cận cảnh của Curiosity chụp những hạt cát sẫm màu trên một cồn cát ở hố Gale, còn Đồng bằng băng dùng ảnh tàu đổ bộ Phoenix chụp nền đất nứt thành các đa giác quanh nó, trên vùng đồng bằng băng giá ở cực bắc sao Hỏa.', src: ['photoJezero', 'photoCastell', 'photoSand', 'photoDust', 'photoGrains', 'photoPhoenix'] },
-      { title: 'Lái xe trên sao Hỏa', body: 'Trọng lực sao Hỏa chỉ bằng 38 % Trái Đất, nên xe tự hành ép xuống mặt đất với 38 % trọng lượng của nó trên Trái Đất. Độ bám là lực ma sát, và ma sát tăng theo lực ép đó: trên sao Hỏa, xe chỉ có thể tăng tốc, phanh và rẽ mạnh bằng 38 % so với trên Trái Đất. Trong trò chơi, xe cần quãng đường dài gấp khoảng 2,6 lần để dừng lại, và càng chạy nhanh thì càng phải rẽ rộng. Áp suất không khí chưa bằng 1/100 của Trái Đất, nên không khí gần như không làm xe chậm lại. Xe trong trò chơi có khối lượng bằng Perseverance, 1.025 kg, nên trọng lượng của nó khoảng 3.800 niutơn trên sao Hỏa và 10.000 niutơn trên Trái Đất. Nhưng nó nhanh hơn nhiều: Perseverance chạy tối đa 152 mét mỗi giờ trên nền đất phẳng và cứng.', src: ['marsGlance', 'percyRover'] },
+      { title: 'Lái xe trên sao Hỏa', body: 'Trọng lực sao Hỏa chỉ bằng 38 % Trái Đất, nên xe thám hiểm ép xuống mặt đất với 38 % trọng lượng của nó trên Trái Đất. Độ bám là lực ma sát, và ma sát tăng theo lực ép đó: trên sao Hỏa, xe chỉ có thể tăng tốc, phanh và rẽ mạnh bằng 38 % so với trên Trái Đất. Trong trò chơi, xe cần quãng đường dài gấp khoảng 2,6 lần để dừng lại, và càng chạy nhanh thì càng phải rẽ rộng. Áp suất không khí chưa bằng 1/100 của Trái Đất, nên không khí gần như không làm xe chậm lại. Xe trong trò chơi có khối lượng bằng Perseverance, 1.025 kg, nên trọng lượng của nó khoảng 3.800 niutơn trên sao Hỏa và 10.000 niutơn trên Trái Đất. Nhưng nó nhanh hơn nhiều: Perseverance chạy tối đa 152 mét mỗi giờ trên nền đất phẳng và cứng.', src: ['marsGlance', 'percyRover'] },
+      { title: 'Điều gì đã được đơn giản hóa', body: 'Mỗi vòng dài 25 sol. Phần trăm che chắn, thời gian xây, tỉ lệ hỏng hóc và điểm khoa học là giá trị của trò chơi, được chọn để các sự đánh đổi diễn ra giống thực tế.', src: [] },
     ],
+  };
+
+  // Each source's label in Vietnamese (the page titles are English; the label says what the page is).
+  const SOURCE_VI = {
+    hassler: "Hassler và cộng sự, Science 343 (2014): bức xạ trên bề mặt sao Hỏa, máy đo RAD của Curiosity",
+    zeitlin: "Zeitlin và cộng sự, Science 340 (2013): bức xạ trong chuyến bay tới sao Hỏa",
+    ochmo: "NASA OCHMO: Bản tóm tắt kỹ thuật về bảo vệ khỏi bức xạ (giới hạn 600 mSv cả sự nghiệp)",
+    bvad: "NASA: Tài liệu Giá trị và Giả định Cơ sở của hệ thống hỗ trợ sự sống (BVAD)",
+    water98: "NASA (2023): Cột mốc thu hồi nước trên ISS đạt 98 %",
+    moxie: "NASA (2023): MOXIE hoàn thành nhiệm vụ trên sao Hỏa",
+    kilopower: "NASA (2018): Thử nghiệm lò phản ứng Kilopower / KRUSTY",
+    fsp: "NASA: Dự án Điện phân hạch trên bề mặt (Fission Surface Power)",
+    opportunity: "NASA (2019): Nhiệm vụ của xe thám hiểm Opportunity kết thúc",
+    spirit: "NASA JPL: Spirit được tiếp thêm năng lượng nhờ tấm pin mặt trời sạch hơn",
+    perchlorate: "NASA NTRS: Perchlorat trên sao Hỏa, tổng quan và hệ quả",
+    conjunction: "NASA JPL: Giao hội Mặt Trời của sao Hỏa là gì và vì sao nó quan trọng?",
+    veggie: "NASA: Trồng cây trong không gian (Veggie)",
+    dra5: "NASA (Drake, Hoffman & Beaty): Khám phá sao Hỏa có người, Kiến trúc tham chiếu 5.0 (bản tóm tắt của SP-2009-566)",
+    jezero: "NASA JPL (2021): Hạ cánh! Xe thám hiểm Perseverance của NASA đáp an toàn xuống Hành tinh Đỏ",
+    bagnold: "NASA JPL (2015): Xe thám hiểm Curiosity của NASA tiến về các cồn cát đang hoạt động",
+    dichotomy: "NASA Astrobiology (2018): Kim loại hiếm trên sao Hỏa và Trái Đất cho thấy những vụ va chạm khổng lồ",
+    valles: "NASA Science: Valles Marineris, Hẻm núi lớn của sao Hỏa",
+    iceMap: "NASA JPL (2019): Bản đồ kho báu băng nước trên sao Hỏa của NASA",
+    isru: "NASA: Tổng quan về khai thác tài nguyên tại chỗ (ISRU)",
+    moxieInstruments: "NASA Science: Các thiết bị khoa học của Perseverance (MOXIE)",
+    lroIce: "NASA Science (2024): LRO phát hiện băng trên Mặt Trăng phân bố rộng (chỉ cho phần hóa học tách nước)",
+    protonCeramics: "NASA (2017): Tạo mêtan và oxy trên sao Hỏa bằng gốm dẫn proton (một dự án học bổng nghiên cứu)",
+    skylights: "NASA JPL (2007): Bảy cửa sổ hang động có thể có trên sao Hỏa (PIA09929)",
+    wildcat: "NASA JPL (2022): Xe thám hiểm Perseverance của NASA khảo sát vùng đất giàu địa chất trên sao Hỏa",
+    pitCrater: "NASA (2020): Hố sụt và những ngọn núi lửa khổng lồ (PIA24149)",
+    centralPeak: "NASA (2011): Đỉnh trung tâm nhiều màu trong một hố va chạm chưa có tên (PIA14890)",
+    methane: "NASA JPL (2021): Thấy rồi lại mất: các nhà khoa học tiến gần hơn tới lời giải cho bí ẩn mêtan trên sao Hỏa",
+    iceScarps: "NASA JPL (2018): Những sườn dốc trên sao Hỏa lộ ra cấu trúc băng chôn vùi",
+    starDunes: "NASA (2017): Cồn cát đối nghịch, gió đối nghịch (PIA21934)",
+    rockBridge: "NASA (2006): Rãnh hẹp ở Tartarus Colles (PIA09383)",
+    yardangs: "NASA (2003): Các yardang ở Medusae Fossae (PIA04464)",
+    hoodoos: "NASA (2017): Các cột đá hoodoo của sao Hỏa (PIA21883)",
+    uprightBoulder: "NASA JPL (2014): Một tảng đá dựng đứng, hình thù bất thường trên sao Hỏa (PIA18594)",
+    gatorBack: "NASA (2022): Toàn cảnh 360 độ của Curiosity về những tảng đá lưng cá sấu ở Greenheugh (PIA25176)",
+    becquerel: "NASA (2008): Lớp trầm tích tuần hoàn trong hố Becquerel, sao Hỏa (PIA11443)",
+    devilTracks: "NASA (2008): Vệt lốc bụi ở phía nam lòng chảo Schiaparelli (PIA10226)",
+    photoJezero: "NASA/JPL-Caltech (2021): Ảnh màu đầu tiên chụp từ trên không trên sao Hỏa, do Ingenuity chụp (PIA24593)",
+    photoCastell: "NASA/JPL-Caltech (2023): “Castell Henllys” nhìn từ trên cao, do Ingenuity chụp (PIA25890)",
+    photoSand: "NASA/JPL-Caltech (2024): Ingenuity thấy bóng cánh quạt bị hỏng của chính nó (PIA26243)",
+    photoDust: "NASA/JPL-Caltech (2021): Cảnh nhìn từ chuyến bay thứ năm của Ingenuity (PIA24650)",
+    photoGrains: "NASA/JPL-Caltech/MSSS (2015): Cận cảnh một cồn cát trên sao Hỏa, do Curiosity chụp (PIA20171)",
+    photoPhoenix: "NASA/JPL-Caltech/Đại học Arizona/Đại học Texas A&M (2008): Cảnh nhìn về phía tây bắc của Phoenix (PIA10713)",
+    designerPlants: "NASA (2013): Cây trồng “thiết kế” cho sao Hỏa",
+    osdr: "NASA Open Science Data Repository (OSDR): các nghiên cứu sinh học không gian",
+    osdrCara: "NASA OSDR, OSD-678 (CARA, ISS 2014): Ánh sáng đóng vai trò chính trong phản ứng phiên mã của cây Arabidopsis với môi trường bay vào vũ trụ",
+    marsTrek: "NASA Mars Trek: khám phá sao Hỏa bằng dữ liệu thật của tàu vũ trụ",
+    marsGlance: "NASA JPL: Sao Hỏa trong một cái nhìn (hồ sơ báo chí InSight)",
+    percyRover: "NASA Science: Các bộ phận của xe thám hiểm Perseverance",
+    climateEvidence: "NASA Science: Bằng chứng về biến đổi khí hậu",
+    apollo11: "NASA: Apollo 11 (20 tháng 7 năm 1969)",
+    artemis: "NASA: Artemis, trở lại Mặt Trăng và tiến tới sao Hỏa",
+    hazards: "NASA Human Research Program: Năm mối nguy của chuyến bay vũ trụ có người",
+    nasaAbout: "NASA: Giới thiệu về NASA (sứ mệnh của NASA)",
+    nasaValues: "NASA Careers: Cuộc sống tại NASA (các giá trị cốt lõi)",
+    percySamples: "NASA Science: Các mẫu đá sao Hỏa của Perseverance",
+    relayJpl: "NASA JPL (2021): Mạng chuyển tiếp sao Hỏa kết nối chúng ta với các nhà thám hiểm của NASA",
+    jonesKliss: "Jones & Kliss, NASA Ames (2010): Phát triển hệ thống hỗ trợ sự sống tiên tiến cho con đường linh hoạt vào không gian sâu",
+    marsNames: "NASA Mars Report (tháng 6 năm 2023): NASA đặt tên cho các địa danh trên sao Hỏa như thế nào?",
+    chapea: "NASA (2024): Các nhà du hành sao Hỏa, hành trình dài một năm của phi hành đoàn CHAPEA đầu tiên",
+    schmitt: "NASA: Cựu phi hành gia Harrison Schmitt",
+    ams: "NASA: Máy quang phổ từ Alpha (AMS) tròn mười năm nghiên cứu trên trạm vũ trụ",
+    cmo: "NASA: Huấn luyện 5.0 (Sĩ quan y tế của phi hành đoàn)",
   };
 
   const STR = { en, vi };
 
   function t(lang, key, params) {
     const table = STR[lang] || en;
+    if (params && /^haul./.test(key) && Number(params.n) === 1 && en[key + '1'] != null) key += '1'; // "+1 spare kit", "+2 spare kits"
     let s = table[key];
     if (s == null) s = en[key];
     if (s == null) return key;
@@ -4809,11 +5109,16 @@ p { margin: 0; }
     return s;
   }
 
+  // A source's label in the language of the moment.
+  function srcLabel(lang, id) {
+    return (lang === 'vi' && SOURCE_VI[id]) || SOURCES[id].label;
+  }
+
   function has(lang, key) {
     return (STR[lang] && STR[lang][key] != null) || en[key] != null;
   }
 
-  return { t, has, STR, SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, STORY, LANGS: ['en', 'vi'] };
+  return { t, has, srcLabel, STR, SOURCES, SOURCE_VI, REGION_EXTRA_SOURCES, ROLE_SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, STORY, LANGS: ['en', 'vi'] };
 });
 
 </script>
@@ -5060,7 +5365,7 @@ p { margin: 0; }
           `<rect x="44" y="20" width="6" height="12" rx="3" fill="#86b8ea"/><circle cx="47" cy="34" r="1.3" fill="${LIT}"/><rect x="42" y="37" width="8" height="8" rx="1" fill="${KS}"/>` + dust('M26 46q6-5 12 0z', 0.5)
         : `<rect x="2" y="3" width="60" height="45" rx="9" fill="#c9bdad"/><rect x="2" y="12" width="60" height="13" fill="${KT}"/><rect x="2" y="33" width="60" height="6" fill="#b4a898"/>` +
           `<path d="M14 4v43M26 3v45M38 3v45M50 4v43" stroke="${KS}" stroke-width="0.8" opacity="0.7"/><rect x="40" y="14" width="12" height="8" rx="2" fill="${KS}"/><rect x="42" y="16" width="8" height="4" rx="1" fill="#837768"/>` +
-          dust('M6 22q7-4 14-1t12 0v3H6z', 0.3) + dust('M36 36q8-3 16 0v3H36z', 0.3) + `<path d="M10 12V2" stroke="${STRUT}" stroke-width="1.4"/>` + beacon(10, 2, false)),
+          dust('M6 22q7-4 14-1t12 0v3H6z', 0.3) + dust('M36 36q8-3 16 0v3H36z', 0.3) + `<path d="M10 12V2.4" stroke="${STRUT}" stroke-width="1.4"/>` + beacon(10, 2.4, false)),
     // a dusty solar array of three panels; salvaged, two panels are gone and the one left is wiped clean
     array: done => shadow(28) + [0, 1, 2].map(i => {
       const x = 6 + i * 18, gone = done && i > 0;
@@ -5311,6 +5616,8 @@ p { margin: 0; }
       return { s, x: X(p[0]), y: Y(p[1]) };
     }).sort((a, b) => a.y - b.y);
     for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+    // then up from the bottom, so no label sits on the x axis's numbers (lines that end near zero)
+    for (let i = ends.length - 1; i >= 0; i--) ends[i].y = Math.min(ends[i].y, i === ends.length - 1 ? H - M.b : ends[i + 1].y - 13);
     for (const e of ends) {
       const last = e.s.points[e.s.points.length - 1];
       el('circle', { cx: X(last[0]), cy: Y(last[1]), r: 3.5, fill: e.s.color, stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
@@ -5423,7 +5730,9 @@ p { margin: 0; }
       const y = top + (BAND - BAR) / 2;
       const w = len(r.value);
       const label = el('text', { x: LW - 10, y: y + BAR / 2 + 4, 'text-anchor': 'end', fill: 'var(--fg-2)', 'font-size': 12 }, svg);
-      label.textContent = r.label;
+      const full = String(r.label), short = full.length > 22 ? full.slice(0, 21) + '…' : full; // a long label (Vietnamese) must not run off the left edge
+      label.textContent = short;
+      if (short !== full) el('title', {}, label).textContent = full;
       if (w > 0) {
         const rr = Math.min(4, w, BAR / 2);
         const x2 = LW + w;
@@ -7646,6 +7955,109 @@ p { margin: 0; }
 </script>
 <script>
 /*
+ * SOL 500 — the solo save slots. A Full mission lives in 'save' and a Quick one in 'saveQuick', so starting one never
+ * touches the other. `ls` is ui.js's { get, set, del } over localStorage.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.SolSaves = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  const KEYS = ['save', 'saveQuick'];
+  const slotOf = m => (m && m.quick === true ? 'saveQuick' : 'save');
+  const usable = v => !!(v && v.mission && v.mission.status === 'active' && v.mission.version === 2);
+
+  // The mission in a slot, repaired (and the repair written back), or null. A slot that can't be read is deleted, that slot only.
+  // `makePlan(mission)` builds the plan a save without one gets; it runs inside the guard, so a throw drops this slot only.
+  // A mission that doesn't belong in the slot (a Quick one in 'save', or a lost quick flag in 'saveQuick') is damaged too:
+  // the next save would write it over the other slot.
+  function load(ls, key, repair, makePlan) {
+    const v = ls.get(key, null);
+    if (!usable(v)) return null;
+    try {
+      if (slotOf(v.mission) !== key) throw new Error('mission does not belong in slot ' + key);
+      const mission = repair(v.mission);
+      if (slotOf(mission) !== key) throw new Error('repaired mission does not belong in slot ' + key);
+      const plan = v.plan || (makePlan ? makePlan(mission) : null);
+      ls.set(key, { mission, plan });
+      return { mission, plan };
+    } catch (e) {
+      if (typeof console !== 'undefined') console.warn('SOL 500: dropped a saved mission that could not be read:', e);
+      ls.del(key);
+      return null;
+    }
+  }
+
+  function summary(ls) {
+    const out = {};
+    for (const k of KEYS) { const v = ls.get(k, null); out[k] = usable(v) ? { sol: v.mission.sol } : null; }
+    return out;
+  }
+
+  return { slotOf, load, summary };
+});
+
+</script>
+<script>
+/*
+ * SOL 500 — the Showcase's cards: the 12 features the presenter shows a judge, in the spec's order (§5). Each card names the
+ * real moment its Show me sets up in the demo game (a throwaway mission on CODE); ui.js builds the mission and the gallery,
+ * and SolSurface.scene puts the astronaut in place. Words are show.card.<id>.name / .why in i18n.js.
+ *   view: 'surface' | 'console' (the Operations tab) | 'modal' (a dialog, named by `modal`, over the Operations screen)
+ *   source: the I.SOURCES key the purpose line rests on, or null when it is about the game's own rule
+ *   prepare(s, { Z, X }): runs once on the demo mission before the surface opens (Z the dangers, X the expedition rules); a throw
+ *     shows show.failed · steps: [[tx, ty], ...]: the bar gets a Next button that moves the astronaut to the next one, round
+ *   line(t, X) → text: a second line under the caption (X the expedition rules) · schedule: { turn: patch } for E.createMission's schedulePatch · at: [tx, ty] tile · board · suit · clock: SolSurface.scene's
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'));
+  else root.SolShowcase = factory(root.SolData);
+})(typeof self !== 'undefined' ? self : this, function (D) {
+  'use strict';
+  // The mission code whose points of interest QA has mapped (.superpowers/sdd/qa-tools-m4c/qa/pois-PAINT-QA-1.json).
+  const CODE = 'PAINT-QA-1';
+  // Where beacons go (tiles east of the HQ on the x axis: 13 and 24 are open ground, 11 apart, the third spot 11 further on).
+  const BEACON_AT = [[13, 0], [24, 0]], BEACON_STAND = [35, 0];
+  const tilePos = ([tx, ty]) => ({ x: (tx + 0.5) * D.TILE_PX, y: (ty + 0.5) * D.TILE_PX });
+  // Stock three kits (a build project makes them, which takes a round), carry them out of the base zone by the rules, and place two.
+  function placeBeacons(s, R) {
+    const id = s.pilot, ok = r => { if (r.error) throw new Error(r.error); };
+    s.expedition.kits = BEACON_AT.length + 1;
+    for (let i = 0; i <= BEACON_AT.length; i++) ok(R.X.takeKit(s, id, tilePos([0, 0])));
+    for (const p of BEACON_AT) ok(R.X.placeBeacon(s, id, tilePos(p)));
+  }
+  const CARDS = [
+    // prepare starts the flare's warning at once (30 s delay + 60 s countdown ends it at 90 s); the clock at 70 leaves 20 s.
+    // [28, 8] is 26 tiles from the base zone: about 11 s on foot.
+    { id: 'flare', source: 'hazards', view: 'surface', schedule: { 0: { spe: true } }, at: [28, 8], clock: 70, prepare: (s, R) => { const r = R.Z.flareStart(s, 0); if (r.error) throw new Error(r.error); } },
+    // [0, -4] is sand just outside the base pad and within the bay's reach (boarding asks the rules, which want you within 2 tiles).
+    { id: 'rover', source: null, view: 'surface', at: [0, -4], board: true },
+    // The Quick schedule's rupture, moved to the opening round; the Console shows the event with its two choices.
+    { id: 'oxygen', source: null, view: 'console', schedule: { 0: { flavor: 'o2_rupture' } } },
+    { id: 'beacons', source: 'relayJpl', view: 'surface', at: BEACON_STAND, prepare: placeBeacons },
+    // One stop in each region, in the order of W.REGIONS: plains, dunes, craters, canyons, icy, volcanic. Each has its region's own photo
+    // under the whole view and no landmark within 9 tiles (a discovery card would open mid-tour).
+    { id: 'ground', source: 'photoJezero', view: 'surface', at: [34, 10], steps: [[34, 10], [402, 50], [-76, -340], [-360, 146], [184, 114], [-194, 432]] },
+    // The delta at (68, 462): a few tiles south of its middle, well inside discovery range.
+    { id: 'landmark', source: 'wildcat', view: 'surface', at: [68, 468] },
+    // The skylight of the tube at (-176, 439): the way in.
+    { id: 'tube', source: 'pitCrater', view: 'surface', at: [-182, 441] },
+    // 18 tiles out (the devils keep 16 from the HQ); at 6 s a formed devil is 3.8 tiles away.
+    { id: 'devils', source: 'devilTracks', view: 'surface', schedule: { 0: { devil: true, weather: 'regional' } }, at: [18, -15], clock: 6 },
+    { id: 'isru', source: 'veggie', view: 'console' },
+    // At the weather station's door (13, 48): the prompt shows the pilot's (the Commander's) hold, and line puts the Engineer's beside
+    // it, both from the rules. The pilot is the commander, out on the map, so his aura shows too.
+    { id: 'crew', source: null, view: 'surface', at: [13, 49], line: (t, X) => t('show.crew.holds', { a: X.holdSeconds('weather', 'commander'), b: X.holdSeconds('weather', 'engineer') }) },
+    { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
+    { id: 'guide', source: null, view: 'modal', modal: 'guide' },
+  ];
+  const card = id => CARDS.find(c => c.id === id);
+  return { CODE, CARDS, card };
+});
+
+</script>
+<script>
+/*
  * SOL 500 — the physics engine: Newton's laws with Mars' real gravity, for the rover and the dust it throws up.
  * Inside it is SI (metres, seconds, kilograms, newtons); the game's world is PX_PER_M pixels to the metre here.
  *
@@ -8051,7 +8463,7 @@ p { margin: 0; }
     cobbles: { repeat: 280, gain: 1.5, tint: 0.30 },   // a field of rocks: the Crater Field, rims, ramps and cliffs
     sand: { repeat: 190, gain: 1.8, tint: 0.25 },      // windblown sand: the Dune Sea, sand and star dunes' crests
     dust: { repeat: 360, gain: 2.6, tint: 0.25 },      // fine dust: the Canyon Lands, crater and canyon floors, delta beds
-    grains: { repeat: 140, gain: 0.9, tint: 0.20 },    // dark basalt grains: the Volcanic Flanks and lava tubes
+    grains: { repeat: 200, gain: 0.9, tint: 0.20 },    // dark basalt grains: the Volcanic Flanks and lava tubes
     phoenix: { repeat: 300, gain: 1.5, tint: 0.25 },   // the polygon ground round the Phoenix lander: the Icy Plains
   };
   const REGION_PHOTO = ['flagstone', 'sand', 'cobbles', 'dust', 'phoenix', 'grains'];
@@ -8114,12 +8526,15 @@ p { margin: 0; }
     b.setTransform(new DOMMatrix().rotateSelf(37).scaleSelf(k * 1.73));
     return [a, b];
   }
+  // The photos are made seamless when the page is idle, so a frame never waits for it (the generator of src/ground-photos.js is not
+  // in the repository, so they are not shipped seamless); without requestIdleCallback, a short timer.
+  const idle = fn => (typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 50));
   function loadPhotos(urls) {
     const N = 512, O = 112, S = N + O, names = Object.keys(PHOTO).filter(n => urls[n]), out = {};
     const next = i => {
       if (i === names.length) { photos = out; photosWanted.splice(0).forEach(fn => fn()); return; }
       const name = names[i], p = PHOTO[name], img = new Image(), go = () => setTimeout(() => next(i + 1), 0);
-      img.onload = () => {
+      img.onload = () => idle(() => {
         try {
           const c = document.createElement('canvas'), tiny = document.createElement('canvas');
           c.width = c.height = S;
@@ -8134,7 +8549,7 @@ p { margin: 0; }
           out[name] = { col: p.tint ? photoPatterns(t.col, N, p.repeat) : null, lum: photoPatterns(t.lum, N, p.repeat) };
         } catch (e) { /* this photo's grounds stay plain */ }
         go();
-      };
+      });
       img.onerror = go;
       img.src = urls[name];
     };
@@ -8391,7 +8806,7 @@ p { margin: 0; }
     const minis = new Map();  // "cx,cy" → { c, stamp, used }
     const miniWant = new Set();
     const times = [];
-    let queue = [], view = null, need = 0, tick = 0, renders = 0, scale = o.scale || 1;
+    let queue = [], view = null, need = 0, tick = 0, frameTick = 0, renders = 0, scale = o.scale || 1;
 
     const inView = e => !!view && e.ix >= view[0] && e.ix <= view[2] && e.iy >= view[1] && e.iy <= view[3];
     // The cap never pushes out a chunk the current view needs: a very wide window just keeps more.
@@ -8503,13 +8918,15 @@ p { margin: 0; }
       miniWant.delete(k);
       while (minis.size > MINI_CAP) {
         let oldest = null, oldestKey = null;
-        for (const [mk, me] of minis) if (!oldest || me.used < oldest.used) { oldest = me; oldestKey = mk; }
+        for (const [mk, me] of minis) if (me.used <= frameTick && (!oldest || me.used < oldest.used)) { oldest = me; oldestKey = mk; } // never one drawn this frame
+        if (!oldestKey) break;
         minis.delete(oldestKey);
       }
       return e.c;
     }
     // Builds queued mini images (far explored chunks the map wants) until the deadline, at least one per call.
     function workMinis(deadline) {
+      frameTick = tick; // the map's frame starts here: a mini used from now on stays
       let n = 0;
       for (const k of [...miniWant]) {
         if (n > 0 && now() >= deadline) break;
@@ -8632,9 +9049,10 @@ p { margin: 0; }
   }
   // Inside a lava tube it is dark but for your headlamp: clear round you (px, py), nearly black from `rad` world pixels out.
   function drawDark(ctx, x0, y0, x1, y1, px, py, rad) {
-    const g = ctx.createRadialGradient(px, py, rad * 0.3, px, py, rad);
+    const r = rad * 0.6; // a pool of light: nearly black at 60 % of the headlamp's reach (M5: the old fall-off never got dark)
+    const g = ctx.createRadialGradient(px, py, r * 0.25, px, py, r);
     g.addColorStop(0, 'rgba(5,3,4,0)');
-    g.addColorStop(1, 'rgba(5,3,4,0.94)');
+    g.addColorStop(1, 'rgba(5,3,4,0.97)');
     ctx.fillStyle = g;
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
@@ -9028,14 +9446,14 @@ p { margin: 0; }
   function drawTags(ctx, tags) {
     const placed = [];
     ctx.font = '600 10px "Be Vietnam Pro", system-ui, sans-serif';
-    const list = tags.slice().sort((a, b) => (b.you - a.you) || (b.y - a.y));
+    const list = tags.slice().sort((a, b) => (b.you ? 1 : 0) - (a.you ? 1 : 0) || (b.y - a.y));
     for (const tg of list) {
       const w = ctx.measureText(tg.text).width + 16, up = tg.bar == null ? 0 : 7;
       let y = tg.y;
       for (let i = 0; i < 6; i++) { // a tag spans y - 14 - up to y + 1; two keep 1 px apart
         const hit = placed.some(r => Math.abs(r.x - tg.x) < (r.w + w) / 2 + 2 && y - 14 - up < r.y + 2 && r.y - 14 - r.up < y + 2);
         if (!hit) break;
-        y -= 16;
+        y -= 16 + up; // the tag's whole height, its suit bar too
       }
       placed.push({ x: tg.x, y, w, up });
       if (tg.bar != null) drawSuitBar(ctx, tg.x, y - 21, tg.bar);
@@ -9087,6 +9505,9 @@ p { margin: 0; }
   const W = root.SolWorldgen, P = root.SolPaint;
   const T = 64, CH = W.CHUNK, MINI = 160;
   const ZOOMS = [1, 2, 3, 4, 6, 8]; // screen pixels per tile on the full map
+  // The map key: [id, glyph, colour] for each mark the maps draw (see markers); the strings are sf.key.<id>.
+  const MARKS = [['find', '●', '#9fd3ea'], ['cave', '○', '#e8c9a8'], ['drop', '●', '#f46e5f'], ['rover', '■', '#e9e2d8'], ['beacon', '▲', '#ffcf7a'],
+    ['landmark', '◆', '#f0c35a'], ['structure', '■', '#a9f4e4'], ['mast', '?', '#a9f4e4'], ['base', '■', '#f4e9df'], ['you', '◎', '#ffffff']];
   const PAN = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
 
   function create(opts) {
@@ -9225,7 +9646,8 @@ p { margin: 0; }
     const legend = node('div', 'sf-map-legend');
     const button = (label, onClick) => { const b = node('button', null, label); b.type = 'button'; b.addEventListener('click', onClick); return b; };
     const zoomOut = button('−', () => zoom(-1)), zoomIn = button('+', () => zoom(1)), shut = button('×', () => closeMap());
-    head.append(title, legend, zoomOut, zoomIn, shut);
+    const markKey = node('div', 'sf-map-key'); // what the marks on the map mean
+    head.append(title, legend, zoomOut, zoomIn, shut, markKey);
     const hint = node('p', 'sf-map-hint');
     el.append(fc, head, hint);
 
@@ -9246,6 +9668,13 @@ p { margin: 0; }
         item.append(swatch, document.createTextNode(t('region.' + id)));
         legend.appendChild(item);
       });
+      markKey.textContent = '';
+      for (const [id, glyph, color] of MARKS) {
+        const item = node('span'), sw = node('i', null, glyph);
+        sw.style.color = color;
+        item.append(sw, node('span', null, t('sf.key.' + id)));
+        markKey.appendChild(item);
+      }
     }
 
     function openMap(st) {
@@ -9277,7 +9706,7 @@ p { margin: 0; }
       cy += d[1] * step;
       return true;
     }
-    fc.addEventListener('pointerdown', e => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; fc.setPointerCapture(e.pointerId); });
+    fc.addEventListener('pointerdown', e => { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, primary: !e.button }; fc.setPointerCapture(e.pointerId); });
     fc.addEventListener('pointermove', e => {
       if (!drag || drag.id !== e.pointerId) return;
       const z = ZOOMS[zi];
@@ -9290,7 +9719,7 @@ p { margin: 0; }
     const endDrag = () => { drag = null; };
     // A click that did not drag the map (under 5 px) pings the spot under it.
     fc.addEventListener('pointerup', e => {
-      const click = drag && drag.id === e.pointerId && drag.moved < 5;
+      const click = drag && drag.id === e.pointerId && drag.moved < 5 && drag.primary; // only the primary button (a pen and a finger report 0)
       endDrag();
       if (!click || !opts.onPing) return;
       const r = fc.getBoundingClientRect(), z = ZOOMS[zi], w = el.clientWidth, h = el.clientHeight;
@@ -9447,6 +9876,7 @@ p { margin: 0; }
     let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [], refillAt = -1e9, inPod = null;
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
+    let briefed = null;                            // the round brief while its note runs: { until, covered } (a card over the HUD hid it)
     let peek = null;                               // the chunks the surface holds (SolWorld's peek), from the last frame
     let asked = {};                                // landmark id → when its discovery was answered (Infinity while asked)
     let told = [];                                 // the beacons and pods whose "already refilled" was said this round
@@ -9588,7 +10018,7 @@ p { margin: 0; }
       if (benched()) return { text: t('eva.benched'), cls: 'warn' };
       if (p && p.inRover && driven >= XD.roverRange) return { text: t('eva.flat'), cls: 'warn' };
       const atBase = !!p && X.inBaseZone(p);
-      if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t('eva.full'), cls: '' };
+      if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t(pack().some(i => !E.isKit(i)) ? 'eva.full' : 'eva.fullKits'), cls: '' }; // kits are placed, not delivered
       if (live() && suit <= XD.suit * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
       const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
       if (cover) return { text: t(cover), cls: 'ok' };
@@ -9649,7 +10079,8 @@ p { margin: 0; }
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
       prop('pk', items.map(i => i.res + (i.canister ? '*' : '')).join(',') + '|' + cap + '|' + (shown.lang || ''), () => {
         packEl.textContent = '';
-        packEl.setAttribute('aria-label', t('eva.pack', { n: items.length, m: cap }));
+        const kitN = items.filter(E.isKit).length; // a kit is counted apart from the loads
+        packEl.setAttribute('aria-label', kitN ? t('eva.packKit', { n: items.length - kitN, k: kitN, m: cap }) : t('eva.pack', { n: items.length, m: cap }));
         for (let i = 0; i < cap; i++) {
           const it = items[i], slot = node('span', 'slot' + (it ? ' full' : ''));
           if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = E.isKit(it) ? t('mod.kit') : t('haul.' + it.res, { n: it.amount }); }
@@ -9710,7 +10141,8 @@ p { margin: 0; }
     function brief(m) {
       const params = { storm: { n: Z.viewTiles(m, false) } };
       const list = Z.outside(m).map(k => t('eva.brief.' + k, params[k]));
-      if (list.length) say(t('eva.brief', { list: list.join(', ') }), 'warn', 8);
+      briefed = list.length ? { until: now + 8, covered: false } : null;
+      if (list.length) { say(t('eva.brief', { list: list.join(', ') }), 'warn', 8); briefed.note = note; }
     }
 
     // ---------- each new look at the mission ----------
@@ -9722,7 +10154,7 @@ p { margin: 0; }
       const id = d.controlId || null;
       let round = false, fresh = false;
       if (m.turn !== turn || id !== me) {
-        const first = turn == null;
+        const first = turn == null, newRound = !first && m.turn !== turn;
         round = !first && m.turn !== turn && id === me;
         fresh = !round;
         turn = m.turn;
@@ -9736,7 +10168,7 @@ p { margin: 0; }
         if (round) soloClock = 0;
         else if (first) soloClock = Z.clockOf(m); // a reload picks the round's clock up where it was saved
         warned = !!(m.expedition.flare && clock() >= m.expedition.flare.warn); // a warning already under way is not said again
-        if (first || round) brief(m);
+        if (first || newRound) brief(m); // at an advance whoever's seat it is
       }
       const down = !!(me && m.expedition.collapsed[me]);
       if (wasDown && !down && me) { suit = X.suitOf(m, me); say(t('eva.revived', { s: XD.reviveSuit }), 'ok', 4); }
@@ -9750,7 +10182,7 @@ p { margin: 0; }
     // A new mission or room (SolSurface.reset): nothing of the last one's exploring carries over, so the next sync is a
     // fresh look even with the same astronaut in the same round.
     function reset() {
-      data = me = turn = hold = note = coopClock = peek = null;
+      data = me = turn = hold = note = coopClock = peek = briefed = null;
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
       driven = soloClock = 0;
@@ -9778,6 +10210,12 @@ p { margin: 0; }
       now += dt;
       peek = world.peek;
       const m = mission();
+      if (briefed) { // a card over the HUD hides the note: say it again when the card closes
+        const h = env.hooks(), up = !!(h && h.cardUp && h.cardUp());
+        if (up) briefed.covered = true; // seen only once the card is gone, however long it stays
+        else if (now >= briefed.until && !briefed.covered) briefed = null;
+        else if (briefed.covered && m) { if (note && note !== briefed.note && now < note.until) briefed = null; else brief(m); } // a newer note wins
+      }
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
         const x = m.expedition, atBase = X.inBaseZone(p), out = !atBase && !collapsed(me) && !benched();
@@ -9921,7 +10359,7 @@ p { margin: 0; }
     // Every hold's seconds come from the rules' one function (X.holdSeconds), with your role's skill (spec §3.3).
     const holdKind = f => (f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : f.kind === 'beacon' ? 'beacon' : 'revive');
     const hold0 = f => X.holdSeconds(holdKind(f), crew() && crew().role);
-    const holdable = f => !!f && (f.kind === 'find' || f.kind === 'drop' || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
+    const holdable = f => !!f && (f.kind === 'find' || (f.kind === 'drop' && hasRoom()) || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
     // A relay beacon by its id "B<i>": "Beacon <i + 1>".
     const beaconName = id => t('eva.beaconName', { n: Number(String(id).slice(1)) + 1 });
     // Where the relay beacon you carry would go (spec §3.8): the tile under you, as the rules judge it (X.beaconSpot changes
@@ -9971,7 +10409,7 @@ p { margin: 0; }
         const what = t('find.' + f.find.kind) + (f.find.sub ? ' · ' + t('sci.' + f.find.sub) : '');
         return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role)) });
       }
-      if (f.kind === 'drop') return t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
+      if (f.kind === 'drop') return !hasRoom() ? t('eva.err.full') : t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
       if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role)) });
       if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
       if (f.kind === 'rover') return t('sf.boardRover');
@@ -10164,7 +10602,7 @@ p { margin: 0; }
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
   const SPEED = 150, SPRINT_X = 1.75, NPC_SPEED = 115; // the rover's top speed is src/physics.js's ROVER.top (390 px/s)
-  const NOSE = 40; // px ahead of the rover's middle: its nose, kept out of walls so the drawn rover never drives into one
+  const NOSE = 61; // px ahead of the drawn rover's middle (10 px above its feet): its front, kept out of walls so the drawn rover never drives into one
   const PUSH_TIME = 0.25; // seconds a dust devil's throw takes (a slide that stops at walls)
   const WALK_GAP = 0.15; // seconds between two walking samples (the walk hook), about co-op's position cadence (110 ms or more)
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -10255,6 +10693,7 @@ p { margin: 0; }
     S.worldSeed = null;
     S.remote = {}; // the last room's players: this room's (if any) come with its next positions
     S.eva.reset(); // and the exploring layer: the old mission's suit, battery and collapse stay with it
+    if (S.menuOpen) closeMenu(); // an open menu was the old mission's
   }
 
   // The base's own blockers (the HQ, the reactor, the lander, rocks on the build grid) and the grid lookups.
@@ -10368,13 +10807,14 @@ p { margin: 0; }
   const groundScale = () => (S.gfx.quality === 'best' ? 2 : 1);
   function resize() {
     const r = S.el.getBoundingClientRect();
-    const dpr = S.gfx.quality === 'fast' ? 1 : Math.min(4, window.devicePixelRatio || 1);
+    const dpr = Math.min(S.gfx.quality === 'fast' ? 1 : 4, window.devicePixelRatio || 1);
     S.view.w = r.width;
     S.view.h = r.height;
     S.view.dpr = dpr;
     S.view.zoom = clamp(r.width / (T * 10.5), 0.62, 1.55);
     S.canvas.width = Math.max(1, Math.round(r.width * dpr));
     S.canvas.height = Math.max(1, Math.round(r.height * dpr));
+    S.nextDraw = 0; // the next callback draws, even under a limit: the resize cleared the canvas
   }
 
   function t(k, p) { return S.data ? S.data.t(k, p) : k; }
@@ -10554,7 +10994,6 @@ p { margin: 0; }
     if (!changed) return;
     resize();
     if (S.painter) S.painter.setScale(groundScale());
-    S.nextDraw = 0; // the next callback draws, even under a limit: the resize cleared the canvas
   }
 
   function update(data) {
@@ -10608,7 +11047,7 @@ p { margin: 0; }
       const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : p.rover ? (prev && prev.heading != null ? prev.heading : S.roverHeading) : null;
       if (p.rover && heading != null) S.roverHeading = heading; // so it is parked as its driver left it
       next[p.crewId] = {
-        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, odo: prev ? prev.odo || 0 : 0,
+        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, shown: prev && p.rover ? prev.shown : null, odo: prev ? prev.odo || 0 : 0,
         phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0, away: !!p.away,
       };
     }
@@ -10800,7 +11239,7 @@ p { margin: 0; }
       if (step > 0) {
         const hx = Math.cos(p.car.heading), hy = Math.sin(p.car.heading), mx = p.x + hx * step, my = p.y + hy * step;
         const stuck = hitsWall(p.x, p.y, true);
-        const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !hitsWall(x + hx * NOSE, y + hy * NOSE, true))) && S.eva.canMove(p, x, y));
+        const ok = (x, y) => S.qa.ghost || ((stuck || (!hitsWall(x, y, true) && !isBlocked(Math.floor((x + hx * NOSE) / T), Math.floor((y - 10 + hy * NOSE) / T), true))) && S.eva.canMove(p, x, y));
         // A move along an axis the rover isn't heading on is no move, so it can't count as allowed: head-on into a wall,
         // both are refused and the rover stops dead, with no speed left to show, send or turn with.
         const okX = Math.abs(hx) > 1e-6 && ok(mx, p.y);
@@ -10979,6 +11418,11 @@ p { margin: 0; }
       const dx = r.tx - r.x, dy = r.ty - r.y;
       r.x += dx * k;
       r.y += dy * k;
+      if (r.heading != null) { // the drawn heading eases toward the relayed one, the short way round
+        if (r.shown == null) r.shown = r.heading;
+        const d = r.heading - r.shown;
+        r.shown += (d - Math.round(d / (2 * Math.PI)) * 2 * Math.PI) * k;
+      }
       if (Math.hypot(dx, dy) > 1) r.phase += dt * 6;
       if (r.rover) r.odo = (r.odo || 0) + Math.hypot(dx, dy) * k; // its wheels roll as far as it moves
     }
@@ -11023,7 +11467,7 @@ p { margin: 0; }
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, heading: r.heading, odo: r.odo, bar: S.eva.suitBar(r) });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, heading: r.shown != null ? r.shown : r.heading, odo: r.odo, bar: S.eva.suitBar(r) });
     }
     return out;
   }
@@ -11108,8 +11552,8 @@ p { margin: 0; }
       if (S.prompt.dataset.label !== label) {
         S.prompt.dataset.label = label;
         S.prompt.textContent = '';
-        const k = el('kbd', null, S.touch ? '◉' : 'E');
-        S.prompt.append(k, document.createTextNode(' ' + label));
+        const k = f.kind === 'beacon' && !S.eva.holdable(f) ? null : el('kbd', null, S.touch ? '◉' : 'E'); // no key cap where E does nothing
+        S.prompt.append(...(k ? [k] : []), document.createTextNode((k ? ' ' : '') + label));
       }
     }
     const hintKey = S.player && S.player.inRover ? (S.touch ? 'sf.hintRoverTouch' : 'sf.hintRover') : (S.touch ? 'sf.hintTouch' : 'sf.hintKeys');
@@ -11125,7 +11569,7 @@ p { margin: 0; }
     if (!S.focus) return;
     if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
     if (S.focus.kind === 'rover') { toggleRover(); return; }
-    if (S.focus.kind === 'beacon') return; // where a beacon cannot go: the prompt says why, and there is no menu
+    if (S.focus.kind === 'beacon' || S.focus.kind === 'drop') return; // where a beacon cannot go, or a load will not fit: the prompt says why, and there is no menu
     openMenu();
   }
 
@@ -11138,16 +11582,15 @@ p { margin: 0; }
       p.car = null; // parked: S.roverHeading keeps the way it faces
       refreshWorld(m);
       if (hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
-      S.eva.act('park', p, { driven: S.eva.report().driven }); // with the last bit of driving, so the battery is saved right
-      return;
+      return S.eva.act('park', p, { driven: S.eva.report().driven }); // with the last bit of driving, so the battery is saved right
     }
-    if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return; }
-    if (S.eva.collapsed(S.data.controlId)) return; // down (co-op): you can't get in, not even until the server says no
+    if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return Promise.resolve({ error: 'noRover' }); }
+    if (S.eva.collapsed(S.data.controlId)) return Promise.resolve({ error: 'collapsed' }); // down (co-op): you can't get in, not even until the server says no
     p.inRover = true; // at once, so it feels immediate; in co-op the server may say someone else has it
     p.car = { heading: S.roverHeading || 0, speed: 0 }; // it faces the way it was left
     S.hintUntil = S.time + 12; // the rover's own key hint
     refreshWorld(m);
-    S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } });
+    return S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } return r; });
   }
   // The nearest open spot to stand on, within 3 tiles of (x, y) (world px), for getting out of the rover by a rock.
   function freeSpot(x, y) {
@@ -11533,7 +11976,18 @@ p { margin: 0; }
     clock(s) { S.eva.qaClock(s); }, // solo: jump the round's clock (a flare's warning, its end)
   };
 
-  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});
+  // The Showcase's scene (ui.js asks once the world is up): stand on a tile, get into the rover by the real rule (the E key's
+  // toggleRover, which asks the rules to board), and set the suit and the round clock. Throws when there is nothing to set up.
+  function scene(o) {
+    if (!S || !S.player) throw new Error('the surface is not ready');
+    if (o.at) qa.teleport(o.at[0], o.at[1]);
+    if (o.suit != null) qa.suit(o.suit);
+    if (o.clock != null) qa.clock(o.clock);
+    if (!o.board || S.player.inRover) return Promise.resolve();
+    return toggleRover().then(r => { if (r && r.error) throw new Error('the rover cannot be boarded: ' + r.error); }); // the rules' answer, not the optimistic one
+  }
+
+  root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, scene, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -11541,11 +11995,11 @@ p { margin: 0; }
 /*
  * SOL 500 — the interface: title, payload manifest, operations, debrief, LAN lobby and dialogs.
  * Renders the whole screen from state on every change; the engine does all the simulation.
- * localStorage keys (per browser): sol500.lang, sol500.settings, sol500.names, sol500.badges, sol500.save.
+ * localStorage keys (per browser): sol500.lang, sol500.settings, sol500.names, sol500.badges, sol500.save, sol500.saveQuick.
  */
 (function () {
   'use strict';
-  const D = window.SolData, E = window.SolEngine, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers, G = window.SolGoals;
+  const D = window.SolData, E = window.SolEngine, SV = window.SolSaves, I = window.SolI18n, A = window.SolArt, C = window.SolCharts, N = window.SolNet, W = window.SolWorldgen, F = window.SolFog, X = window.SolExpedition, Z = window.SolDangers, G = window.SolGoals, SH = window.SolShowcase;
   const app = document.getElementById('app');
 
   // ---------- storage (every access guarded: private windows and previews can throw) ----------
@@ -11553,15 +12007,19 @@ p { margin: 0; }
     get(k, d) {
       try { const v = localStorage.getItem('sol500.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; }
     },
-    set(k, v) { try { localStorage.setItem('sol500.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
-    del(k) { try { localStorage.removeItem('sol500.' + k); } catch (e) { /* ignore */ } },
+    // A Showcase demo writes nothing of the game's: only the language and the Display settings (the presenter's own choices) reach the disk.
+    set(k, v) { if (store.demo && !DEMO_KEYS.includes(k)) return; try { localStorage.setItem('sol500.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
+    del(k) { if (store.demo && !DEMO_KEYS.includes(k)) return; try { localStorage.removeItem('sol500.' + k); } catch (e) { /* ignore */ } },
   };
+  const DEMO_KEYS = ['lang', 'settings'];
+
+  const seenList = k => { const rs = LS.get(k, null); return rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }; };
 
   // ---------- state ----------
   const store = {
     lang: LS.get('lang', /^vi/i.test(navigator.language || '') ? 'vi' : 'en'),
     screen: 'title',
-    settings: Object.assign({ difficulty: D.DEFAULT_DIFFICULTY, crewSize: D.DEFAULT_CREW, training: false, gfx: 'best', fpsCap: 0, showFps: false }, LS.get('settings', {})),
+    settings: Object.assign({ difficulty: D.DEFAULT_DIFFICULTY, crewSize: D.DEFAULT_CREW, training: false, length: 'full', gfx: 'best', fpsCap: 0, showFps: false }, LS.get('settings', {})),
     seed: E.newMissionCode(),
     names: LS.get('names', {}),
     loadout: null,
@@ -11574,6 +12032,7 @@ p { margin: 0; }
     advice: null,
     badges: new Set(LS.get('badges', [])),
     newBadges: [],
+    demo: null,           // the Showcase's demo game: null, or { id } of the card being shown
     lanInfo: null,
     lan: null,
     room: null,
@@ -11585,32 +12044,29 @@ p { margin: 0; }
     toast: null,
     prevScreen: null,
     opsView: LS.get('opsView', 'surface'),
-    regionsSeen: (rs => (rs && typeof rs.key === 'string' && Array.isArray(rs.list) ? rs : { key: '', list: [] }))(LS.get('regionsSeen', null)),
+    regionsSeen: seenList('regionsSeen'), // the Full mission's seen-once list; the Quick slot keeps its own in regionsSeenQuick
+    regionsSeenQuick: seenList('regionsSeenQuick'),
     card: null,           // the card over the surface (a region's fact, a point of interest's): see setCard
     fog: {},
     launchSeen: null, // co-op: the launch number of the mission this tab last showed (see SolFog.isNewLaunch)
   };
   // The Display settings (graphics level, FPS limit 0 = Max, readout) stay on this device. A stored value outside its set reads as the default.
-  Object.assign(store.settings, { gfx: store.settings.gfx === 'fast' ? 'fast' : 'best', fpsCap: [30, 60].includes(store.settings.fpsCap) ? store.settings.fpsCap : 0, showFps: store.settings.showFps === true });
-  const saved = LS.get('save', null);
-  if (saved && saved.mission && saved.mission.status === 'active' && saved.mission.version === 2) {
-    // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
-    // A save that can't be read (damaged, or edited by hand) is dropped, so the app still opens on its home screen.
-    try {
-      store.mission = E.upgradeMission(saved.mission, { controlId: LS.get('controlId', null) });
-      store.plan = saved.plan || E.defaultPlan(saved.mission);
-      LS.set('save', { mission: store.mission, plan: store.plan }); // write the upgraded save back straight away
-    } catch (e) {
-      console.warn('SOL 500: dropped a saved mission that could not be read:', e);
-      store.mission = null;
-      store.plan = null;
-      LS.del('save');
-    }
-  }
+  Object.assign(store.settings, { length: store.settings.length === 'quick' ? 'quick' : 'full', gfx: store.settings.gfx === 'fast' ? 'fast' : 'best', fpsCap: [30, 60].includes(store.settings.fpsCap) ? store.settings.fpsCap : 0, showFps: store.settings.showFps === true });
+  // A save from before v3 gets the exploring state; its pilot is the astronaut that player last walked as.
+  // A save that can't be read (damaged, or edited by hand) is dropped from its own slot, so the app still opens on its home screen.
+  // The Full slot opens first; the Quick one is the one resumed when there is no Full mission.
+  const loadSlot = key => {
+    const r = SV.load(LS, key, m => E.upgradeMission(m, { controlId: LS.get('controlId', null) }), E.defaultPlan);
+    return r && { mission: r.mission, plan: r.plan };
+  };
+  const bootSave = loadSlot('save') || loadSlot('saveQuick');
+  if (bootSave) { store.mission = bootSave.mission; store.plan = bootSave.plan; }
   LS.del('controlId'); // replaced by mission.pilot
 
   // ---------- helpers ----------
   const t = (k, p) => I.t(store.lang, k, p);
+  // A source link in the language of the moment (the sources table is I.SOURCES; the label has a Vietnamese form).
+  const srcA = src => h('a', { href: src.url, target: '_blank', rel: 'noopener' }, I.srcLabel(store.lang, Object.keys(I.SOURCES).find(k => I.SOURCES[k] === src)));
   const locale = () => (store.lang === 'vi' ? 'vi-VN' : 'en-US');
   const nf = (n, d) => new Intl.NumberFormat(locale(), { maximumFractionDigits: d || 0, minimumFractionDigits: d || 0 }).format(n);
   const signed = (n, d) => (n > 0.0001 ? '+' : n < -0.0001 ? '−' : '±') + nf(Math.abs(n), d);
@@ -11654,8 +12110,8 @@ p { margin: 0; }
       h('div', { class: 'panel-b' }, body));
   }
 
-  function seg(key, options, value, onPick, disabled) {
-    return h('div', { class: 'seg', role: 'group' }, options.map(o =>
+  function seg(key, options, value, onPick, disabled, label) {
+    return h('div', { class: 'seg', role: 'group', 'aria-label': label || null }, options.map(o =>
       h('button', {
         type: 'button', 'data-k': key + ':' + o.value, 'aria-pressed': String(o.value === value), disabled: disabled || o.disabled,
         title: o.title || null, onclick: () => onPick(o.value),
@@ -11694,13 +12150,14 @@ p { margin: 0; }
   const me = () => (lanOn() ? store.room.players.find(p => p.id === store.lan.playerId) : null);
   const isHost = () => !lanOn() || store.room.hostId === store.lan.playerId;
   // Fog waiting to go to the server: kept until the socket takes it, sent 64 chunks per message.
-  let fogOut = {};
+  let fogOut = {}, fogSent = []; // fogSent: [{ at, part }], what went out lately, in case the socket was half open
   function flushFog() {
     const keys = Object.keys(fogOut);
     for (let i = 0; i < keys.length; i += 64) {
       const part = {};
       for (const k of keys.slice(i, i + 64)) part[k] = fogOut[k];
       if (!N.sendReveal(part)) return;
+      fogSent.push({ at: Date.now(), part });
       for (const k of Object.keys(part)) delete fogOut[k];
     }
   }
@@ -11708,7 +12165,9 @@ p { margin: 0; }
   function forgetFog() {
     store.fog = {};
     fogOut = {};
+    fogSent = [];
     store.launchSeen = null;
+    setCard(null); // and the old mission's card
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
   }
   const mission = () => (lanOn() ? store.room.mission : store.mission);
@@ -11731,16 +12190,17 @@ p { margin: 0; }
 
   // ---------- persistence ----------
   function saveSolo() {
-    if (lanOn()) return;
-    if (store.mission && store.mission.status === 'active') LS.set('save', { mission: store.mission, plan: store.plan });
-    else LS.del('save');
+    if (lanOn() || store.demo) return;
+    if (!store.mission) return;
+    if (store.mission.status === 'active') LS.set(SV.slotOf(store.mission), { mission: store.mission, plan: store.plan });
+    else LS.del(SV.slotOf(store.mission));
   }
   function saveSettings() { LS.set('settings', store.settings); }
 
   // Exploring changes the mission every second, so its save is written at most every few seconds (and on leaving).
   let saveTimer = null;
   function saveSoloSoon() {
-    if (saveTimer) return;
+    if (saveTimer || store.demo) return;
     saveTimer = setTimeout(() => { saveTimer = null; saveSolo(); }, 4000);
   }
   // Phones and installed apps often skip pagehide when the OS kills a backgrounded page, so a hidden page flushes too.
@@ -11750,6 +12210,7 @@ p { margin: 0; }
 
   // ---------- actions ----------
   function go(screen) {
+    if (store.demo && screen === 'title') { leaveDemo(); return; }
     store.screen = screen;
     store.buildType = null;
     render();
@@ -11762,10 +12223,29 @@ p { margin: 0; }
     render();
   }
 
+  const isQuick = () => !lanOn() && store.settings.length === 'quick';
+
+  // Resume a slot from the title. The mission on screen is already saved, so leaving it for the other slot loses nothing.
+  function resumeSlot(key) {
+    flushSolo();
+    if (!(store.mission && store.mission.status === 'active' && SV.slotOf(store.mission) === key)) {
+      const r = loadSlot(key);
+      if (!r) { toast(t('title.resumeDamaged')); return; } // the slot was damaged and is dropped; the title redraws without it
+      unseeUnread(); // a region card closed unread is not marked seen
+      setCard(null); clearTimeout(holdTimer); holdTimer = null; held = []; // the other mission's card does not stay up over this one
+      store.mission = r.mission;
+      store.plan = r.plan;
+      store.report = null;
+      store.advice = null;
+      if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
+    }
+    go('ops');
+  }
+
   function startManifest(training) {
     store.settings.training = !!training;
     saveSettings();
-    if (!store.loadout) store.loadout = E.referenceKit(store.settings.difficulty, store.settings.crewSize);
+    if (!store.loadout) store.loadout = E.referenceKit(store.settings.difficulty, store.settings.crewSize, isQuick());
     go('manifest');
   }
 
@@ -11778,9 +12258,11 @@ p { margin: 0; }
   function startMission(pilot) {
     const s = E.createMission({
       seed: (store.seed || '').trim() || E.newMissionCode(), loadout: store.loadout, difficulty: store.settings.difficulty,
-      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot,
+      crewSize: store.settings.crewSize, events: !store.settings.training, names: store.names, pilot, quick: isQuick(),
     });
     G.pick(s); // round 1's goals; each advance picks the next round's
+    held = [];
+    setCard(null); // the last mission's card ("Fly again" reuses the code)
     store.mission = s;
     store.plan = E.defaultPlan(s);
     store.report = null;
@@ -11823,6 +12305,7 @@ p { margin: 0; }
   }
 
   function checkBadges(state) {
+    if (store.demo) return;
     const got = E.achievements(state);
     const fresh = got.filter(b => !store.badges.has(b));
     fresh.forEach(b => store.badges.add(b));
@@ -11840,7 +12323,7 @@ p { margin: 0; }
     store.advice = null;
     checkBadges(state);
     // Served by a SOL 500 server (not the offline file): the host's admin panel records the finished mission.
-    if (state.status !== 'active' && store.lanInfo && N) N.recordSolo(state, store.lanForm.name || '');
+    if (state.status !== 'active' && store.lanInfo && N && !store.demo) N.recordSolo(state, store.lanForm.name || '');
     store.modal = 'report';
     saveSolo();
     render();
@@ -11855,25 +12338,28 @@ p { margin: 0; }
   }
 
   function flyAgain() {
+    if (store.demo) { leaveDemo(); return; }
     const s = mission();
     if (lanOn()) { N.act('restart'); return; }
     store.seed = s.seed;
     store.settings.difficulty = s.difficulty;
     store.settings.crewSize = s.crewSize;
     store.settings.training = !s.eventsOn;
+    store.settings.length = s.quick ? 'quick' : 'full';
     store.loadout = Object.assign({}, s.loadout);
+    LS.del(SV.slotOf(s)); // the finished mission's own slot only; saveSolo no longer deletes once the mission is gone
     store.mission = null;
     store.plan = null;
-    saveSolo();
     go('manifest');
   }
 
   function newMission() {
+    if (store.demo) { leaveDemo(); return; }
     if (lanOn()) { N.act('restart'); return; }
+    if (store.mission) LS.del(SV.slotOf(store.mission));
     store.mission = null;
     store.plan = null;
     store.seed = E.newMissionCode();
-    saveSolo();
     go('title');
   }
 
@@ -11900,7 +12386,10 @@ p { margin: 0; }
   function viewTitle() {
     const st = store.settings;
     const diffOpts = Object.keys(D.DIFFICULTY).map(k => ({ value: k, label: t('diff.' + k) }));
-    const resume = store.mission && store.mission.status === 'active' && !lanOn();
+    const slots = lanOn() ? { save: null, saveQuick: null } : SV.summary(LS);
+    const resume = ['save', 'saveQuick'].filter(k => slots[k]).map(k => h('button', {
+      class: 'btn btn-lg', type: 'button', 'data-k': 'resume:' + k, onclick: () => resumeSlot(k),
+    }, t(k === 'saveQuick' ? 'title.resumeQuick' : 'title.resume', { sol: slots[k].sol })));
     return [
       topbar(),
       h('section', { class: 'title-hero' },
@@ -11919,6 +12408,11 @@ p { margin: 0; }
             seg('diff', diffOpts, st.difficulty, v => { st.difficulty = v; store.loadout = null; saveSettings(); render(); }),
             h('p', { class: 'hint' }, t('diff.' + st.difficulty + '.hint'))),
           h('div', { class: 'setup-row' },
+            h('span', { class: 'label eyebrow' }, t('title.length')),
+            seg('length', [{ value: 'full', label: t('length.full') }, { value: 'quick', label: t('length.quick') }], st.length,
+              v => { st.length = v; store.loadout = null; saveSettings(); render(); }),
+            h('p', { class: 'hint' }, t(st.length === 'quick' ? 'length.quickHint' : 'length.fullHint'))),
+          h('div', { class: 'setup-row' },
             h('span', { class: 'label eyebrow' }, t('title.crew')),
             seg('crew', [{ value: 4, label: t('crew.four') }, { value: 5, label: t('crew.five') }], st.crewSize,
               v => { st.crewSize = v; store.loadout = null; saveSettings(); render(); }),
@@ -11934,8 +12428,8 @@ p { margin: 0; }
             h('p', { class: 'hint' }, t('title.codeHint'))),
           h('div', { class: 'setup-actions' },
             h('button', { class: 'btn btn-primary btn-lg', type: 'button', 'data-k': 'start', onclick: () => startManifest(false) }, ico('rocket', 20), t('title.start')),
-            h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'train', onclick: () => startManifest(true), title: t('title.trainingHint') }, t('title.training')),
-            resume ? h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'resume', onclick: () => go('ops') }, t('title.resume', { sol: store.mission.sol })) : null,
+            h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'train', onclick: () => startManifest(true), title: t('title.trainingHint'), disabled: st.length === 'quick' }, t('title.training')),
+            resume,
             installButton()),
           h('p', { class: 'hint' }, t('title.trainingHint')),
           h('div', { class: 'divider' }),
@@ -11980,8 +12474,8 @@ p { margin: 0; }
   const GROUP_COLOR = { hq: '#8f7f78', power: '#e9a13b', life: '#7fd1a0', shield: '#6fa8ff', science: '#d69cf0', supplies: '#d9aa7a' };
 
   function manifestSettings() {
-    if (lanOn()) return { difficulty: store.room.settings.difficulty, crewSize: store.room.settings.crewSize };
-    return { difficulty: store.settings.difficulty, crewSize: store.settings.crewSize };
+    if (lanOn()) return { difficulty: store.room.settings.difficulty, crewSize: store.room.settings.crewSize, quick: false };
+    return { difficulty: store.settings.difficulty, crewSize: store.settings.crewSize, quick: isQuick() };
   }
 
   function currentLoadout() {
@@ -11996,9 +12490,9 @@ p { margin: 0; }
   }
 
   function viewManifest() {
-    const { difficulty, crewSize } = manifestSettings();
+    const { difficulty, crewSize, quick } = manifestSettings();
     const L = currentLoadout();
-    const sum = E.summarizeLoadout(L, difficulty, crewSize);
+    const sum = E.summarizeLoadout(L, difficulty, crewSize, quick);
     const editable = isHost();
     const scaleMax = Math.max(sum.budget * 1.12, sum.mass);
     const segs = [['hq', D.HAB.mass]];
@@ -12056,7 +12550,7 @@ p { margin: 0; }
         h('p', { class: 'fact-line' }, t('item.' + id + '.fact'))),
       h('div', { class: 'qty' },
         h('div', { class: 'stepper' },
-          h('button', { type: 'button', 'data-k': 'dec:' + id, 'aria-label': '−1 ' + t('item.' + id + '.name'), disabled: !editable || n <= 0, onclick: () => change(-1) }, '−'),
+          h('button', { type: 'button', 'data-k': 'dec:' + id, 'aria-label': '−1 ' + t('item.' + id + '.name'), disabled: !editable || n <= (id === 'rover' && isQuick() ? 1 : 0), onclick: () => change(-1) }, '−'),
           h('output', { 'aria-live': 'polite' }, String(n)),
           h('button', { type: 'button', 'data-k': 'inc:' + id, 'aria-label': '+1 ' + t('item.' + id + '.name'), disabled: !editable || n >= it.max, onclick: () => change(1) }, '+')),
         h('span', { class: 'sub num' }, nf(n * it.mass, 2) + ' t · ' + t('man.each', { m: nf(it.mass, 2) }))));
@@ -12094,12 +12588,12 @@ p { margin: 0; }
       sum.warnings.length
         ? h('ul', { class: 'warnlist' }, sum.warnings.map(w => {
           const crit = ['over_budget', 'power_short', 'no_recycler', 'o2_short', 'water_short'].includes(w);
-          return h('li', { class: crit ? 'crit' : 'warn' }, ico(crit ? 'crit' : 'warn', 16), h('span', { style: 'color:var(--fg)' }, t('mwarn.' + w)));
+          return h('li', { class: crit ? 'crit' : 'warn' }, ico(crit ? 'crit' : 'warn', 16), h('span', { style: 'color:var(--fg)' }, t('mwarn.' + w, { end: sum.mission })));
         }))
         : h('p', { class: 'ok' }, ico('ok', 16), ' ', t('rev.clear')),
       h('div', { class: 'setup-actions' },
-        h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'ref', disabled: !editable, onclick: () => { const ms = manifestSettings(); setLoadout(E.referenceKit(ms.difficulty, ms.crewSize)); } }, t('man.reference')),
-        h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'empty', disabled: !editable, onclick: () => setLoadout(E.normalizeLoadout({})) }, t('man.clear'))),
+        h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'ref', disabled: !editable, onclick: () => { const ms = manifestSettings(); setLoadout(E.referenceKit(ms.difficulty, ms.crewSize, ms.quick)); } }, t('man.reference')),
+        h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'empty', disabled: !editable, onclick: () => setLoadout(E.normalizeLoadout(isQuick() ? { rover: 1 } : {})) }, t('man.clear'))),
       launchButton(sum, editable),
     ]);
   }
@@ -12137,14 +12631,17 @@ p { margin: 0; }
         h('span', { class: 'eyebrow' }, t('pilot.step') + ' · ' + t('diff.' + store.settings.difficulty)),
         h('h1', { style: 'font-size:var(--fs-2xl)' }, t('pilot.title')),
         h('p', { class: 'muted', style: 'max-width:70ch' }, t('pilot.lead')),
-        h('div', { class: 'pilot-grid' }, crew.map((c, i) => h('button', {
-          type: 'button', class: 'pilot-card', 'data-k': 'pilot:' + c.id, onclick: () => startMission(c.id),
-        },
-          h('span', { html: A.portrait(c.role, 72, { variant: i }) }),
-          h('b', null, crewName(c.id)),
-          h('span', { class: 'role-tag', style: 'color:' + A.ROLE[c.role] }, t('role.' + c.role)),
-          h('span', { class: 'hint' }, t('role.' + c.role + '.skill')),
-          h('span', { class: 'btn btn-primary btn-sm' }, t('pilot.pick', { name: crewName(c.id) }))))),
+        // The source is a link, so it sits beside the picking button, not inside it (a link in a button is invalid).
+        h('div', { class: 'pilot-grid' }, crew.map((c, i) => h('div', { class: 'pilot-card' },
+          h('button', { type: 'button', class: 'pilot-pick', 'data-k': 'pilot:' + c.id, onclick: () => startMission(c.id) },
+            h('span', { html: A.portrait(c.role, 72, { variant: i }) }),
+            h('b', null, crewName(c.id)),
+            h('span', { class: 'role-tag', style: 'color:' + A.ROLE[c.role] }, t('role.' + c.role)),
+            h('span', { class: 'hint' }, t('role.' + c.role + '.skill')),
+            c.role === 'commander' ? h('span', { class: 'hint' }, t('role.commander.seat')) : null,
+            h('span', { class: 'hint role-fact' }, t('role.' + c.role + '.fact')),
+            h('span', { class: 'btn btn-primary btn-sm' }, t('pilot.pick', { name: crewName(c.id) }))),
+          h('p', { class: 'src' }, srcA(I.SOURCES[I.ROLE_SOURCES[c.role]]))))),
         h('div', { class: 'setup-actions' },
           h('button', { class: 'btn btn-ghost', type: 'button', 'data-k': 'pilot-back', onclick: () => go('manifest') }, t('pilot.back')))),
     ];
@@ -12162,7 +12659,7 @@ p { margin: 0; }
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
   function setCard(c) {
     store.card = c;
-    if (!c) clearTimeout(cardTimer);
+    if (!c) { clearTimeout(cardTimer); cardLeft = null; }
     const stage = document.querySelector('.sf-stage');
     if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
     const old = stage.querySelector('.region-card'), card = surfaceCard();
@@ -12175,14 +12672,19 @@ p { margin: 0; }
   // The mouse or the focus leaving the card (see surfaceCard) starts the 15 s again. Touch never holds it: :hover sticks
   // after a tap, so only a mouse (hover: hover) counts.
   const canHover = () => !!window.matchMedia && window.matchMedia('(hover: hover)').matches;
+  const onConsole = () => store.screen === 'ops' && store.opsView === 'console'; // the card is on the surface: out of sight here
   function reading() {
     const card = document.querySelector('.region-card');
     return !!card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement));
   }
-  function armCardTimer() {
+  // The console takes the surface out of sight: setOpsView holds the card's time left (cardLeft) and gives it back on return.
+  let cardDue = 0, cardLeft = null;
+  function armCardTimer(ms = 15000) {
     clearTimeout(cardTimer);
+    cardLeft = null;
     if (!store.card) return;
-    cardTimer = setTimeout(() => { if (reading()) armCardTimer(); else closeCard(); }, 15000);
+    cardDue = Date.now() + ms;
+    cardTimer = setTimeout(() => { if (reading() || onConsole()) armCardTimer(); else closeCard(); }, ms);
   }
 
   // A card that comes while another opened less than 8 s ago is still up waits, in order, so a hab pod's log or a formation's
@@ -12200,9 +12702,9 @@ p { margin: 0; }
   }
   function nextCard() {
     holdTimer = null;
-    if (held.length && reading()) { holdTimer = setTimeout(nextCard, CARD_HOLD); return; }
-    const key = missionKey();
-    held = held.filter(e => e.key === key);
+    const key = missionKey(), s = mission();
+    held = s && s.status === 'active' ? held.filter(e => e.key === key) : [];
+    if (held.length && (reading() || onConsole())) { holdTimer = setTimeout(nextCard, CARD_HOLD); return; }
     if (held.length) openCard(held.shift().c);
   }
   function closeCard() {
@@ -12211,26 +12713,48 @@ p { margin: 0; }
     nextCard();
   }
   function arrive(c) {
-    if (holdTimer) held.push({ c, key: missionKey() });
-    else openCard(c);
+    if (holdTimer || (store.card && reading())) {
+      held.push({ c, key: missionKey() });
+      if (!holdTimer) holdTimer = setTimeout(nextCard, CARD_HOLD);
+    } else openCard(c);
   }
 
   // Is this the first time the card of `id` (a region, or a point of interest) comes up in this mission and mode?
-  function firstTime(id) {
+  // With a `kind` (a story log's or a fact's), also only the first of its kind: there are 6 log texts and 7 facts.
+  function firstTime(id, kind) {
     const key = missionKey();
-    if (store.regionsSeen.key !== key) store.regionsSeen = { key, list: [] };
-    if (store.regionsSeen.list.includes(id)) return false;
-    store.regionsSeen.list.push(id);
-    LS.set('regionsSeen', store.regionsSeen);
-    return true;
+    // A demo keeps its own list, in memory: the device's list is neither read nor changed.
+    const slot = mission() && mission().quick ? 'regionsSeenQuick' : 'regionsSeen'; // each slot keeps its own list
+    let rs = store.demo ? demoSeen : store[slot];
+    if (rs.key !== key) { rs = { key, list: [] }; if (store.demo) demoSeen = rs; else store[slot] = rs; }
+    const kinds = rs.kinds || (rs.kinds = []);
+    const newId = !rs.list.includes(id), newKind = !kind || !kinds.includes(kind);
+    if (newId) rs.list.push(id);
+    if (kind && newKind) kinds.push(kind);
+    if (newId || (kind && newKind)) LS.set(slot, rs);
+    return newId && newKind;
   }
 
-  function showRegionCard(id) {
-    if (firstTime(id)) arrive({ type: 'region', id });
+  // Resume drops the card up and the cards waiting, unread: their regions come up again the next time (a fact or a log keeps its mark).
+  const unread = new Set(); // mission key + region id: visited, but its card was dropped unread
+  function unseeUnread() {
+    const slot = mission() && mission().quick ? 'regionsSeenQuick' : 'regionsSeen', rs = store.demo ? demoSeen : store[slot];
+    const ids = [store.card].concat(held.map(e => e.c)).filter(c => c && c.type === 'region' && !c.again).map(c => c.id);
+    ids.forEach(id => unread.add(missionKey() + id)); // solo: the mission's own record keeps the region visited
+    if (!rs || rs.key !== missionKey()) return;
+    rs.list = rs.list.filter(id => !ids.includes(id));
+    if (!store.demo) LS.set(slot, rs);
+  }
+
+  function showRegionCard(id, soloFirst) {
+    if (store.demo) return; // a scene's own card and the demo bar say what it shows; a region card would cover both
+    const first = firstTime(id), again = unread.delete(missionKey() + id); // firstTime also keeps the device's list for the Science notes
+    if (soloFirst == null ? first : soloFirst || again) arrive({ type: 'region', id });
   }
 
   // The region's name on the surface was selected: read its card again, for another 15 s.
   function reopenRegionCard(id) {
+    held = held.filter(e => e.c.id !== id);
     openCard({ type: 'region', id, again: true });
   }
 
@@ -12252,7 +12776,7 @@ p { margin: 0; }
       if (waits.c.science == null && c.science != null) waits.c = Object.assign({}, waits.c, { science: c.science });
       return;
     }
-    if (c.type !== 'landmark' && !firstTime(c.id)) return;
+    if (c.type !== 'landmark' && !firstTime(c.id, c.type + ':' + c.kind)) return;
     arrive(c);
   }
 
@@ -12267,7 +12791,7 @@ p { margin: 0; }
   // What a card says, in the language of the moment: { cls, eyebrow, title, meta, body, src } (meta: a discovery's reward
   // and finder; src: a real fact's source, when the sources table has it).
   function cardText(c) {
-    if (c.type === 'region') return { cls: '', eyebrow: t(c.again ? 'region.note' : 'region.new'), title: t('region.' + c.id), body: t('region.fact.' + c.id), src: I.SOURCES[I.REGION_SOURCES[c.id]] };
+    if (c.type === 'region') return { cls: '', eyebrow: t(c.again ? 'region.note' : 'region.new'), title: t('region.' + c.id), body: t('region.fact.' + c.id), src2: I.REGION_EXTRA_SOURCES[c.id] ? I.SOURCES[I.REGION_EXTRA_SOURCES[c.id]] : null, src: I.SOURCES[I.REGION_SOURCES[c.id]] };
     if (c.type === 'landmark') {
       const stem = D.LANDMARKS.kinds[c.kind].fact, meta = [c.science != null ? t('haul.science', { n: nf(c.science) }) : null, c.by ? t('disc.by', { name: crewName(c.by) }) : null];
       const src = I.LANDMARK_SOURCES ? I.SOURCES[I.LANDMARK_SOURCES[c.kind]] : null;
@@ -12282,7 +12806,7 @@ p { margin: 0; }
   }
   function surfaceCard() {
     if (!store.card) return null;
-    const { cls, eyebrow, title, meta, body, src } = cardText(store.card);
+    const { cls, eyebrow, title, meta, body, src, src2 } = cardText(store.card);
     const card = h('aside', {
       class: 'region-card' + cls, role: 'status', 'aria-live': 'polite',
       onpointerleave: e => { if (e.pointerType === 'mouse') armCardTimer(); },
@@ -12294,7 +12818,7 @@ p { margin: 0; }
       h('h3', null, title),
       meta ? h('p', { class: 'meta' }, meta) : null,
       h('p', null, body),
-      src ? h('p', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null);
+      src ? h('p', { class: 'src' }, t('region.source') + ': ', srcA(src), src2 ? [' · ', srcA(src2)] : null) : null);
     return card;
   }
 
@@ -12336,12 +12860,12 @@ p { margin: 0; }
     const cards = foundCards(s);
     return h('article', { class: 'note found' }, h('h3', null, t('notes.found')),
       cards.length ? h('ul', { class: 'found-list' }, cards.map(c => {
-        const { cls, eyebrow, title, meta, body, src } = cardText(c);
+        const { cls, eyebrow, title, meta, body, src, src2 } = cardText(c);
         const k = c.type + ':' + c.id;
         return h('li', { class: cls.trim() || null }, h('details', { open: foundOpen.has(k), ontoggle: e => { if (e.target.open) foundOpen.add(k); else foundOpen.delete(k); } },
           h('summary', { 'data-k': 'found:' + k }, h('span', { class: 'eyebrow' }, eyebrow), h('b', null, title), meta ? h('span', { class: 'meta' }, meta) : null),
           h('p', null, body),
-          src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
+          src ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(src), src2 ? [' · ', srcA(src2)] : null) : null));
       })) : h('p', null, t('notes.foundNone')));
   }
 
@@ -12366,7 +12890,9 @@ p { margin: 0; }
   }
 
   function setOpsView(v) {
+    if (store.card && v === 'console' && store.opsView !== 'console') { cardLeft = Math.max(0, cardDue - Date.now()); clearTimeout(cardTimer); }
     store.opsView = v;
+    if (v !== 'console' && cardLeft != null && store.card) armCardTimer(cardLeft);
     LS.set('opsView', v);
     render();
   }
@@ -12399,14 +12925,16 @@ p { margin: 0; }
     enterRegion: id => {
       const s = mission();
       if (!s || !s.expedition || !W.REGIONS.includes(id)) return;
-      if (!s.expedition.regions.includes(id)) {
+      const first = !s.expedition.regions.includes(id);
+      if (first) {
         if (lanOn()) N.act('region', { region: id });
         else { s.expedition.regions.push(id); saveSoloSoon(); }
       }
-      showRegionCard(id);
+      showRegionCard(id, lanOn() ? null : first); // solo: this mission's own record, not the device's slot
     },
     reopenRegion: id => { if (W.REGIONS.includes(id)) reopenRegionCard(id); },
     card: c => showCard(c),
+    cardUp: () => !!store.card, // the surface says the round brief again once the card over it closes
     // This round's goals for the surface's HUD column (spec §3.9): [{ text, done, frac }], frac 0-1; empty when there are none.
     // The HUD asks twice a second, so the Expedition panel beside it follows here too (followGoals).
     goals: () => followGoals(goalsOf(mission())).map(g => ({
@@ -12580,7 +13108,7 @@ p { margin: 0; }
     return panel(t(own ? 'seat.lost' : 'seat.none'), [
       h('p', { class: 'muted' }, t(free.length ? 'seat.pick' : 'seat.watch')),
       free.length ? h('div', { class: 'seat-list' }, free.map(c => h('button', {
-        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => N.act('claim', { crewId: c.id }),
+        class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'seat:' + c.id, onclick: () => claimSeat(c.id),
       }, t('seat.take', { name: crewName(c.id), role: t('role.' + c.role) })))) : null,
     ]);
   }
@@ -12622,6 +13150,7 @@ p { margin: 0; }
     const s = mission();
     const p = currentPlan();
     if (!s || !p) return viewTitle();
+    goalsOf(s); // brings the goals up to date before the forecast reads them
     const f = E.forecast(s, p);
     if (store.opsView !== 'console' && window.SolSurface) {
       return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
@@ -12641,9 +13170,10 @@ p { margin: 0; }
     const weather = s.schedule[s.turn].weather;
     const next = X.forecastAhead(s); // a repaired weather station's forecast (C1): next round's weather, or null
     const wx = w => (w === 'global' ? 'crit' : w === 'regional' ? 'warn' : '');
-    const remaining = (D.TURNS - s.turn) * D.TURN_SOLS;
-    const track = h('div', { class: 'track', 'aria-label': t('ops.round', { n: s.turn + 1, m: D.TURNS }) },
-      Array.from({ length: D.TURNS }, (_, i) => {
+    const turns = E.turnsOf(s);
+    const remaining = (turns - s.turn) * D.TURN_SOLS;
+    const track = h('div', { class: 'track', 'aria-label': t('ops.round', { n: s.turn + 1, m: turns }) },
+      Array.from({ length: turns }, (_, i) => {
         let cls = '';
         if (i < s.turn) { const w = s.history[i + 1] && s.history[i + 1].weather; cls = 'done' + (w && w !== 'clear' ? ' ' + w : ''); }
         if (i === s.turn) cls = 'now';
@@ -12665,11 +13195,11 @@ p { margin: 0; }
         h('div', { class: 'solclock' },
           h('button', { class: 'brand brand-mini', type: 'button', title: t('nav.home'), 'aria-label': t('nav.home'), onclick: () => { if (!lanOn()) { store.modal = 'confirm'; render(); } } }, ico('flag', 16)),
           h('b', null, t('ops.sol', { sol: s.sol })),
-          h('span', { class: 'muted num' }, '/ ' + D.TURNS * D.TURN_SOLS),
-          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: D.TURNS }))),
+          h('span', { class: 'muted num' }, '/ ' + turns * D.TURN_SOLS),
+          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: turns }))),
         track,
         h('div', { class: 'topbar-actions' },
-          h('span', { class: 'chip' }, t(seasonKey(season.ls)) + ' · Ls ' + Math.round(season.ls) + '°'),
+          h('span', { class: 'chip', title: t(seasonKey(season.ls)) }, t(seasonKey(season.ls) + '.short') + ' · Ls ' + Math.round(season.ls) + '°'),
           h('span', { class: 'wxs' }, // this round's weather, with a repaired weather station's forecast stacked under it
             h('span', { class: 'chip ' + wx(weather) }, t('weather.' + weather)),
             next ? h('span', { class: 'chip fc ' + wx(next), title: t('eva.forecastBy') }, t('eva.forecast', { w: t('weather.' + next) })) : null),
@@ -12720,7 +13250,8 @@ p { margin: 0; }
   function eventsPanel(s, p) {
     const decisions = (s.events || []).filter(e => e.options);
     const infos = (s.events || []).filter(e => !e.options);
-    if (!decisions.length && !infos.length) return null;
+    const flareDue = s.quick === true && s.turn === D.QUICK.flareTurn; // the Quick mission's set flare: invite the player outside
+    if (!decisions.length && !infos.length && !flareDue) return null;
     const optionDisabled = (e, o) => (e.type === 'water_leak' && o === 'patch' && s.resources.spares < 1) ||
       (e.type === 'perchlorate' && o === 'wash' && s.resources.water < D.PERCHLORATE_WASH_WATER);
     return panel(t('panel.events'), h('div', { class: 'events' },
@@ -12735,7 +13266,8 @@ p { margin: 0; }
           onclick: () => choose(e.type, o),
         }, h('b', null, t('ev.' + e.type + '.' + o)), h('span', null, t('ev.' + e.type + '.' + o + '.hint'))))))),
       infos.length ? h('div', { class: 'infos' }, infos.map(e => h('div', { class: 'info-ev' },
-        h('b', null, eventText(e, 'title')), h('span', null, eventText(e, 'body'))))) : null));
+        h('b', null, eventText(e, 'title')), h('span', null, eventText(e, 'body'))))) : null,
+      flareDue ? h('div', { class: 'info-ev', 'data-k': 'quick-flare' }, h('span', null, t('quick.flareHint'))) : null));
   }
 
   // ----- outpost map -----
@@ -13096,7 +13628,7 @@ p { margin: 0; }
         ? h('div', { class: 'advice', 'aria-live': 'polite' },
           h('span', { class: 'head' }, ico('radio', 12), ' ', t('earth.adviceHead', { m: lightDelay(s.sol) })),
           h('ol', null, adviceNow.items.map(a => h('li', null, t('advice.' + a.code, {
-            sols: a.sols, name: a.crewId ? crewName(a.crewId) : '', module: a.module ? t('mod.' + a.module) : '',
+            sols: a.sols, name: a.crewId ? crewName(a.crewId) : '', module: a.module ? t('mod.' + a.module) : '', end: E.turnsOf(s) * D.TURN_SOLS,
           })))),
           h('span', { class: 'hint' }, t('earth.adviceUsed')))
         : h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'advice', disabled: blackout, onclick: askAdvice }, ico('radio', 14), t('earth.advice'))));
@@ -13211,8 +13743,9 @@ p { margin: 0; }
     const charts = h('div', { class: 'charts' });
     const H = s.history;
     const pts = key => H.map(x => [x.sol, x[key]]);
+    const xMax = E.turnsOf(s) * D.TURN_SOLS; // the mission's own last sol (500 for a Full mission)
     C.lineChart(charts, {
-      title: t('ch.stocks'), unit: 'kg', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.stocks'),
+      xMax, title: t('ch.stocks'), unit: 'kg', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.stocks'),
       series: [
         { name: t('hud.o2'), color: STOCK_COLORS.o2, points: pts('o2') },
         { name: t('hud.water'), color: STOCK_COLORS.water, points: pts('water') },
@@ -13220,12 +13753,12 @@ p { margin: 0; }
       ],
     });
     C.lineChart(charts, {
-      title: t('ch.dose'), unit: 'mSv', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.dose'),
+      xMax, title: t('ch.dose'), unit: 'mSv', xLabel: t('ch.sol'), fmt: v => nf(v), tableLabel: t('ch.dose'),
       refLines: [{ y: D.DOSE_LIMIT, label: t('ch.limit') }],
       series: s.crew.map((c, i) => ({ name: crewName(c.id), color: CHART_ROLE[c.role], points: H.map(x => [x.sol, x.doses[i]]) })),
     });
     C.lineChart(charts, {
-      title: t('ch.power'), unit: 'kW', xLabel: t('ch.sol'), fmt: v => nf(v, 1), tableLabel: t('ch.power'),
+      xMax, title: t('ch.power'), unit: 'kW', xLabel: t('ch.sol'), fmt: v => nf(v, 1), tableLabel: t('ch.power'),
       series: [
         { name: t('ch.supply'), color: '#3987e5', points: H.filter(x => x.supply != null).map(x => [x.sol - D.TURN_SOLS, x.supply]) },
         { name: t('ch.load'), color: '#d95926', points: H.filter(x => x.load != null).map(x => [x.sol - D.TURN_SOLS, x.load]) },
@@ -13245,8 +13778,9 @@ p { margin: 0; }
       h('section', { class: 'deb-hero' + (success ? '' : ' lost') },
         h('div', null,
           h('span', { class: 'eyebrow' }, t('deb.code') + ' · ' + s.seed + ' · ' + t('diff.' + s.difficulty)),
+          s.quick ? h('span', { class: 'chip', 'data-k': 'quick-tag' }, t('quick.tag')) : null,
           h('h1', null, success ? t('deb.success') : t('deb.lost', { sol: s.endCause ? s.endCause.sol : s.sol })),
-          h('p', null, success ? t('deb.successBody', { n: alive, m: s.crew.length }) : t('cause.' + ((s.endCause && s.endCause.reason) || 'health')))),
+          h('p', null, success ? t('deb.successBody', { n: alive, m: s.crew.length, end: E.turnsOf(s) * D.TURN_SOLS }) : t('cause.' + ((s.endCause && s.endCause.reason) || 'health')))),
         h('div', { class: 'grade', 'aria-label': t('deb.grade') + ' ' + sc.grade }, sc.grade, h('small', null, nf(sc.total)))),
       panel(t('deb.crew'), h('div', { class: 'deb-crew' }, s.crew.map((c, i) => h('div', { class: 'c' },
         h('div', { html: A.portrait(c.role, 44, { variant: i, status: c.status }) }),
@@ -13262,8 +13796,8 @@ p { margin: 0; }
               h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total))))), mapHint]),
           panel(t('deb.lessons'), h('div', { class: 'lessons' }, lessonsFor(s).map(([k, src]) => h('article', { class: 'lesson' },
             h('h3', null, t('lesson.' + k + '.title')),
-            h('p', null, t('lesson.' + k + '.body')),
-            src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label)))))),
+            h('p', null, t('lesson.' + k + '.body', { end: E.turnsOf(s) * D.TURN_SOLS, tonnes: nf(D.FOOD_PER_CREW * s.crew.length * E.turnsOf(s) * D.TURN_SOLS / 1000, 1) })),
+            src.map(id => srcA(I.SOURCES[id])))))),
           panel(t('deb.badges'), h('div', { class: 'badges' }, earned.length
             ? earned.map(b => badgeCard(b, true, store.newBadges.includes(b)))
             : h('p', { class: 'hint' }, t('ach.locked'))))),
@@ -13277,7 +13811,7 @@ p { margin: 0; }
   }
 
   // Weather is its own column entry; breakdowns and injuries are listed as outcomes of the round before.
-  const LOG_SKIP = ['landing', 'breakdown', 'injury', 'dust_regional', 'dust_global', 'supply_arrived'];
+  const LOG_SKIP = ['landing', 'landing_quick', 'breakdown', 'injury', 'dust_regional', 'dust_global', 'supply_arrived'];
 
   function logTable(s) {
     const evName = type => (I.has(store.lang, 'ev.' + type + '.title') ? t('ev.' + type + '.title', { module: '', name: '' }).replace(/\s+/g, ' ').trim() : type);
@@ -13337,7 +13871,7 @@ p { margin: 0; }
         h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
           h('button', {
             class: 'btn btn-sm', type: 'button', 'data-k': 'online-copy',
-            onclick: () => navigator.clipboard.writeText(o.url).then(() => toast(t('online.copied')), () => {}),
+            onclick: () => navigator.clipboard.writeText(o.url).then(() => toast(t('online.copied')), () => toast(t('online.copyFailed'))),
           }, t('online.copy')),
           h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-stop', onclick: () => window.solApp.stopOnline() }, t('online.stop'))),
         h('img', { src: o.qr, alt: t('online.qr'), width: 160, height: 160, style: 'border-radius:8px;background:#fff;padding:6px' }),
@@ -13347,7 +13881,7 @@ p { margin: 0; }
         h('p', { class: 'muted' }, t(o.state === 'downloading' ? 'online.downloading' : 'online.starting')),
         h('button', { class: 'btn btn-sm btn-ghost', type: 'button', 'data-k': 'online-cancel', onclick: () => window.solApp.stopOnline() }, t('online.cancel')));
     } else {
-      if (o.error) body.push(h('p', { class: 'crit' }, t('online.error')));
+      if (o.error) body.push(h('p', { class: 'crit' }, t(o.error === 'hashMismatch' ? 'online.errorHash' : 'online.error')));
       body.push(h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'online-start', onclick: () => startOnline(false) }, ico('wifi', 16), t('online.start')));
     }
     return body;
@@ -13413,7 +13947,7 @@ p { margin: 0; }
             mineSlot
               ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => N.act('claim', { crewId: null }) }, t('lan.leave'))
               // A seat whose player has gone (closed tab, old share link) can be taken back.
-              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!(owner && owner.connected), onclick: () => N.act('claim', { crewId: c.id }) }, t('lan.take')));
+              : h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !!(owner && owner.connected), onclick: () => claimSeat(c.id) }, t('lan.take')));
         })))),
       h('div', { class: 'deb-actions' },
         h('button', { class: 'btn btn-ghost', type: 'button', onclick: leaveRoom }, t('lan.leave'))),
@@ -13466,14 +14000,25 @@ p { margin: 0; }
       return;
     }
     store.lanStatus = status;
+    if (status === 'open') { // fog sent in the last 30 s may have gone into a dead socket: send it again (the server's merge is safe to repeat)
+      for (const e of fogSent) if (Date.now() - e.at < 30000) F.mergeMap(fogOut, e.part);
+      fogSent = [];
+    }
     // Fog seen while the socket was down is sent by onRoom, once the first room frame says which mission the server is on:
     // sending it here could put an old mission's fog into a new mission or room.
     render();
   }
 
+  // A seat claim the server refused says why (a dead astronaut, a seat just taken), instead of failing in silence.
+  function claimSeat(crewId) {
+    return N.act('claim', { crewId }).then(r => {
+      if (r && r.error) toast(t(r.error === 'deadCrew' ? 'lan.deadCrew' : r.error === 'taken' ? 'lan.seatTaken' : 'eva.err.' + (I.has(store.lang, 'eva.err.' + r.error) ? r.error : 'net')));
+    });
+  }
+
   async function hostRoom(name) {
     const r = await N.create(name);
-    if (r.error) { store.lanError = t('lan.' + r.error) || r.error; render(); return; }
+    if (r.error) { store.lanError = I.has(store.lang, 'lan.' + r.error) ? t('lan.' + r.error) : r.error; render(); return; }
     store.lan = N.session();
     store.modal = null;
     N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing);
@@ -13563,7 +14108,7 @@ p { margin: 0; }
           const e = guideEntry(id), src = e.src && I.SOURCES[e.src];
           return h('li', { class: 'guide-item', 'data-k': 'guide:' + id }, h('span', { class: 'guide-art', html: e.art }),
             h('div', null, h('b', null, e.name), h('p', { class: 'muted' }, e.desc), e.fact ? h('p', { class: 'guide-fact' }, e.fact) : null,
-              src ? h('div', { class: 'src' }, t('region.source') + ': ', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label)) : null));
+              src ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(src)) : null));
         })))),
       ], null, true);
     }
@@ -13574,7 +14119,7 @@ p { margin: 0; }
         h('span', { class: 'eyebrow' }, t('story.step', { n: n + 1, m: pages.length })),
         h('h3', { class: 'story-h' }, p.title),
         h('p', { class: 'story-p' }, p.body),
-        h('div', { class: 'src' }, t('region.source') + ': ', p.src.map((id, i) => [i ? ' · ' : null, h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label)])),
+        h('div', { class: 'src' }, t('region.source') + ': ', p.src.map((id, i) => [i ? ' · ' : null, srcA(I.SOURCES[id])])),
       ], [
         n > 0 ? h('button', { class: 'btn', type: 'button', 'data-k': 'story-back', onclick: () => turn(-1) }, t('story.back')) : null,
         n < pages.length - 1
@@ -13584,7 +14129,7 @@ p { margin: 0; }
     }
     if (m === 'help') {
       return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => h('li', { style: 'display:list-item' }, t('help.' + i)))));
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'win'].map(i => h('li', { style: 'display:list-item' }, t('help.' + i, { c: D.DANGERS.flare.countdown, d: D.DANGERS.flare.dose, s: D.DANGERS.devils.suit })))));
     }
     if (m === 'notes') {
       const s = mission(), isru = { title: t('lesson.isruMars.title'), body: t('lesson.isruMars.body'), src: ISRU_SOURCES }; // the debrief's lesson, with its sources
@@ -13593,7 +14138,7 @@ p { margin: 0; }
         h('p', null, h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'notes-guide', onclick: () => { store.modal = 'guide'; render(); } }, ico('science', 14), t('guide.open'))),
         h('div', { class: 'notes-list' }, s ? foundNote(s) : null, I.NOTES[store.lang].concat([isru]).map(n => h('article', { class: 'note' },
           h('h3', null, n.title), h('p', null, n.body),
-          n.src.length ? h('div', { class: 'src' }, n.src.map(id => h('a', { href: I.SOURCES[id].url, target: '_blank', rel: 'noopener' }, I.SOURCES[id].label))) : null))),
+          n.src.length ? h('div', { class: 'src' }, n.src.map(id => srcA(I.SOURCES[id]))) : null))),
       ], null, true);
     }
     if (m === 'badges') {
@@ -13643,11 +14188,11 @@ p { margin: 0; }
     const pick = (key, v) => { st[key] = v; saveSettings(); render(); };
     const row = (label, choice, hint) => h('div', { class: 'setup-row' }, h('span', { class: 'eyebrow' }, label), choice, hint ? h('p', { class: 'hint' }, hint) : null);
     return modal(t('display.title'), [
-      row(t('display.gfx'), seg('gfx', [{ value: 'best', label: t('display.gfx.best') }, { value: 'fast', label: t('display.gfx.fast') }], st.gfx, v => pick('gfx', v)),
+      row(t('display.gfx'), seg('gfx', [{ value: 'best', label: t('display.gfx.best') }, { value: 'fast', label: t('display.gfx.fast') }], st.gfx, v => pick('gfx', v), false, t('display.gfx')),
         t('display.gfx.' + st.gfx + '.hint')),
-      row(t('display.fpsCap'), seg('fpsCap', [{ value: 30, label: '30' }, { value: 60, label: '60' }, { value: 0, label: t('display.fpsCap.max') }], st.fpsCap, v => pick('fpsCap', v)),
+      row(t('display.fpsCap'), seg('fpsCap', [{ value: 30, label: '30' }, { value: 60, label: '60' }, { value: 0, label: t('display.fpsCap.max') }], st.fpsCap, v => pick('fpsCap', v), false, t('display.fpsCap')),
         t('display.fpsCap.hint')),
-      row(t('display.showFps'), seg('showFps', [{ value: false, label: t('common.off') }, { value: true, label: t('common.on') }], st.showFps, v => pick('showFps', v))),
+      row(t('display.showFps'), seg('showFps', [{ value: false, label: t('common.off') }, { value: true, label: t('common.on') }], st.showFps, v => pick('showFps', v), false, t('display.showFps'))),
     ]);
   }
 
@@ -13710,6 +14255,7 @@ p { margin: 0; }
   }
 
   function render() {
+    if (store.demo && !store.modal && SH.card(store.demo.id).view === 'modal') { leaveDemo(); return; } // a dialog card ends with its dialog
     const active = document.activeElement;
     const focusKey = active && active.getAttribute ? active.getAttribute('data-k') : null;
     const focusId = active && active.id && active.tagName === 'INPUT' ? active.id : null;
@@ -13720,11 +14266,13 @@ p { margin: 0; }
     else if (name === 'ops') view = mission() && mission().status === 'active' ? viewOps() : viewDebrief();
     else if (name === 'debrief') view = viewDebrief();
     else if (name === 'lobby') view = viewLobby();
+    else if (name === 'showcase') view = viewShowcase();
     else view = viewTitle();
     const root = h('main', { class: store.prevScreen !== name ? 'screen-in' : '' }, view);
     const nodes = [root];
     const m = store.modal ? renderModal() : null;
     if (m) nodes.push(m);
+    if (store.demo) nodes.push(demoBar());
     if (store.toast) nodes.push(h('div', { class: 'toast', role: 'status' }, store.toast));
     app.replaceChildren(...nodes);
     store.prevScreen = name;
@@ -13744,6 +14292,87 @@ p { margin: 0; }
       render();
     }
   });
+
+  // ---------- the Showcase (spec M5 §5) ----------
+  // The presenter's gallery of 12 cards, reached from the Admin page (/?showcase=1, honoured only on the host's own page).
+  // Show me builds a throwaway mission on SH.CODE and swaps it for the presenter's own in memory; store.demo marks it, and while
+  // it is set nothing is saved, recorded or remembered (see LS, saveSolo, checkBadges, firstTime). Leaving puts the presenter's
+  // mission, plan and tab back as they were.
+  let demoKeep = null, demoSeen = null, demoStep = 0;
+  function viewShowcase() {
+    return [
+      h('header', { class: 'topbar' },
+        h('div', { class: 'brand' }, h('b', null, 'SOL 500'), h('span', null, t('show.open'))),
+        h('div', { class: 'topbar-actions' }, h('a', { class: 'btn btn-ghost btn-sm', href: '/admin', 'data-k': 'show-exit' }, t('show.exit')), langSeg())),
+      h('section', { class: 'show' },
+        h('h1', null, t('show.title')),
+        h('div', { class: 'show-grid' }, SH.CARDS.map(c => h('article', { class: 'panel show-card' },
+          h('h2', null, t('show.card.' + c.id + '.name')),
+          h('p', null, t('show.card.' + c.id + '.why')),
+          c.source ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(I.SOURCES[c.source])) : null,
+          h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'show:' + c.id, onclick: () => showScene(c.id) }, t('show.me')))))),
+    ];
+  }
+  // The bar over the stage: back to the gallery, and the card's purpose on one line.
+  function demoBar() {
+    const why = t('show.card.' + store.demo.id + '.why'), card = SH.card(store.demo.id), steps = card.steps, extra = card.line ? card.line(t, X) : null;
+    const next = () => {
+      demoStep = (demoStep + 1) % steps.length;
+      try { Promise.resolve(window.SolSurface.scene({ at: steps[demoStep] })).catch(() => toast(t('show.failed'))); } catch (e) { toast(t('show.failed')); }
+    };
+    return h('div', { class: 'show-bar' },
+      h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'show-back', onclick: leaveDemo }, t('show.back')),
+      steps ? h('button', { class: 'btn btn-sm btn-primary', type: 'button', 'data-k': 'show-next', onclick: next }, t('show.next')) : null,
+      h('div', { class: 'show-text' },
+        h('p', { class: 'show-cap', title: why }, h('b', null, t('show.why') + ': '), why),
+        extra ? h('p', { class: 'show-line', 'data-k': 'show-line' }, extra) : null));
+  }
+  function showScene(id) {
+    const c = SH.card(id);
+    if (!c || lanOn() || store.demo) return;
+    flushSolo(); // a save already waiting is the presenter's, and goes to disk now; the demo starts with no timer pending
+    demoKeep = { mission: store.mission, plan: store.plan, report: store.report, advice: store.advice, opsView: store.opsView };
+    const sc = D.SHOWCASE;
+    let s;
+    try {
+      s = E.createMission({
+        seed: SH.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, true), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
+        pilot: D.CREW.find(x => x.role === 'commander').id, quick: true, schedulePatch: c.schedule,
+      });
+      G.pick(s);
+      if (c.prepare) c.prepare(s, { Z, X });
+    } catch (e) { demoKeep = null; toast(t('show.failed')); return; }
+    held = [];
+    demoStep = 0;
+    demoSeen = { key: '', list: [] };
+    Object.assign(store, { demo: { id }, mission: s, plan: E.defaultPlan(s), report: null, advice: null, card: null, opsView: c.view === 'console' ? 'console' : 'surface', modal: c.view === 'modal' ? c.modal : null, storyPage: 0 });
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
+    go('ops');
+    if (c.view === 'surface' && (c.at || c.board || c.suit != null || c.clock != null)) setUpScene(c, 0);
+  }
+  // The surface builds its world on the render that mounts it; the scene waits for it (about 3 s at most), then asks once.
+  function setUpScene(c, tries) {
+    if (!store.demo || store.demo.id !== c.id) return;
+    const SS = window.SolSurface, fail = () => { if (store.demo && store.demo.id === c.id) { leaveDemo(); toast(t('show.failed')); } };
+    try {
+      const p = SS && SS.probe && SS.probe();
+      if (!p || !p.world) { if (tries >= D.SHOWCASE.waitTries) fail(); else setTimeout(() => setUpScene(c, tries + 1), D.SHOWCASE.waitMs); return; }
+      Promise.resolve(SS.scene({ at: c.at, board: c.board, suit: c.suit, clock: c.clock })).catch(fail);
+    } catch (e) { fail(); }
+  }
+  function leaveDemo() {
+    const keep = demoKeep;
+    demoKeep = demoSeen = null;
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    held = [];
+    store.demo = null;
+    setCard(null);
+    store.modal = null;
+    if (keep) Object.assign(store, keep);
+    if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
+    go('showcase');
+  }
 
   // ---------- installable app ----------
   let installEvt = null;
@@ -13765,11 +14394,14 @@ p { margin: 0; }
 
   // ---------- boot ----------
   function boot() {
-    // Script-inserted, so a network that drops Google traffic cannot hold up the first paint.
-    const fonts = document.createElement('link');
-    fonts.rel = 'stylesheet';
-    fonts.href = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap';
-    document.head.appendChild(fonts);
+    // Script-inserted, so a network that drops Google traffic cannot hold up the first paint. Not asked for when offline or in
+    // the single file (window.SOL_APP false): the CSS stacks fall back to the system fonts.
+    if (navigator.onLine !== false && window.SOL_APP !== false) {
+      const fonts = document.createElement('link');
+      fonts.rel = 'stylesheet';
+      fonts.href = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=League+Spartan:wght@600;700;800&display=swap';
+      document.head.appendChild(fonts);
+    }
     registerServiceWorker();
     if (window.solApp) window.solApp.onOnline(s => { store.online = s; render(); });
     render();
@@ -13779,9 +14411,10 @@ p { margin: 0; }
         store.lanInfo = info;
         const s = N.restore();
         // Opened from a friend's "Join game" (…/?join=CODE): go straight to the join dialog with the code filled in.
-        let joinCode = null;
-        try { joinCode = new URLSearchParams(location.search).get('join'); } catch (e) { /* no query */ }
+        let joinCode = null, showcase = false;
+        try { joinCode = new URLSearchParams(location.search).get('join'); showcase = info.adminHere === true && new URLSearchParams(location.search).get('showcase') === '1'; } catch (e) { /* no query */ }
         const invited = !s && !!joinCode && /^[A-Za-z]{1,6}$/.test(joinCode);
+        if (showcase) { store.screen = 'showcase'; render(); return; } // the host's own page only; no co-op session is resumed for it
         if (s) { store.lan = s; N.connect(onRoom, onLanStatus, onPos, onFog, onEvent, onPing); }
         else if (invited) { store.lanForm.code = joinCode.toUpperCase(); store.modal = 'lan'; }
         render();
