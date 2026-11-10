@@ -1303,6 +1303,15 @@
     'guide.drone.fact': 'NASA’s Ingenuity helicopter took the first color photo of Mars from the air.',
     // M6 T4
     'gear.tanks': 'Bigger suit tanks',
+    'gear.backpack': 'Bigger backpack',
+    'gear.racks': 'Rover cargo racks',
+    'gear.tools': 'Faster tools',
+    'gear.level': 'level {n} / 2',
+    'gear.tanks.help': 'More seconds of air in every suit: {s} s. A suit already in use keeps the seconds it has left.',
+    'gear.backpack.help': 'Everyone carries more loads on foot: {n}.',
+    'gear.racks.help': 'The rover carries more loads: {n}.',
+    'gear.tools.help': 'Every hold takes less time: {p} % of today.',
+    'gear.tanks.fact': 'On Perseverance, NASA’s MOXIE made oxygen from the carbon dioxide in Mars’ air: 122 g in all.',
     // M6 T5
     'ops.selfSufficient': 'Self-sufficient base: it makes more of its own oxygen, water and food.',
     // M6 T6
@@ -2512,6 +2521,15 @@
     'guide.drone.fact': 'Trực thăng Ingenuity của NASA đã chụp bức ảnh màu đầu tiên về sao Hỏa từ trên không.',
     // M6 T4
     'gear.tanks': 'Bình khí bộ đồ lớn hơn',
+    'gear.backpack': 'Ba lô lớn hơn',
+    'gear.racks': 'Giá chở hàng cho xe',
+    'gear.tools': 'Dụng cụ nhanh hơn',
+    'gear.level': 'cấp {n} / 2',
+    'gear.tanks.help': 'Mỗi bộ đồ có thêm giây khí thở: {s} giây. Bộ đồ đang dùng giữ nguyên số giây còn lại.',
+    'gear.backpack.help': 'Mọi người mang được nhiều tải hơn khi đi bộ: {n}.',
+    'gear.racks.help': 'Xe thám hiểm chở được nhiều tải hơn: {n}.',
+    'gear.tools.help': 'Mỗi lần giữ phím mất ít thời gian hơn: {p} % so với hiện nay.',
+    'gear.tanks.fact': 'Trên Perseverance, thiết bị MOXIE của NASA đã tạo oxy từ khí cacbonic trong không khí sao Hỏa: tổng cộng 122 g.',
     // M6 T5
     'ops.selfSufficient': 'Căn cứ tự cung tự cấp: tự làm ra nhiều oxy, nước và thức ăn hơn.',
     // M6 T6
