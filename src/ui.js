@@ -664,7 +664,7 @@
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
   function setCard(c) {
     store.card = c;
-    if (!c) clearTimeout(cardTimer);
+    if (!c) { clearTimeout(cardTimer); cardLeft = null; }
     const stage = document.querySelector('.sf-stage');
     if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
     const old = stage.querySelector('.region-card'), card = surfaceCard();
@@ -682,10 +682,14 @@
     const card = document.querySelector('.region-card');
     return !!card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement));
   }
-  function armCardTimer() {
+  // The console takes the surface out of sight: setOpsView holds the card's time left (cardLeft) and gives it back on return.
+  let cardDue = 0, cardLeft = null;
+  function armCardTimer(ms = 15000) {
     clearTimeout(cardTimer);
+    cardLeft = null;
     if (!store.card) return;
-    cardTimer = setTimeout(() => { if (reading() || onConsole()) armCardTimer(); else closeCard(); }, 15000);
+    cardDue = Date.now() + ms;
+    cardTimer = setTimeout(() => { if (reading() || onConsole()) armCardTimer(); else closeCard(); }, ms);
   }
 
   // A card that comes while another opened less than 8 s ago is still up waits, in order, so a hab pod's log or a formation's
@@ -891,7 +895,9 @@
   }
 
   function setOpsView(v) {
+    if (store.card && v === 'console' && store.opsView !== 'console') { cardLeft = Math.max(0, cardDue - Date.now()); clearTimeout(cardTimer); }
     store.opsView = v;
+    if (v !== 'console' && cardLeft != null && store.card) armCardTimer(cardLeft);
     LS.set('opsView', v);
     render();
   }

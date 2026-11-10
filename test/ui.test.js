@@ -353,6 +353,7 @@ function clockOf() {
   let now = 0, n = 0;
   const pending = new Map();
   return {
+    now: () => now,
     globals: { setTimeout: (fn, ms) => { pending.set(++n, { at: now + ms, fn }); return n; }, clearTimeout: id => { pending.delete(id); } },
     advance(ms) {
       const end = now + ms;
@@ -1781,4 +1782,19 @@ test('Resume closing an unread region card leaves that region unseen, so its car
   click(pg.byKey('resume:save'));
   pg.surface.hooks.enterRegion('icy');
   assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'icy', 'unread: it comes up again');
+});
+
+test('a card up when the console opens is held there and comes back with its time left', () => {
+  const { clock, pg, hooks, up } = holdPage();
+  pg.win.Date = class extends Date { static now() { return clock.now(); } };
+  hooks.card(POD);
+  clock.advance(5000);
+  click(pg.byKey('tab:console'));
+  clock.advance(62000);
+  assert.equal(up(), 'S4,-1', 'the card waited out of sight');
+  click(pg.byKey('tab:surface'));
+  clock.advance(9999);
+  assert.equal(up(), 'S4,-1', 'its 10 s left are still to run');
+  clock.advance(1);
+  assert.equal(up(), null);
 });
