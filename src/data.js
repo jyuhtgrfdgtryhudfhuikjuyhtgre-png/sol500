@@ -96,15 +96,23 @@
       comms: { kw: 0.5, max: 1 },
       shelter: { kw: 0, max: 1 },
       shield: { kw: 0, shielding: 0.05, max: 8 },
+      // M6: max 0, so only a rank's `max` (RANKS) opens them.
+      garage: { kw: 0, max: 0 },
+      fabricator: { kw: 0, max: 0 },
+      launchpad: { kw: 0, max: 0 },
+      cabin: { kw: 0, max: 0 },
+      drone: { kw: 0, max: 0 },
     },
     MODULE_TYPES: ['hab', 'solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse',
-      'lab', 'rover', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield'],
+      'lab', 'rover', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield',
+      'garage', 'fabricator', 'launchpad', 'cabin', 'drone'],
     CONSUMERS: ['recycler', 'oxygen', 'icedrill', 'greenhouse', 'lab', 'rover', 'habitat', 'medbay', 'workshop', 'comms'],
     SHED_ORDER: ['lab', 'rover', 'comms', 'workshop', 'habitat', 'medbay', 'greenhouse', 'icedrill', 'oxygen', 'recycler'],
     REPAIR_ORDER: ['hab', 'recycler', 'oxygen', 'reactor', 'battery', 'solar', 'greenhouse', 'icedrill',
       'medbay', 'habitat', 'workshop', 'comms', 'lab', 'rover'],
     PLACED: ['solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse', 'lab', 'rover',
-      'habitat', 'medbay', 'workshop', 'comms', 'shelter'],
+      'habitat', 'medbay', 'workshop', 'comms', 'shelter',
+      'garage', 'fabricator', 'launchpad', 'cabin'], // M6: the drone lives in the Garage, no tile
 
     // Structures the crew can build on Mars (materials in kg, work in construction points)
     BUILDS: {
@@ -122,6 +130,20 @@
       comms: { materials: 300, work: 1 },
       shelter: { materials: 300, work: 1.5 },
       kit: { materials: 50, work: 1.5 }, // a relay beacon kit (spec §3.8): no tile, it waits at the base (expedition.kits)
+      // M6 (spec §3-§6). `needs`: a module that must be built and working. A zero cost is set elsewhere: a rank-up costs
+      // the next rank's (RANKS), a gear line its next level's (GEAR), the launch COLONY.launch (src/engine.js costOf).
+      rankup: { materials: 0, work: 0 },
+      garage: { materials: 600, work: 2 },
+      fabricator: { materials: 800, work: 3 },
+      launchpad: { materials: 1000, work: 3 },
+      rover: { materials: 500, work: 2, needs: 'garage' },
+      cabin: { materials: 900, work: 3, needs: 'garage' },
+      drone: { materials: 300, work: 1, needs: 'garage' },
+      tanks: { materials: 0, work: 0, needs: 'fabricator' },
+      backpack: { materials: 0, work: 0, needs: 'fabricator' },
+      racks: { materials: 0, work: 0, needs: 'fabricator' },
+      tools: { materials: 0, work: 0, needs: 'fabricator' },
+      launch: { materials: 0, work: 0, needs: 'launchpad' },
     },
     BUILD_ORDER: ['shield', 'solar', 'battery', 'greenhouse', 'oxygen', 'recycler', 'icedrill',
       'habitat', 'medbay', 'workshop', 'shelter', 'comms', 'lab'],
@@ -131,10 +153,42 @@
     TILE_PX: 64, // world pixels a tile spans (the surface, the rules and the Showcase all place things in tiles)
     GRID: { w: 9, h: 5, hq: [4, 2], ice: 3, rock: 4 },
 
+    // M6 base ranks (spec §3). Starting values: Task 8 tunes them against tools/balance.js. Each rank's land is w × h tiles
+    // round the HQ (GRID.hq), cut to the flat disc of LAND_R2; `zone` is the base zone (tiles round the HQ, Chebyshev).
+    // A rank after the Camp costs `materials` and `work` (a rank-up build), adds `ice` and `rock` tiles on its new ground
+    // and raises each building's limit by `max` (on top of MODULES' max and every rank before it).
+    LAND_R2: 169, // must equal src/worldgen.js (FLAT_RADIUS + 1) ** 2: nothing that blocks stands on the base's land
+    RANKS: [
+      { id: 'camp', w: 9, h: 5, zone: 2 },
+      { id: 'outpost', w: 15, h: 9, zone: 3, materials: 800, work: 2, ice: 3, rock: 4,
+        max: { solar: 4, battery: 2, greenhouse: 1, icedrill: 1, habitat: 1, garage: 1, cabin: 1, drone: 1 } },
+      { id: 'station', w: 21, h: 13, zone: 4, materials: 1600, work: 3, ice: 3, rock: 5,
+        max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, fabricator: 1 } },
+      { id: 'colony', w: 27, h: 17, zone: 5, materials: 2800, work: 4, ice: 4, rock: 6,
+        max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, reactor: 1, launchpad: 1 } },
+    ],
+    // The tier switches (spec §9): an unlock whose tier is off is hidden. gear: the Fabricator and its four lines; colony:
+    // the launch pad and the launch; cabin: the pressurised rover; drone: the scout drone.
+    M6: { gear: true, colony: true, cabin: true, drone: true },
+    // Fabricator gear: each line's levels in order. `value`: the suit's seconds (tanks), loads on foot (backpack), loads
+    // in a rover (racks), the factor on hold seconds (tools).
+    GEAR: {
+      tanks: { levels: [{ materials: 300, water: 100, work: 1, value: 200 }, { materials: 500, water: 200, work: 1.5, value: 250 }] },
+      backpack: { levels: [{ materials: 250, work: 1, value: 4 }, { materials: 400, work: 1.5, value: 5 }] },
+      racks: { levels: [{ materials: 300, work: 1, value: 12 }, { materials: 500, work: 1.5, value: 16 }] },
+      tools: { levels: [{ materials: 250, work: 1, value: 0.8 }, { materials: 400, work: 1.5, value: 0.6 }] },
+    },
+    // Colony: the sample-return launch (its cost; `share` of the map's science, up to `cap` points) and the self-sufficient
+    // base's factor on local production.
+    COLONY: { launch: { materials: 600, work: 2, share: 0.3, cap: 120 }, selfSufficient: 1.2 },
+    // The scout drone: flights a round, range and the fog it clears (tiles).
+    DRONE: { flights: 3, range: 40, reveal: 16 },
+
     BREAKDOWN: {
       hab: 0.02, solar: 0.02, battery: 0.02, reactor: 0.015, recycler: 0.035, oxygen: 0.035,
       icedrill: 0.04, greenhouse: 0.025, lab: 0.02, rover: 0.03, habitat: 0.01, medbay: 0.015,
       workshop: 0.015, comms: 0.015, shelter: 0, shield: 0,
+      garage: 0, fabricator: 0, launchpad: 0, cabin: 0, drone: 0,
     },
     MAINT_PROTECT_PER_POINT: 0.25,
     MAINT_PROTECT_MAX: 0.6,
@@ -268,6 +322,9 @@
       // beacon; the most a mission places; tiles from it that refill a suit (once a round each) and that it reveals. A kit
       // is built like a module (BUILDS.kit) and takes one backpack slot.
       beacon: { hold: 4, base: 12, apart: 10, max: 6, refill: 2, reveal: 12 },
+      // M6 the pressurised rover: tiles a round, suit drain inside (you breathe the cabin's air), tiles from the HQ that
+      // send it back to its bay (as roverHome).
+      cabin: { range: 800, drain: 0, home: 6 },
     },
     // Dangers outside (spec §3.4, M4b). Seconds run on the round's clock: your surface's real time in solo play (it stops
     // while the console is open, like the suit), the server's clock in co-op. Distances are world tiles.

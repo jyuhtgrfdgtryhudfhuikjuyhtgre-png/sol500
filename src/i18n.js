@@ -1275,6 +1275,42 @@
     'admin.p.failed': 'The snapshot could not be made.',
     'admin.p.hash': 'Commit',
     'admin.p.subject': 'Change',
+    // M6 T1: the base ranks (D.RANKS) and the five new modules. Each later M6 task adds its words under its own anchor.
+    'rank.camp': 'Camp',
+    'rank.outpost': 'Outpost',
+    'rank.station': 'Station',
+    'rank.colony': 'Colony',
+    'mod.garage': 'Garage',
+    'mod.fabricator': 'Fabricator',
+    'mod.launchpad': 'Sample-return launch pad',
+    'mod.cabin': 'Pressurised rover',
+    'mod.drone': 'Scout drone',
+    'bld.garage': 'Builds vehicles from materials and crew work, starting with a rover of your own.',
+    'bld.fabricator': 'Makes better gear for the whole crew from metal and ice: bigger suit tanks and backpacks, rover cargo racks, faster tools.',
+    'bld.launchpad': 'Once a mission, sends the science samples you banked from the map to Earth, for a science bonus.',
+    'bld.cabin': 'A rover with air inside: your suit does not drain aboard, it drives twice as far, and it seats two.',
+    'bld.drone': 'Flies over cliffs and walls and maps the ground in a wide circle round it, so you see the finds there. It carries nothing.',
+    // M6 T2
+    'sf.baseLand': 'Base land',
+    // M6 T3
+    'rank.next': 'Next rank: {rank}',
+    // Placeholders until Task 3 writes the new buildings' facts from Task 0's sources: each repeats a fact this file already
+    // states with the same source (src/ui.js GUIDE_SOURCES), so the field guide never shows a fact its source doesn't say.
+    'guide.garage.fact': 'NASA lists the distance from Earth among the five hazards of spaceflight: new supplies get harder to receive, so a Mars crew must build what it needs from what it has.',
+    'guide.fabricator.fact': 'Perseverance’s MOXIE made 122 g of oxygen from Mars’ air, up to 12 g per hour.',
+    'guide.launchpad.fact': 'Perseverance brought 43 tubes to Mars, 38 of them for samples of rock, soil and air, to be returned to Earth by a future mission for study in labs.',
+    'guide.cabin.fact': 'NASA’s Mars plans use pressurized rovers for long traverses.',
+    'guide.drone.fact': 'NASA’s Ingenuity helicopter took the first color photo of Mars from the air.',
+    // M6 T4
+    'gear.tanks': 'Bigger suit tanks',
+    // M6 T5
+    'ops.selfSufficient': 'Self-sufficient base: it makes more of its own oxygen, water and food.',
+    // M6 T6
+    'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
+    // M6 T7
+    'eva.droneFly': 'Fly the drone',
+    // M6 T9
+    'show.card.ranks.name': 'Base ranks',
   };
 
   const vi = {
@@ -2448,6 +2484,42 @@
     'admin.p.failed': 'Không tạo được ảnh chụp.',
     'admin.p.hash': 'Commit',
     'admin.p.subject': 'Thay đổi',
+    // M6 T1: các cấp căn cứ (D.RANKS) và năm mô-đun mới. Mỗi việc M6 sau thêm chữ của mình dưới mốc riêng của nó.
+    'rank.camp': 'Trại',
+    'rank.outpost': 'Tiền đồn',
+    'rank.station': 'Trạm',
+    'rank.colony': 'Khu định cư',
+    'mod.garage': 'Xưởng xe',
+    'mod.fabricator': 'Máy chế tạo',
+    'mod.launchpad': 'Bệ phóng gửi mẫu về Trái Đất',
+    'mod.cabin': 'Xe thám hiểm điều áp',
+    'mod.drone': 'Drone trinh sát',
+    'bld.garage': 'Chế tạo phương tiện từ vật liệu và công sức của phi hành đoàn, trước hết là một xe thám hiểm của riêng bạn.',
+    'bld.fabricator': 'Chế tạo trang bị tốt hơn cho cả đội từ kim loại và băng: bình khí bộ đồ và ba lô lớn hơn, giá chở hàng cho xe thám hiểm, dụng cụ nhanh hơn.',
+    'bld.launchpad': 'Mỗi nhiệm vụ một lần, gửi các mẫu khoa học bạn thu được trên bản đồ về Trái Đất để được thêm điểm khoa học.',
+    'bld.cabin': 'Xe thám hiểm có không khí bên trong: bộ đồ không hao oxy khi ngồi trong xe, xe đi xa gấp đôi và có hai chỗ ngồi.',
+    'bld.drone': 'Bay qua vách đá và tường; vùng đất rộng quanh nó hiện trên bản đồ, để bạn thấy những thứ tìm được ở đó. Nó không chở gì.',
+    // M6 T2
+    'sf.baseLand': 'Đất căn cứ',
+    // M6 T3
+    'rank.next': 'Cấp tiếp theo: {rank}',
+    // Tạm thời, đến khi việc 3 viết dữ kiện riêng cho các công trình mới từ nguồn của việc 0: mỗi câu lặp lại một dữ kiện
+    // tệp này đã nêu với cùng nguồn (src/ui.js GUIDE_SOURCES).
+    'guide.garage.fact': 'NASA xếp khoảng cách xa Trái Đất vào năm mối nguy của chuyến bay vũ trụ: tiếp tế mới khó tới hơn, nên phi hành đoàn trên sao Hỏa phải tự làm ra những gì mình cần từ những gì mình có.',
+    'guide.fabricator.fact': 'Thiết bị MOXIE trên Perseverance đã tạo 122 g oxy từ không khí sao Hỏa, tối đa 12 g mỗi giờ.',
+    'guide.launchpad.fact': 'Perseverance mang 43 ống tới sao Hỏa, 38 ống để lấy mẫu đá, đất và không khí, sẽ được một sứ mệnh sau này đưa về Trái Đất để nghiên cứu trong phòng thí nghiệm.',
+    'guide.cabin.fact': 'Các kế hoạch lên sao Hỏa của NASA dùng xe thám hiểm điều áp cho những chuyến đi xa.',
+    'guide.drone.fact': 'Trực thăng Ingenuity của NASA đã chụp bức ảnh màu đầu tiên về sao Hỏa từ trên không.',
+    // M6 T4
+    'gear.tanks': 'Bình khí bộ đồ lớn hơn',
+    // M6 T5
+    'ops.selfSufficient': 'Căn cứ tự cung tự cấp: tự làm ra nhiều oxy, nước và thức ăn hơn.',
+    // M6 T6
+    'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
+    // M6 T7
+    'eva.droneFly': 'Cho drone bay',
+    // M6 T9
+    'show.card.ranks.name': 'Các cấp căn cứ',
   };
 
   // The "Why Mars?" story, page by page (the title screen's button): Earth's future, the Moon, the rovers, the astronaut's

@@ -8,7 +8,11 @@
  *     resources: { o2, water, food, spares, materials }, wallWater, cleanliness, morale,
  *     crew: [{ id, role, name, health, dose, status: 'active'|'down'|'dead', downTurns, revives, grounded, harm }],
  *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log
- *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition) }
+ *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition)
+ *   M6: rank (0..3, D.RANKS), gear: { tanks, backpack, racks, tools } (levels bought), launched (boolean),
+ *       pending.rank (the rank a rank-up reached at this advance, or null) }
+ *   Layout and terrain spots are grid spots: the Camp's 9 × 5 grid is 0..8 × 0..4, a bigger rank's land reaches negative
+ *   spots (landOf). The terrain grows with the rank (grantRank).
  *   Exploring: what the crew delivers is banked in expedition.banked and added when the round advances (applyExpedition);
  *   the rules for collecting and carrying finds live in src/expedition.js.
  *
@@ -185,18 +189,58 @@
   }
 
   // ---------- map ----------
-  function allTiles() {
-    const out = [];
-    for (let y = 0; y < D.GRID.h; y++) for (let x = 0; x < D.GRID.w; x++) out.push([x, y]);
+  // The base's land (M6, spec §3): a rank's w × h tiles round the HQ, in grid spots (the Camp's 9 × 5 grid is spots 0..8 ×
+  // 0..4; a bigger rank's land reaches negative spots), cut to the world's flat disc (D.LAND_R2). It only ever grows, so
+  // every building stays on its tile.
+  const rankOf = s => (s && Number.isInteger(s.rank) && s.rank >= 0 && s.rank < D.RANKS.length ? s.rank : 0);
+  function boundsOf(r) {
+    const R = D.RANKS[r], [hx, hy] = D.GRID.hq, dx = Math.floor(R.w / 2), dy = Math.floor(R.h / 2);
+    return { x0: hx - dx, y0: hy - dy, x1: hx + dx, y1: hy + dy };
+  }
+  const landOf = s => boundsOf(rankOf(s));
+  function inLand(r, x, y) {
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
+    const b = boundsOf(r), dx = x - D.GRID.hq[0], dy = y - D.GRID.hq[1];
+    return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1 && dx * dx + dy * dy <= D.LAND_R2;
+  }
+  const onLand = (s, x, y) => inLand(rankOf(s), x, y);
+  // A rank's land, row by row. The Camp's is 3.7.0's grid in 3.7.0's order, so its terrain and start layout are unchanged.
+  function rankTiles(r) {
+    const b = boundsOf(r), out = [];
+    for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (inLand(r, x, y)) out.push([x, y]);
     return out;
   }
+  const landTiles = s => rankTiles(rankOf(s));
+  const zoneOf = s => D.RANKS[rankOf(s)].zone;
 
   function buildTerrain(seed) {
-    const r = rng(seed, 'terrain');
-    const ice = shuffle(r, allTiles().filter(([x, y]) => cheb(x, y) >= 3)).slice(0, D.GRID.ice);
+    const r = rng(seed, 'terrain'), camp = rankTiles(0);
+    const ice = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 3)).slice(0, D.GRID.ice);
     const iceKeys = new Set(ice.map(([x, y]) => key(x, y)));
-    const rock = shuffle(r, allTiles().filter(([x, y]) => cheb(x, y) >= 2 && !iceKeys.has(key(x, y)))).slice(0, D.GRID.rock);
+    const rock = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 2 && !iceKeys.has(key(x, y)))).slice(0, D.GRID.rock);
     return { ice, rock };
+  }
+
+  // Raises the base to `rank` one step at a time (the advance's rank-up, tests and the Showcase use it): each new rank's
+  // ground gets its own ice and rock, drawn from the mission code (the same for everyone who plays it) on the new land
+  // only, never on a tile that is built, under construction, ice or rock already; ice at least 3 tiles out, as the Camp's.
+  function grantRank(s, rank) {
+    const want = Math.min(D.RANKS.length - 1, Math.floor(Number(rank)) || 0);
+    while (rankOf(s) < want) {
+      const r = rankOf(s) + 1, R = D.RANKS[r], sets = tileSets(s);
+      const free = rankTiles(r).filter(([x, y]) => {
+        const k = key(x, y);
+        return !inLand(r - 1, x, y) && !sets.occupied.has(k) && !sets.ice.has(k) && !sets.rock.has(k);
+      });
+      const rnd = rng(s.seed, 'terrain' + r);
+      const ice = shuffle(rnd, free.filter(([x, y]) => cheb(x, y) >= 3)).slice(0, R.ice);
+      const iceKeys = new Set(ice.map(([x, y]) => key(x, y)));
+      const rock = shuffle(rnd, free.filter(([x, y]) => !iceKeys.has(key(x, y)))).slice(0, R.rock);
+      s.terrain.ice.push(...ice);
+      s.terrain.rock.push(...rock);
+      s.rank = r;
+    }
+    return s;
   }
 
   function tileSets(s, pending) {
@@ -228,13 +272,13 @@
   function buildSpots(s, type, pending) {
     if (!D.PLACED.includes(type)) return [];
     const sets = tileSets(s, pending);
-    return allTiles().filter(([x, y]) => tileAllows(type, x, y, sets) &&
+    return landTiles(s).filter(([x, y]) => tileAllows(type, x, y, sets) &&
       [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => sets.occupied.has(key(x + dx, y + dy))));
   }
 
   function autoPlace(s, type) {
     const sets = tileSets(s);
-    const cands = allTiles().filter(([x, y]) => tileAllows(type, x, y, sets));
+    const cands = landTiles(s).filter(([x, y]) => tileAllows(type, x, y, sets));
     if (!cands.length) return null;
     const adj = ([x, y]) => ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => sets.occupied.has(key(x + dx, y + dy))) ? 0 : 1);
     cands.sort((a, b) => adj(a) - adj(b) || manhattan(a[0], a[1]) - manhattan(b[0], b[1]) || a[1] - b[1] || a[0] - b[0]);
@@ -355,6 +399,14 @@
     if (item.res === 'science' && amount > (bank.best ? bank.best.amount : 0)) bank.best = { crewId, kind: item.kind, res: 'science', amount, region: item.region };
   }
 
+  // What the advance tells the next round (beginTurn): rank is the rank a rank-up reached this round, or null.
+  const freshPending = () => ({ discovery: false, injuries: [], breakdowns: [], rank: null });
+  function freshGear() {
+    const g = {};
+    for (const line of Object.keys(D.GEAR)) g[line] = 0;
+    return g;
+  }
+
   function buildState(loadout, seed, eventsOn, level, size, quick) {
     const difficulty = difficultyOf(level);
     const crewSize = crewSizeOf(size);
@@ -400,11 +452,14 @@
       depot: { drops: D.DIFFICULTY[difficulty].drops, incoming: [] },
       schedule: buildSchedule(String(seed), !!eventsOn, difficulty, quick),
       events: [],
-      pending: { discovery: false, injuries: [], breakdowns: [] },
+      pending: freshPending(),
       history: [],
       log: [],
       pilot: null,              // solo: the crew member you walk as (co-op seats choose their own)
       expedition: newExpedition(),
+      rank: 0,                  // M6: the base's rank, an index into D.RANKS (0 Camp … 3 Colony)
+      gear: freshGear(),        // M6: the Fabricator gear levels bought, per line
+      launched: false,          // M6: the samples have gone to Earth (once a mission)
     };
     const order = ['recycler', 'oxygen', 'greenhouse', 'lab', 'rover', 'solar', 'battery', 'reactor', 'icedrill'];
     for (const type of order) for (let i = 0; i < L[type]; i++) autoPlace(s, type);
@@ -445,7 +500,26 @@
       const pick = !m.coop && (m.crew.find(c => c.id === controlId && alive(c)) || m.crew.find(isActive) || m.crew.find(alive));
       m.pilot = pick ? pick.id : null;
     }
+    upgradeRanks(m);
     return m;
+  }
+
+  // M6: a 3.7.0 save (Full or Quick) resumes as a Camp with its buildings where they were. A rank, gear levels, the launch
+  // or the next round's rank-up news that are missing or of the wrong type are replaced (a Quick mission has no ranks), and
+  // every module the save doesn't know (the five M6 ones) is added, none built.
+  function upgradeRanks(m) {
+    if (m.quick === true || !(Number.isInteger(m.rank) && m.rank >= 0 && m.rank < D.RANKS.length)) m.rank = 0;
+    const gear = freshGear();
+    for (const line of Object.keys(gear)) {
+      const v = isMap(m.gear) ? m.gear[line] : 0;
+      if (Number.isInteger(v)) gear[line] = clamp(v, 0, D.GEAR[line].levels.length);
+    }
+    m.gear = gear;
+    if (typeof m.launched !== 'boolean') m.launched = false;
+    if (!isMap(m.pending)) m.pending = freshPending();
+    const r = m.pending.rank;
+    if (!(Number.isInteger(r) && r > 0 && r < D.RANKS.length)) m.pending.rank = null;
+    if (isMap(m.modules)) for (const type of D.MODULE_TYPES) if (!isMap(m.modules[type])) m.modules[type] = { count: 0, broken: 0 };
   }
 
   function shielding(s) {
@@ -503,14 +577,99 @@
 
   // A build, a module, a job or a difficulty is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
   const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
+
+  // ---------- M6: ranks, unlocks and costs ----------
+  // Every build M6 adds (none in a Quick mission: it stays as in 3.7.0), the modules among them, and the tier (D.M6) of
+  // those a tier switch hides. The rest (rank-ups, the Garage, its rover) are tier 1 and always on.
+  const M6_BUILDS = ['rankup', 'garage', 'fabricator', 'launchpad', 'rover', 'cabin', 'drone', 'tanks', 'backpack', 'racks', 'tools', 'launch'];
+  const M6_MODULES = ['garage', 'fabricator', 'launchpad', 'cabin', 'drone'];
+  const M6_TIER = { fabricator: 'gear', tanks: 'gear', backpack: 'gear', racks: 'gear', tools: 'gear', launchpad: 'colony', launch: 'colony', cabin: 'cabin', drone: 'drone' };
+  const tierOn = type => !own(M6_TIER, type) || D.M6[M6_TIER[type]] === true;
+  const gearOf = (s, line) => {
+    const v = s.gear && s.gear[line];
+    return Number.isInteger(v) && v > 0 ? v : 0;
+  };
+
+  // How many of a module the base may have: MODULES' max plus every reached rank's. A Quick mission keeps 3.7.0's limits
+  // and has none of M6's modules; a module whose tier is off has none.
+  function maxOf(s, type) {
+    if (!own(D.MODULES, type) || !tierOn(type)) return 0;
+    if (s.quick === true) return M6_MODULES.includes(type) ? 0 : D.MODULES[type].max;
+    let max = D.MODULES[type].max;
+    for (let r = 1; r <= rankOf(s); r++) max += D.RANKS[r].max[type] || 0;
+    return max;
+  }
+
+  // The first rank at which a build can be made: a module's when its limit is first over 0, at least its `needs`
+  // building's. -1: never (its tier is off, or it is no build or module at all).
+  function unlockRank(type) {
+    if ((!own(D.BUILDS, type) && !own(D.MODULES, type)) || !tierOn(type)) return -1;
+    let first = 0;
+    if (own(D.MODULES, type)) {
+      first = -1;
+      for (let r = 0; r < D.RANKS.length && first < 0; r++) if (maxOf({ rank: r }, type) > 0) first = r;
+      if (first < 0) return -1;
+    }
+    const needs = own(D.BUILDS, type) ? D.BUILDS[type].needs : null;
+    if (needs) {
+      const n = unlockRank(needs);
+      if (n < 0) return -1;
+      first = Math.max(first, n);
+    }
+    return first;
+  }
+
+  // What a build costs: a rank-up the next rank's, a gear line its next level's (after the levels bought, those under
+  // construction and those in `pending`, the plan's queue), the launch COLONY.launch, anything else BUILDS'.
+  function costOf(s, type, pending) {
+    const none = { materials: 0, water: 0, work: 0 };
+    if (!own(D.BUILDS, type)) return none;
+    if (type === 'rankup') {
+      const next = D.RANKS[rankOf(s) + 1];
+      return next ? { materials: next.materials, water: 0, work: next.work } : none;
+    }
+    if (own(D.GEAR, type)) {
+      const queued = s.projects.filter(p => p.type === type).length + (pending || []).filter(b => b && b.type === type).length;
+      const lv = D.GEAR[type].levels[gearOf(s, type) + queued];
+      return lv ? { materials: lv.materials, water: lv.water || 0, work: lv.work } : none;
+    }
+    if (type === 'launch') return { materials: D.COLONY.launch.materials, water: 0, work: D.COLONY.launch.work };
+    return { materials: D.BUILDS[type].materials, water: 0, work: D.BUILDS[type].work };
+  }
+
+  // Room for more: kits under the beacon limit, one rank-up below Colony, one launch a mission, a gear line's levels left,
+  // a module's limit.
+  function roomOf(s, type) {
+    if (type === 'kit') return D.EXPEDITION.beacon.max - kitsMade(s);
+    if (type === 'rankup') return rankOf(s) < D.RANKS.length - 1 ? 1 : 0;
+    if (type === 'launch') return s.launched === true ? 0 : 1;
+    if (own(D.GEAR, type)) return D.GEAR[type].levels.length - gearOf(s, type);
+    return maxOf(s, type) - (s.modules[type] ? s.modules[type].count : 0);
+  }
+
+  // Reasons, in order: 'unknown' (no such build), 'quick' (an M6 build in a Quick mission), 'rank' (a later rank unlocks
+  // it, or its tier is off: the console hides it), 'needs' (its building isn't built and working), 'max', 'materials',
+  // 'water' (a gear level's), 'space' (no free tile next to the base).
   function canBuild(s, type, pending) {
     if (!own(D.BUILDS, type)) return { ok: false, reason: 'unknown' };
-    const spec = D.BUILDS[type], pend = pending || [];
+    const pend = pending || [];
+    if (s.quick === true && M6_BUILDS.includes(type)) return { ok: false, reason: 'quick' };
+    const unlock = unlockRank(type);
+    if (unlock < 0 || unlock > rankOf(s)) return { ok: false, reason: 'rank' };
+    const needs = D.BUILDS[type].needs;
+    if (needs && activeCount(s, needs) <= 0) return { ok: false, reason: 'needs' };
     const planned = s.projects.filter(p => p.type === type).length + pend.filter(b => b.type === type).length;
-    const room = type === 'kit' ? D.EXPEDITION.beacon.max - kitsMade(s) : D.MODULES[type].max - s.modules[type].count;
-    if (planned >= room) return { ok: false, reason: 'max' };
-    const spent = pend.reduce((sum, b) => sum + (own(D.BUILDS, b.type) ? D.BUILDS[b.type].materials : 0), 0);
-    if (s.resources.materials - spent < spec.materials) return { ok: false, reason: 'materials' };
+    if (planned >= roomOf(s, type)) return { ok: false, reason: 'max' };
+    const spent = { materials: 0, water: 0 };
+    pend.forEach((b, i) => {
+      if (!own(D.BUILDS, b.type)) return;
+      const c = costOf(s, b.type, pend.slice(0, i));
+      spent.materials += c.materials;
+      spent.water += c.water;
+    });
+    const cost = costOf(s, type, pend);
+    if (s.resources.materials - spent.materials < cost.materials) return { ok: false, reason: 'materials' };
+    if (s.resources.water - spent.water < cost.water) return { ok: false, reason: 'water' };
     if (D.PLACED.includes(type) && buildSpots(s, type, pend).length === 0) return { ok: false, reason: 'space' };
     return { ok: true };
   }
@@ -526,6 +685,7 @@
       if (now.dustSeason && !before.dustSeason) ev.push({ type: 'dust_season' });
       if (now.winter && !before.winter) ev.push({ type: 'winter' });
     }
+    if (s.pending.rank != null) ev.push({ type: 'rank_up', rank: s.pending.rank });
     for (const b of s.pending.breakdowns) ev.push({ type: 'breakdown', module: b });
     for (const id of s.pending.injuries) ev.push({ type: 'injury', crewId: id });
 
@@ -576,7 +736,7 @@
     if (s.eventsOn && s.turn > 0 && s.morale < D.CONFLICT_MORALE && rng(s.seed, 'conflict', s.turn)() < D.CONFLICT_CHANCE * (led ? 0.5 : 1)) {
       ev.push({ type: 'conflict', options: ['meeting', 'push'] });
     }
-    s.pending = { discovery: false, injuries: [], breakdowns: [] };
+    s.pending = freshPending();
     s.events = ev;
   }
 
@@ -739,14 +899,15 @@
     }
     report.unrepaired = D.REPAIR_ORDER.filter(t => s.modules[t] && s.modules[t].broken > 0);
 
-    // New construction projects (materials paid now; work applied at the end of the turn)
+    // New construction projects (materials, and a gear level's water, paid now; work applied at the end of the turn)
     for (const b of plan.builds || []) {
-      const spec = D.BUILDS[b.type];
-      if (!spec || !canBuild(s, b.type).ok) continue;
-      const placed = D.PLACED.includes(b.type); // a shield layer and a relay beacon kit take no tile
+      if (!canBuild(s, b.type).ok) continue;
+      const placed = D.PLACED.includes(b.type); // a shield layer, a relay beacon kit, a rank-up, gear and the launch take no tile
       if (placed && !buildSpots(s, b.type).some(([x, y]) => x === b.x && y === b.y)) continue;
-      s.resources.materials -= spec.materials;
-      s.projects.push({ type: b.type, x: placed ? b.x : null, y: placed ? b.y : null, progress: 0, work: spec.work });
+      const cost = costOf(s, b.type);
+      s.resources.materials -= cost.materials;
+      s.resources.water -= cost.water;
+      s.projects.push({ type: b.type, x: placed ? b.x : null, y: placed ? b.y : null, progress: 0, work: cost.work });
       report.started.push(b.type);
     }
 
@@ -966,6 +1127,11 @@
     s.projects = s.projects.filter(p => {
       if (p.progress < p.work - 1e-9) return true;
       if (p.type === 'kit') s.expedition.kits += 1; // a relay beacon kit waits at the base for someone to take it out
+      else if (p.type === 'rankup') { // the new rank, its land and its limits arrive now; the next round announces it
+        grantRank(s, rankOf(s) + 1);
+        s.pending.rank = rankOf(s);
+      } else if (own(D.GEAR, p.type)) s.gear[p.type] = gearOf(s, p.type) + 1; // a gear level is the whole crew's
+      else if (p.type === 'launch') s.launched = true; // the samples go to Earth once a mission
       else s.modules[p.type].count += 1;
       if (p.x != null) s.layout.push({ type: p.type, x: p.x, y: p.y });
       if (p.type === 'greenhouse') s.crops.push(0);
@@ -1308,7 +1474,7 @@
     if (s.totals.foodLocal >= 1000) got.add('green_thumb');
     if (success && maxDose < 150) got.add('lead_apron');
     if (s.totals.built >= 5) got.add('builder');
-    if (s.modules.shield.count >= D.MODULES.shield.max) got.add('fortress');
+    if (s.modules.shield.count >= maxOf(s, 'shield')) got.add('fortress');
     if (s.totals.scrapped > 0) got.add('scrapper');
     if (success && s.totals.dropsUsed === 0) got.add('self_reliant');
     if (s.science >= 800) got.add('explorer');
@@ -1400,5 +1566,6 @@
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
     newExpedition, upgradeMission, repairExpedition, bankItem, isKit, kitItem,
+    rankOf, landOf, onLand, landTiles, zoneOf, grantRank, maxOf, unlockRank, costOf,
   };
 });
