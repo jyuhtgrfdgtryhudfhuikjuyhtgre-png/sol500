@@ -1,6 +1,6 @@
 # SOL 500 M6: base ranks, the Garage and the Fabricator
 
-**Date:** 2026-11-10 · **Status:** design, waiting for the user's approval
+**Date:** 2026-11-10 · **Status:** design, builder-checked, waiting for the user's approval
 **Builds on:** `2026-10-01-sol500-v3-app-online-bigmap-admin-design.md` (the game), `2026-11-09-sol500-m5-polish-quick-showcase-design.md` (the Quick mission and the Showcase)
 **Branch:** `feat/m6-base-ranks-vehicles`, off `master` (`d6a3cb9`, version 3.7.0, 805 tests)
 **Ships as:** 3.8.0 · **Deadline:** the judges see the game on **13 November 2026**
@@ -52,12 +52,14 @@ SOL 500 is a competition entry with real NASA data and cited sources. Living off
 |---|---|---|
 | **Camp** (start) | 9 × 5, as today | everything the game has today |
 | **Outpost** | about 15 × 9 | the **Garage** |
-| **Station** | about 21 × 13 | the **Fabricator**; a big greenhouse dome |
+| **Station** | about 21 × 13 | the **Fabricator** |
 | **Colony** | about 27 × 17 | the **sample-return launch pad**; the base becomes **self-sufficient** |
 
-**Ranking up.** The player chooses to upgrade the base, from the Mission console, like any other build: it costs **materials** (paid when it starts) and **crew work**, and nothing else (the user's call: *"you have to upgrade it using the material"*; no science level, no waiting for a round). It takes no tile, like a relay beacon kit (`BUILDS.kit`). The rank-up's materials are the reason hauls matter: most of them should come from metal finds and Kestrel wrecks, not from the starting kit, so each rank costs clearly more than the last.
+**Ranking up.** The player chooses to upgrade the base, from the Mission console, like any other build: it costs **materials** (paid when it starts) and **crew work**, and nothing else (the user's call: *"you have to upgrade it using the material"*; no science level, no timer). Like any build, its crew work counts at a round's advance, so the new rank, its land and its limits arrive at that advance, never in the middle of a round on the surface (Claude's call: it reuses the build pipeline, and co-op never has to grow the base live). It takes no tile, like a relay beacon kit (`BUILDS.kit`). **Any materials pay** (the user's call, 2026-11-10): the one materials pile of today, whether it came from Earth crates, supply drops, leftover construction work or hauled metal. Ranks are priced so that hauling metal home gets you there much sooner, and each rank costs clearly more than the last; a base that never explores can still grow, slowly. If regolith from construction work makes ranks too cheap without exploring, the Full mission gets its own value for it, because the Quick mission's numbers must not move.
 
-**Pacing targets** (measured with `tools/balance.js` on the Full mission, commander, 4 crew): a thoughtful explorer reaches Outpost around round 5–7, Station around 10–12 and Colony around 15–17; a mission played without exploring reaches Outpost at best; Colony is for good players and not every mission gets there.
+**Pacing targets** (measured with `tools/balance.js` on the Full mission, commander, 4 crew): a thoughtful explorer reaches Outpost around round 5–7, Station around 10–12 and Colony around 15–17; a mission played without exploring gets clearly less far (Station late at best); Colony is for good players and not every mission gets there.
+
+**More buildings, not just more ground.** Each rank also raises how many of each building the base may have (`D.MODULES[type].max`), so the new land fills with more solar, greenhouses, ice drills and the rest (Claude's call: today's 9 × 5 grid is already one tile short of every building at its limit, so without this "much bigger" would be for show). It is the milestone's biggest balance lever, measured against §8.
 
 **The land grows on every side.** At each rank the base's buildable land grows outward around the HQ. Every existing building stays exactly where it is on the surface, and the new ground gets its own ice and rock tiles. Today the 9 × 5 grid is fixed (`D.GRID`, addressed from its corner with the HQ at `[4, 2]`) and four files read it (`src/engine.js`, `src/surface.js`, `src/ui.js`, and `src/expedition.js` through the base zone); changing that safely is the main technical risk of the milestone.
 
@@ -106,7 +108,7 @@ The server checks every action with the same values (`src/expedition.js`), so a 
 
 ## 6. Colony
 
-**The sample-return launch pad.** A building at Colony. Once a mission, the crew launches the science samples they've banked to Earth, and the mission gets a science bonus: the finale exploring builds to. Based on NASA's Mars Sample Return plans and the sample tubes Perseverance has been collecting. The bonus has to fit the score's rules: the map's science counts only a share up to a cap today (`D.SCORE.map`), because exploring had pushed nearly every thoughtful explorer to an S, and the launch must not undo that (§8).
+**The sample-return launch pad.** A building at Colony. Once a mission, the crew launches the science samples they've banked to Earth, and the mission gets a science bonus: the finale exploring builds to. The bonus is worked out from the map science already banked (`expedition.science`); there is no separate store of samples, and delivering a find works as today (Claude's call). Based on NASA's Mars Sample Return plans and the sample tubes Perseverance has been collecting. The bonus has to fit the score's rules: the map's science counts only a share up to a cap today (`D.SCORE.map`), because exploring had pushed nearly every thoughtful explorer to an S, and the launch must not undo that (§8).
 
 **A self-sufficient base.** At Colony the base makes more of its own oxygen, water and food (the builder picks the lever: more output, or less use), so the independence part of the score goes up and supply delays stop hurting. The console says the base is self-sufficient.
 
@@ -152,7 +154,9 @@ The judges see the game on the **evening of 13 November** (the user). About thre
 4. **The pressurised rover.**
 5. **The scout drone.**
 
-Tiers 2 to 5 can be built in parallel once tier 1 is in. **3.8.0 is installed and ready by midday on 13 November** with every tier that passed review, balance and browser QA, so the user can rehearse; anything unfinished is left out, not shipped half-done. The release follows M5's (§6 of its spec): final balance, browser QA, version and service-worker cache bump, `dist/` rebuilt, the installer built, smoke-tested, installed and launch-checked, a copy on the Desktop, and ask before merging.
+Tiers 2 to 5 can be built in parallel once tier 1 is in.
+
+**If a tier misses the release** (Claude's call): every rank still gives its land and its building limits, which are tier 1. An unlock whose tier didn't ship is hidden, not shown doing nothing: no Fabricator to build without tier 2's gear, no launch pad without tier 3, and the Garage offers only what shipped. One switch per tier in `src/data.js` turns its unlocks on, so leaving a tier out is a one-line change and the §3 pacing is measured on what ships. **3.8.0 is installed and ready by midday on 13 November** with every tier that passed review, balance and browser QA, so the user can rehearse; anything unfinished is left out, not shipped half-done. The release follows M5's (§6 of its spec): final balance, browser QA, version and service-worker cache bump, `dist/` rebuilt, the installer built, smoke-tested, installed and launch-checked, a copy on the Desktop, and ask before merging.
 
 ## 10. Constraints
 
@@ -170,6 +174,11 @@ The exact numbers (rank costs, land sizes, base-zone growth, vehicle and drone f
 ## 12. Claude's calls, for the user to check
 
 - Rank-ups, vehicles and gear are built from the Mission console with materials and crew work, like every build today (the user said materials; the crew work is Claude's addition, so a rank-up takes the crew's time as building does).
+- A rank-up arrives at a round's advance, like every build.
+- Each rank raises the building limits, so the bigger land fills with more buildings.
+- No separate greenhouse dome (it was only in a mockup): Station's extra greenhouses are the dome.
+- The sample-return bonus is worked out from the map science already banked.
+- An unlock whose tier misses the release is hidden; the ranks always give their land and limits.
 - The base zone grows with the rank (by how much is measured).
 - The Garage can also build today's rover from Mars metal.
 - The Garage and the Fabricator each take one tile, like every building today.
