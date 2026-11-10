@@ -11,7 +11,7 @@
  *      (the finds and caves under a point of interest's footprint are left out: never shown, never collected)
  *      landmarksIn(m, cx, cy) · structuresIn(m, cx, cy) · landmarkById(m, id, pos) · structureById(m, id, pos) → or null
  *      chunkAt(m, cx, cy) → the data chunk · loadsLeft(m, find, id) · itemFor(m, find, load, role) · holdSeconds(kind, role)
- *      capacity(m, crewId) · inBaseZone(pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m) → the rover's bay
+ *      capacity(m, crewId) · inBaseZone(m, pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m) → the rover's bay
  *      setWhere(m, crewId, pos) · whereOf(m, crewId) (solo: where you stand, so a reload puts you back there)
  *      commanderOut(m, positions) → { id, x, y } while the commander is out on the map, else null (his aura and route line)
  *      speedFactor(m, crewId, positions) → 1.1 within 5 tiles of the commander while he is out, else 1 (positions: the server's
@@ -142,11 +142,11 @@
   const dist2 = (a, x, y) => (a.x - x) * (a.x - x) + (a.y - y) * (a.y - y);
   const nearPx = (pos, x, y, tiles) => dist2(pos, x, y) <= (tiles * T) * (tiles * T);
   const nearTile = (pos, tx, ty) => nearPx(pos, (tx + 0.5) * T, (ty + 0.5) * T, X.reach);
-  // The base zone: the tiles within baseZone of the HQ either way (Chebyshev), so world pixels −128 up to (not including)
-  // 192 on each axis, plus `slack` tiles for a position sent a moment ago.
-  function inBaseZone(pos, slack) {
+  // The base zone: the tiles within the rank's zone of the HQ either way (Chebyshev, E.zoneOf: a Camp's 2 tiles are world
+  // pixels −128 up to, not including, 192 on each axis), plus `slack` tiles for a position sent a moment ago.
+  function inBaseZone(m, pos, slack) {
     if (!okPos(pos)) return false;
-    const s = slack || 0, lo = -X.baseZone - s, hi = X.baseZone + 1 + s, tx = pos.x / T, ty = pos.y / T;
+    const z = E.zoneOf(m), s = slack || 0, lo = -z - s, hi = z + 1 + s, tx = pos.x / T, ty = pos.y / T;
     return tx >= lo && tx < hi && ty >= lo && ty < hi;
   }
   const crewOf = (m, id) => m.crew.find(c => c.id === id) || null;
@@ -233,7 +233,7 @@
   // the route line his pings draw count only then (§13.12).
   function commanderOut(m, positions) {
     const c = m && m.crew && m.crew.find(k => k.role === 'commander'), x = m && m.expedition, spot = c && spotIn(positions, c.id);
-    if (!spot || !x || c.status !== 'active' || x.collapsed[c.id] || x.benched.includes(c.id) || inBaseZone(spot, 0)) return null;
+    if (!spot || !x || c.status !== 'active' || x.collapsed[c.id] || x.benched.includes(c.id) || inBaseZone(m, spot, 0)) return null;
     return { id: c.id, x: spot.x, y: spot.y };
   }
   // How much faster a crew member moves: D.SKILLS.commander.auraSpeed (1.1) within auraRange (5 tiles) of the commander while he
@@ -288,7 +288,7 @@
   function deliver(m, crewId, pos) {
     const a = able(m, crewId);
     if (a.error) return a;
-    if (!inBaseZone(pos, X.reach)) return { error: 'notAtBase' };
+    if (!inBaseZone(m, pos, X.reach)) return { error: 'notAtBase' };
     const x = m.expedition, mine = pack(x, crewId), items = mine.filter(it => !E.isKit(it));
     if (!items.length) return { error: 'empty' };
     for (const it of items) E.bankItem(x.banked, crewId, it, false);
@@ -305,7 +305,7 @@
     const x = m.expedition, mine = pack(x, crewId), i = mine.findIndex(it => it && it.canister);
     if (i < 0) return { error: 'noCanister' };
     if (!okPos(pos)) return { error: 'badPos' };
-    if (inBaseZone(pos, 0)) return { error: 'atBase' };
+    if (inBaseZone(m, pos, 0)) return { error: 'atBase' };
     setSuit(m, crewId, live);
     if (suitOf(m, crewId) > suitMax(m) - X.canister.suit) return { error: 'suitFull' };
     x.carried[crewId] = mine.slice(0, i).concat(mine.slice(i + 1));
@@ -338,7 +338,7 @@
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
-    if (inBaseZone(pos, 0)) return { error: 'atBase' };
+    if (inBaseZone(m, pos, 0)) return { error: 'atBase' };
     const x = m.expedition, spot = { x: Math.round(pos.x), y: Math.round(pos.y) };
     x.suits[crewId] = 0;
     if (driving(x, crewId)) {
@@ -593,7 +593,7 @@
   function takeKit(m, crewId, pos) {
     const a = able(m, crewId);
     if (a.error) return a;
-    if (!inBaseZone(pos, X.reach)) return { error: 'notAtBase' };
+    if (!inBaseZone(m, pos, X.reach)) return { error: 'notAtBase' };
     const x = m.expedition, mine = pack(x, crewId);
     if (!(x.kits > 0)) return { error: 'noKit' };
     if (mine.length >= capacity(m, crewId)) return { error: 'full' };
@@ -604,7 +604,7 @@
   function returnKit(m, crewId, pos) {
     const a = able(m, crewId);
     if (a.error) return a;
-    if (!inBaseZone(pos, X.reach)) return { error: 'notAtBase' };
+    if (!inBaseZone(m, pos, X.reach)) return { error: 'notAtBase' };
     const x = m.expedition, mine = pack(x, crewId), i = mine.findIndex(E.isKit);
     if (i < 0) return { error: 'noKit' };
     x.carried[crewId] = mine.slice(0, i).concat(mine.slice(i + 1));

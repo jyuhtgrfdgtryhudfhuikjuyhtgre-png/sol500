@@ -14,6 +14,8 @@
  *      square (the Display settings' Best level paints at 2); painter.setScale(s) changes it while playing.
  *      SolPaint.photoOf(code, region) → the NASA photo a ground is painted with (src/ground-photos.js), or null
  *      SolPaint.tileable(src, low, N, O, gain) → a photo made to repeat without a seam · painter.refresh(): repaint every chunk
+ *      painter.setBaseLand(fn): fn(tx, ty) → is world tile (tx, ty) on the base's land (the rank's, M6)? It is painted as
+ *        the base's ground; the chunks it changes are repainted
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./worldgen.js'), require('./fog.js'), null);
@@ -242,16 +244,15 @@
       g.lineWidth = 2;
       g.strokeRect(X + 1, Y + 1, T - 2, T - 2);
       g.beginPath(); g.moveTo(X + T / 2, Y); g.lineTo(X + T / 2, Y + T); g.stroke();
-    } else if (code === TL.BASE) { // compacted regolith with the build grid's dashed lines
-      const B = W.BASE_RECT;
+    } else if (code === TL.BASE) { // compacted regolith with the build grid's dashed lines, closed on the land's east and south edges
       g.strokeStyle = 'rgba(255,220,190,0.12)';
       g.lineWidth = 1;
       g.setLineDash([4, 6]);
       g.beginPath();
       g.moveTo(X, Y); g.lineTo(X + T, Y);
       g.moveTo(X, Y); g.lineTo(X, Y + T);
-      if (tx === B.x + B.w - 1) { g.moveTo(X + T, Y); g.lineTo(X + T, Y + T); }
-      if (ty === B.y + B.h - 1) { g.moveTo(X, Y + T); g.lineTo(X + T, Y + T); }
+      if (world.tile(tx + 1, ty) !== TL.BASE) { g.moveTo(X + T, Y); g.lineTo(X + T, Y + T); }
+      if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T); g.lineTo(X + T, Y + T); }
       g.stroke();
       g.setLineDash([]);
     }
@@ -421,6 +422,11 @@
     const miniWant = new Set();
     const times = [];
     let queue = [], view = null, need = 0, tick = 0, frameTick = 0, renders = 0, scale = o.scale || 1;
+    // The base's land (setBaseLand: (tx, ty) → boolean, world tiles) is painted as base ground, whatever the world's own tile
+    // there is: the chunks are painted from this view of the world, whose tile() says so. The world itself is unchanged.
+    let land = null;
+    const codeOf = (f, tx, ty) => (f && f(tx, ty) ? TL.BASE : world.tile(tx, ty));
+    const ground = Object.create(world, { tile: { value: (tx, ty) => codeOf(land, tx, ty) } });
 
     const inView = e => !!view && e.ix >= view[0] && e.ix <= view[2] && e.iy >= view[1] && e.iy <= view[3];
     // The cap never pushes out a chunk the current view needs: a very wide window just keeps more.
@@ -464,6 +470,21 @@
       queue = view ? wanted() : [];
     }
     if (!photos && GP && typeof document !== 'undefined') photosWanted.push(refresh);
+    // A new base land (the rank grew) repaints only the painted chunks it changes, each still drawn as it was until then. A
+    // chunk's look reaches one tile past it (a tile's dashed edge, the ground round a boulder, decor spilling in), so the ring
+    // of tiles round it counts too.
+    function setBaseLand(fn) {
+      const was = land;
+      land = fn || null;
+      const changed = e => {
+        for (let ty = e.iy * IMG - 1; ty <= e.iy * IMG + IMG; ty++) for (let tx = e.ix * IMG - 1; tx <= e.ix * IMG + IMG; tx++) {
+          if (codeOf(was, tx, ty) !== codeOf(land, tx, ty)) return true;
+        }
+        return false;
+      };
+      for (const e of images.values()) if (changed(e)) e.stale = true;
+      queue = view ? wanted() : [];
+    }
     // Paints queued chunks until the deadline (but at least `atLeast` of them); returns how many it painted.
     function work(deadline, atLeast) {
       let n = 0;
@@ -473,7 +494,7 @@
         if (fresh(k)) continue;
         const t0 = now();
         const c = makeCanvas(PX * scale, PX * scale);
-        paintChunk(world, ix, iy, c, scale);
+        paintChunk(ground, ix, iy, c, scale);
         times.push(now() - t0);
         if (times.length > 200) times.shift();
         images.set(k, { c, ix, iy, used: ++tick });
@@ -569,7 +590,7 @@
       };
     }
     return {
-      retainView, setScale, refresh, work, drawGround, workMinis, chunkHash, stats,
+      retainView, setScale, refresh, setBaseLand, work, drawGround, workMinis, chunkHash, stats,
       mini: (cx, cy) => mini(cx, cy, false),
       has: (ix, iy) => images.has(ix + ',' + iy),
       pending: () => queue.map(q => [q[0], q[1]]),

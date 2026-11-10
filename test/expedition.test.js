@@ -193,9 +193,9 @@ test('delivering at the base banks your whole backpack; it only works in the bas
   assert.equal(m.expedition.banked.materials, 80);
   assert.deepEqual(m.expedition.banked.lines, [{ crewId: 'minh', kind: 'metal', res: 'materials', region: f.region, amount: 80, loads: 2, late: false }]);
   assert.equal(X.deliver(m, 'minh', HOME).error, 'empty');
-  assert.equal(X.inBaseZone(at(2, -2)), true);
-  assert.equal(X.inBaseZone(at(3, 0)), false);
-  assert.equal(X.inBaseZone(at(-3, 0), 1.5), true);
+  assert.equal(X.inBaseZone(m, at(2, -2)), true);
+  assert.equal(X.inBaseZone(m, at(3, 0)), false);
+  assert.equal(X.inBaseZone(m, at(-3, 0), 1.5), true);
 });
 
 test('an O₂ canister gives 45 s of suit, only outside the base and only when the suit has room for all of it', () => {
@@ -222,15 +222,35 @@ test('an O₂ canister gives 45 s of suit, only outside the base and only when t
 });
 
 test('the base zone is tiles −2 to 2 either way: world pixels −128 up to 191, and 1.5 tiles more with slack', () => {
-  assert.equal(X.inBaseZone({ x: -128, y: 0 }), true);
-  assert.equal(X.inBaseZone({ x: 191.9, y: 191.9 }), true);
-  assert.equal(X.inBaseZone({ x: 192, y: 0 }), false, 'x = 192 is tile 3');
-  assert.equal(X.inBaseZone({ x: 0, y: 192 }), false);
-  assert.equal(X.inBaseZone({ x: -128.1, y: 0 }), false);
-  assert.equal(X.inBaseZone({ x: 287.9, y: 0 }, 1.5), true);
-  assert.equal(X.inBaseZone({ x: 288, y: 0 }, 1.5), false);
-  assert.equal(X.inBaseZone({ x: -224, y: 0 }, 1.5), true);
-  assert.equal(X.inBaseZone({ x: NaN, y: 0 }), false);
+  const m = solo(); // a Camp
+  assert.equal(X.inBaseZone(m, { x: -128, y: 0 }), true);
+  assert.equal(X.inBaseZone(m, { x: 191.9, y: 191.9 }), true);
+  assert.equal(X.inBaseZone(m, { x: 192, y: 0 }), false, 'x = 192 is tile 3');
+  assert.equal(X.inBaseZone(m, { x: 0, y: 192 }), false);
+  assert.equal(X.inBaseZone(m, { x: -128.1, y: 0 }), false);
+  assert.equal(X.inBaseZone(m, { x: 287.9, y: 0 }, 1.5), true);
+  assert.equal(X.inBaseZone(m, { x: 288, y: 0 }, 1.5), false);
+  assert.equal(X.inBaseZone(m, { x: -224, y: 0 }, 1.5), true);
+  assert.equal(X.inBaseZone(m, { x: NaN, y: 0 }), false);
+});
+
+test('the base zone is the rank\'s, the same for the server and the surface', () => {
+  const m = solo('EXP-ZONE'), f = first(m, 'metal');
+  X.collect(m, 'minh', f.id, at(f.x, f.y));
+  m.expedition.carried.minh.push({ kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 });
+  // Tile 3, and the nearest spot a Camp refuses a delivery from: its 2 tiles plus 1.5 tiles of slack (x = 288).
+  const three = at(3, 0), past = { x: 4.5 * T, y: 0.5 * T };
+  assert.equal(X.inBaseZone(m, three), false, "3 tiles out is past a Camp's zone");
+  assert.equal(X.deliver(m, 'minh', past).error, 'notAtBase', 'as today');
+  assert.equal(X.useCanister(m, 'minh', three, D.EXPEDITION.suit).error, 'suitFull', 'the suit runs there: not at the base');
+  E.grantRank(m, 1);
+  assert.equal(E.zoneOf(m), 3);
+  assert.equal(X.inBaseZone(m, three), true, "inside an Outpost's 3 tiles");
+  assert.equal(X.inBaseZone(m, at(-3, -3)), true, 'either way');
+  assert.equal(X.inBaseZone(m, at(4, 0)), false);
+  assert.equal(X.useCanister(m, 'minh', three, 20).error, 'atBase', 'the suit pauses there now');
+  assert.equal(X.collapse(m, 'minh', three).error, 'atBase', 'and never runs out there');
+  assert.equal(X.deliver(m, 'minh', past).ok, true, 'delivering works');
 });
 
 test('solo: an empty suit counts as a collapse at once, the load stays where you fell and you sit out the round', () => {

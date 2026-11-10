@@ -397,7 +397,7 @@ test("co-op: the banner and the red edge judge cover with the slack the server g
   const flare = { warn: 35, end: 95, over: false, hit: [] };
   const coop = flareMission('EVA-FLARE-5', { coop: true });
   coop.expedition.flare = Object.assign({}, flare);
-  assert.equal(X.inBaseZone(spot), false, 'outside the base zone itself');
+  assert.equal(X.inBaseZone(coop, spot), false, 'outside the base zone itself');
   assert.ok(Z.shelterAt(coop, spot, D.EXPEDITION.reach), 'but the server covers it (lib/rooms.js, the flare)');
   assert.equal(Z.shelterAt(coop, far, D.EXPEDITION.reach), null, 'and does not cover the far spot');
   const c = setup({ mission: coop, t: say, clock: { t: 40, at: 0 } });

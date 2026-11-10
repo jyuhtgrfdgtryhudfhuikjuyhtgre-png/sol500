@@ -35,8 +35,8 @@ function metalFind(m) {
 }
 
 // While `rec.on`, every filled path is recorded as its box and fill style (path coordinates as given: world pixels for
-// what the surface draws without a translate, such as name tags and suit bars).
-const rec = { on: false, fills: [], box: null };
+// what the surface draws without a translate, such as name tags and suit bars), and every drawImage as its arguments.
+const rec = { on: false, fills: [], images: [], box: null };
 const grow = (x, y) => { const b = rec.box; rec.box = b ? { left: Math.min(b.left, x), right: Math.max(b.right, x), top: Math.min(b.top, y), bottom: Math.max(b.bottom, y) } : { left: x, right: x, top: y, bottom: y }; };
 const ctx = new Proxy({}, {
   get(t, k) {
@@ -48,17 +48,19 @@ const ctx = new Proxy({}, {
     if (k === 'arcTo') return (x1, y1, x2, y2) => { grow(x1, y1); grow(x2, y2); };
     if (k === 'arc') return (x, y, r) => { grow(x - r, y - r); grow(x + r, y + r); };
     if (k === 'fill') return () => { if (rec.on && rec.box) rec.fills.push(Object.assign({ style: t.fillStyle }, rec.box)); };
+    if (k === 'drawImage') return (...a) => { if (rec.on) rec.images.push(a); };
     return () => {};
   },
   set(t, k, v) { t[k] = v; return true; },
 });
 const TAG_BOX = ['rgba(140,188,236,0.92)', 'rgba(20,14,16,0.78)'], SUIT_BAR = 'rgba(20,14,16,0.8)'; // src/surface-paint.js drawTag, drawSuitBar
 const overlap = (a, b) => Math.min(a.right, b.right) > Math.max(a.left, b.left) && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top);
-// The painter is a stub too. It notes when the ground is drawn (once for every frame that is drawn) and keeps the scale it was given.
+// The painter is a stub too. It notes when the ground is drawn (once for every frame that is drawn), keeps the scale it was given
+// and every base land it was given (setBaseLand).
 function stubPainter(now) {
-  const seen = { at: [], scale: 1 };
+  const seen = { at: [], scale: 1, land: [] };
   const painter = new Proxy({}, {
-    get: (t, k) => (k === 'stats' ? () => ({ paintMedian: 0 }) : k === 'drawGround' ? () => { seen.at.push(now()); } : k === 'setScale' ? s => { seen.scale = s; } : () => {}),
+    get: (t, k) => (k === 'stats' ? () => ({ paintMedian: 0 }) : k === 'drawGround' ? () => { seen.at.push(now()); } : k === 'setScale' ? s => { seen.scale = s; } : k === 'setBaseLand' ? fn => { seen.land.push(fn); } : () => {}),
   });
   return { painter, seen };
 }
@@ -80,7 +82,8 @@ function element(tag) {
 // (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for. Like ui.js, the page
 // is shown where its astronaut last stood (the solo save; `opts.lastPos` stands for the co-op server's position).
 // `opts.dpr` is the screen's pixel ratio (1); `opts.lang` the player's language ('en'); `opts.gfx` the Display settings the page passes to update (setGfx changes them);
-// `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet).
+// `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet);
+// `opts.Image` the page's Image (the default never loads, so no picture is drawn).
 function page(m, me, opts) {
   const o = opts || {};
   let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7, resized = null;
@@ -90,7 +93,7 @@ function page(m, me, opts) {
     SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW, SolPhysics: require('../src/physics.js'),
     SolPaint: Object.assign({}, P, o.paint, { createPainter: (world, popts) => { seen.scale = (popts && popts.scale) || 1; return painter; } }),
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
-    location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: function () {},
+    location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: o.Image || function () {},
     matchMedia: () => ({ matches: false }),
     ResizeObserver: function (fn) { this.observe = () => { resized = fn; }; }, // the page's `pg.resize()` is the browser telling it the stage changed
     addEventListener: (type, fn) => { (on[type] = on[type] || []).push(fn); },
@@ -141,7 +144,7 @@ function page(m, me, opts) {
       return seen.at.length - drawn;
     },
     // One more frame, with every filled path it draws recorded.
-    frame() { rec.fills = []; rec.on = true; try { clock += 50; raf(clock); } finally { rec.on = false; } return rec.fills; },
+    frame() { rec.fills = []; rec.images = []; rec.on = true; try { clock += 50; raf(clock); } finally { rec.on = false; } return rec.fills; },
     key(code, down) { for (const fn of on[down === false ? 'keyup' : 'keydown'] || []) fn({ code, repeat: false, target: {}, preventDefault() {} }); },
     // A tap on the ground at tile (tx, ty): click-to-walk.
     tap(tx, ty) {
@@ -168,7 +171,7 @@ test('a new mission (SolSurface.reset) starts with a full suit and battery, even
   assert.equal(pg.probe().eva.suit, D.EXPEDITION.suit, 'mission B: a full suit');
   assert.equal(pg.probe().eva.driven, 0, 'mission B: a full rover battery');
   pg.qa.teleport(0, 4);
-  assert.equal(X.inBaseZone(pg.probe().player), false, 'one step outside the base zone');
+  assert.equal(X.inBaseZone(b, pg.probe().player), false, 'one step outside the base zone');
   pg.step(4);
   await flush();
   assert.equal(pg.calls.filter(c => c === 'collapse').length, 1, 'only mission A asked for a collapse');
@@ -255,7 +258,7 @@ test('a co-op driver who collapses is out of the rover: it stays parked where th
 test('a collapsed co-op player facing the rover in its bay is not offered a drive, and E does not get them in', async () => {
   const m = mission({ seed: 'COOP-B', coop: true });
   const bay = X.bay(m), spot = { x: bay.x, y: bay.y - 34 }; // just north of the bay, outside the base zone
-  assert.equal(X.inBaseZone(spot), false);
+  assert.equal(X.inBaseZone(m, spot), false);
   assert.equal(X.collapse(m, 'minh', spot).ok, true);
   const pg = page(m, 'minh'); // lying where they fell, facing down: the bay is the tile they look at
   pg.step(0.2);
@@ -368,7 +371,7 @@ test('a reload mid-round puts you back where you stood; after a solo collapse yo
   m.expedition.where.minh = { x: 30 * T + 32, y: 4 * T + 32 }; // saved before the layer sent you home
   const benched = page(plain(m), 'minh');
   const p = benched.probe().player;
-  assert.ok(X.inBaseZone(p), 'a collapsed solo astronaut sits out the round at the base: ' + p.x + ',' + p.y);
+  assert.ok(X.inBaseZone(m, p), 'a collapsed solo astronaut sits out the round at the base: ' + p.x + ',' + p.y);
   const coop = mission({ seed: 'BACK-2', coop: true });
   const seat = page(coop, 'minh', { lastPos: { x: 1300, y: 200 } });
   assert.deepEqual([seat.probe().player.x, seat.probe().player.y], [1300, 200], 'co-op: where the server last saw you');
@@ -462,7 +465,7 @@ test("a dust devil's hit that empties the suit collapses you where it caught you
   assert.equal(pg.probe().push, null, 'no throw is left to carry the benched astronaut off');
   pg.step(0.5);
   const p = pg.probe().player;
-  assert.ok(X.inBaseZone(p), 'minh sits out the round at the base: ' + Math.round(p.x) + ',' + Math.round(p.y));
+  assert.ok(X.inBaseZone(m, p), 'minh sits out the round at the base: ' + Math.round(p.x) + ',' + Math.round(p.y));
 
   // A hit that leaves suit still throws; and a throw still sliding when a new round puts you back at the HQ is over.
   const m2 = devilRound(), pg2 = page(m2, 'minh');
@@ -807,7 +810,7 @@ test('a refused beacon spot shows no key cap; a spot where E works does', () => 
 // A tile far enough from the base for a beacon, where nothing else is in reach.
 function openSpotFor(m) {
   const w = SW.create(m.seed);
-  for (let x = 14; x < 80; x++) if ([0, 1, 2].every(d => !w.isBlocked(x + d, 9)) && !X.inBaseZone({ x: (x + 0.5) * T, y: 9.5 * T })) return [x, 9];
+  for (let x = 14; x < 80; x++) if ([0, 1, 2].every(d => !w.isBlocked(x + d, 9)) && !X.inBaseZone(m, { x: (x + 0.5) * T, y: 9.5 * T })) return [x, 9];
   return null;
 }
 
@@ -857,6 +860,20 @@ test("the commander's aura speeds his walk by 10 % once he is out of the base zo
   const plainWalk = walked(4, 'minh'), led = walked(5, 'kai');
   assert.ok(plainWalk > 100, 'walked east: ' + plainWalk);
   assert.ok(Math.abs(led / plainWalk - D.SKILLS.commander.auraSpeed) < 0.01, 'the commander walks 10 % further: ' + led / plainWalk);
+});
+
+test("the suit pauses in the rank's base zone, as the rules count it: 3 tiles out it runs at a Camp and pauses at an Outpost", () => {
+  const drained = rank => {
+    const m = mission({ seed: 'ZONE-SUIT' });
+    E.grantRank(m, rank);
+    const pg = page(m, 'minh');
+    pg.qa.teleport(3, 0);
+    pg.step(2);
+    assert.equal(X.inBaseZone(m, pg.probe().player), rank > 0);
+    return D.EXPEDITION.suit - pg.probe().eva.suit;
+  };
+  assert.ok(drained(0) > 1.5, 'a Camp: the suit runs');
+  assert.equal(drained(1), 0, 'an Outpost: paused');
 });
 
 test("co-op: a teammate whose tab is gone counts for nobody's aura or route line, though they still stand where they left", () => {
@@ -1016,6 +1033,47 @@ test("in Vietnamese the surface's menus write a build's progress and a module's 
   pg.show(m);
   const [ex, ey] = E.buildSpots(m, 'battery', [])[0];
   assert.equal(notes(ex, ey, 0.35).pop(), vi('hud.materials') + ': 1.234 kg', "the build grid's stock");
+});
+
+test('a building at a negative grid spot stands on its world tile', () => {
+  const m = mission({ seed: 'LAND-NEG' });
+  E.grantRank(m, 2);
+  const spot = ([x, y]) => x === -2 && (y === 2 || y === 3);
+  assert.ok(!m.terrain.rock.some(spot) && !m.terrain.ice.some(spot), 'open ground at grid (-2, 2) and (-2, 3)');
+  m.layout.push({ type: 'solar', x: -2, y: 3 });
+  m.modules.solar.count += 1;
+  const pg = page(m, 'minh', { Image: function () { this.complete = true; this.naturalWidth = 128; } }); // pictures that load
+  const [wx, wy] = [-2 + W.BASE_RECT.x, 3 + W.BASE_RECT.y];
+  assert.deepEqual([wx, wy], [-6, 1]);
+  pg.frame();
+  const drawnAt = (gx, gy) => rec.images.find(a => a[1] === (gx + W.BASE_RECT.x) * T && a[2] === (gy + W.BASE_RECT.y) * T && a[3] === T && a[4] === T);
+  const solar = m.layout.find(k => k.type === 'solar' && k.x >= 0);
+  assert.ok(drawnAt(-2, 3), 'a sprite on world tile (-6, 1)');
+  assert.equal(drawnAt(-2, 3)[0], drawnAt(solar.x, solar.y)[0], "the solar array's picture");
+  pg.qa.teleport(wx, wy - 0.65); // on the south edge of the tile north of it, facing it
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 's:-2,3');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  assert.equal(pg.probe().menu, 's:-2,3', 'its module menu opens');
+  const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
+  assert.match(menu.children.filter(n => n.className === 'sf-mbody').pop().children.find(n => /^sf-note/.test(n.className)).textContent, /kW/);
+});
+
+test("the ground is given the rank's land once for each rank: a new rank's land is painted as the base's", () => {
+  const m = mission({ seed: 'LAND-PAINT' }), pg = page(m, 'minh');
+  const lands = pg.seen.land;
+  assert.equal(lands.length, 1, 'the first look');
+  assert.deepEqual([lands[0](4, 2), lands[0](-4, -2), lands[0](5, 0), lands[0](0, 3)], [true, true, false, false], "a Camp's: world tiles −4..4 × −2..2");
+  pg.show(m);
+  pg.step(0.2);
+  assert.equal(lands.length, 1, 'the same rank: nothing new to paint');
+  E.grantRank(m, 1);
+  pg.show(m);
+  assert.equal(lands.length, 2, 'the rank grew');
+  assert.deepEqual([lands[1](7, 4), lands[1](-7, -4), lands[1](8, 0), lands[0](7, 4)], [true, true, false, false], "an Outpost's: −7..7 × −4..4; the Camp's is kept as it was");
+  pg.show(m);
+  assert.equal(lands.length, 2);
 });
 
 // ---------- the rover drives by the physics engine (2026-11-03): steering, the boost, climbing, a crewmate's rover ----------

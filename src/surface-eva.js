@@ -224,7 +224,7 @@
       if (collapsed(me)) return { text: t('eva.collapsedCoop'), cls: 'crit' };
       if (benched()) return { text: t('eva.benched'), cls: 'warn' };
       if (p && p.inRover && driven >= XD.roverRange) return { text: t('eva.flat'), cls: 'warn' };
-      const atBase = !!p && X.inBaseZone(p);
+      const atBase = !!p && X.inBaseZone(mission(), p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t(pack().some(i => !E.isKit(i)) ? 'eva.full' : 'eva.fullKits'), cls: '' }; // kits are placed, not delivered
       if (live() && suit <= suitMax() * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
       const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
@@ -232,7 +232,7 @@
       return null;
     }
     // The canister button shows only when breathing one now is worth it: outside, on your feet, and with room for all 45 s.
-    const canBreathe = p => live() && !collapsed(me) && !benched() && pack().some(i => i.canister) && suit <= canBelow() && !(p && X.inBaseZone(p));
+    const canBreathe = p => live() && !collapsed(me) && !benched() && pack().some(i => i.canister) && suit <= canBelow() && !(p && X.inBaseZone(mission(), p));
     // The round's goals from ui.js's goals hook ([{ text, done, frac }], frac 0–1; text has "(p/n)" when it needs more than
     // one), asked twice a second: a line each with a thin bar, a done one ticked. No hook or no goals: no block.
     function renderGoals() {
@@ -266,7 +266,7 @@
         text(alertSecs, 'as', fv.left == null ? '' : t('eva.secs', { s: fv.left }));
       }
       if (hide) return;
-      const atBase = !!p && X.inBaseZone(p);
+      const atBase = !!p && X.inBaseZone(mission(), p);
       text(suitM.k, 'sk', t('eva.suit'));
       const seconds = t('eva.secs', { s: Math.ceil(suit) }); // one unit, paused or not
       text(suitM.v, 'sv', atBase && !benched() ? t('eva.paused', { v: seconds }) : seconds);
@@ -336,11 +336,11 @@
     // Takes a relay beacon kit waiting at the base into your backpack (the button, or K), or puts one back. Only in the base
     // zone, where the buttons show: K pressed out on the map does nothing.
     function takeKit(p) {
-      if (!live() || !X.inBaseZone(p) || !(exp().kits > 0)) return;
+      if (!live() || !X.inBaseZone(mission(), p) || !(exp().kits > 0)) return;
       act('takeKit', p).then(r => { if (r.ok) say(t('eva.tookKit', { n: XD.beacon.base }), 'ok', 6); });
     }
     function returnKit(p) {
-      if (!live() || !X.inBaseZone(p) || !pack().some(E.isKit)) return;
+      if (!live() || !X.inBaseZone(mission(), p) || !pack().some(E.isKit)) return;
       act('returnKit', p).then(r => { if (r.ok) say(t('eva.returnedKit'), 'ok', 3); });
     }
 
@@ -406,8 +406,8 @@
     function canMove(p, nx, ny) {
       if (!me || !mission() || !mission().expedition) return true;
       if (collapsed(me)) return false;
-      const atBase = X.inBaseZone(p);
-      if (benched() && atBase && !X.inBaseZone({ x: nx, y: ny })) return false; // solo: back out next round
+      const atBase = X.inBaseZone(mission(), p);
+      if (benched() && atBase && !X.inBaseZone(mission(), { x: nx, y: ny })) return false; // solo: back out next round
       if (!atBase && suit <= 0) return false;
       if (p.inRover && driven >= XD.roverRange) return false;
       return true;
@@ -425,7 +425,7 @@
       }
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
-        const x = m.expedition, atBase = X.inBaseZone(p), out = !atBase && !collapsed(me) && !benched();
+        const x = m.expedition, atBase = X.inBaseZone(m, p), out = !atBase && !collapsed(me) && !benched();
         // The battery counts the tiles driven, more for each one boosted or over rocks (p.drain, set as the rover moves).
         if (p.inRover && moved > 0) driven = Math.min(XD.roverRange, driven + moved / T * (p.drain || 1));
         if (out) {
@@ -606,7 +606,7 @@
       }
       if (x.rover && !x.rover.driver && !p.inRover) consider(x.rover.x, x.rover.y, { kind: 'rover', key: 'rover-parked', parked: true, x: x.rover.x, y: x.rover.y });
       // With nothing else to work on, the beacon kit you carry: the tile under you is where it would stand.
-      if (!best && !p.inRover && !X.inBaseZone(p) && pack().some(E.isKit)) return beaconFocus(p);
+      if (!best && !p.inRover && !X.inBaseZone(m, p) && pack().some(E.isKit)) return beaconFocus(p);
       return best;
     }
 
@@ -641,11 +641,11 @@
 
     // ---------- drawing ----------
     const warning = () => { const f = mission() && mission().expedition && mission().expedition.flare; return !!f && !f.over && clock() >= f.warn; };
-    // The base zone: where the suit pauses and loads are delivered (5 × 5 tiles around the HQ). While a flare's warning
-    // runs, it and every cover in view (Z.coversIn, from the chunks the surface holds) pulse amber.
+    // The base zone: where the suit pauses and loads are delivered (the rank's, E.zoneOf: 5 × 5 tiles round the HQ at a
+    // Camp). While a flare's warning runs, it and every cover in view (Z.coversIn, from the chunks the surface holds) pulse amber.
     function drawZone(ctx, x0, y0, x1, y1, world) {
       if (!mission() || !mission().expedition) return;
-      const m = mission(), r = (XD.baseZone + 0.5) * T, warn = warning(), pulse = 0.5 + 0.5 * Math.sin(now * 6);
+      const m = mission(), r = (E.zoneOf(m) + 0.5) * T, warn = warning(), pulse = 0.5 + 0.5 * Math.sin(now * 6);
       ctx.save();
       ctx.strokeStyle = warn ? 'rgba(242,184,79,' + (0.55 + 0.4 * pulse).toFixed(3) + ')' : 'rgba(140,188,236,0.35)';
       ctx.lineWidth = warn ? 3 : 2;
@@ -716,7 +716,7 @@
       return { warn, flash };
     }
     // A teammate's suit level (co-op positions carry it), 0–1, for the bar on their name tag; none at the base or when full.
-    const suitBar = r => (r.suit == null || r.suit >= suitMax() || X.inBaseZone(r) ? null : r.suit / suitMax());
+    const suitBar = r => (r.suit == null || r.suit >= suitMax() || X.inBaseZone(mission(), r) ? null : r.suit / suitMax());
 
     // Minimap and map markers: finds you have seen (the biologist senses ice and methane vents further), cave mouths you
     // have seen, dropped loads, the parked rover. Rebuilt at most every 150 ms.
