@@ -1801,7 +1801,7 @@
               h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total))))), mapHint]),
           panel(t('deb.lessons'), h('div', { class: 'lessons' }, lessonsFor(s).map(([k, src]) => h('article', { class: 'lesson' },
             h('h3', null, t('lesson.' + k + '.title')),
-            h('p', null, t('lesson.' + k + '.body', { end: E.turnsOf(s) * D.TURN_SOLS })),
+            h('p', null, t('lesson.' + k + '.body', { end: E.turnsOf(s) * D.TURN_SOLS, tonnes: nf(D.FOOD_PER_CREW * s.crew.length * E.turnsOf(s) * D.TURN_SOLS / 1000, 1) })),
             src.map(id => srcA(I.SOURCES[id])))))),
           panel(t('deb.badges'), h('div', { class: 'badges' }, earned.length
             ? earned.map(b => badgeCard(b, true, store.newBadges.includes(b)))

@@ -1764,7 +1764,6 @@ test("the starvation and life-support lessons name the mission's own end sol: 20
     assert.ok(body.includes(String(end)) && !body.includes('{end}'));
     assert.ok(!text.includes('{end}'));
   }
-  for (const lang of ['en', 'vi']) assert.ok(I.t(lang, 'lesson.food.body', { end: 200 }).includes('200') && !I.t(lang, 'lesson.food.body', { end: 200 }).includes('500'));
 });
 
 test('Resume closing an unread region card leaves that region unseen, so its card comes again', () => {
@@ -1797,4 +1796,17 @@ test('a card up when the console opens is held there and comes back with its tim
   assert.equal(up(), 'S4,-1', 'its 10 s left are still to run');
   clock.advance(1);
   assert.equal(up(), null);
+});
+
+test('the starvation lesson gives the packaged food for the mission own length: 1.8 kg x 4 crew x 200 or 500 sols', () => {
+  const saves = twoSaves(), I = page().I;
+  for (const [slot, end, tonnes, lang] of [['saveQuick', 200, '1.4', 'en'], ['save', 500, '3.6', 'en'], ['saveQuick', 200, '1,4', 'vi'], ['save', 500, '3,6', 'vi']]) {
+    const pg = page({ [slot]: saves[slot], lang });
+    Object.assign(pg.UI.store.mission, { status: 'lost', endCause: { reason: 'starvation', sol: 40 } });
+    pg.UI.store.screen = 'debrief';
+    pg.UI.render();
+    const body = I.t(lang, 'lesson.food.body', { end, tonnes });
+    assert.ok(pg.all()[0].textContent.includes(body), slot + ' ' + lang);
+    assert.ok(body.includes(tonnes) && !/\{\w+\}/.test(body));
+  }
 });
