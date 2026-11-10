@@ -33,6 +33,9 @@
  *        No changes · placeBeacon(m, crewId, pos) → { ok, beacon: "B<i>", fog }: places one there from your kit
  *      routeHome(m) → [{ from, to, x0, y0, x1, y1 }]: the dashed route home, a link a beacon (world tiles)
  *      roverLeft(m) → tiles the rover can still drive this round · setRoverDriven(m, crewId, tiles) (the driver's game)
+ *      revealAround(m, cx, cy, r) → what changed: the fog within r tiles of (cx, cy) (tile units) revealed for good
+ *      canFly(m, crewId, pos) → { ok, left } or { error }: may the scout drone take off from where you are? No changes ·
+ *        fly(m, crewId, pos, tx, ty) → { ok, fog }: it flies to tile (tx, ty) and clears the fog round it (M6)
  *      cacheSize() → data chunks in the shared world cache (at most 256)
  * Solar flares, shelters, dust devils and how far you can see are src/dangers.js.
  */
@@ -669,10 +672,42 @@
     });
   }
 
+  // ---------- the scout drone (spec §4.2, M6) ----------
+  // Built in the Garage, it flies from the base zone or from a rover or pressurised rover you drive, straight over cliffs and
+  // walls to a tile within D.DRONE.range tiles of you, clears the fog within D.DRONE.reveal tiles of it for good, as a beacon
+  // does, and comes back carrying nothing. One drone: D.DRONE.flights a round for the whole crew (x.droneFlights), recharged
+  // at the advance. A global dust storm grounds it (Z.stormOf(m) === 'global'; read here from the round's weather, since
+  // src/dangers.js is built on this file). canFly changes nothing: fly asks it first, and the surface asks it to word the
+  // Drone button. → { ok: true, left } (the flights left) or { error }.
+  function canFly(m, crewId, pos) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    const x = m.expedition, flown = Number(x.droneFlights) || 0;
+    if (D.M6.drone !== true || E.activeCount(m, 'drone') <= 0) return { error: 'noDrone' };
+    if (((m.schedule && m.schedule[m.turn]) || {}).weather === 'global') return { error: 'grounded' };
+    if (flown >= D.DRONE.flights) return { error: 'flights' };
+    if (!okPos(pos)) return { error: 'badPos' };
+    const cabin = !!x.cabin && x.cabin.driver === crewId; // the pressurised rover: null at its bay, { x, y } parked, { driver }
+    if (!inBaseZone(m, pos, X.reach) && !driving(x, crewId) && !cabin) return { error: 'notHere' };
+    return { ok: true, left: D.DRONE.flights - flown };
+  }
+  // Flies the drone to tile (tx, ty) (world tiles: whole numbers, from the network unchecked). → { ok, fog: what changed,
+  // as placeBeacon's }.
+  function fly(m, crewId, pos, tx, ty) {
+    const c = canFly(m, crewId, pos);
+    if (c.error) return c;
+    if (!Number.isInteger(tx) || !Number.isInteger(ty)) return { error: 'badPos' };
+    if (!nearPx(pos, (tx + 0.5) * T, (ty + 0.5) * T, D.DRONE.range)) return { error: 'tooFar' };
+    const x = m.expedition;
+    x.droneFlights = (Number(x.droneFlights) || 0) + 1;
+    return { ok: true, fog: revealAround(m, tx + 0.5, ty + 0.5, D.DRONE.reveal) };
+  }
+
   return {
     findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, commanderOut, speedFactor, addDistance, capacity, suitMax, packOf, rackOf, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
     interact, refill, forecastAhead, mastMarks, takeKit, returnKit, beaconSpot, placeBeacon, routeHome,
+    revealAround, canFly, fly,
     cacheSize: () => cache.size,
   };
 });

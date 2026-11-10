@@ -1358,6 +1358,10 @@
     'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
     // M6 T7
     'eva.droneFly': 'Fly the drone',
+    'eva.err.noDrone': 'No working scout drone: build one in the Garage.',
+    'eva.err.grounded': 'The drone is grounded in a global dust storm.',
+    'eva.err.flights': 'The drone’s battery is flat until tomorrow.',
+    'eva.err.notHere': 'Fly the drone from the base or from a rover you drive.',
     // M6 T9
     'show.card.ranks.name': 'Base ranks',
   };
@@ -2615,6 +2619,10 @@
     'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
     // M6 T7
     'eva.droneFly': 'Cho drone bay',
+    'eva.err.noDrone': 'Không có drone trinh sát nào hoạt động: hãy chế tạo một chiếc ở Xưởng xe.',
+    'eva.err.grounded': 'Drone không thể bay trong bão bụi toàn cầu.',
+    'eva.err.flights': 'Pin drone đã cạn đến ngày mai.',
+    'eva.err.notHere': 'Chỉ cho drone bay từ căn cứ hoặc từ xe thám hiểm bạn đang lái.',
     // M6 T9
     'show.card.ranks.name': 'Các cấp căn cứ',
   };
