@@ -53,7 +53,172 @@ The user accepted the numbers as they are: the sloppy S target is read as the no
 
 ## Native Vietnamese read
 
-<<VI>>
+113 Vietnamese strings were added or changed in `src/i18n.js` between 3.6.0 and the release (`git diff aba7f78..5270e7e -- src/i18n.js`), 77 new and 36 changed. The Showcase's 12 card names and purpose lines are among them (`show.card.<id>.name` and `.why`; the card words live in `src/i18n.js`, `src/showcase.js` holds only the ids and one line builder). Grouped by screen, English beside Vietnamese. A string with a note was named by a task review as one to read first:
+- `show.crew.holds`, the landmark, beacons and rover purpose lines, and `eva.packKit` were rewritten late, after their pages were checked.
+- "bão mặt trời" (solar storm) is capitalised as a card title in `show.card.flare.name` ("Bão mặt trời") and lower case in `quick.flareHint` and `show.card.flare.why`; the older `ev.spe` and `help.11` strings say "bão hạt Mặt Trời" (capital Mặt Trời): pick one term and one rule.
+
+### Title and mission length (10)
+
+| Key | EN | VI |
+|---|---|---|
+| `title.resumeDamaged` | That saved mission could not be read, so it was removed. | Không đọc được nhiệm vụ đã lưu này nên đã xóa nó. |
+| `title.resumeQuick` | Resume Quick · sol {sol} | Tiếp tục nhiệm vụ nhanh · sol {sol} |
+| `title.length` | Mission length | Độ dài nhiệm vụ |
+| `length.full` | Full · 500 sols | Đầy đủ · 500 sol |
+| `length.quick` | Quick · 200 sols | Nhanh · 200 sol |
+| `length.fullHint` | 20 rounds. The whole mission, with every season, storm and decision. | 20 vòng. Cả nhiệm vụ, với đủ mùa, bão và quyết định. |
+| `length.quickHint` | 8 rounds, solo only. Set moments: a solar flare in round 3 and an oxygen leak in round 5. A rover comes in place of the water wall. No training mode. | 8 vòng, chỉ chơi một mình. Có các khoảnh khắc định sẵn: bão mặt trời ở vòng 3 và rò rỉ oxy ở vòng 5. Xe thám hiểm thay cho tường nước. Không có chế độ huấn luyện. |
+| `quick.tag` | Quick mission | Nhiệm vụ nhanh |
+| `quick.flareHint` **lower case: "bão mặt trời" capitalisation** | A solar flare is due this round. Step outside with the rover and get back under cover in time. | Vòng này sẽ có bão mặt trời. Hãy ra ngoài bằng xe thám hiểm và quay về chỗ trú kịp lúc. |
+| `title.operate.body` (changed) | Rounds of 25 sols: assign the crew, build, answer emergencies. | Mỗi vòng 25 sol: phân công, xây dựng, xử lý sự cố. |
+
+### Showcase (the 12 cards and the gallery) (33)
+
+| Key | EN | VI |
+|---|---|---|
+| `show.title` | What SOL 500 can do | SOL 500 làm được gì |
+| `show.open` | Showcase | Trình diễn |
+| `show.me` | Show me | Cho tôi xem |
+| `show.next` | Next | Tiếp |
+| `show.back` | ‹ Showcase | ‹ Trình diễn |
+| `show.why` | Why it's here | Vì sao có tính năng này |
+| `show.crew.holds` **named in the ledger** | The same hold at the weather station: Commander {a} s, Engineer {b} s. | Cùng một lần giữ phím ở trạm khí tượng: chỉ huy trưởng {a} giây, kỹ sư {b} giây. |
+| `show.failed` | That scene could not be set up. You are back on the gallery. | Không dựng được cảnh đó. Bạn đã quay lại thư viện. |
+| `show.exit` | Exit to Admin | Thoát về trang Quản trị |
+| `show.card.flare.name` **capital B: "bão mặt trời" capitalisation** | Solar flare | Bão mặt trời |
+| `show.card.flare.why` | NASA lists space radiation as one of the five hazards of human spaceflight. In the game a flare gives a short warning, and your dose depends on whether you reach cover in time. | NASA xếp bức xạ vũ trụ là một trong năm mối nguy của chuyến bay vũ trụ có người. Trong game, bão mặt trời cho một lời cảnh báo ngắn, và liều bức xạ của bạn tùy việc bạn có kịp vào chỗ trú hay không. |
+| `show.card.rover.name` | Physics rover | Xe thám hiểm theo vật lý |
+| `show.card.rover.why` **named in the ledger (reworded)** | Mars has weaker gravity than Earth, so the wheels grip less and the rover needs more room to stop. The readout shows both distances: brake early. | Sao Hỏa có trọng lực yếu hơn Trái Đất, nên bánh xe bám đường kém hơn và xe thám hiểm cần nhiều chỗ để dừng hơn. Bảng đọc cho thấy cả hai quãng đường: hãy phanh sớm. |
+| `show.card.oxygen.name` | Oxygen cut | Đứt đường oxy |
+| `show.card.oxygen.why` | A rupture in the oxygen line leaves two choices: seal off and hide, or send a team out for the lander's tanks. Each has a real cost, and the rules show it. | Đường oxy bị vỡ để lại hai lựa chọn: đóng kín rồi trú ẩn, hay cử người ra lấy bình dự trữ của tàu đổ bộ. Mỗi lựa chọn có một cái giá thật, và luật chơi cho bạn thấy. |
+| `show.card.beacons.name` | Relay beacons | Trạm chuyển tiếp |
+| `show.card.beacons.why` **named in the ledger (reworded)** | Most data from Mars rovers goes first to the orbiters overhead, which relay it to Earth. In the game, beacons placed away from the base mark the route home and refill your suit. | Phần lớn dữ liệu từ các xe thám hiểm sao Hỏa được gửi trước tiên lên các tàu quỹ đạo phía trên, rồi chúng chuyển về Trái Đất. Trong game, các trạm chuyển tiếp đặt xa căn cứ đánh dấu đường về và nạp lại bộ đồ của bạn. |
+| `show.card.ground.name` | NASA photo ground | Mặt đất từ ảnh NASA |
+| `show.card.ground.why` | NASA's Ingenuity helicopter took the first color photo of Mars from the air. The game's ground is painted from NASA images like it, one look for each of the six regions. | Trực thăng Ingenuity của NASA đã chụp bức ảnh màu đầu tiên về sao Hỏa từ trên không. Mặt đất trong game được vẽ từ những ảnh NASA như vậy, mỗi vùng trong sáu vùng một vẻ. |
+| `show.card.landmark.name` | Landmarks | Địa danh |
+| `show.card.landmark.why` **named in the ledger (reworded)** | NASA's Perseverance rover is studying an ancient delta, formed where a river met a lake. The game places real kinds of Martian landmark, and discovering one gives you its NASA facts. | Xe thám hiểm Perseverance của NASA đang nghiên cứu một châu thổ cổ, hình thành nơi một dòng sông gặp một cái hồ. Game đặt những loại địa danh thật của sao Hỏa, và khám phá một nơi sẽ cho bạn các dữ kiện của NASA về nó. |
+| `show.card.tube.name` | Lava tubes and caves | Ống dung nham và hang động |
+| `show.card.tube.why` | NASA images show pit craters where the roof of a lava tube has collapsed, and empty tubes may criss-cross Mars's giant volcanoes. In the game, walk into a tube's mouth and into the dark. | Ảnh NASA cho thấy những hố sụt nơi mái của một ống dung nham đã sập, và các ống rỗng có thể chạy ngang dọc dưới những ngọn núi lửa khổng lồ của sao Hỏa. Trong game, hãy đi tới miệng một ống và bước vào bóng tối. |
+| `show.card.devils.name` | Dust devils and storms | Lốc bụi và bão bụi |
+| `show.card.devils.why` | NASA photographs the dark tracks that dust devils scour into the surface of Mars. In the game, a dust-devil round costs suit time if one catches you in the open, and a storm shortens how far you see. | NASA chụp được những vệt tối mà lốc bụi cày lên bề mặt sao Hỏa. Trong game, một vòng có lốc bụi làm hao bộ đồ nếu bạn bị bắt gặp ngoài trời, và bão bụi làm tầm nhìn hẹp lại. |
+| `show.card.isru.name` | Growing food and making oxygen | Trồng thực phẩm và tạo oxy |
+| `show.card.isru.why` | NASA's Veggie garden on the space station adds fresh food to astronauts' diets. The Console shows the game's greenhouse and the oxygen systems that keep the crew fed and breathing. | Vườn Veggie của NASA trên trạm vũ trụ bổ sung thực phẩm tươi cho bữa ăn của phi hành gia. Bảng điều khiển cho thấy nhà kính và các hệ thống oxy trong game giúp phi hành đoàn có ăn và có thở. |
+| `show.card.crew.name` | Crew roles and skills | Vai trò và kỹ năng của phi hành đoàn |
+| `show.card.crew.why` | Each crew member has a role with its own skill, so a job can take a different time for each: an Engineer works a weather station in half the time. The commander's aura speeds up the crew near him. | Mỗi thành viên có một vai trò với kỹ năng riêng, nên một việc có thể mất thời gian khác nhau với từng người: kỹ sư sửa trạm khí tượng trong nửa thời gian. Hào quang của chỉ huy giúp cả đội gần anh ấy đi nhanh hơn. |
+| `show.card.story.name` | Why Mars? | Vì sao là sao Hỏa? |
+| `show.card.story.why` | In July 1969 Apollo 11 put the first two people on the Moon. The story follows that road on towards Mars. | Tháng 7 năm 1969, Apollo 11 đưa hai người đầu tiên lên Mặt Trăng. Câu chuyện đi tiếp con đường đó về phía sao Hỏa. |
+| `show.card.guide.name` | Field guide | Sổ tay thực địa |
+| `show.card.guide.why` | The guide explains every item and module in the game, with the facts behind each one. | Sổ tay giải thích từng vật phẩm và mô-đun trong game, cùng những dữ kiện đằng sau mỗi thứ. |
+
+### Console, warnings and advice (10)
+
+| Key | EN | VI |
+|---|---|---|
+| `mwarn.storm_risk` (changed) | A global dust storm would leave the HQ without enough power. Opportunity died this way in 2018. | Một cơn bão bụi toàn cầu sẽ khiến HQ thiếu điện. Xe thám hiểm Opportunity đã chết như vậy năm 2018. |
+| `mwarn.o2_short` (changed) | Oxygen runs out before sol {end}. | Oxy hết trước sol {end}. |
+| `mwarn.water_short` (changed) | Water runs out before sol {end}, even after draining the water wall. | Nước hết trước sol {end}, kể cả khi xả tường nước. |
+| `mwarn.food_short` (changed) | Food runs out before sol {end} unless you grow or order more. | Thực phẩm hết trước sol {end} nếu không trồng hoặc đặt thêm. |
+| `season.autumn.short` | Autumn · dust season | Mùa thu · mùa bão bụi |
+| `season.winter.short` | Winter · dust season | Mùa đông · mùa bão bụi |
+| `season.spring.short` | Spring | Mùa xuân |
+| `season.summer.short` | Summer | Mùa hè |
+| `bld.kitReal` (changed) | Real Mars rovers send most of their data to Earth through orbiters overhead, called the Mars Relay Network; the ground beacons in this game are fictional. | Các xe thám hiểm thật trên sao Hỏa gửi phần lớn dữ liệu về Trái Đất qua các tàu quỹ đạo bay phía trên, gọi là Mạng chuyển tiếp sao Hỏa (Mars Relay Network); các trạm chuyển tiếp mặt đất trong trò chơi này là hư cấu. |
+| `advice.dose_projection` (changed) | At this rate {name} passes the 300 mSv budget before sol {end}. Build shield layers or move them indoors. | Cứ đà này {name} sẽ vượt 300 mSv trước sol {end}. Xây thêm lớp che chắn hoặc cho người đó làm việc trong nhà. |
+
+### Events and debrief (10)
+
+| Key | EN | VI |
+|---|---|---|
+| `ev.landing_quick.title` | Touchdown | Chạm đất |
+| `ev.landing_quick.body` **check "bão"** | The lander is down and the HQ is pressurized. Two hundred sols until the early return window. Eight rounds, and two moments you cannot skip. Assign the crew, check the forecast, then advance. | Tàu đã hạ cánh và HQ đã điều áp. Còn 200 sol đến cửa sổ trở về sớm. Tám vòng, và hai khoảnh khắc không thể bỏ qua. Phân công phi hành đoàn, xem dự báo, rồi tiến lên. |
+| `ev.dust_global.body` (changed) | Dust covers the whole planet. Solar arrays deliver about 8 % of normal. It can last three rounds. In 2018 a storm like this ended the Opportunity rover. | Bụi phủ kín cả hành tinh. Dàn pin chỉ còn khoảng 8 % công suất, có thể kéo dài ba vòng. Năm 2018, một cơn bão như vậy đã chấm dứt xe thám hiểm Opportunity. |
+| `ev.spe.shelter.hint` (changed) | Everyone in the shielded core: less work, only a few mSv. Crew out on the surface still need cover from the flare. | Mọi người vào lõi được che chắn: ít việc hơn, chỉ vài mSv. Ai đang ở ngoài căn cứ, trên bề mặt sao Hỏa, vẫn phải tìm nơi trú ẩn khỏi bão hạt Mặt Trời. |
+| `deb.successBody` (changed) | {n} of {m} crew lift off for home on sol {end}. | {n}/{m} phi hành gia cất cánh về nhà vào sol {end}. |
+| `lesson.storm_solar.body` (changed) | A global dust storm hit while most of your power came from the Sun. In 2018 one of these storms blocked sunlight for months and ended the Opportunity rover. That is why NASA is developing fission surface power for crewed missions. | Một cơn bão bụi toàn cầu ập đến khi phần lớn điện của bạn đến từ Mặt Trời. Năm 2018, một cơn bão như vậy che nắng nhiều tháng và chấm dứt xe thám hiểm Opportunity. Vì thế NASA đang phát triển lò phân hạch trên bề mặt cho các sứ mệnh có người. |
+| `lesson.spares.body` (changed) | Breakdowns are certain on a {end}-sol mission. What matters is whether someone can fix them: a crew member on maintenance, spare kits, and materials to improvise with. | Hỏng hóc là chắc chắn trong {end} sol. Điều quan trọng là có ai sửa được không: một người làm bảo trì, phụ tùng, và vật liệu để tự chế. |
+| `lesson.food.body` (changed) | Packaged food for {end} sols weighs tonnes. Hydroponics trade mass for power and crew time, and the first harvest comes only after a crop cycle. | Đồ ăn đóng gói cho {end} sol nặng hàng tấn. Thủy canh đổi khối lượng lấy điện và công sức, và vụ đầu tiên chỉ có sau một chu kỳ trồng. |
+| `lesson.isruMars.body` (changed) | ISRU, or in-situ resource utilization, means making what astronauts need from local materials instead of bringing large quantities from Earth. MOXIE, an experiment on NASA's Perseverance rover, made 122 grams of oxygen from the carbon dioxide in Mars's thin air in 16 runs between 2021 and 2023. At its best it made 12 grams of oxygen an hour, at 98% purity or better. Water ice lies underground across Mars's mid-latitudes; crews could harvest it for drinking water, or split it into hydrogen and oxygen for rocket fuel and breathable air. In the game, the ice and metal you haul home are ISRU too: supplies found on Mars, not launched from Earth. | ISRU, hay khai thác tài nguyên tại chỗ (in-situ resource utilization), nghĩa là làm ra những thứ phi hành gia cần từ vật liệu tại chỗ, thay vì mang theo số lượng lớn từ Trái Đất. MOXIE, một thí nghiệm trên xe thám hiểm Perseverance của NASA, đã tạo ra 122 gam oxy từ khí CO₂ trong bầu khí quyển mỏng của sao Hỏa qua 16 lần chạy từ năm 2021 đến 2023. Lúc tốt nhất, nó tạo ra 12 gam oxy mỗi giờ, với độ tinh khiết từ 98% trở lên. Băng nước nằm dưới lòng đất ở khắp các vùng vĩ độ trung bình của sao Hỏa; các phi hành đoàn có thể khai thác băng để làm nước uống, hoặc tách nó thành hydro và oxy để làm nhiên liệu tên lửa và khí thở. Trong trò chơi, băng và kim loại bạn mang về cũng là ISRU: nguồn cung tìm thấy trên sao Hỏa, chứ không phải phóng lên từ Trái Đất. |
+| `goal.haul` (changed) | Bring home {n} loads of ice or metal | Mang về {n} phần hàng băng hoặc kim loại |
+
+### Surface: the EVA panel, hints and map key (27)
+
+| Key | EN | VI |
+|---|---|---|
+| `haul.o2` (changed) | +{n} kg O₂ in canisters | +{n} kg O₂ trong bình |
+| `haul.spares1` | +{n} spare kit | +{n} bộ phụ tùng |
+| `haul.kit1` | +{n} relay beacon kit | +{n} bộ trạm chuyển tiếp |
+| `eva.nothing` (changed) | Nothing yet. Walk out of the base: ice, metal-rich rock, cargo pods and science sites lie on the map. Hold E by one to load it, then bring it back inside the dashed square around the HQ. | Chưa có gì. Hãy đi ra khỏi căn cứ: băng, đá giàu kim loại, khoang hàng và địa điểm khoa học nằm trên bản đồ. Giữ phím E bên cạnh để chất hàng, rồi mang về trong ô vuông nét đứt quanh căn cứ. |
+| `eva.battery` (changed) | Rover battery | Pin xe thám hiểm |
+| `eva.packKit` **named in the ledger** | Backpack: {n} loads and {k} relay beacon kits, {m} slots | Ba lô: {n} phần hàng và {k} bộ trạm chuyển tiếp, {m} ngăn |
+| `eva.flat` (changed) | The rover battery is flat until tomorrow: press E to get out and walk. | Pin xe thám hiểm đã cạn đến ngày mai: nhấn E để xuống xe và đi bộ. |
+| `eva.err.taken` (changed) | Someone else is driving the rover. | Người khác đang lái xe thám hiểm. |
+| `eva.err.flat` (changed) | The rover's battery is flat until tomorrow. | Pin xe thám hiểm đã cạn đến ngày mai. |
+| `eva.err.noRover` (changed) | The rover is out of action. | Xe thám hiểm đang không hoạt động. |
+| `eva.err.noRoom` | This room has closed. | Phòng này đã đóng. |
+| `eva.err.slowDown` | Too many actions at once: wait a moment. | Thao tác quá nhanh: hãy đợi một chút. |
+| `eva.err.notAtBase` (changed) | That only works inside the dashed square around the HQ. | Việc này chỉ làm được trong ô vuông nét đứt quanh căn cứ. |
+| `eva.err.notDriving` (changed) | You are not driving the rover. | Bạn đang không lái xe thám hiểm. |
+| `eva.cond.flare` (changed) | Solar flare: {w} s after anyone steps outside, a {c} s countdown starts. Be under cover when it ends (the base, a cave, a lava tube, a hab pod or the storm shelter), or take +{d} mSv. | Bão hạt Mặt Trời: {w} giây sau khi có người bước ra ngoài, đồng hồ đếm ngược {c} giây bắt đầu. Hãy ở nơi trú ẩn khi hết giờ (căn cứ, hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão), nếu không sẽ nhận +{d} mSv. |
+| `sf.hintRover` (changed) | In the rover: steer with WASD or the arrows · hold Shift to boost (the battery drains twice as fast) · drive over rocks and crater rims, slowly · E to get out | Trên xe thám hiểm: lái bằng WASD hoặc phím mũi tên · giữ Shift để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · E để xuống xe |
+| `sf.hintRoverTouch` (changed) | In the rover: drag the stick to steer · hold » to boost (the battery drains twice as fast) · drive over rocks and crater rims, slowly · tap E to get out | Trên xe thám hiểm: kéo cần điều khiển để lái · giữ » để tăng tốc (pin hao gấp đôi) · có thể chạy chậm qua đá và vành hố va chạm · chạm E để xuống xe |
+| `sf.key.find` | A find to collect | Vật cần thu thập |
+| `sf.key.cave` | Cave mouth | Miệng hang |
+| `sf.key.drop` | Dropped load | Hàng đã bỏ lại |
+| `sf.key.rover` | Parked rover | Xe thám hiểm đang đỗ |
+| `sf.key.beacon` | Relay beacon | Trạm chuyển tiếp |
+| `sf.key.landmark` | Landmark discovered | Địa danh đã khám phá |
+| `sf.key.structure` | Structure used or repaired | Công trình đã dùng hoặc sửa |
+| `sf.key.mast` | Comms mast, not yet repaired | Cột liên lạc, chưa sửa |
+| `sf.key.base` | The base | Căn cứ |
+| `sf.key.you` | You | Bạn |
+
+### Field guide, finds and regions (7)
+
+| Key | EN | VI |
+|---|---|---|
+| `guide.pack.desc` (changed) | Carries what you load out there (ice, metal-rich rock, cargo, science samples) back to the base: 3 loads on foot, 8 in the rover. | Mang những gì bạn thu nhặt ngoài kia (băng, đá giàu kim loại, hàng hóa, mẫu khoa học) về căn cứ: 3 món khi đi bộ, 8 món khi lái xe thám hiểm. |
+| `guide.kit.desc` (changed) | Built at the HQ and carried out: set down far from the base, a relay beacon refills suits and marks the route home. | Được chế tạo ở HQ rồi mang ra ngoài: đặt xa căn cứ, trạm chuyển tiếp nạp lại bộ đồ và đánh dấu đường về. |
+| `item.battery.fact` (changed) | A Mars sol lasts 24 h 39 min. | Một sol dài 24 giờ 39 phút. |
+| `find.wreck` (changed) | Wrecked scout rover | Xác xe thám hiểm trinh sát |
+| `sci.vent` (changed) | methane vent | lỗ thoát khí mêtan |
+| `region.fact.plains` (changed) | Like the floor of Jezero Crater, where Perseverance landed. About 3.5 billion years ago this 45-km crater had its own river delta and was filled with water. “Jezero” means “lake” in many Slavic languages. | Giống như đáy hố Jezero, nơi tàu Perseverance hạ cánh. Khoảng 3,5 tỷ năm trước, hố rộng 45 km này từng có châu thổ sông riêng và chứa đầy nước. “Jezero” nghĩa là “hồ” trong nhiều ngôn ngữ Slav. |
+| `ks.wreck.name` (changed) | Wrecked scout rover | Xác xe thám hiểm trinh sát |
+
+### Crew roles (6)
+
+| Key | EN | VI |
+|---|---|---|
+| `role.commander.fact` | In NASA's 378-day Mars simulation, the commander's role was pivotal in maintaining crew morale and ensuring the success of daily operations. | Trong cuộc mô phỏng sao Hỏa 378 ngày của NASA, vai trò của chỉ huy trưởng là then chốt trong việc giữ tinh thần phi hành đoàn và bảo đảm các hoạt động hằng ngày diễn ra thành công. |
+| `role.scientist.fact` | Harrison “Jack” Schmitt, a geologist and the Apollo 17 lunar module pilot, was the first scientist to step on the Moon. | Harrison “Jack” Schmitt, nhà địa chất và phi công module đổ bộ của Apollo 17, là nhà khoa học đầu tiên đặt chân lên Mặt Trăng. |
+| `role.engineer.fact` | Four spacewalks in 2019 and 2020 replaced the failing cooling pumps of the space station's AMS-02, which was not designed to be repaired. | Bốn chuyến đi bộ ngoài không gian năm 2019 và 2020 đã thay các máy bơm làm mát đang hỏng của AMS-02 trên trạm vũ trụ, thiết bị vốn không được thiết kế để sửa chữa. |
+| `role.biologist.fact` | To date, NASA's Veggie has grown plants in space including three types of lettuce, Chinese cabbage, mizuna mustard, a red kale and zinnia flowers. | Đến nay, Veggie của NASA đã trồng trong không gian ba loại xà lách, cải thảo, cải mizuna, một loại cải xoăn đỏ và hoa cúc zinnia. |
+| `role.medic.fact` | A NASA Crew Medical Officer is a crew member assigned as a mission's medical expert. NASA requires at least two trained per vehicle or platform. | Sĩ quan y tế của phi hành đoàn (CMO) của NASA là thành viên được giao làm chuyên gia y tế cho một nhiệm vụ. NASA yêu cầu huấn luyện ít nhất hai người cho mỗi phương tiện hoặc nền tảng. |
+| `role.commander.seat` | Comes with the fifth seat: a mission with 4 crew has no commander. | Đi kèm chỗ ngồi thứ năm: nhiệm vụ 4 người không có chỉ huy trưởng. |
+
+### Help (3)
+
+| Key | EN | VI |
+|---|---|---|
+| `help.10` (changed) | Bring things home: ice, metal-rich rock, crashed cargo pods and science sites lie out on the map. Stand by one and hold E (or the action button) to load it into your backpack (3 loads, 8 in the rover), then walk back inside the dashed square around the HQ to deliver. Your suit holds 150 s of oxygen outside each round and pauses at the base; if it runs out you collapse. Deliveries count when the round advances. | Mang về căn cứ: băng, đá giàu kim loại, khoang hàng bị rơi và địa điểm khoa học nằm rải rác trên bản đồ. Đứng cạnh và giữ phím E (hoặc nút hành động) để chất vào ba lô (3 phần, 8 phần khi đi xe thám hiểm), rồi đi vào trong ô vuông nét đứt quanh căn cứ để giao hàng. Bộ đồ du hành có 150 giây oxy bên ngoài mỗi vòng và tạm dừng khi ở căn cứ; nếu hết oxy bạn sẽ ngã gục. Hàng giao sẽ được tính khi sang vòng mới. |
+| `help.11` (changed) | Dangers outside: a solar flare gives a {c} s warning. Be at the base, in a cave (a dark arch at the foot of a cliff), a lava tube, a hab pod or the storm shelter when it ends, or take +{d} mSv. Dust devils throw you aside and take {s} s of suit, so walk round them (the rover is safe). A dust storm shrinks how far you can see. | Nguy hiểm bên ngoài: bão hạt Mặt Trời báo trước {c} giây. Hãy ở căn cứ, trong hang (vòm tối dưới chân vách đá), ống dung nham, khoang sinh hoạt hoặc hầm trú bão khi hết giờ, nếu không sẽ nhận +{d} mSv. Lốc bụi hất bạn sang bên và lấy {s} giây oxy bộ đồ, nên hãy đi vòng qua (xe thám hiểm thì an toàn). Bão bụi làm bạn nhìn thấy gần hơn. |
+| `help.win` | Windows warnings (the desktop app): the installer is not signed, so SmartScreen may say "Windows protected your PC". Click "More info", then "Run anyway". The first time SOL 500 starts, the Windows Firewall asks whether to allow it on your network: allow it on private networks so friends on your Wi-Fi can join. The app installs for your user only, in %LOCALAPPDATA%\Programs\sol500. | Cảnh báo của Windows (ứng dụng máy tính): bộ cài chưa được ký số nên SmartScreen có thể báo "Windows protected your PC". Hãy bấm "More info", rồi "Run anyway". Lần đầu SOL 500 chạy, Windows Firewall sẽ hỏi có cho phép dùng mạng không: hãy cho phép trên mạng riêng (Private) để bạn bè cùng Wi-Fi vào được. Ứng dụng chỉ cài cho tài khoản của bạn, trong %LOCALAPPDATA%\Programs\sol500. |
+
+### Online, LAN and the app (5)
+
+| Key | EN | VI |
+|---|---|---|
+| `online.errorHash` | The link tool did not download correctly (its checksum failed). Try again; if it keeps failing, check the internet connection. | Công cụ tạo link tải về không đúng (sai mã kiểm tra). Hãy thử lại; nếu vẫn lỗi, hãy kiểm tra kết nối mạng. |
+| `online.copyFailed` | Couldn't copy: select the link and copy it by hand. | Không sao chép được: hãy chọn link rồi tự sao chép. |
+| `app.startFail` | The game server could not start: {why} | Không khởi động được máy chủ trò chơi: {why} |
+| `lan.network` | Couldn't reach the game server. Check the connection and try again. | Không kết nối được máy chủ trò chơi. Hãy kiểm tra kết nối rồi thử lại. |
+| `lan.seatTaken` | That seat was just taken. | Chỗ này vừa có người chọn. |
+
+### Admin (2)
+
+| Key | EN | VI |
+|---|---|---|
+| `admin.csvFailed` | The export failed: the server could not make the CSV file. | Xuất thất bại: máy chủ không tạo được tệp CSV. |
+| `admin.p.na` | n/a (the tests could not run) | n/a (không chạy được kiểm thử) |
 
 ## Deferred minors
 
