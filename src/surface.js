@@ -52,10 +52,10 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-    // The 9×5 build grid sits with its top-left at world tile (−4, −2), so the HQ is at (0, 0).
+  // The Camp's 9×5 build grid sits with its top-left at world tile (−4, −2), so the HQ is at (0, 0); a bigger rank's land
+  // (E.onLand) reaches negative grid spots, on the same world tiles.
   const gridToWorld = (gx, gy) => [gx + BASE.x, gy + BASE.y];
   const worldToGrid = (wx, wy) => [wx - BASE.x, wy - BASE.y];
-  const inGrid = (gx, gy) => gx >= 0 && gy >= 0 && gx < D.GRID.w && gy < D.GRID.h;
   const center = (wx, wy) => [wx * T + T / 2, wy * T + T / 2];
 
   function image(svg) {
@@ -905,7 +905,7 @@
     const m = S.data.mission;
     const [gx, gy] = worldToGrid(wx, wy);
     if (wx === LANDER[0] && wy === LANDER[1]) return { kind: 'lander', key: 'lander', wx, wy };
-    if (!inGrid(gx, gy)) return null;
+    if (!E.onLand(m, gx, gy)) return null;
     const tile = m.layout.find(x => x.x === gx && x.y === gy);
     if (tile) {
       if (tile.type === 'hab') return { kind: 'hq', key: 'hq', gx, gy, wx, wy };

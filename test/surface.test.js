@@ -35,8 +35,8 @@ function metalFind(m) {
 }
 
 // While `rec.on`, every filled path is recorded as its box and fill style (path coordinates as given: world pixels for
-// what the surface draws without a translate, such as name tags and suit bars).
-const rec = { on: false, fills: [], box: null };
+// what the surface draws without a translate, such as name tags and suit bars), and every drawImage as its arguments.
+const rec = { on: false, fills: [], images: [], box: null };
 const grow = (x, y) => { const b = rec.box; rec.box = b ? { left: Math.min(b.left, x), right: Math.max(b.right, x), top: Math.min(b.top, y), bottom: Math.max(b.bottom, y) } : { left: x, right: x, top: y, bottom: y }; };
 const ctx = new Proxy({}, {
   get(t, k) {
@@ -48,6 +48,7 @@ const ctx = new Proxy({}, {
     if (k === 'arcTo') return (x1, y1, x2, y2) => { grow(x1, y1); grow(x2, y2); };
     if (k === 'arc') return (x, y, r) => { grow(x - r, y - r); grow(x + r, y + r); };
     if (k === 'fill') return () => { if (rec.on && rec.box) rec.fills.push(Object.assign({ style: t.fillStyle }, rec.box)); };
+    if (k === 'drawImage') return (...a) => { if (rec.on) rec.images.push(a); };
     return () => {};
   },
   set(t, k, v) { t[k] = v; return true; },
@@ -80,7 +81,8 @@ function element(tag) {
 // (a JSON copy here). sent: the positions teammates are sent; calls: the exploring actions asked for. Like ui.js, the page
 // is shown where its astronaut last stood (the solo save; `opts.lastPos` stands for the co-op server's position).
 // `opts.dpr` is the screen's pixel ratio (1); `opts.lang` the player's language ('en'); `opts.gfx` the Display settings the page passes to update (setGfx changes them);
-// `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet).
+// `opts.paint` replaces SolPaint functions (to see what is drawn), `opts.expedition` SolExpedition ones (rules not written yet);
+// `opts.Image` the page's Image (the default never loads, so no picture is drawn).
 function page(m, me, opts) {
   const o = opts || {};
   let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7, resized = null;
@@ -90,7 +92,7 @@ function page(m, me, opts) {
     SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW, SolPhysics: require('../src/physics.js'),
     SolPaint: Object.assign({}, P, o.paint, { createPainter: (world, popts) => { seen.scale = (popts && popts.scale) || 1; return painter; } }),
     document: { createElement: element, createTextNode: text => ({ text }), querySelector: () => null, hidden: false },
-    location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: function () {},
+    location: { search: '?debug=chunks' }, performance: { now: () => clock }, devicePixelRatio: o.dpr || 1, Image: o.Image || function () {},
     matchMedia: () => ({ matches: false }),
     ResizeObserver: function (fn) { this.observe = () => { resized = fn; }; }, // the page's `pg.resize()` is the browser telling it the stage changed
     addEventListener: (type, fn) => { (on[type] = on[type] || []).push(fn); },
@@ -141,7 +143,7 @@ function page(m, me, opts) {
       return seen.at.length - drawn;
     },
     // One more frame, with every filled path it draws recorded.
-    frame() { rec.fills = []; rec.on = true; try { clock += 50; raf(clock); } finally { rec.on = false; } return rec.fills; },
+    frame() { rec.fills = []; rec.images = []; rec.on = true; try { clock += 50; raf(clock); } finally { rec.on = false; } return rec.fills; },
     key(code, down) { for (const fn of on[down === false ? 'keyup' : 'keydown'] || []) fn({ code, repeat: false, target: {}, preventDefault() {} }); },
     // A tap on the ground at tile (tx, ty): click-to-walk.
     tap(tx, ty) {
@@ -1030,6 +1032,31 @@ test("in Vietnamese the surface's menus write a build's progress and a module's 
   pg.show(m);
   const [ex, ey] = E.buildSpots(m, 'battery', [])[0];
   assert.equal(notes(ex, ey, 0.35).pop(), vi('hud.materials') + ': 1.234 kg', "the build grid's stock");
+});
+
+test('a building at a negative grid spot stands on its world tile', () => {
+  const m = mission({ seed: 'LAND-NEG' });
+  E.grantRank(m, 2);
+  const spot = ([x, y]) => x === -2 && (y === 2 || y === 3);
+  assert.ok(!m.terrain.rock.some(spot) && !m.terrain.ice.some(spot), 'open ground at grid (-2, 2) and (-2, 3)');
+  m.layout.push({ type: 'solar', x: -2, y: 3 });
+  m.modules.solar.count += 1;
+  const pg = page(m, 'minh', { Image: function () { this.complete = true; this.naturalWidth = 128; } }); // pictures that load
+  const [wx, wy] = [-2 + W.BASE_RECT.x, 3 + W.BASE_RECT.y];
+  assert.deepEqual([wx, wy], [-6, 1]);
+  pg.frame();
+  const drawnAt = (gx, gy) => rec.images.find(a => a[1] === (gx + W.BASE_RECT.x) * T && a[2] === (gy + W.BASE_RECT.y) * T && a[3] === T && a[4] === T);
+  const solar = m.layout.find(k => k.type === 'solar' && k.x >= 0);
+  assert.ok(drawnAt(-2, 3), 'a sprite on world tile (-6, 1)');
+  assert.equal(drawnAt(-2, 3)[0], drawnAt(solar.x, solar.y)[0], "the solar array's picture");
+  pg.qa.teleport(wx, wy - 0.65); // on the south edge of the tile north of it, facing it
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 's:-2,3');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  assert.equal(pg.probe().menu, 's:-2,3', 'its module menu opens');
+  const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
+  assert.match(menu.children.filter(n => n.className === 'sf-mbody').pop().children.find(n => /^sf-note/.test(n.className)).textContent, /kW/);
 });
 
 // ---------- the rover drives by the physics engine (2026-11-03): steering, the boost, climbing, a crewmate's rover ----------
