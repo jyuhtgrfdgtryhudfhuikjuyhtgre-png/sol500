@@ -1281,3 +1281,69 @@ test("a kit in a drop that newer drops push out (maxDrops) goes with it: accepte
   assert.equal(y.drops.some(d => d.items.some(E.isKit)), false, 'with its kit');
   assert.deepEqual([y.kits, y.beacons.length, Object.values(y.carried).flat().length], [0, 0, 0], 'which is nowhere now');
 });
+
+// ---- M6 T4: Fabricator gear ----
+test('bigger tanks keep the seconds left and refill to the new size', () => {
+  const m = solo('EXP-1');
+  assert.equal(X.suitMax(m), D.EXPEDITION.suit, 'no tanks: today\'s suit');
+  X.setSuit(m, 'minh', 90);
+  m.gear.tanks = 1;
+  assert.equal(X.suitMax(m), 200);
+  assert.equal(X.suitOf(m, 'minh'), 90, 'the seconds left are kept');
+  X.setSuit(m, 'minh', 999);
+  assert.equal(X.suitOf(m, 'minh'), 200, 'the clamp is the new size');
+  m.gear.tanks = 2;
+  assert.equal(X.suitMax(m), 250);
+  assert.equal(X.suitOf(m, 'amara'), 250, 'a suit nobody reported is full at the new size');
+});
+
+test('refill and a canister fill to the new tanks', () => {
+  const m = solo('EXP-1');
+  m.gear.tanks = 1;
+  const pod = (() => { for (let r = 1; r < 8; r++) for (let cy = -r; cy < r; cy++) for (let cx = -r; cx < r; cx++) for (const s of X.structuresIn(m, cx, cy)) if (s.kind === 'pod' || s.kind === 'hab') return s; return null; })();
+  if (pod) {
+    X.setSuit(m, 'minh', 10);
+    const r = X.refill(m, 'minh', pod.id, at(pod.x, pod.y));
+    if (r.ok) assert.equal(r.suit, 200);
+  }
+  X.setSuit(m, 'minh', 150);
+  m.expedition.carried.minh = [{ canister: true }];
+  const u = X.useCanister(m, 'minh', { x: 20 * T, y: 20 * T }, 150);
+  assert.equal(u.ok, true, 'a canister fits while 45 s fit under 200');
+  assert.equal(u.suit, 195);
+  m.expedition.carried.minh = [{ canister: true }];
+  assert.equal(X.useCanister(m, 'minh', { x: 20 * T, y: 20 * T }, 160).error, 'suitFull');
+});
+
+test('a bigger backpack and racks carry more', () => {
+  const m = solo('EXP-1', ROVER_KIT);
+  assert.equal(X.packOf(m), 3);
+  assert.equal(X.rackOf(m), 8);
+  m.gear.backpack = 1; assert.equal(X.packOf(m), 4);
+  m.gear.backpack = 2; assert.equal(X.packOf(m), 5);
+  m.gear.racks = 1; assert.equal(X.rackOf(m), 12);
+  m.gear.racks = 2; assert.equal(X.rackOf(m), 16);
+  assert.equal(X.capacity(m, 'minh'), 5, 'on foot');
+  m.expedition.rover = { driver: 'minh' };
+  assert.equal(X.capacity(m, 'minh'), 16, 'driving');
+  m.expedition.rover = null;
+  const l = X.landmarkById(m, 'L0,-1', at(134, -46)), s = l.sites[0], id = 'L0,-1:0', here = at(s.x, s.y);
+  m.expedition.carried.minh = [1, 2, 3, 4].map(n => ({ kind: 'metal', id: 'x' + n }));
+  assert.equal(X.collect(m, 'minh', id, here).ok, true, 'a 5th load on foot');
+  assert.equal(X.collect(m, 'minh', id, here).error, 'full', 'a 6th says full');
+});
+
+test('faster tools shorten every hold', () => {
+  const m = solo('EXP-1');
+  const kinds = [['metal', 'engineer'], ['metal', 'commander'], ['weather', 'engineer'], ['weather', 'commander'], ['beacon', 'commander'], ['pickup', 'medic'], ['revive', 'medic'], ['science', 'scientist']];
+  const today = kinds.map(([k, r]) => X.holdSeconds(k, r));
+  m.gear.tools = 1;
+  kinds.forEach(([k, r], i) => {
+    assert.equal(X.holdSeconds(k, r), today[i], 'no m: today\'s value');
+    assert.ok(Math.abs(X.holdSeconds(k, r, m) - today[i] * 0.8) < 1e-9, k + ' ' + r);
+  });
+  m.gear.tools = 2;
+  assert.ok(Math.abs(X.holdSeconds('beacon', 'commander', m) - D.EXPEDITION.beacon.hold * 0.6) < 1e-9);
+  const q = solo('EXP-1');
+  assert.equal(X.holdSeconds('metal', 'engineer', q), today[0], 'no gear: unchanged');
+});

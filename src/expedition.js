@@ -152,16 +152,30 @@
   const crewOf = (m, id) => m.crew.find(c => c.id === id) || null;
   const pack = (x, id) => (Array.isArray(x.carried[id]) ? x.carried[id] : []);
   const driving = (x, id) => !!id && !!x.rover && x.rover.driver === id;
-  function capacity(m, crewId) { return driving(m.expedition, crewId) ? X.packRover : X.pack; }
+  // Fabricator gear (M6): the levels bought apply to the whole crew at once. A mission with none (a Quick one, a 3.7.0 save)
+  // has today's numbers.
+  const gearLevel = (m, line) => {
+    const v = m && m.gear && m.gear[line];
+    return Number.isInteger(v) && v > 0 ? Math.min(v, D.GEAR[line].levels.length) : 0;
+  };
+  const gearValue = (m, line, base) => { const l = gearLevel(m, line); return l ? D.GEAR[line].levels[l - 1].value : base; };
+  const suitMax = m => gearValue(m, 'tanks', X.suit);     // seconds
+  const packOf = m => gearValue(m, 'backpack', X.pack);   // loads on foot
+  const rackOf = m => gearValue(m, 'racks', X.packRover); // loads in a rover
+  function capacity(m, crewId) { return driving(m.expedition, crewId) ? rackOf(m) : packOf(m); }
   function suitOf(m, crewId) {
     const v = m.expedition.suits[crewId];
-    return Number.isFinite(v) ? v : X.suit;
+    return Number.isFinite(v) ? v : suitMax(m);
   }
   // Seconds of holding E for a find (or 'pickup', 'revive'), with the role's skill (spec §3.3), or for a structure (its
   // own seconds in D.STRUCTURES, the Engineer's where it has them; the hab pod has none, and 'pod' is a cargo pod's), or for
   // any other kind with a block of its own in D.EXPEDITION that has a `hold` (the relay beacon's 4 s, spec §3.8): that, for
   // every role.
-  function holdSeconds(kind, role) {
+  // `m` (optional) brings the tools gear's factor, applied to the result of every branch.
+  function holdSeconds(kind, role, m) {
+    return holdBase(kind, role) * gearValue(m, 'tools', 1);
+  }
+  function holdBase(kind, role) {
     const S = D.STRUCTURES.kinds[kind];
     if (S && S.hold) return role === 'engineer' && S.engineer ? S.engineer : S.hold;
     const own = X[kind];
@@ -293,9 +307,9 @@
     if (!okPos(pos)) return { error: 'badPos' };
     if (inBaseZone(pos, 0)) return { error: 'atBase' };
     setSuit(m, crewId, live);
-    if (suitOf(m, crewId) > X.suit - X.canister.suit) return { error: 'suitFull' };
+    if (suitOf(m, crewId) > suitMax(m) - X.canister.suit) return { error: 'suitFull' };
     x.carried[crewId] = mine.slice(0, i).concat(mine.slice(i + 1));
-    x.suits[crewId] = Math.min(X.suit, suitOf(m, crewId) + X.canister.suit);
+    x.suits[crewId] = Math.min(suitMax(m), suitOf(m, crewId) + X.canister.suit);
     return { ok: true, suit: x.suits[crewId] };
   }
 
@@ -407,7 +421,7 @@
   function setSuit(m, crewId, seconds) {
     const x = m && m.expedition;
     if (!x || !crewOf(m, crewId) || x.collapsed[crewId] || typeof seconds !== 'number' || !Number.isFinite(seconds)) return;
-    x.suits[crewId] = Math.max(0, Math.min(X.suit, seconds));
+    x.suits[crewId] = Math.max(0, Math.min(suitMax(m), seconds));
   }
 
   // Solo play: where your astronaut stands, saved every 2 s with the suit, so a reload puts you back there instead of giving
@@ -533,8 +547,8 @@
     if (had.includes(id)) return { error: 'refilled' };
     x.refills[crewId] = had.concat([id]);
     if (!g) { const st = statsOf(x, crewId); st.pods = (st.pods || 0) + 1; } // a hab pod visited: the Science notes list its log (M4d)
-    x.suits[crewId] = X.suit;
-    return { ok: true, suit: X.suit };
+    x.suits[crewId] = suitMax(m);
+    return { ok: true, suit: suitMax(m) };
   }
   // The weather station's forecast: next round's weather while it runs (x.forecastUntil, a round), else null.
   function forecastAhead(m) {
@@ -656,7 +670,7 @@
   }
 
   return {
-    findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, commanderOut, speedFactor, addDistance, capacity, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
+    findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, commanderOut, speedFactor, addDistance, capacity, suitMax, packOf, rackOf, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
     interact, refill, forecastAhead, mastMarks, takeKit, returnKit, beaconSpot, placeBeacon, routeHome,
     cacheSize: () => cache.size,
