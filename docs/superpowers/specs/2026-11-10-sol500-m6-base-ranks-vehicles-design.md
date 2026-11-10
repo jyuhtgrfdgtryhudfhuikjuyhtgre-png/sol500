@@ -15,14 +15,16 @@ Asked what makes exploring hard today, the user said all four of these are true:
 - **Can't carry enough:** 3 loads on foot, 8 in the rover.
 - **Materials feel useless:** metal and ice come home but never turn into anything that helps you explore.
 
-The answer is a loop the whole mission turns on: **what you haul home ranks the base up → each rank unlocks buildings that make better vehicles and gear → those take you further → where you find more.** "Upgrade over time" means round 15 should look and play very differently from round 1.
+The answer is a loop the whole mission turns on: **what you haul home ranks the base up → each rank unlocks buildings that make better vehicles and gear → those take you further → where you find more.**
+
+**The base never upgrades by itself.** The user, 2026-11-10: *"not overtime but you have to upgrade it using the material"*. Every rank-up, vehicle and piece of gear is the player's choice, paid for with materials; a base that nobody upgrades stays a Camp all mission.
 
 SOL 500 is a competition entry with real NASA data and cited sources. Living off the land is a real NASA idea (in-situ resource utilisation, which the game already teaches in the debrief), and every vehicle and gear line below has a real NASA counterpart, which is the story a judge will look for.
 
 ## 2. Goals, non-goals, anti-goals
 
 **Goals**
-1. **Base ranks** (§3): Camp → Outpost → Station → Colony. Each rank makes the base's land much bigger and unlocks new buildings. The user picked this from browser mockups and added the fourth rank.
+1. **Base ranks** (§3): Camp → Outpost → Station → Colony, each one bought with materials when the player chooses. Each rank makes the base's land much bigger and unlocks new buildings. The user picked this from browser mockups and added the fourth rank.
 2. **The Garage** (§4), unlocked at Outpost: builds a **pressurised rover** and a **scout drone**, and today's rover if the mission didn't bring one.
 3. **The Fabricator** (§5), unlocked at Station: turns metal and ice into **bigger suit tanks, a bigger backpack, rover cargo racks and faster tools**.
 4. **Colony** (§6): a **sample-return launch pad** and a **self-sufficient base**.
@@ -53,7 +55,7 @@ SOL 500 is a competition entry with real NASA data and cited sources. Living off
 | **Station** | about 21 × 13 | the **Fabricator**; a big greenhouse dome |
 | **Colony** | about 27 × 17 | the **sample-return launch pad**; the base becomes **self-sufficient** |
 
-**Ranking up.** A rank-up is built from the Mission console like any other build: it costs **materials** (paid when it starts) and **crew work**, and it needs a level of **science reached** (not spent, so ranking up never lowers the score). It takes no tile, like a relay beacon kit (`BUILDS.kit`). The rank-up's materials are the reason hauls matter: most of them should come from metal finds and Kestrel wrecks, not from the starting kit.
+**Ranking up.** The player chooses to upgrade the base, from the Mission console, like any other build: it costs **materials** (paid when it starts) and **crew work**, and nothing else (the user's call: *"you have to upgrade it using the material"*; no science level, no waiting for a round). It takes no tile, like a relay beacon kit (`BUILDS.kit`). The rank-up's materials are the reason hauls matter: most of them should come from metal finds and Kestrel wrecks, not from the starting kit, so each rank costs clearly more than the last.
 
 **Pacing targets** (measured with `tools/balance.js` on the Full mission, commander, 4 crew): a thoughtful explorer reaches Outpost around round 5–7, Station around 10–12 and Colony around 15–17; a mission played without exploring reaches Outpost at best; Colony is for good players and not every mission gets there.
 
@@ -163,12 +165,11 @@ Tiers 2 to 5 can be built in parallel once tier 1 is in. **3.8.0 is released on 
 
 ## 11. Left to the builder
 
-The exact numbers (rank costs and science levels, land sizes, base-zone growth, vehicle and drone figures, gear levels and costs, the sample-return bonus, the self-sufficiency lever), all by measurement against §8; how the grid grows in code; the shape of the vehicle and drone state; how the drone is steered; the art for the new buildings, vehicles and ranks in the game's style (`src/art.js`); the words; how the work is split across agents.
+The exact numbers (rank costs, land sizes, base-zone growth, vehicle and drone figures, gear levels and costs, the sample-return bonus, the self-sufficiency lever), all by measurement against §8; how the grid grows in code; the shape of the vehicle and drone state; how the drone is steered; the art for the new buildings, vehicles and ranks in the game's style (`src/art.js`); the words; how the work is split across agents.
 
 ## 12. Claude's calls, for the user to check
 
-- A rank needs science **reached**, not spent, so ranking up never lowers the score.
-- Rank-ups, vehicles and gear are built from the Mission console with materials and crew work, like every build today.
+- Rank-ups, vehicles and gear are built from the Mission console with materials and crew work, like every build today (the user said materials; the crew work is Claude's addition, so a rank-up takes the crew's time as building does).
 - The base zone grows with the rank (by how much is measured).
 - The Garage can also build today's rover from Mars metal.
 - The Garage and the Fabricator each take one tile, like every building today.
