@@ -91,3 +91,12 @@ test('only numbers reach the markup: a size that is not a number gives the defau
     wellFormed(svg, 64);
   }
 });
+
+test('every new M6 module and build has its own art, not the scaffold: well-formed, under 3 KB, each different', () => {
+  const NEW = ['garage', 'fabricator', 'launchpad', 'cabin', 'drone', 'rankup', 'tanks', 'backpack', 'racks', 'tools', 'launch'];
+  for (const id of NEW) {
+    assert.notEqual(A.moduleInner(id), A.moduleInner('scaffold'), id);
+    wellFormed(A.module(id, 64), 64);
+  }
+  assert.ok(distinct(NEW.map(id => A.moduleInner(id)).concat(A.moduleInner('rover'))), 'each its own, the pressurised rover not the rover');
+});

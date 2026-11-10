@@ -1091,14 +1091,18 @@
       const pending = plan.builds || [];
       if (!E.touchesBase(m, f.gx, f.gy, pending)) { note(t('sf.notConnected'), 'warn'); return; }
       if (f.ice) note(t('sf.iceOnly'));
-      const types = D.BUILD_ORDER.filter(ty => ty !== 'shield' && (f.ice ? ty === 'icedrill' : ty !== 'icedrill'));
+      // M6: a building shows once the rank unlocks it (never in a Quick mission), a vehicle with a bay once a Garage stands.
+      const vehicles = m.modules.garage && m.modules.garage.count > 0 ? ['rover', 'cabin'] : [];
+      const types = D.BUILD_ORDER.concat(vehicles).filter(ty => ty !== 'shield' && (f.ice ? ty === 'icedrill' : ty !== 'icedrill') &&
+        !['rank', 'quick'].includes(E.canBuild(m, ty, pending).reason));
       const grid = el('div', 'sf-mgrid');
       for (const ty of types) {
         const spots = E.buildSpots(m, ty, pending);
         const here = spots.some(([sx, sy]) => sx === f.gx && sy === f.gy);
         const chk = E.canBuild(m, ty, pending);
         const spec = D.BUILDS[ty];
-        const why = !chk.ok ? t('bld.why.' + chk.reason) : !here ? t('bld.why.space') : cost(spec);
+        const why = chk.reason === 'needs' ? t('bld.why.needs', { module: t('mod.' + spec.needs) })
+          : !chk.ok ? t('bld.why.' + chk.reason) : !here ? t('bld.why.space') : cost(spec);
         grid.appendChild(numbered(mbtn(t('mod.' + ty), why, () => { H.queueBuild({ type: ty, x: f.gx, y: f.gy }); closeMenu(); },
           { disabled: !chk.ok || !here, icon: A.module(ty, 34) })));
       }

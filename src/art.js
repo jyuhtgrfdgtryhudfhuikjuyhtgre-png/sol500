@@ -142,6 +142,58 @@
       `<path d="M13 46h38" stroke="#4fd0c4" stroke-width="2"/><path d="M19 37v16M45 37v16" stroke="#54494b" stroke-width="1.6"/>` +
       `<path d="M16 32h31" stroke="${METAL}" stroke-width="3" stroke-linecap="round"/><path d="M20 35l4-3M30 35l4-3" stroke="${METAL}" stroke-width="1.4"/>` +
       `<circle cx="49" cy="32" r="4.5" fill="${WARM}" opacity="0.3"/><circle cx="49" cy="32" r="2.4" fill="${WARM}"/>`,
+    // M6: the Garage (a hangar, a rover's nose in its door), the Fabricator (a printer at work), the sample-return pad (a
+    // rocket by its tower), the pressurised rover (a long cabin on four wheels) and the scout drone (Ingenuity's two rotors)
+    garage: () => shadow(27) +
+      `<path d="M5 53V31l27-9 27 9v22z" fill="#cfc6ba"/><path d="M5 31h54" stroke="#e9a13b" stroke-width="2"/>` +
+      `<rect x="14" y="35" width="36" height="18" rx="2" fill="${DARK}"/><path d="M14 38h36M14 41h36" stroke="#54494b" stroke-width="1.2"/>` +
+      `<path d="M18 52v-5a4 4 0 0 1 4-4h14l6 5v4z" fill="${HULL}" opacity="0.85"/>` +
+      `<g fill="${DARK}" stroke="${METAL}" stroke-width="1.4"><circle cx="23" cy="51" r="2.6"/><circle cx="37" cy="51" r="2.6"/></g>`,
+    fabricator: () => shadow(24) +
+      `<rect x="8" y="24" width="48" height="29" rx="4" fill="${HULL}"/><rect x="8" y="24" width="48" height="7" rx="4" fill="#fff" opacity="0.14"/>` +
+      `<rect x="13" y="33" width="31" height="16" rx="2" fill="${WIN}"/><path d="M15 37h27" stroke="${METAL}" stroke-width="1.6"/>` +
+      `<path d="M29 37v5" stroke="${METAL}" stroke-width="1.4"/><path d="M27.5 42h3L29 44z" fill="${WARM}"/><path d="M22 49v-3h14v3z" fill="#e9a13b"/>` +
+      `<rect x="47" y="33" width="5" height="5" rx="1" fill="#7fd1a0"/><rect x="47" y="41" width="5" height="5" rx="1" fill="#f2b84f"/>`,
+    launchpad: () => shadow(27) +
+      `<path d="M6 53l5-6h42l5 6z" fill="#6b5e57"/><path d="M14 50h36" stroke="#e9a13b" stroke-width="1.6" stroke-dasharray="4 3"/>` +
+      `<path d="M45 47V12M45 17h-8M45 27h-8M45 37h-8" stroke="${METAL}" stroke-width="2"/>` +
+      `<path d="M28 10c4 3 6 8 6 15v20H22V25c0-7 2-12 6-15z" fill="${HULL}"/><circle cx="28" cy="24" r="3" fill="${WIN}"/>` +
+      `<path d="M22 35l-4 10h4zM34 35l4 10h-4z" fill="#d06a4a"/>`,
+    cabin: () => shadow(28) +
+      `<path d="M4 46V30a8 8 0 0 1 8-8h31a12 12 0 0 1 12 12v12z" fill="${HULL}"/><path d="M43 24a10 10 0 0 1 10 10H43z" fill="${WIN}"/>` +
+      `<rect x="10" y="28" width="7" height="6" rx="2" fill="${WARM}"/><rect x="20" y="28" width="7" height="6" rx="2" fill="${WARM}" opacity="0.8"/>` +
+      `<rect x="31" y="27" width="8" height="13" rx="2" fill="${HULL2}"/><path d="M4 41h51" stroke="#4fd0c4" stroke-width="2.2"/>` +
+      `<g fill="${DARK}" stroke="${METAL}" stroke-width="1.6"><circle cx="11" cy="49" r="5"/><circle cx="23" cy="49" r="5"/><circle cx="37" cy="49" r="5"/><circle cx="49" cy="49" r="5"/></g>`,
+    drone: () => shadow(14) +
+      `<path d="M22 53l5-11M42 53l-5-11" stroke="${METAL}" stroke-width="1.4"/>` +
+      `<rect x="25" y="34" width="14" height="9" rx="2" fill="${HULL}"/><rect x="29" y="36.5" width="6" height="3" rx="1" fill="${WIN}"/>` +
+      `<path d="M32 34V12" stroke="${HULL2}" stroke-width="1.8"/><rect x="26" y="9" width="12" height="4" rx="1" fill="${PANEL}" stroke="${GRID}" stroke-width="0.8"/>` +
+      `<path d="M9 27h46M13 20h38" stroke="${DARK}" stroke-width="2.6" stroke-linecap="round"/><path d="M9 27h46M13 20h38" stroke="#9a877f" stroke-width="0.9"/>`,
+    // M6 builds with no tile: a rank-up, the four gear lines and the launch (the console's rows and queue)
+    rankup: () => shadow(24) +
+      `<path d="M10 53a22 22 0 0 1 44 0z" fill="${HULL}"/><rect x="20" y="43" width="24" height="5" rx="2.5" fill="${WIN}"/>` +
+      `<path d="M20 20l12-12 12 12M20 30l12-12 12 12" stroke="#7fd1a0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+    tanks: () => shadow(20) +
+      `<rect x="16" y="20" width="13" height="33" rx="6.5" fill="#86b8ea"/><rect x="33" y="20" width="13" height="33" rx="6.5" fill="#86b8ea"/>` +
+      `<rect x="19" y="24" width="3" height="25" rx="1.5" fill="#fff" opacity="0.35"/><rect x="36" y="24" width="3" height="25" rx="1.5" fill="#fff" opacity="0.35"/>` +
+      `<path d="M22.5 20v-5h17v5M31 15v-3" stroke="${METAL}" stroke-width="2" fill="none"/><circle cx="31" cy="9" r="3" fill="${DARK}" stroke="${METAL}"/>`,
+    backpack: () => shadow(20) +
+      `<rect x="17" y="18" width="30" height="35" rx="6" fill="${HULL}"/><rect x="17" y="18" width="30" height="8" rx="6" fill="#fff" opacity="0.14"/>` +
+      `<rect x="22" y="30" width="20" height="12" rx="2" fill="${HULL2}"/><path d="M22 36h20" stroke="${METAL}" stroke-width="1.2"/>` +
+      `<path d="M13 24v22M51 24v22" stroke="#e9a13b" stroke-width="3" stroke-linecap="round"/><rect x="27" y="45" width="10" height="4" rx="1" fill="#7fd1a0"/>`,
+    racks: () => shadow(25) +
+      `<path d="M8 47h48M10 47V27M54 47V27M10 27h44M10 37h44" stroke="${METAL}" stroke-width="2.4" fill="none"/>` +
+      `<rect x="13" y="39" width="12" height="8" rx="1" fill="#b3a595"/><rect x="27" y="39" width="12" height="8" rx="1" fill="#9c8f82"/><rect x="41" y="39" width="10" height="8" rx="1" fill="#b3a595"/>` +
+      `<rect x="15" y="29" width="14" height="8" rx="1" fill="#c8baa8"/><rect x="33" y="29" width="12" height="8" rx="1" fill="#9c8f82"/>` +
+      `<g fill="${DARK}" stroke="${METAL}" stroke-width="1.4"><circle cx="16" cy="50" r="3.5"/><circle cx="48" cy="50" r="3.5"/></g>`,
+    tools: () => shadow(22) +
+      `<path d="M12 26h28a6 6 0 0 1 0 12H12z" fill="#e9a13b"/><path d="M46 32h10" stroke="${METAL}" stroke-width="3" stroke-linecap="round"/>` +
+      `<path d="M19 38l-3 15h9l3-15z" fill="#54494b"/><rect x="15" y="29" width="10" height="5" rx="1.5" fill="${DARK}" opacity="0.5"/>`,
+    launch: () =>
+      `<path d="M20 54q12-12 24 0z" fill="#e7b88a" opacity="0.5"/>` +
+      `<path d="M32 6c5 4 7 10 7 18v16H25V24c0-8 2-14 7-18z" fill="${HULL}"/><circle cx="32" cy="22" r="3.2" fill="${WIN}"/>` +
+      `<path d="M25 32l-5 10h5zM39 32l5 10h-5z" fill="#d06a4a"/>` +
+      `<path d="M27 41q5 14 10 0z" fill="${WARM}"/><path d="M29.5 41q2.5 7 5 0z" fill="#fff" opacity="0.7"/>`,
     scaffold: () =>
       `<rect x="10" y="22" width="44" height="31" fill="none" stroke="#d9aa7a" stroke-width="1.6" stroke-dasharray="4 3"/>` +
       `<path d="M10 22l44 31M54 22 10 53" stroke="#d9aa7a" stroke-width="0.8" opacity="0.5"/>` +

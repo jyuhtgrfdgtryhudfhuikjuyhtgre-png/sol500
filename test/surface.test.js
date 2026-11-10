@@ -991,6 +991,31 @@ test("in Vietnamese the surface's build menus write a cost's numbers as the cons
   assert.equal(battery[1].textContent, vi('bld.cost', { kg: '200', w: '0,5' }), "the build grid's battery");
 });
 
+test("an empty spot's build menu shows the new buildings once the rank unlocks them, and the vehicles once a Garage stands; never a locked one", () => {
+  const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh'), en = k => I.t('en', k);
+  m.resources.materials = 9000;
+  const [gx, gy] = E.buildSpots(m, 'battery', []).find(([x, y]) => x >= 0 && x < D.GRID.w && y >= 0 && y < D.GRID.h);
+  const labels = () => {
+    pg.show(m);
+    pg.key('Escape');
+    pg.qa.teleport(gx + W.BASE_RECT.x, gy + W.BASE_RECT.y - 0.35);
+    pg.step(0.2);
+    pg.key('KeyE');
+    pg.key('KeyE', false);
+    const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
+    const grid = menu.children.filter(n => n.className === 'sf-mbody').pop().children.find(n => n.className === 'sf-mgrid');
+    return grid.children.map(b => b.children.find(n => n.className === 'sf-mtxt').children[0].textContent);
+  };
+  const M6 = ['garage', 'fabricator', 'launchpad', 'rover', 'cabin'].map(k => en('mod.' + k));
+  assert.deepEqual(labels().filter(l => M6.includes(l)), [], 'a Camp shows none');
+  E.grantRank(m, 1);
+  assert.deepEqual(labels().filter(l => M6.includes(l)), [en('mod.garage')], 'an Outpost: the Garage, no vehicle yet');
+  m.modules.garage.count = 1;
+  assert.deepEqual(labels().filter(l => M6.includes(l)), [en('mod.garage'), en('mod.rover'), en('mod.cabin')], 'a Garage stands: its vehicles');
+  E.grantRank(m, 3);
+  assert.deepEqual(labels().filter(l => M6.includes(l)), M6, 'a Colony: everything');
+});
+
 test('with a beacon kit in the pack, E at a module outside the base zone still opens it: the beacon prompt is for when nothing else is in reach', () => {
   const m = mission({ seed: 'HQ-KIT' }), pg = page(m, 'minh');
   m.expedition.carried.minh = [E.kitItem()];

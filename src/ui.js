@@ -782,8 +782,20 @@
       if (waits.c.science == null && c.science != null) waits.c = Object.assign({}, waits.c, { science: c.science });
       return;
     }
-    if (c.type !== 'landmark' && !firstTime(c.id, c.type + ':' + c.kind)) return;
+    if (c.type !== 'landmark' && !firstTime(c.id, c.type === 'm6' ? null : c.type + ':' + c.kind)) return;
     arrive(c);
+  }
+
+  // M6's full cards (spec §3's rank-up moment; the launch, the Colony and the drone's first flight): once a mission code, as a
+  // fact is, with their words in card.<key>.title / body and their source's key in card.<key>.src. Task 7 calls it itself.
+  function showM6Card(key) { showCard({ type: 'm6', id: 'm6:' + key, key }); }
+  // The round's events that open one (viewOps reads them at every render; the seen list keeps each card to once).
+  const M6_CARD_EVENTS = {
+    rank_up: e => (Number.isInteger(e.rank) && e.rank > 0 && D.RANKS[e.rank] ? ['rank' + e.rank].concat(e.rank === D.RANKS.length - 1 ? ['colony'] : []) : []),
+    sample_launch: () => ['launch'],
+  };
+  function m6Cards(s) {
+    for (const e of s.events || []) if (Object.prototype.hasOwnProperty.call(M6_CARD_EVENTS, e.type)) M6_CARD_EVENTS[e.type](e).forEach(showM6Card);
   }
 
   // A server event (src/net.js): a crewmate's discovery opens its card on every tab (spec §5, C6). The event names the
@@ -806,6 +818,10 @@
     if (c.type === 'formation') {
       const stem = D.FORMATIONS.kinds[c.kind].fact, src = I.FORMATION_SOURCES ? I.SOURCES[I.FORMATION_SOURCES[c.kind]] : null;
       return { cls: '', eyebrow: t('disc.formation'), title: t(stem + '.name'), body: t(stem + '.fact'), src };
+    }
+    if (c.type === 'm6') { // a rank's card also says what the rank unlocks
+      const k = 'card.' + c.key, rank = /^rank(\d)$/.exec(c.key);
+      return { cls: '', eyebrow: t('card.eyebrow'), title: t(k + '.title'), meta: rank ? t('rank.unlocks', { list: unlocksAt(Number(rank[1])) }) : null, body: t(k + '.body'), src: I.SOURCES[t(k + '.src')] || null };
     }
     const stem = D.STRUCTURES.kinds[c.kind].log; // a Kestrel structure's story log: fiction (ks.label says so), no source
     return { cls: ' log', eyebrow: t('ks.label'), title: t(stem + '.name'), body: t(stem + '.log'), src: null };
@@ -1157,6 +1173,7 @@
     const p = currentPlan();
     if (!s || !p) return viewTitle();
     goalsOf(s); // brings the goals up to date before the forecast reads them
+    m6Cards(s); // before the surface's stage, which shows the card up
     const f = E.forecast(s, p);
     if (store.opsView !== 'console' && window.SolSurface) {
       return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
@@ -1202,7 +1219,8 @@
           h('button', { class: 'brand brand-mini', type: 'button', title: t('nav.home'), 'aria-label': t('nav.home'), onclick: () => { if (!lanOn()) { store.modal = 'confirm'; render(); } } }, ico('flag', 16)),
           h('b', null, t('ops.sol', { sol: s.sol })),
           h('span', { class: 'muted num' }, '/ ' + turns * D.TURN_SOLS),
-          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: turns }))),
+          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: turns })),
+          s.quick === true ? null : h('span', { class: 'chip' }, t('ops.rank', { rank: t('rank.' + D.RANKS[E.rankOf(s)].id) }))), // M6: a Quick mission has no ranks
         track,
         h('div', { class: 'topbar-actions' },
           h('span', { class: 'chip', title: t(seasonKey(season.ls)) }, t(seasonKey(season.ls) + '.short') + ' · Ls ' + Math.round(season.ls) + '°'),
@@ -1251,6 +1269,7 @@
     if (e.crewId) params.name = crewName(e.crewId);
     if (e.bonus != null) params.bonus = nf(e.bonus);
     if (e.kind) { params.kind = t('earth.' + e.kind).toLowerCase(); params.amount = nf(e.amount || 0); }
+    if (e.rank != null && D.RANKS[e.rank]) params.rank = t('rank.' + D.RANKS[e.rank].id);
     return t('ev.' + e.type + '.' + part, params);
   }
 
@@ -1281,31 +1300,29 @@
 
   // ----- outpost map -----
   const TILE = 64;
+  // The base's land (M6: it grows with the rank, into negative spots, cut round to the flat ground): the view is its box,
+  // each land tile drawn with its own edge, so the corners the cut leaves out stay the panel's background.
   function mapSvg(s, p, f) {
-    const W = D.GRID.w * TILE, Hh = D.GRID.h * TILE;
+    const b = E.landOf(s), X0 = b.x0 * TILE, Y0 = b.y0 * TILE, W = (b.x1 - b.x0 + 1) * TILE, Hh = (b.y1 - b.y0 + 1) * TILE;
     const ice = new Set(s.terrain.ice.map(([x, y]) => x + ',' + y));
     const rock = new Set(s.terrain.rock.map(([x, y]) => x + ',' + y));
     const shades = ['#6c3523', '#733a25', '#7a3e27', '#683322'];
-    let o = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(t('panel.map'))}"><title>${esc(t('panel.map'))}</title>`;
-    for (let y = 0; y < D.GRID.h; y++) {
-      for (let x = 0; x < D.GRID.w; x++) {
-        const k = x + ',' + y, X = x * TILE, Y = y * TILE;
-        const r = ((x * 73856093) ^ (y * 19349663)) >>> 0;
-        if (ice.has(k)) {
-          o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="#86aebf"/>`;
-          o += `<path d="M${X + 8} ${Y + 20}l14 6 10-9 14 11M${X + 12} ${Y + 44}l12-4 9 8 15-5" stroke="#dff1f9" stroke-width="1.5" fill="none" opacity="0.8"/>`;
-          o += `<path d="M${X + 40} ${Y + 30}l6 -8 6 9z" fill="#e7f6fc" opacity="0.8"/>`;
-        } else {
-          o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="${shades[r % 4]}"/>`;
-          o += `<circle cx="${X + 10 + (r % 40)}" cy="${Y + 12 + ((r >> 5) % 40)}" r="1.6" fill="#5b2a1c"/><circle cx="${X + 20 + ((r >> 9) % 34)}" cy="${Y + 30 + ((r >> 13) % 26)}" r="1.1" fill="#8e4b31"/>`;
-        }
-        if (rock.has(k)) {
-          o += `<ellipse cx="${X + 26}" cy="${Y + 40}" rx="16" ry="11" fill="#4c3b37"/><ellipse cx="${X + 42}" cy="${Y + 30}" rx="11" ry="8" fill="#5c4944"/><ellipse cx="${X + 22}" cy="${Y + 36}" rx="6" ry="3" fill="#6b5752"/>`;
-        }
+    let o = `<svg viewBox="${X0} ${Y0} ${W} ${Hh}" role="img" aria-label="${esc(t('panel.map'))}"><title>${esc(t('panel.map'))}</title>`;
+    for (const [x, y] of E.landTiles(s)) {
+      const k = x + ',' + y, X = x * TILE, Y = y * TILE, edge = 'stroke="#000" stroke-opacity="0.12"';
+      const r = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (ice.has(k)) {
+        o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="#86aebf" ${edge}/>`;
+        o += `<path d="M${X + 8} ${Y + 20}l14 6 10-9 14 11M${X + 12} ${Y + 44}l12-4 9 8 15-5" stroke="#dff1f9" stroke-width="1.5" fill="none" opacity="0.8"/>`;
+        o += `<path d="M${X + 40} ${Y + 30}l6 -8 6 9z" fill="#e7f6fc" opacity="0.8"/>`;
+      } else {
+        o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="${shades[r % 4]}" ${edge}/>`;
+        o += `<circle cx="${X + 10 + (r % 40)}" cy="${Y + 12 + ((r >>> 5) % 40)}" r="1.6" fill="#5b2a1c"/><circle cx="${X + 20 + ((r >>> 9) % 34)}" cy="${Y + 30 + ((r >>> 13) % 26)}" r="1.1" fill="#8e4b31"/>`;
+      }
+      if (rock.has(k)) {
+        o += `<ellipse cx="${X + 26}" cy="${Y + 40}" rx="16" ry="11" fill="#4c3b37"/><ellipse cx="${X + 42}" cy="${Y + 30}" rx="11" ry="8" fill="#5c4944"/><ellipse cx="${X + 22}" cy="${Y + 36}" rx="6" ry="3" fill="#6b5752"/>`;
       }
     }
-    for (let x = 1; x < D.GRID.w; x++) o += `<path d="M${x * TILE} 0V${Hh}" stroke="#000" stroke-opacity="0.12"/>`;
-    for (let y = 1; y < D.GRID.h; y++) o += `<path d="M0 ${y * TILE}H${W}" stroke="#000" stroke-opacity="0.12"/>`;
 
     // regolith shield layers around the HQ
     const [hx, hy] = D.GRID.hq;
@@ -1366,9 +1383,9 @@
     // weather
     const w = s.schedule[s.turn].weather;
     if (w !== 'clear') {
-      o += `<rect width="${W}" height="${Hh}" fill="${w === 'global' ? '#6b3219' : '#b5763f'}" opacity="${w === 'global' ? 0.5 : 0.22}" pointer-events="none"/>`;
+      o += `<rect x="${X0}" y="${Y0}" width="${W}" height="${Hh}" fill="${w === 'global' ? '#6b3219' : '#b5763f'}" opacity="${w === 'global' ? 0.5 : 0.22}" pointer-events="none"/>`;
       let dots = '';
-      for (let i = 0; i < (w === 'global' ? 70 : 30); i++) dots += `<circle cx="${(i * 97) % W}" cy="${(i * 53) % Hh}" r="${1 + (i % 3) * 0.6}" fill="#e7b88a" opacity="0.5"/>`;
+      for (let i = 0; i < (w === 'global' ? 70 : 30); i++) dots += `<circle cx="${X0 + (i * 97) % W}" cy="${Y0 + (i * 53) % Hh}" r="${1 + (i % 3) * 0.6}" fill="#e7b88a" opacity="0.5"/>`;
       o += `<g class="dust-drift" pointer-events="none">${dots}</g>`;
     }
     return o + '</svg>';
@@ -1412,24 +1429,63 @@
     return t('bld.kitStatus', { placed: x.beacons.length, max: D.EXPEDITION.beacon.max, kits: x.kits, out });
   }
 
+  // What a build costs after what the plan already queues (a gear line's next level, the next rank), with the water when a
+  // gear level takes some; and why it can't be built, naming the building it needs.
+  function costText(s, type, pending) {
+    const c = E.costOf(s, type, pending), w = nf(c.work, c.work % 1 ? 1 : 0);
+    return c.water > 0 ? t('bld.costWater', { kg: nf(c.materials), water: nf(c.water), w }) : t('bld.cost', { kg: nf(c.materials), w });
+  }
+  const whyNot = (type, chk) => (chk.reason === 'needs' ? t('bld.why.needs', { module: t('mod.' + D.BUILDS[type].needs) }) : t('bld.why.' + chk.reason));
+  // M6 (spec §3): a choice shows only once the rank unlocks it, never in a Quick mission or with its tier off; a vehicle once
+  // a Garage stands, a gear line once a Fabricator stands (the launch shows at Colony, saying it needs its pad).
+  function listed(s, type, pending) {
+    const r = E.canBuild(s, type, pending).reason, needs = D.BUILDS[type].needs;
+    return r !== 'rank' && r !== 'quick' && (!needs || type === 'launch' || s.modules[needs].count > 0);
+  }
+  const unlocksAt = r => Object.keys(D.BUILDS).filter(ty => E.unlockRank(ty) === r).map(ty => t('mod.' + ty)).join(', ');
+  // A gear line's next level as its help line says it: the suit's seconds, the loads, the hold time in % of today's.
+  function gearHelp(s, line, pending) {
+    const lv = D.GEAR[line].levels[(s.gear[line] || 0) + s.projects.concat(pending).filter(b => b.type === line).length];
+    return lv ? t('gear.' + line + '.help', { s: nf(lv.value), n: nf(lv.value), p: nf(lv.value * 100) }) : t('bld.why.max');
+  }
+  // A build's button: one with a tile (a module, a vehicle) picks its tile on the map; the rest are queued at once.
+  function buildRow(s, type, pending) {
+    const chk = E.canBuild(s, type, pending), gear = D.GEAR[type] ? s.gear[type] || 0 : null;
+    const maxed = gear != null && gear >= D.GEAR[type].levels.length;
+    return h('button', {
+      type: 'button', class: 'bld', 'data-k': 'bld:' + type, 'aria-pressed': String(store.buildType === type),
+      disabled: !chk.ok, title: !chk.ok ? whyNot(type, chk) : gear != null ? gearHelp(s, type, pending) : t('bld.' + type),
+      onclick: () => {
+        if (!D.PLACED.includes(type)) { if (chk.ok) patchPlan({ builds: pending.concat([{ type }]) }); return; }
+        store.buildType = store.buildType === type ? null : type;
+        render();
+      },
+    }, h('span', { html: A.module(type === 'shield' ? 'shelter' : type, 36) }),
+    h('span', null, h('span', { class: 't' }, t('mod.' + type)),
+      gear != null ? [h('br'), h('span', { class: 'c' }, t('gear.level', { n: gear }))] : null,
+      maxed ? null : [h('br'), h('span', { class: 'c' }, costText(s, type, pending))]));
+  }
+  // The rank-up (spec §3) takes no tile, like the kit: the next rank, its cost and what it unlocks. None at Colony or in Quick.
+  function rankButton(s, pending) {
+    const r = E.rankOf(s) + 1;
+    if (s.quick === true || !D.RANKS[r]) return null;
+    const chk = E.canBuild(s, 'rankup', pending), unlocks = t('rank.unlocks', { list: unlocksAt(r) });
+    return h('button', {
+      type: 'button', class: 'bld', 'data-k': 'bld:rankup', disabled: !chk.ok, title: chk.ok ? unlocks : whyNot('rankup', chk),
+      onclick: () => { if (chk.ok) patchPlan({ builds: pending.concat([{ type: 'rankup' }]) }); },
+    }, h('span', { html: A.module('rankup', 36) }),
+    h('span', null, h('span', { class: 't' }, t('rank.next', { rank: t('rank.' + D.RANKS[r].id) })), h('br'),
+      h('span', { class: 'c' }, costText(s, 'rankup', pending)), h('br'), h('span', { class: 'c' }, unlocks)));
+  }
+
   function buildPanel(s, p, f) {
     const pending = p.builds || [];
     const builders = f.points.construction > 0;
     const busy = s.projects.length + pending.length > 0;
-    const palette = h('div', { class: 'palette' }, D.BUILD_ORDER.map(type => {
-      const chk = E.canBuild(s, type, pending);
-      const spec = D.BUILDS[type];
-      return h('button', {
-        type: 'button', class: 'bld', 'data-k': 'bld:' + type, 'aria-pressed': String(store.buildType === type),
-        disabled: !chk.ok, title: chk.ok ? t('bld.' + type) : t('bld.why.' + chk.reason),
-        onclick: () => {
-          if (type === 'shield') { patchPlan({ builds: pending.concat([{ type: 'shield' }]) }); return; }
-          store.buildType = store.buildType === type ? null : type;
-          render();
-        },
-      }, h('span', { html: A.module(type === 'shield' ? 'shelter' : type, 36) }),
-      h('span', null, h('span', { class: 't' }, t('mod.' + type)), h('br'), h('span', { class: 'c' }, t('bld.cost', { kg: nf(spec.materials), w: nf(spec.work, spec.work % 1 ? 1 : 0) }))));
-    }).concat([kitButton(s, pending)]));
+    const rows = types => types.filter(ty => listed(s, ty, pending)).map(ty => buildRow(s, ty, pending));
+    const group = (name, types) => { const r = rows(types); return r.length ? [h('span', { class: 'eyebrow', style: 'grid-column:1/-1' }, t(name)), r] : null; };
+    const palette = h('div', { class: 'palette' }, rows(D.BUILD_ORDER), kitButton(s, pending), rankButton(s, pending),
+      group('mod.garage', ['rover', 'cabin', 'drone']), group('mod.fabricator', Object.keys(D.GEAR)), rows(['launch']));
     const sel = store.buildType;
     return panel(t('panel.build'), [
       h('p', { class: 'hint' }, t('bld.pick'), ' ', h('b', { class: 'num', style: 'color:var(--fg)' }, nf(s.resources.materials) + ' kg'), ' · ', t('hud.materials').toLowerCase()),
@@ -1440,7 +1496,7 @@
       pending.length ? h('div', { class: 'queue' }, h('span', { class: 'eyebrow' }, t('bld.queue')),
         pending.map((b, i) => h('div', { class: 'qrow' },
           h('span', { html: A.module(b.type === 'shield' ? 'shelter' : b.type, 26) }),
-          h('span', null, t('mod.' + b.type), ' ', h('span', { class: 'faint num' }, '−' + nf(D.BUILDS[b.type].materials) + ' kg')),
+          h('span', null, t('mod.' + b.type), ' ', h('span', { class: 'faint num' }, '−' + nf(E.costOf(s, b.type, pending.slice(0, i)).materials) + ' kg')),
           h('button', { class: 'btn btn-ghost btn-sm', type: 'button', 'data-k': 'unq:' + i, onclick: () => patchPlan({ builds: pending.filter((_, j) => j !== i) }) }, t('bld.remove'))))) : null,
       s.projects.length ? h('div', { class: 'queue' }, h('span', { class: 'eyebrow' }, t('bld.projects')),
         s.projects.map(pr => h('div', { class: 'qrow' },
@@ -2088,17 +2144,18 @@
   const GUIDE = [
     ['guide.cargo', ['solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse', 'waterwall', 'lab', 'rover', 'spares', 'materials', 'food', 'o2', 'water']],
     ['guide.buildings', ['hab', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield', 'garage', 'fabricator', 'launchpad', 'cabin', 'drone']],
-    ['guide.gear', ['suit', 'pack', 'canister', 'kit']],
+    ['guide.gear', ['suit', 'pack', 'canister', 'kit', 'tanks']],
   ];
   // Each page checked to say the fact as the game words it. An entry with none shows no fact line: lab's and spares' are
   // mottos, and no page checked says solar's 43 %, the water wall's "best shield per kilogram", baked regolith bricks or
   // water's 7 kg a day.
   const GUIDE_SOURCES = {
-    battery: 'marsGlance', reactor: 'kilopower', recycler: 'water98', oxygen: 'moxie', icedrill: 'iceMap', greenhouse: 'veggie', rover: 'dra5', food: 'bvad', o2: 'jonesKliss',
+    battery: 'marsGlance', reactor: 'kilopower', recycler: 'water98', oxygen: 'moxie', icedrill: 'iceMap', greenhouse: 'veggie', rover: 'opportunity', food: 'bvad', o2: 'jonesKliss',
     hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler',
     suit: 'marsGlance', pack: 'percySamples', canister: 'jonesKliss', kit: 'relayJpl',
-    // M6, until Task 3 gives them their own sources: each with the source of the checked fact its guide.<id>.fact repeats.
-    garage: 'hazards', fabricator: 'moxie', launchpad: 'percySamples', cabin: 'dra5', drone: 'photoJezero',
+    // M6 (sources.md M6): the pressurised rover keeps DRA 5.0's line the science rover had; the Garage's says the real rover
+    // it is based on is a Moon rover; the suit tanks' says MOXIE made oxygen, not that suits used it.
+    garage: 'm6Pressurized', fabricator: 'm6Printing', launchpad: 'm6Samples', cabin: 'dra5', drone: 'm6Ingenuity', tanks: 'm6Moxie',
   };
   const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
   function guideEntry(id) {
@@ -2107,7 +2164,7 @@
     return {
       name: own('name') || k('item.' + id + '.name') || k('mod.' + id),
       desc: own('desc') || k('item.' + id + '.desc') || k('bld.' + id),
-      fact: src && (own('fact') || k('item.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
+      fact: src && (own('fact') || k('item.' + id + '.fact') || k('gear.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
       src,
       art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
     };

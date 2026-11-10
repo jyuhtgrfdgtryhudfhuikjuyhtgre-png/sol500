@@ -146,7 +146,8 @@
       launch: { materials: 0, work: 0, needs: 'launchpad' },
     },
     BUILD_ORDER: ['shield', 'solar', 'battery', 'greenhouse', 'oxygen', 'recycler', 'icedrill',
-      'habitat', 'medbay', 'workshop', 'shelter', 'comms', 'lab'],
+      'habitat', 'medbay', 'workshop', 'shelter', 'comms', 'lab',
+      'garage', 'fabricator', 'launchpad'], // M6: the build lists show these once the rank unlocks them
     REGOLITH_PER_POINT: 100, // kg of materials from leftover construction work
     REPAIR_MATERIALS: 100, // kg per repair when there are no spare kits
 

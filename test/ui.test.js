@@ -1056,7 +1056,11 @@ test('the field guide labels every piece of cargo, building and gear and says wh
     // lab's and spares' lines are mottos, not facts; no page checked says solar's 43 %, the water wall's "best shield per
     // kilogram", baked regolith bricks or water's 7 kg a day as the game words them (src/ui.js GUIDE_SOURCES).
     assert.deepEqual(ids.filter(id => !cited[id]), ['solar', 'waterwall', 'lab', 'spares', 'materials', 'water'], lang + ': the entries with no fact line');
-    assert.deepEqual([cited.rover, cited.suit], ['dra5', 'marsGlance'], lang + ': pressurized rovers are in DRA 5.0, the air pressure in Mars at a glance');
+    assert.deepEqual([cited.cabin, cited.suit], ['dra5', 'marsGlance'], lang + ': pressurized rovers are in DRA 5.0, the air pressure in Mars at a glance');
+    // M6 (R9, R10): the science rover cites a Mars rover, and each new entry the M6 source its fact comes from.
+    assert.deepEqual([cited.rover, cited.garage, cited.fabricator, cited.launchpad, cited.drone, cited.tanks],
+      ['opportunity', 'm6Pressurized', 'm6Printing', 'm6Samples', 'm6Ingenuity', 'm6Moxie'], lang + ': the M6 facts');
+    assert.notEqual(pg.byKey('guide:rover').children[1].children[0].textContent, pg.byKey('guide:cabin').children[1].children[0].textContent, lang + ': two vehicles, two names');
     click(pg.byKey('modal-close'));
     assert.equal(pg.dialog(), null);
   }
@@ -1846,4 +1850,134 @@ test('at Colony the console says the base is self-sufficient', () => {
   pg.E.grantRank(m, 3);
   pg.UI.render();
   assert.ok(pg.byKey('self-sufficient').textContent.includes(en('ops.selfSufficient')));
+});
+
+// ---------- M6: the console's ranks, vehicles, gear, map, cards and guide (Task 3) ----------
+const D6 = require('../src/data.js');
+const rowsOf = pg => pg.all().filter(n => /^bld:/.test(n.attrs['data-k'] || '')).map(n => n.attrs['data-k'].slice(4));
+const rich = m => { m.resources.materials = 9000; m.resources.water = 9000; return m; };
+
+test('the build list shows only what the rank unlocks: the Garage at Outpost, its vehicles once one stands, the gear once a Fabricator stands, the launch at Colony; none of them in a Quick mission', () => {
+  const pg = page(), m = rich(pg.mission({ seed: 'UI-M6' }));
+  const M6 = ['garage', 'fabricator', 'launchpad', 'rover', 'cabin', 'drone', 'tanks', 'backpack', 'racks', 'tools', 'launch'];
+  consoleOf(pg, m);
+  assert.deepEqual(rowsOf(pg).filter(ty => M6.includes(ty)), [], 'a Camp shows none of them');
+  pg.E.grantRank(m, 1);
+  consoleOf(pg, m);
+  assert.ok(rowsOf(pg).includes('garage'), 'an Outpost shows the Garage');
+  assert.ok(!['rover', 'cabin', 'drone', 'fabricator'].some(ty => rowsOf(pg).includes(ty)), 'no vehicle before a Garage stands, no Fabricator before Station');
+  m.modules.garage.count = 1;
+  consoleOf(pg, m);
+  assert.ok(['rover', 'cabin', 'drone'].every(ty => rowsOf(pg).includes(ty)), 'the Garage group');
+  assert.ok(pg.byKey('bld:rover').textContent.includes(en('bld.cost', { kg: D6.BUILDS.rover.materials, w: D6.BUILDS.rover.work })));
+  pg.E.grantRank(m, 2);
+  consoleOf(pg, m);
+  assert.ok(rowsOf(pg).includes('fabricator') && !rowsOf(pg).includes('tanks'), 'no gear row until a Fabricator stands');
+  m.modules.fabricator.count = 1;
+  m.gear.backpack = 1;
+  consoleOf(pg, m);
+  for (const line of ['tanks', 'backpack', 'racks', 'tools']) assert.ok(rowsOf(pg).includes(line), line);
+  const tanks = D6.GEAR.tanks.levels[0], pack = D6.GEAR.backpack.levels[1];
+  assert.ok(pg.byKey('bld:tanks').textContent.includes(en('gear.level', { n: 0 })), 'level 0 / 2');
+  assert.ok(pg.byKey('bld:tanks').textContent.includes(en('bld.costWater', { kg: tanks.materials, water: tanks.water, w: tanks.work })), 'a cost with water says so');
+  assert.ok(pg.byKey('bld:backpack').textContent.includes(en('gear.level', { n: 1 })) &&
+    pg.byKey('bld:backpack').textContent.includes(en('bld.cost', { kg: pack.materials, w: pack.work })), "the next level's cost");
+  assert.ok(!rowsOf(pg).includes('launch') && !rowsOf(pg).includes('launchpad'));
+  pg.E.grantRank(m, 3);
+  consoleOf(pg, m);
+  assert.ok(rowsOf(pg).includes('launchpad') && rowsOf(pg).includes('launch'), 'Colony shows the pad and the launch');
+  assert.equal(pg.byKey('bld:launch').attrs.title, en('bld.why.needs', { module: en('mod.launchpad') }), 'the launch needs a working pad');
+  const q = rich(pg.mission({ seed: 'UI-M6Q', quick: true, loadout: pg.E.referenceKit('commander', 4, true) }));
+  pg.E.grantRank(q, 3);
+  Object.assign(q.modules.garage, { count: 1 });
+  Object.assign(q.modules.fabricator, { count: 1 });
+  consoleOf(pg, q);
+  assert.deepEqual(rowsOf(pg).filter(ty => M6.includes(ty) || ty === 'rankup'), [], 'a Quick mission has no M6 row');
+});
+
+test('the rank-up button shows the next rank, its cost and what it unlocks, and queues one rank-up; there is none at Colony or in a Quick mission', () => {
+  const pg = page(), m = rich(pg.mission({ seed: 'UI-RANKUP' })), R = D6.RANKS[1];
+  consoleOf(pg, m);
+  const btn = pg.byKey('bld:rankup');
+  for (const s of [en('rank.next', { rank: en('rank.outpost') }), en('bld.cost', { kg: R.materials, w: R.work }), en('mod.garage'), en('mod.cabin'), en('mod.drone')]) assert.ok(btn.textContent.includes(s), s);
+  click(btn);
+  assert.deepEqual(plain(pg.UI.store.plan.builds), [{ type: 'rankup' }]);
+  click(pg.byKey('bld:rankup'));
+  assert.deepEqual(plain(pg.UI.store.plan.builds), [{ type: 'rankup' }], 'one rank-up at a time');
+  assert.equal(pg.byKey('bld:rankup').attrs.disabled, '');
+  const queue = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('panel.build')).textContent;
+  assert.ok(queue.includes(en('mod.rankup') + ' −' + R.materials + ' kg'), 'in the queue under its name and its real cost: ' + queue);
+  pg.E.grantRank(m, 3);
+  consoleOf(pg, m);
+  assert.equal(pg.byKey('bld:rankup'), undefined, 'a Colony has no next rank');
+  consoleOf(pg, rich(pg.mission({ seed: 'UI-RANKQ', quick: true, loadout: pg.E.referenceKit('commander', 4, true) })));
+  assert.equal(pg.byKey('bld:rankup'), undefined, 'a Quick mission has no ranks');
+});
+
+test('the console map shows the whole land of the rank, negative spots included, with a solar offered west of the old grid', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-MAP6' });
+  pg.E.grantRank(m, 2);
+  const keep = ([x, y]) => !(y === 2 && x < 0);
+  m.terrain.ice = m.terrain.ice.filter(keep);
+  m.terrain.rock = m.terrain.rock.filter(keep);
+  m.layout.push({ type: 'solar', x: -1, y: 2 });
+  const tpls = [], make = pg.win.document.createElement;
+  pg.win.document.createElement = tag => { const n = make(tag); if (tag === 'template') tpls.push(n); return n; };
+  consoleOf(pg, m);
+  pg.UI.store.buildType = 'solar';
+  pg.UI.render();
+  const svg = tpls.map(n => n.innerHTML).filter(s => s.includes('aria-label="' + en('panel.map') + '"')).pop();
+  const b = pg.E.landOf(m);
+  assert.ok(svg.startsWith(`<svg viewBox="${b.x0 * T} ${b.y0 * T} ${(b.x1 - b.x0 + 1) * T} ${(b.y1 - b.y0 + 1) * T}"`), 'the view is the land box');
+  assert.equal((svg.match(/<rect x="-?\d+" y="-?\d+" width="64" height="64"/g) || []).length, pg.E.landTiles(m).length, 'one ground tile per land tile');
+  assert.match(svg, /class="tile-hit" data-x="-2" data-y="2"/);
+  assert.match(svg, new RegExp(`<g transform="translate\\(${-1 * T} ${2 * T}\\)"><title>${en('mod.solar')}`), 'the solar on a negative spot is drawn');
+});
+
+test('the HUD names the base rank beside the sol, except in a Quick mission', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-HUD6' });
+  const clock = () => pg.all().find(n => n.className === 'solclock').textContent;
+  consoleOf(pg, m);
+  assert.ok(clock().includes(en('ops.rank', { rank: en('rank.camp') })), clock());
+  pg.E.grantRank(m, 2);
+  consoleOf(pg, m);
+  assert.ok(clock().includes(en('ops.rank', { rank: en('rank.station') })), clock());
+  consoleOf(pg, pg.mission({ seed: 'UI-HUDQ', quick: true, loadout: pg.E.referenceKit('commander', 4, true) }));
+  assert.ok(!clock().includes(en('ops.rank', { rank: en('rank.camp') })), 'no rank in a Quick mission');
+});
+
+test('a rank-up opens its card once: the new rank, what it unlocks, a NASA fact and its source; the Events panel names it too', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-RANKCARD' });
+  pg.E.grantRank(m, 1);
+  m.events = [{ type: 'rank_up', rank: 1 }];
+  pg.play(m);
+  const card = cardOf(pg), src = pg.I.SOURCES[en('card.rank1.src')];
+  assert.ok(card, 'the card is up');
+  assert.equal(card.children[1].textContent, en('card.rank1.title'));
+  assert.ok(card.textContent.includes(en('card.rank1.body')) && card.textContent.includes(en('mod.garage')), card.textContent);
+  assert.deepEqual(linksOf(card), [[src.url, pg.I.srcLabel('en', en('card.rank1.src'))]]);
+  pg.UI.render();
+  assert.equal(pg.UI.store.card.id, 'm6:rank1');
+  click(pg.byKey('region-close'));
+  pg.UI.render();
+  assert.equal(pg.UI.store.card, null, 'rendering again does not open it twice');
+  consoleOf(pg, m);
+  const events = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('panel.events')).textContent;
+  assert.ok(events.includes(en('ev.rank_up.title', { rank: en('rank.outpost') })) && events.includes(en('ev.rank_up.body')), events);
+});
+
+test('the M6 cards have their words in both languages, each with a source the sources table has', () => {
+  for (const lang of ['en', 'vi']) {
+    for (const key of ['rank1', 'rank2', 'rank3', 'launch', 'colony', 'drone']) {
+      for (const part of ['title', 'body']) assert.ok(I.STR[lang]['card.' + key + '.' + part], lang + ' card.' + key + '.' + part);
+      assert.ok(I.SOURCES[I.t(lang, 'card.' + key + '.src')], lang + ' card.' + key + '.src');
+    }
+    for (const k of ['ev.rank_up.title', 'ev.rank_up.body', 'ops.rank', 'rank.unlocks', 'bld.why.needs', 'bld.why.water', 'bld.costWater', 'card.eyebrow',
+      'mod.rankup', 'mod.tanks', 'mod.backpack', 'mod.racks', 'mod.tools', 'mod.launch']) assert.ok(I.STR[lang][k], lang + ' ' + k);
+    assert.notEqual(I.STR[lang]['item.rover.name'], I.STR[lang]['mod.cabin'], lang + ': two vehicles never share a name');
+    assert.equal(I.STR[lang]['mod.rover'], I.STR[lang]['item.rover.name'], lang + ': and one vehicle has one name, packed or built');
+  }
+  assert.equal(I.STR.en['item.rover.name'], 'Science rover');
+  assert.equal(I.STR.vi['item.rover.name'], 'Xe thám hiểm');
+  assert.equal(I.STR.en['mod.cabin'], 'Pressurized rover');
 });
