@@ -1278,31 +1278,29 @@
 
   // ----- outpost map -----
   const TILE = 64;
+  // The base's land (M6: it grows with the rank, into negative spots, cut round to the flat ground): the view is its box,
+  // each land tile drawn with its own edge, so the corners the cut leaves out stay the panel's background.
   function mapSvg(s, p, f) {
-    const W = D.GRID.w * TILE, Hh = D.GRID.h * TILE;
+    const b = E.landOf(s), X0 = b.x0 * TILE, Y0 = b.y0 * TILE, W = (b.x1 - b.x0 + 1) * TILE, Hh = (b.y1 - b.y0 + 1) * TILE;
     const ice = new Set(s.terrain.ice.map(([x, y]) => x + ',' + y));
     const rock = new Set(s.terrain.rock.map(([x, y]) => x + ',' + y));
     const shades = ['#6c3523', '#733a25', '#7a3e27', '#683322'];
-    let o = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(t('panel.map'))}"><title>${esc(t('panel.map'))}</title>`;
-    for (let y = 0; y < D.GRID.h; y++) {
-      for (let x = 0; x < D.GRID.w; x++) {
-        const k = x + ',' + y, X = x * TILE, Y = y * TILE;
-        const r = ((x * 73856093) ^ (y * 19349663)) >>> 0;
-        if (ice.has(k)) {
-          o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="#86aebf"/>`;
-          o += `<path d="M${X + 8} ${Y + 20}l14 6 10-9 14 11M${X + 12} ${Y + 44}l12-4 9 8 15-5" stroke="#dff1f9" stroke-width="1.5" fill="none" opacity="0.8"/>`;
-          o += `<path d="M${X + 40} ${Y + 30}l6 -8 6 9z" fill="#e7f6fc" opacity="0.8"/>`;
-        } else {
-          o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="${shades[r % 4]}"/>`;
-          o += `<circle cx="${X + 10 + (r % 40)}" cy="${Y + 12 + ((r >> 5) % 40)}" r="1.6" fill="#5b2a1c"/><circle cx="${X + 20 + ((r >> 9) % 34)}" cy="${Y + 30 + ((r >> 13) % 26)}" r="1.1" fill="#8e4b31"/>`;
-        }
-        if (rock.has(k)) {
-          o += `<ellipse cx="${X + 26}" cy="${Y + 40}" rx="16" ry="11" fill="#4c3b37"/><ellipse cx="${X + 42}" cy="${Y + 30}" rx="11" ry="8" fill="#5c4944"/><ellipse cx="${X + 22}" cy="${Y + 36}" rx="6" ry="3" fill="#6b5752"/>`;
-        }
+    let o = `<svg viewBox="${X0} ${Y0} ${W} ${Hh}" role="img" aria-label="${esc(t('panel.map'))}"><title>${esc(t('panel.map'))}</title>`;
+    for (const [x, y] of E.landTiles(s)) {
+      const k = x + ',' + y, X = x * TILE, Y = y * TILE, edge = 'stroke="#000" stroke-opacity="0.12"';
+      const r = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      if (ice.has(k)) {
+        o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="#86aebf" ${edge}/>`;
+        o += `<path d="M${X + 8} ${Y + 20}l14 6 10-9 14 11M${X + 12} ${Y + 44}l12-4 9 8 15-5" stroke="#dff1f9" stroke-width="1.5" fill="none" opacity="0.8"/>`;
+        o += `<path d="M${X + 40} ${Y + 30}l6 -8 6 9z" fill="#e7f6fc" opacity="0.8"/>`;
+      } else {
+        o += `<rect x="${X}" y="${Y}" width="${TILE}" height="${TILE}" fill="${shades[r % 4]}" ${edge}/>`;
+        o += `<circle cx="${X + 10 + (r % 40)}" cy="${Y + 12 + ((r >>> 5) % 40)}" r="1.6" fill="#5b2a1c"/><circle cx="${X + 20 + ((r >>> 9) % 34)}" cy="${Y + 30 + ((r >>> 13) % 26)}" r="1.1" fill="#8e4b31"/>`;
+      }
+      if (rock.has(k)) {
+        o += `<ellipse cx="${X + 26}" cy="${Y + 40}" rx="16" ry="11" fill="#4c3b37"/><ellipse cx="${X + 42}" cy="${Y + 30}" rx="11" ry="8" fill="#5c4944"/><ellipse cx="${X + 22}" cy="${Y + 36}" rx="6" ry="3" fill="#6b5752"/>`;
       }
     }
-    for (let x = 1; x < D.GRID.w; x++) o += `<path d="M${x * TILE} 0V${Hh}" stroke="#000" stroke-opacity="0.12"/>`;
-    for (let y = 1; y < D.GRID.h; y++) o += `<path d="M0 ${y * TILE}H${W}" stroke="#000" stroke-opacity="0.12"/>`;
 
     // regolith shield layers around the HQ
     const [hx, hy] = D.GRID.hq;
@@ -1363,9 +1361,9 @@
     // weather
     const w = s.schedule[s.turn].weather;
     if (w !== 'clear') {
-      o += `<rect width="${W}" height="${Hh}" fill="${w === 'global' ? '#6b3219' : '#b5763f'}" opacity="${w === 'global' ? 0.5 : 0.22}" pointer-events="none"/>`;
+      o += `<rect x="${X0}" y="${Y0}" width="${W}" height="${Hh}" fill="${w === 'global' ? '#6b3219' : '#b5763f'}" opacity="${w === 'global' ? 0.5 : 0.22}" pointer-events="none"/>`;
       let dots = '';
-      for (let i = 0; i < (w === 'global' ? 70 : 30); i++) dots += `<circle cx="${(i * 97) % W}" cy="${(i * 53) % Hh}" r="${1 + (i % 3) * 0.6}" fill="#e7b88a" opacity="0.5"/>`;
+      for (let i = 0; i < (w === 'global' ? 70 : 30); i++) dots += `<circle cx="${X0 + (i * 97) % W}" cy="${Y0 + (i * 53) % Hh}" r="${1 + (i % 3) * 0.6}" fill="#e7b88a" opacity="0.5"/>`;
       o += `<g class="dust-drift" pointer-events="none">${dots}</g>`;
     }
     return o + '</svg>';

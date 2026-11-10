@@ -1888,6 +1888,26 @@ test('the rank-up button shows the next rank, its cost and what it unlocks, and 
   assert.equal(pg.byKey('bld:rankup'), undefined, 'a Quick mission has no ranks');
 });
 
+test('the console map shows the whole land of the rank, negative spots included, with a solar offered west of the old grid', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-MAP6' });
+  pg.E.grantRank(m, 2);
+  const keep = ([x, y]) => !(y === 2 && x < 0);
+  m.terrain.ice = m.terrain.ice.filter(keep);
+  m.terrain.rock = m.terrain.rock.filter(keep);
+  m.layout.push({ type: 'solar', x: -1, y: 2 });
+  const tpls = [], make = pg.win.document.createElement;
+  pg.win.document.createElement = tag => { const n = make(tag); if (tag === 'template') tpls.push(n); return n; };
+  consoleOf(pg, m);
+  pg.UI.store.buildType = 'solar';
+  pg.UI.render();
+  const svg = tpls.map(n => n.innerHTML).filter(s => s.includes('aria-label="' + en('panel.map') + '"')).pop();
+  const b = pg.E.landOf(m);
+  assert.ok(svg.startsWith(`<svg viewBox="${b.x0 * T} ${b.y0 * T} ${(b.x1 - b.x0 + 1) * T} ${(b.y1 - b.y0 + 1) * T}"`), 'the view is the land box');
+  assert.equal((svg.match(/<rect x="-?\d+" y="-?\d+" width="64" height="64"/g) || []).length, pg.E.landTiles(m).length, 'one ground tile per land tile');
+  assert.match(svg, /class="tile-hit" data-x="-2" data-y="2"/);
+  assert.match(svg, new RegExp(`<g transform="translate\\(${-1 * T} ${2 * T}\\)"><title>${en('mod.solar')}`), 'the solar on a negative spot is drawn');
+});
+
 test('the M6 cards have their words in both languages, each with a source the sources table has', () => {
   for (const lang of ['en', 'vi']) {
     for (const key of ['rank1', 'rank2', 'rank3', 'launch', 'colony', 'drone']) {
