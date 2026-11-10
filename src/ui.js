@@ -2082,17 +2082,18 @@
   const GUIDE = [
     ['guide.cargo', ['solar', 'battery', 'reactor', 'recycler', 'oxygen', 'icedrill', 'greenhouse', 'waterwall', 'lab', 'rover', 'spares', 'materials', 'food', 'o2', 'water']],
     ['guide.buildings', ['hab', 'habitat', 'medbay', 'workshop', 'comms', 'shelter', 'shield', 'garage', 'fabricator', 'launchpad', 'cabin', 'drone']],
-    ['guide.gear', ['suit', 'pack', 'canister', 'kit']],
+    ['guide.gear', ['suit', 'pack', 'canister', 'kit', 'tanks']],
   ];
   // Each page checked to say the fact as the game words it. An entry with none shows no fact line: lab's and spares' are
   // mottos, and no page checked says solar's 43 %, the water wall's "best shield per kilogram", baked regolith bricks or
   // water's 7 kg a day.
   const GUIDE_SOURCES = {
-    battery: 'marsGlance', reactor: 'kilopower', recycler: 'water98', oxygen: 'moxie', icedrill: 'iceMap', greenhouse: 'veggie', rover: 'dra5', food: 'bvad', o2: 'jonesKliss',
+    battery: 'marsGlance', reactor: 'kilopower', recycler: 'water98', oxygen: 'moxie', icedrill: 'iceMap', greenhouse: 'veggie', rover: 'opportunity', food: 'bvad', o2: 'jonesKliss',
     hab: 'dra5', habitat: 'hazards', medbay: 'hazards', workshop: 'hazards', comms: 'conjunction', shelter: 'hazards', shield: 'hassler',
     suit: 'marsGlance', pack: 'percySamples', canister: 'jonesKliss', kit: 'relayJpl',
-    // M6, until Task 3 gives them their own sources: each with the source of the checked fact its guide.<id>.fact repeats.
-    garage: 'hazards', fabricator: 'moxie', launchpad: 'percySamples', cabin: 'dra5', drone: 'photoJezero',
+    // M6 (sources.md M6): the pressurised rover keeps DRA 5.0's line the science rover had; the Garage's says the real rover
+    // it is based on is a Moon rover; the suit tanks' says MOXIE made oxygen, not that suits used it.
+    garage: 'm6Pressurized', fabricator: 'm6Printing', launchpad: 'm6Samples', cabin: 'dra5', drone: 'm6Ingenuity', tanks: 'm6Moxie',
   };
   const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
   function guideEntry(id) {
@@ -2101,7 +2102,7 @@
     return {
       name: own('name') || k('item.' + id + '.name') || k('mod.' + id),
       desc: own('desc') || k('item.' + id + '.desc') || k('bld.' + id),
-      fact: src && (own('fact') || k('item.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
+      fact: src && (own('fact') || k('item.' + id + '.fact') || k('gear.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
       src,
       art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
     };

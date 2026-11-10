@@ -1056,7 +1056,11 @@ test('the field guide labels every piece of cargo, building and gear and says wh
     // lab's and spares' lines are mottos, not facts; no page checked says solar's 43 %, the water wall's "best shield per
     // kilogram", baked regolith bricks or water's 7 kg a day as the game words them (src/ui.js GUIDE_SOURCES).
     assert.deepEqual(ids.filter(id => !cited[id]), ['solar', 'waterwall', 'lab', 'spares', 'materials', 'water'], lang + ': the entries with no fact line');
-    assert.deepEqual([cited.rover, cited.suit], ['dra5', 'marsGlance'], lang + ': pressurized rovers are in DRA 5.0, the air pressure in Mars at a glance');
+    assert.deepEqual([cited.cabin, cited.suit], ['dra5', 'marsGlance'], lang + ': pressurized rovers are in DRA 5.0, the air pressure in Mars at a glance');
+    // M6 (R9, R10): the science rover cites a Mars rover, and each new entry the M6 source its fact comes from.
+    assert.deepEqual([cited.rover, cited.garage, cited.fabricator, cited.launchpad, cited.drone, cited.tanks],
+      ['opportunity', 'm6Pressurized', 'm6Printing', 'm6Samples', 'm6Ingenuity', 'm6Moxie'], lang + ': the M6 facts');
+    assert.notEqual(pg.byKey('guide:rover').children[1].children[0].textContent, pg.byKey('guide:cabin').children[1].children[0].textContent, lang + ': two vehicles, two names');
     click(pg.byKey('modal-close'));
     assert.equal(pg.dialog(), null);
   }
@@ -1820,4 +1824,25 @@ test("the pilot card's role fact ends in a link to its source, outside the butto
   const src = pg.I.SOURCES[pg.I.ROLE_SOURCES[role]];
   assert.deepEqual(linksOf(card), [[src.url, pg.I.srcLabel('en', pg.I.ROLE_SOURCES[role])]]);
   assert.deepEqual(linksOf(pick), [], 'a link inside a button is invalid and would start the mission');
+});
+
+// ---------- M6: the console's ranks, vehicles, gear, map, cards and guide (Task 3) ----------
+const D6 = require('../src/data.js');
+const rowsOf = pg => pg.all().filter(n => /^bld:/.test(n.attrs['data-k'] || '')).map(n => n.attrs['data-k'].slice(4));
+const rich = m => { m.resources.materials = 9000; m.resources.water = 9000; return m; };
+
+test('the M6 cards have their words in both languages, each with a source the sources table has', () => {
+  for (const lang of ['en', 'vi']) {
+    for (const key of ['rank1', 'rank2', 'rank3', 'launch', 'colony', 'drone']) {
+      for (const part of ['title', 'body']) assert.ok(I.STR[lang]['card.' + key + '.' + part], lang + ' card.' + key + '.' + part);
+      assert.ok(I.SOURCES[I.t(lang, 'card.' + key + '.src')], lang + ' card.' + key + '.src');
+    }
+    for (const k of ['ev.rank_up.title', 'ev.rank_up.body', 'ops.rank', 'rank.unlocks', 'bld.why.needs', 'bld.why.water', 'bld.costWater', 'card.eyebrow',
+      'mod.rankup', 'mod.tanks', 'mod.backpack', 'mod.racks', 'mod.tools', 'mod.launch']) assert.ok(I.STR[lang][k], lang + ' ' + k);
+    assert.notEqual(I.STR[lang]['item.rover.name'], I.STR[lang]['mod.cabin'], lang + ': two vehicles never share a name');
+    assert.equal(I.STR[lang]['mod.rover'], I.STR[lang]['item.rover.name'], lang + ': and one vehicle has one name, packed or built');
+  }
+  assert.equal(I.STR.en['item.rover.name'], 'Science rover');
+  assert.equal(I.STR.vi['item.rover.name'], 'Xe thám hiểm');
+  assert.equal(I.STR.en['mod.cabin'], 'Pressurized rover');
 });
