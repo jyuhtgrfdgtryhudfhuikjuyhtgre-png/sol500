@@ -55,11 +55,12 @@ const ctx = new Proxy({}, {
 });
 const TAG_BOX = ['rgba(140,188,236,0.92)', 'rgba(20,14,16,0.78)'], SUIT_BAR = 'rgba(20,14,16,0.8)'; // src/surface-paint.js drawTag, drawSuitBar
 const overlap = (a, b) => Math.min(a.right, b.right) > Math.max(a.left, b.left) && Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top);
-// The painter is a stub too. It notes when the ground is drawn (once for every frame that is drawn) and keeps the scale it was given.
+// The painter is a stub too. It notes when the ground is drawn (once for every frame that is drawn), keeps the scale it was given
+// and every base land it was given (setBaseLand).
 function stubPainter(now) {
-  const seen = { at: [], scale: 1 };
+  const seen = { at: [], scale: 1, land: [] };
   const painter = new Proxy({}, {
-    get: (t, k) => (k === 'stats' ? () => ({ paintMedian: 0 }) : k === 'drawGround' ? () => { seen.at.push(now()); } : k === 'setScale' ? s => { seen.scale = s; } : () => {}),
+    get: (t, k) => (k === 'stats' ? () => ({ paintMedian: 0 }) : k === 'drawGround' ? () => { seen.at.push(now()); } : k === 'setScale' ? s => { seen.scale = s; } : k === 'setBaseLand' ? fn => { seen.land.push(fn); } : () => {}),
   });
   return { painter, seen };
 }
@@ -1057,6 +1058,22 @@ test('a building at a negative grid spot stands on its world tile', () => {
   assert.equal(pg.probe().menu, 's:-2,3', 'its module menu opens');
   const menu = pg.overlay.children.find(n => n.className === 'sf-menu');
   assert.match(menu.children.filter(n => n.className === 'sf-mbody').pop().children.find(n => /^sf-note/.test(n.className)).textContent, /kW/);
+});
+
+test("the ground is given the rank's land once for each rank: a new rank's land is painted as the base's", () => {
+  const m = mission({ seed: 'LAND-PAINT' }), pg = page(m, 'minh');
+  const lands = pg.seen.land;
+  assert.equal(lands.length, 1, 'the first look');
+  assert.deepEqual([lands[0](4, 2), lands[0](-4, -2), lands[0](5, 0), lands[0](0, 3)], [true, true, false, false], "a Camp's: world tiles −4..4 × −2..2");
+  pg.show(m);
+  pg.step(0.2);
+  assert.equal(lands.length, 1, 'the same rank: nothing new to paint');
+  E.grantRank(m, 1);
+  pg.show(m);
+  assert.equal(lands.length, 2, 'the rank grew');
+  assert.deepEqual([lands[1](7, 4), lands[1](-7, -4), lands[1](8, 0), lands[0](7, 4)], [true, true, false, false], "an Outpost's: −7..7 × −4..4; the Camp's is kept as it was");
+  pg.show(m);
+  assert.equal(lands.length, 2);
 });
 
 // ---------- the rover drives by the physics engine (2026-11-03): steering, the boost, climbing, a crewmate's rover ----------

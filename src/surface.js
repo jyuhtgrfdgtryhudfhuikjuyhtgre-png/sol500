@@ -103,6 +103,7 @@
     if (S.world && S.worldSeed === m.seed) return S.world;
     S.world = SW.create(m.seed);
     S.painter = P.createPainter(S.world, { scale: groundScale() });
+    S.landRank = null; // a new painter has no base land yet (update gives it)
     S.map.attach(S.world, S.painter);
     S.worldSeed = m.seed;
     S.world.reveal(0, 0, W.FLAT_RADIUS); // the crew knows their own base
@@ -431,6 +432,13 @@
     if (!data.mission) return;
     world();
     refreshWorld(data.mission);
+    // The base's land on the ground (M6): given to the painter once for each rank, which repaints where it grew. The land
+    // keeps the rank, not the mission: an advance can raise the rank of the same mission object.
+    const rank = E.rankOf(data.mission);
+    if (S.landRank !== rank) {
+      S.landRank = rank;
+      S.painter.setBaseLand((tx, ty) => E.onLand({ rank }, tx - BASE.x, ty - BASE.y));
+    }
     if (data.fog) S.world.mergeFog(data.fog);
     ensurePlayer();
     if (data.controlId && S.player.crewId !== data.controlId) moveToCrewmate(data.controlId);

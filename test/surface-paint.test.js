@@ -487,3 +487,47 @@ test('loadPhotos no longer makes the images seamless synchronously: the work wai
   idle.shift()();
   assert.equal(reads.length, 2, 'at the idle moment the work runs');
 });
+
+// ---------- the base's land (M6): its ground grows with the rank ----------
+
+test("the base ground follows the rank's land", () => {
+  const E = require('../src/engine.js'), W = require('../src/worldgen.js');
+  const kit = E.referenceKit('commander', 4), make = () => E.createMission({ seed: 'PAINT-LAND', loadout: kit, events: false });
+  const camp = make(), station = make();
+  E.grantRank(station, 2);
+  const land = m => (tx, ty) => E.onLand(m, tx - W.BASE_RECT.x, ty - W.BASE_RECT.y); // what the surface gives (world tiles)
+  // Image chunk (ix, iy) painted alone, with `fn` as the base land (none: the world's own tiles only), as its calls.
+  const paint = (ix, iy, fn) => {
+    const rec = recorder();
+    const p = P.createPainter(SW.create('PAINT-LAND'), { canvas: (w, h) => ({ width: w, height: h, getContext: () => rec.ctx }), now: () => 0 });
+    if (fn) p.setBaseLand(fn);
+    p.retainView(ix * 256, iy * 256, ix * 256 + 255, iy * 256 + 255);
+    p.work(-Infinity, 1); // the chunk in the middle only
+    return rec.calls;
+  };
+  // The base ground's dashed build grid, starting at tile (tx, ty)'s top-left corner.
+  const baseAt = (calls, tx, ty) => calls.some((c, i) => c[0] === 'setLineDash' && String(c[1]) === '4,6' && String(calls[i + 2]) === String(['moveTo', tx * 64, ty * 64]));
+  assert.equal(baseAt(paint(2, 0), 8, 0), false, "the world's own tile (8, 0) is not the base's");
+  assert.equal(baseAt(paint(2, 0, land(camp)), 8, 0), false, 'at a Camp it is not');
+  assert.equal(baseAt(paint(2, 0, land(station)), 8, 0), true, "on a Station's land it is base ground");
+  for (const [ix, iy] of [[-2, -1], [-1, 0], [0, 0], [1, 0]]) { // the Camp's ground, its edges included, is painted as it was
+    assert.deepEqual(paint(ix, iy, land(camp)), paint(ix, iy), 'chunk ' + ix + ',' + iy);
+  }
+  assert.ok(baseAt(paint(1, 0, land(camp)), 4, 0), "the Camp's own east edge");
+
+  // A new land repaints only the chunks it changes (and those whose edge or decor it touches), drawn as they were meanwhile.
+  const { p } = painter('PAINT-LAND');
+  p.setBaseLand(land(camp));
+  p.retainView(-2048, -512, 2047, 511);
+  p.work(Infinity);
+  const n = p.stats().images;
+  p.setBaseLand(land(camp));
+  assert.equal(p.stats().queue, 0, 'the same land: nothing to repaint');
+  p.setBaseLand(land(station));
+  const again = p.pending().map(String);
+  for (const k of ['2,0', '-3,0', '0,-2', '0,1']) assert.ok(again.includes(k), 'repainted: ' + k);
+  for (const k of ['3,0', '-4,0', '0,-3', '0,2']) assert.ok(!again.includes(k), 'as it was: ' + k); // the land ends at x = ±10, y = −6 and 6
+  assert.equal(p.stats().images, n, 'every chunk still drawn meanwhile');
+  p.work(Infinity);
+  assert.equal(p.stats().queue, 0);
+});
