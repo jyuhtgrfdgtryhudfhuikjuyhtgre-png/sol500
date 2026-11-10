@@ -1908,6 +1908,38 @@ test('the console map shows the whole land of the rank, negative spots included,
   assert.match(svg, new RegExp(`<g transform="translate\\(${-1 * T} ${2 * T}\\)"><title>${en('mod.solar')}`), 'the solar on a negative spot is drawn');
 });
 
+test('the HUD names the base rank beside the sol, except in a Quick mission', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-HUD6' });
+  const clock = () => pg.all().find(n => n.className === 'solclock').textContent;
+  consoleOf(pg, m);
+  assert.ok(clock().includes(en('ops.rank', { rank: en('rank.camp') })), clock());
+  pg.E.grantRank(m, 2);
+  consoleOf(pg, m);
+  assert.ok(clock().includes(en('ops.rank', { rank: en('rank.station') })), clock());
+  consoleOf(pg, pg.mission({ seed: 'UI-HUDQ', quick: true, loadout: pg.E.referenceKit('commander', 4, true) }));
+  assert.ok(!clock().includes(en('ops.rank', { rank: en('rank.camp') })), 'no rank in a Quick mission');
+});
+
+test('a rank-up opens its card once: the new rank, what it unlocks, a NASA fact and its source; the Events panel names it too', () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-RANKCARD' });
+  pg.E.grantRank(m, 1);
+  m.events = [{ type: 'rank_up', rank: 1 }];
+  pg.play(m);
+  const card = cardOf(pg), src = pg.I.SOURCES[en('card.rank1.src')];
+  assert.ok(card, 'the card is up');
+  assert.equal(card.children[1].textContent, en('card.rank1.title'));
+  assert.ok(card.textContent.includes(en('card.rank1.body')) && card.textContent.includes(en('mod.garage')), card.textContent);
+  assert.deepEqual(linksOf(card), [[src.url, pg.I.srcLabel('en', en('card.rank1.src'))]]);
+  pg.UI.render();
+  assert.equal(pg.UI.store.card.id, 'm6:rank1');
+  click(pg.byKey('region-close'));
+  pg.UI.render();
+  assert.equal(pg.UI.store.card, null, 'rendering again does not open it twice');
+  consoleOf(pg, m);
+  const events = pg.all().find(n => n.tagName === 'SECTION' && n.attrs['aria-label'] === en('panel.events')).textContent;
+  assert.ok(events.includes(en('ev.rank_up.title', { rank: en('rank.outpost') })) && events.includes(en('ev.rank_up.body')), events);
+});
+
 test('the M6 cards have their words in both languages, each with a source the sources table has', () => {
   for (const lang of ['en', 'vi']) {
     for (const key of ['rank1', 'rank2', 'rank3', 'launch', 'colony', 'drone']) {

@@ -782,8 +782,20 @@
       if (waits.c.science == null && c.science != null) waits.c = Object.assign({}, waits.c, { science: c.science });
       return;
     }
-    if (c.type !== 'landmark' && !firstTime(c.id, c.type + ':' + c.kind)) return;
+    if (c.type !== 'landmark' && !firstTime(c.id, c.type === 'm6' ? null : c.type + ':' + c.kind)) return;
     arrive(c);
+  }
+
+  // M6's full cards (spec §3's rank-up moment; the launch, the Colony and the drone's first flight): once a mission code, as a
+  // fact is, with their words in card.<key>.title / body and their source's key in card.<key>.src. Task 7 calls it itself.
+  function showM6Card(key) { showCard({ type: 'm6', id: 'm6:' + key, key }); }
+  // The round's events that open one (viewOps reads them at every render; the seen list keeps each card to once).
+  const M6_CARD_EVENTS = {
+    rank_up: e => (Number.isInteger(e.rank) && e.rank > 0 && D.RANKS[e.rank] ? ['rank' + e.rank].concat(e.rank === D.RANKS.length - 1 ? ['colony'] : []) : []),
+    sample_launch: () => ['launch'],
+  };
+  function m6Cards(s) {
+    for (const e of s.events || []) if (Object.prototype.hasOwnProperty.call(M6_CARD_EVENTS, e.type)) M6_CARD_EVENTS[e.type](e).forEach(showM6Card);
   }
 
   // A server event (src/net.js): a crewmate's discovery opens its card on every tab (spec §5, C6). The event names the
@@ -806,6 +818,10 @@
     if (c.type === 'formation') {
       const stem = D.FORMATIONS.kinds[c.kind].fact, src = I.FORMATION_SOURCES ? I.SOURCES[I.FORMATION_SOURCES[c.kind]] : null;
       return { cls: '', eyebrow: t('disc.formation'), title: t(stem + '.name'), body: t(stem + '.fact'), src };
+    }
+    if (c.type === 'm6') { // a rank's card also says what the rank unlocks
+      const k = 'card.' + c.key, rank = /^rank(\d)$/.exec(c.key);
+      return { cls: '', eyebrow: t('card.eyebrow'), title: t(k + '.title'), meta: rank ? t('rank.unlocks', { list: unlocksAt(Number(rank[1])) }) : null, body: t(k + '.body'), src: I.SOURCES[t(k + '.src')] || null };
     }
     const stem = D.STRUCTURES.kinds[c.kind].log; // a Kestrel structure's story log: fiction (ks.label says so), no source
     return { cls: ' log', eyebrow: t('ks.label'), title: t(stem + '.name'), body: t(stem + '.log'), src: null };
@@ -1157,6 +1173,7 @@
     const p = currentPlan();
     if (!s || !p) return viewTitle();
     goalsOf(s); // brings the goals up to date before the forecast reads them
+    m6Cards(s); // before the surface's stage, which shows the card up
     const f = E.forecast(s, p);
     if (store.opsView !== 'console' && window.SolSurface) {
       return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
@@ -1202,7 +1219,8 @@
           h('button', { class: 'brand brand-mini', type: 'button', title: t('nav.home'), 'aria-label': t('nav.home'), onclick: () => { if (!lanOn()) { store.modal = 'confirm'; render(); } } }, ico('flag', 16)),
           h('b', null, t('ops.sol', { sol: s.sol })),
           h('span', { class: 'muted num' }, '/ ' + turns * D.TURN_SOLS),
-          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: turns }))),
+          h('span', { class: 'muted' }, '· ' + t('ops.round', { n: s.turn + 1, m: turns })),
+          s.quick === true ? null : h('span', { class: 'chip' }, t('ops.rank', { rank: t('rank.' + D.RANKS[E.rankOf(s)].id) }))), // M6: a Quick mission has no ranks
         track,
         h('div', { class: 'topbar-actions' },
           h('span', { class: 'chip', title: t(seasonKey(season.ls)) }, t(seasonKey(season.ls) + '.short') + ' · Ls ' + Math.round(season.ls) + '°'),
@@ -1250,6 +1268,7 @@
     if (e.module) params.module = t('mod.' + e.module);
     if (e.crewId) params.name = crewName(e.crewId);
     if (e.kind) { params.kind = t('earth.' + e.kind).toLowerCase(); params.amount = nf(e.amount || 0); }
+    if (e.rank != null && D.RANKS[e.rank]) params.rank = t('rank.' + D.RANKS[e.rank].id);
     return t('ev.' + e.type + '.' + part, params);
   }
 
