@@ -237,6 +237,7 @@
     if (!(store.mission && store.mission.status === 'active' && SV.slotOf(store.mission) === key)) {
       const r = loadSlot(key);
       if (!r) { toast(t('title.resumeDamaged')); return; } // the slot was damaged and is dropped; the title redraws without it
+      unseeUnread(); // a region card closed unread is not marked seen
       setCard(null); clearTimeout(holdTimer); holdTimer = null; held = []; // the other mission's card does not stay up over this one
       store.mission = r.mission;
       store.plan = r.plan;
@@ -735,10 +736,21 @@
     return newId && newKind;
   }
 
+  // Resume drops the card up and the cards waiting, unread: their regions come up again the next time (a fact or a log keeps its mark).
+  const unread = new Set(); // mission key + region id: visited, but its card was dropped unread
+  function unseeUnread() {
+    const slot = mission() && mission().quick ? 'regionsSeenQuick' : 'regionsSeen', rs = store.demo ? demoSeen : store[slot];
+    const ids = [store.card].concat(held.map(e => e.c)).filter(c => c && c.type === 'region' && !c.again).map(c => c.id);
+    ids.forEach(id => unread.add(missionKey() + id)); // solo: the mission's own record keeps the region visited
+    if (!rs || rs.key !== missionKey()) return;
+    rs.list = rs.list.filter(id => !ids.includes(id));
+    if (!store.demo) LS.set(slot, rs);
+  }
+
   function showRegionCard(id, soloFirst) {
     if (store.demo) return; // a scene's own card and the demo bar say what it shows; a region card would cover both
-    const first = firstTime(id); // also keeps the device's list for the Science notes
-    if (soloFirst == null ? first : soloFirst) arrive({ type: 'region', id });
+    const first = firstTime(id), again = unread.delete(missionKey() + id); // firstTime also keeps the device's list for the Science notes
+    if (soloFirst == null ? first : soloFirst || again) arrive({ type: 'region', id });
   }
 
   // The region's name on the surface was selected: read its card again, for another 15 s.

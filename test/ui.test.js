@@ -1765,3 +1765,20 @@ test("the starvation and life-support lessons name the mission's own end sol: 20
   }
   for (const lang of ['en', 'vi']) assert.ok(I.t(lang, 'lesson.food.body', { end: 200 }).includes('200') && !I.t(lang, 'lesson.food.body', { end: 200 }).includes('500'));
 });
+
+test('Resume closing an unread region card leaves that region unseen, so its card comes again', () => {
+  const saves = twoSaves();
+  const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+  pg.play(pg.UI.store.mission);
+  pg.surface.hooks.enterRegion('icy');
+  assert.equal(pg.UI.store.card.id, 'icy');
+  pg.UI.store.screen = 'title';
+  pg.UI.render();
+  click(pg.byKey('resume:saveQuick'));
+  assert.equal(pg.UI.store.card, null);
+  pg.UI.store.screen = 'title';
+  pg.UI.render();
+  click(pg.byKey('resume:save'));
+  pg.surface.hooks.enterRegion('icy');
+  assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'icy', 'unread: it comes up again');
+});
