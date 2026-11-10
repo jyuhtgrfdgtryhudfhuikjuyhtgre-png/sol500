@@ -298,3 +298,7 @@ The sandbox has no internet. These carry over from M1 to M4d, and the Showcase r
 - A ping and a beacon between two PCs over the share link.
 - The Showcase run by the presenter on the installed app, as a rehearsal: all 12 cards, Show me and ‹ Showcase, in both languages.
 - Also, from the task reviews, if the QA did not cover them: the browser-pass lines of Tasks 6 to 10 (the job-select star at max-width 190 px; the Admin CSV, sort, kept passwords, chart labels, n/a and ticks; map key glyphs and colours against the maps; the eyebrow on one line at 1280 px with card width 380; the card max-height against the HUD; grains repeating 200; offline fonts; the rover nose at diagonals and wall corners; the missing key cap; the map past 512 minis; round 2+ with a flare or storm brief and a region card opening in the first 8 s).
+
+## The v3 spec's M5 checklist (§12)
+
+`node tools/progress.js` read 35/38 features before and reads 36/38 after. Ticked: "English + Vietnamese for every new screen" (`test/i18n.test.js` fails on an empty value or a missing key, and the final review found 1,138 keys in both languages with matching placeholders). Left unticked, because the tree at this commit has not done them: "Offline single-file build updated" (`dist/` still holds 3.6.0's build, with no Quick mission in it) and "Final installer build tested" (no 3.7.0 installer exists yet). Both belong to the release task's Step 4; tick them when it passes.

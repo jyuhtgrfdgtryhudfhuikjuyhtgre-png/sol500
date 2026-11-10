@@ -1,6 +1,6 @@
 # SOL 500 M5: polish, the Quick mission and the Showcase
 
-**Date:** 2026-11-09 · **Status:** waiting for the user's approval
+**Date:** 2026-11-09 · **Status:** M5 built and reviewed (3.7.0), QA <<QA-STATUS>>
 **Builds on:** `2026-10-01-sol500-v3-app-online-bigmap-admin-design.md` (§11's M5 line, §12's M5 checklist)
 **Branch:** `feat/m5-polish-quick-showcase`, off `master` (`aba7f78`, version 3.6.0, 668 tests)
 **Ships as:** 3.7.0

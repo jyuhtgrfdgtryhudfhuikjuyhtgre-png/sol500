@@ -1,6 +1,6 @@
 # SOL 500 v3 — Desktop App · Online Share Link · Endless World · Admin Panel
 
-**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 and M4a–M4d shipped (v3.6.0); M5 to do
+**Date:** 2026-10-01 · **Revision:** v3.1 (2026-10-01, evening) · **Status:** M1–M3 and M4a–M4d shipped (v3.6.0); M5 built and reviewed (3.7.0), QA <<QA-STATUS>>
 **Builds on:** `2026-09-30-sol500-mars-outpost-design.md` (v1/v2: engine, roles, LAN co-op, walkable outpost)
 **Branches:** one `feat/…` branch per milestone, off `master`
 
@@ -624,7 +624,7 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] Rebalanced with explorer bots (M4d)
 
 ### M5 — Polish
-- [ ] English + Vietnamese for every new screen
+- [x] English + Vietnamese for every new screen
 - [ ] Offline single-file build updated
 - [ ] Final installer build tested
 
