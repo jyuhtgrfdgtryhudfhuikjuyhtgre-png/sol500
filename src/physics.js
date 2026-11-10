@@ -9,10 +9,11 @@
  * The rover's mass is Perseverance's (1,025 kg); its motor and its top speed are game values, far above Perseverance's
  * 152 m an hour, so that exploring stays fun (src/i18n.js, the "Driving on Mars" note, says so).
  *
- * API: SolPhysics.MARS_G · EARTH_G · PX_PER_M · ROVER
- *      drive(car, input, dt, o) → px moved: car { heading (rad), speed (px/s) } is changed in place; input { x, y }, a direction
- *        of length up to 1 (none: it brakes to a stop); o { boost, rough, g } (g defaults to Mars')
- *      grip(g) → the most the wheels can push (m/s²) · stopDistance(speedPx, g) → metres to brake to a stop at full grip
+ * API: SolPhysics.MARS_G · EARTH_G · PX_PER_M · ROVER · CABIN (the pressurised rover, M6)
+ *      drive(car, input, dt, o, spec) → px moved: car { heading (rad), speed (px/s) } is changed in place; input { x, y }, a
+ *        direction of length up to 1 (none: it brakes to a stop); o { boost, rough, g } (g defaults to Mars')
+ *      grip(g, spec) → the most the wheels can push (m/s²) · stopDistance(speedPx, g, spec) → metres to brake to a stop at full grip
+ *      (spec: the vehicle, ROVER or CABIN; none is the ROVER)
  *      dust(d, dt, g) → advances one dust grain (x, y px on the ground; z m above it; vx, vy px/s; vz m/s); false once landed
  */
 (function (root, factory) {
@@ -35,15 +36,20 @@
     roughTop: 0.5,    // over rocks the driver creeps along at half speed
     turn: 3.6,        // rad/s, the fastest the wheels can swing it round at walking pace
   };
+  // The pressurised rover (M6): a cabin you breathe in, three times the rover's mass on a motor twice as strong, so it gets
+  // to speed slower and its governor sits lower. Game values. Its grip is a smaller share of its weight than the rover's
+  // (heavier wheels sink further into the regolith), so it brakes and turns less hard and needs longer to stop: friction
+  // alone stops any mass in the same distance.
+  const CABIN = { mass: 3200, power: 30000, grip: 1.4, roll: 0.05, rollRough: 0.25, top: 300 / 64, boost: 1.4, roughTop: 0.5, turn: 3.0 };
   const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  const grip = g => ROVER.grip * (g || MARS_G);
-  const stopDistance = (speedPx, g) => { const v = speedPx / PX_PER_M; return v * v / (2 * grip(g)); };
+  const grip = (g, spec) => (spec || ROVER).grip * (g || MARS_G);
+  const stopDistance = (speedPx, g, spec) => { const v = speedPx / PX_PER_M; return v * v / (2 * grip(g, spec)); };
 
-  function drive(car, input, dt, o) {
-    const R = ROVER, g = (o && o.g) || MARS_G, m = R.mass, boost = !!(o && o.boost), rough = !!(o && o.rough);
+  function drive(car, input, dt, o, spec) {
+    const R = spec || ROVER, g = (o && o.g) || MARS_G, m = R.mass, boost = !!(o && o.boost), rough = !!(o && o.rough);
     const v = car.speed / PX_PER_M, top = R.top * (boost ? R.boost : 1) * (rough ? R.roughTop : 1);
-    const n = Math.hypot(input.x, input.y), Fgrip = grip(g) * m;
+    const n = Math.hypot(input.x, input.y), Fgrip = grip(g, R) * m;
     let throttle = 0, brake = 1, d = 0;
     if (n > 0.05) {
       d = wrap(Math.atan2(input.y, input.x) - car.heading);
@@ -57,9 +63,9 @@
     const Fbrake = v > 0 ? brake * Fgrip : 0;
     let side = 0; // the sideways push the turn takes, m/s²
     if (d) {
-      // Turning pushes the rover sideways, and the wheels hold at most grip(g) in all (a friction circle): the grip the motor
+      // Turning pushes the rover sideways, and the wheels hold at most grip(g, R) in all (a friction circle): the grip the motor
       // or the brakes use along the heading is not there for the turn. So the faster it goes, the slower it can turn.
-      const along = Math.abs(Fmotor - Fbrake) / m, left = Math.sqrt(Math.max(0, grip(g) * grip(g) - along * along));
+      const along = Math.abs(Fmotor - Fbrake) / m, left = Math.sqrt(Math.max(0, grip(g, R) * grip(g, R) - along * along));
       const w = Math.min(R.turn, left / Math.max(v, 0.5)), turn = clamp(d, -w * dt, w * dt);
       car.heading = wrap(car.heading + turn);
       side = dt > 0 ? v * Math.abs(turn) / dt : 0;
@@ -67,7 +73,7 @@
     const Fresist = v > 0 ? (rough ? R.rollRough : R.roll) * m * g + Fbrake : 0;
     let next = Math.max(0, v + (Fmotor - Fresist) / m * dt);
     // Over the governor it brakes down to it, with the grip the turn leaves.
-    if (v > top) next = Math.max(top, Math.min(next, v - Math.sqrt(Math.max(0, grip(g) * grip(g) - side * side)) * dt));
+    if (v > top) next = Math.max(top, Math.min(next, v - Math.sqrt(Math.max(0, grip(g, R) * grip(g, R) - side * side)) * dt));
     else next = Math.min(next, top);
     car.speed = next * PX_PER_M;
     return car.speed * dt;
@@ -82,5 +88,5 @@
     return d.z > 0;
   }
 
-  return { MARS_G, EARTH_G, PX_PER_M, ROVER, drive, grip, stopDistance, dust };
+  return { MARS_G, EARTH_G, PX_PER_M, ROVER, CABIN, drive, grip, stopDistance, dust };
 });
