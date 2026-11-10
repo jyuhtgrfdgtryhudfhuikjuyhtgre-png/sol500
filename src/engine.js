@@ -8,7 +8,11 @@
  *     resources: { o2, water, food, spares, materials }, wallWater, cleanliness, morale,
  *     crew: [{ id, role, name, health, dose, status: 'active'|'down'|'dead', downTurns, revives, grounded, harm }],
  *     science, totals, depot: { drops, incoming: [{ kind, eta }] }, schedule, events, pending, history, log
- *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition) }
+ *   v3: pilot (solo: the crew member you walk as; null in co-op), expedition (exploring state, see newExpedition)
+ *   M6: rank (0..3, D.RANKS), gear: { tanks, backpack, racks, tools } (levels bought), launched (boolean),
+ *       pending.rank (the rank a rank-up reached at this advance, or null) }
+ *   Layout and terrain spots are grid spots: the Camp's 9 × 5 grid is 0..8 × 0..4, a bigger rank's land reaches negative
+ *   spots (landOf). The terrain grows with the rank (grantRank).
  *   Exploring: what the crew delivers is banked in expedition.banked and added when the round advances (applyExpedition);
  *   the rules for collecting and carrying finds live in src/expedition.js.
  *
@@ -185,18 +189,58 @@
   }
 
   // ---------- map ----------
-  function allTiles() {
-    const out = [];
-    for (let y = 0; y < D.GRID.h; y++) for (let x = 0; x < D.GRID.w; x++) out.push([x, y]);
+  // The base's land (M6, spec §3): a rank's w × h tiles round the HQ, in grid spots (the Camp's 9 × 5 grid is spots 0..8 ×
+  // 0..4; a bigger rank's land reaches negative spots), cut to the world's flat disc (D.LAND_R2). It only ever grows, so
+  // every building stays on its tile.
+  const rankOf = s => (s && Number.isInteger(s.rank) && s.rank >= 0 && s.rank < D.RANKS.length ? s.rank : 0);
+  function boundsOf(r) {
+    const R = D.RANKS[r], [hx, hy] = D.GRID.hq, dx = Math.floor(R.w / 2), dy = Math.floor(R.h / 2);
+    return { x0: hx - dx, y0: hy - dy, x1: hx + dx, y1: hy + dy };
+  }
+  const landOf = s => boundsOf(rankOf(s));
+  function inLand(r, x, y) {
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
+    const b = boundsOf(r), dx = x - D.GRID.hq[0], dy = y - D.GRID.hq[1];
+    return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1 && dx * dx + dy * dy <= D.LAND_R2;
+  }
+  const onLand = (s, x, y) => inLand(rankOf(s), x, y);
+  // A rank's land, row by row. The Camp's is 3.7.0's grid in 3.7.0's order, so its terrain and start layout are unchanged.
+  function rankTiles(r) {
+    const b = boundsOf(r), out = [];
+    for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (inLand(r, x, y)) out.push([x, y]);
     return out;
   }
+  const landTiles = s => rankTiles(rankOf(s));
+  const zoneOf = s => D.RANKS[rankOf(s)].zone;
 
   function buildTerrain(seed) {
-    const r = rng(seed, 'terrain');
-    const ice = shuffle(r, allTiles().filter(([x, y]) => cheb(x, y) >= 3)).slice(0, D.GRID.ice);
+    const r = rng(seed, 'terrain'), camp = rankTiles(0);
+    const ice = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 3)).slice(0, D.GRID.ice);
     const iceKeys = new Set(ice.map(([x, y]) => key(x, y)));
-    const rock = shuffle(r, allTiles().filter(([x, y]) => cheb(x, y) >= 2 && !iceKeys.has(key(x, y)))).slice(0, D.GRID.rock);
+    const rock = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 2 && !iceKeys.has(key(x, y)))).slice(0, D.GRID.rock);
     return { ice, rock };
+  }
+
+  // Raises the base to `rank` one step at a time (the advance's rank-up, tests and the Showcase use it): each new rank's
+  // ground gets its own ice and rock, drawn from the mission code (the same for everyone who plays it) on the new land
+  // only, never on a tile that is built, under construction, ice or rock already; ice at least 3 tiles out, as the Camp's.
+  function grantRank(s, rank) {
+    const want = Math.min(D.RANKS.length - 1, Math.floor(Number(rank)) || 0);
+    while (rankOf(s) < want) {
+      const r = rankOf(s) + 1, R = D.RANKS[r], sets = tileSets(s);
+      const free = rankTiles(r).filter(([x, y]) => {
+        const k = key(x, y);
+        return !inLand(r - 1, x, y) && !sets.occupied.has(k) && !sets.ice.has(k) && !sets.rock.has(k);
+      });
+      const rnd = rng(s.seed, 'terrain' + r);
+      const ice = shuffle(rnd, free.filter(([x, y]) => cheb(x, y) >= 3)).slice(0, R.ice);
+      const iceKeys = new Set(ice.map(([x, y]) => key(x, y)));
+      const rock = shuffle(rnd, free.filter(([x, y]) => !iceKeys.has(key(x, y)))).slice(0, R.rock);
+      s.terrain.ice.push(...ice);
+      s.terrain.rock.push(...rock);
+      s.rank = r;
+    }
+    return s;
   }
 
   function tileSets(s, pending) {
@@ -228,13 +272,13 @@
   function buildSpots(s, type, pending) {
     if (!D.PLACED.includes(type)) return [];
     const sets = tileSets(s, pending);
-    return allTiles().filter(([x, y]) => tileAllows(type, x, y, sets) &&
+    return landTiles(s).filter(([x, y]) => tileAllows(type, x, y, sets) &&
       [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => sets.occupied.has(key(x + dx, y + dy))));
   }
 
   function autoPlace(s, type) {
     const sets = tileSets(s);
-    const cands = allTiles().filter(([x, y]) => tileAllows(type, x, y, sets));
+    const cands = landTiles(s).filter(([x, y]) => tileAllows(type, x, y, sets));
     if (!cands.length) return null;
     const adj = ([x, y]) => ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => sets.occupied.has(key(x + dx, y + dy))) ? 0 : 1);
     cands.sort((a, b) => adj(a) - adj(b) || manhattan(a[0], a[1]) - manhattan(b[0], b[1]) || a[1] - b[1] || a[0] - b[0]);
@@ -355,6 +399,14 @@
     if (item.res === 'science' && amount > (bank.best ? bank.best.amount : 0)) bank.best = { crewId, kind: item.kind, res: 'science', amount, region: item.region };
   }
 
+  // What the advance tells the next round (beginTurn): rank is the rank a rank-up reached this round, or null.
+  const freshPending = () => ({ discovery: false, injuries: [], breakdowns: [], rank: null });
+  function freshGear() {
+    const g = {};
+    for (const line of Object.keys(D.GEAR)) g[line] = 0;
+    return g;
+  }
+
   function buildState(loadout, seed, eventsOn, level, size, quick) {
     const difficulty = difficultyOf(level);
     const crewSize = crewSizeOf(size);
@@ -400,11 +452,14 @@
       depot: { drops: D.DIFFICULTY[difficulty].drops, incoming: [] },
       schedule: buildSchedule(String(seed), !!eventsOn, difficulty, quick),
       events: [],
-      pending: { discovery: false, injuries: [], breakdowns: [] },
+      pending: freshPending(),
       history: [],
       log: [],
       pilot: null,              // solo: the crew member you walk as (co-op seats choose their own)
       expedition: newExpedition(),
+      rank: 0,                  // M6: the base's rank, an index into D.RANKS (0 Camp … 3 Colony)
+      gear: freshGear(),        // M6: the Fabricator gear levels bought, per line
+      launched: false,          // M6: the samples have gone to Earth (once a mission)
     };
     const order = ['recycler', 'oxygen', 'greenhouse', 'lab', 'rover', 'solar', 'battery', 'reactor', 'icedrill'];
     for (const type of order) for (let i = 0; i < L[type]; i++) autoPlace(s, type);
@@ -526,6 +581,7 @@
       if (now.dustSeason && !before.dustSeason) ev.push({ type: 'dust_season' });
       if (now.winter && !before.winter) ev.push({ type: 'winter' });
     }
+    if (s.pending.rank != null) ev.push({ type: 'rank_up', rank: s.pending.rank });
     for (const b of s.pending.breakdowns) ev.push({ type: 'breakdown', module: b });
     for (const id of s.pending.injuries) ev.push({ type: 'injury', crewId: id });
 
@@ -576,7 +632,7 @@
     if (s.eventsOn && s.turn > 0 && s.morale < D.CONFLICT_MORALE && rng(s.seed, 'conflict', s.turn)() < D.CONFLICT_CHANCE * (led ? 0.5 : 1)) {
       ev.push({ type: 'conflict', options: ['meeting', 'push'] });
     }
-    s.pending = { discovery: false, injuries: [], breakdowns: [] };
+    s.pending = freshPending();
     s.events = ev;
   }
 
@@ -1400,5 +1456,6 @@
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
     newExpedition, upgradeMission, repairExpedition, bankItem, isKit, kitItem,
+    rankOf, landOf, onLand, landTiles, zoneOf, grantRank,
   };
 });
