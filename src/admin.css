@@ -1,6 +1,7 @@
 /* SOL 500 — admin panel. Builds on style.css: tokens, .panel, .btn, .chip, .seg, .modal, .chart, .bar, .sr-only. */
 :root {
   --viz-1: #3987e5; /* chart marks: passes the dataviz checks (lightness, chroma, ≥ 3:1) on --panel #241b1e */
+  --viz-2: #d95926; /* the second line, the debrief charts' own second colour (src/ui.js) */
 }
 .adm { max-width: 1240px; margin: 0 auto; padding: 0 var(--gutter) 48px; }
 .adm-main { display: grid; gap: 16px; }

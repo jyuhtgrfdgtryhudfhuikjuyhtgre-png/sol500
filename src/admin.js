@@ -327,7 +327,9 @@
     C.lineChart(scoreBox, {
       title: t('admin.h.scoreChart'), xLabel: t('admin.h.mission'), tableLabel: t('admin.h.table'),
       xMin: 1, xMax: Math.max(2, chrono.length), xTicks: niceStep(chrono.length), fmt: v => nf(Math.round(v)),
-      series: [{ name: t('admin.h.score'), color: 'var(--viz-1)', points: chrono.map((r, i) => [i + 1, r.score]) }],
+      // a Quick score gets its own line, as it gets no Best (an empty line is dropped, so a Full-only history keeps one line)
+      series: [false, true].map(q => ({ name: t(q ? 'quick.tag' : 'admin.h.score'), color: q ? 'var(--viz-2)' : 'var(--viz-1)',
+        points: chrono.map((r, i) => [i + 1, r]).filter(([, r]) => !!r.quick === q).map(([x, r]) => [x, r.score]) })),
     });
     C.barChart(outBox, {
       title: t('admin.h.outcomes'), color: 'var(--viz-1)', tableLabel: t('admin.h.table'), fmt: nf,
