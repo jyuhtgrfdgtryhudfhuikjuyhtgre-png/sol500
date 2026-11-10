@@ -558,14 +558,99 @@
 
   // A build, a module, a job or a difficulty is one of the table's own keys: a plan (a co-op player's too) may name '__proto__' or 'toString'.
   const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
+
+  // ---------- M6: ranks, unlocks and costs ----------
+  // Every build M6 adds (none in a Quick mission: it stays as in 3.7.0), the modules among them, and the tier (D.M6) of
+  // those a tier switch hides. The rest (rank-ups, the Garage, its rover) are tier 1 and always on.
+  const M6_BUILDS = ['rankup', 'garage', 'fabricator', 'launchpad', 'rover', 'cabin', 'drone', 'tanks', 'backpack', 'racks', 'tools', 'launch'];
+  const M6_MODULES = ['garage', 'fabricator', 'launchpad', 'cabin', 'drone'];
+  const M6_TIER = { fabricator: 'gear', tanks: 'gear', backpack: 'gear', racks: 'gear', tools: 'gear', launchpad: 'colony', launch: 'colony', cabin: 'cabin', drone: 'drone' };
+  const tierOn = type => !own(M6_TIER, type) || D.M6[M6_TIER[type]] === true;
+  const gearOf = (s, line) => {
+    const v = s.gear && s.gear[line];
+    return Number.isInteger(v) && v > 0 ? v : 0;
+  };
+
+  // How many of a module the base may have: MODULES' max plus every reached rank's. A Quick mission keeps 3.7.0's limits
+  // and has none of M6's modules; a module whose tier is off has none.
+  function maxOf(s, type) {
+    if (!own(D.MODULES, type) || !tierOn(type)) return 0;
+    if (s.quick === true) return M6_MODULES.includes(type) ? 0 : D.MODULES[type].max;
+    let max = D.MODULES[type].max;
+    for (let r = 1; r <= rankOf(s); r++) max += D.RANKS[r].max[type] || 0;
+    return max;
+  }
+
+  // The first rank at which a build can be made: a module's when its limit is first over 0, at least its `needs`
+  // building's. -1: never (its tier is off, or it is no build or module at all).
+  function unlockRank(type) {
+    if ((!own(D.BUILDS, type) && !own(D.MODULES, type)) || !tierOn(type)) return -1;
+    let first = 0;
+    if (own(D.MODULES, type)) {
+      first = -1;
+      for (let r = 0; r < D.RANKS.length && first < 0; r++) if (maxOf({ rank: r }, type) > 0) first = r;
+      if (first < 0) return -1;
+    }
+    const needs = own(D.BUILDS, type) ? D.BUILDS[type].needs : null;
+    if (needs) {
+      const n = unlockRank(needs);
+      if (n < 0) return -1;
+      first = Math.max(first, n);
+    }
+    return first;
+  }
+
+  // What a build costs: a rank-up the next rank's, a gear line its next level's (after the levels bought, those under
+  // construction and those in `pending`, the plan's queue), the launch COLONY.launch, anything else BUILDS'.
+  function costOf(s, type, pending) {
+    const none = { materials: 0, water: 0, work: 0 };
+    if (!own(D.BUILDS, type)) return none;
+    if (type === 'rankup') {
+      const next = D.RANKS[rankOf(s) + 1];
+      return next ? { materials: next.materials, water: 0, work: next.work } : none;
+    }
+    if (own(D.GEAR, type)) {
+      const queued = s.projects.filter(p => p.type === type).length + (pending || []).filter(b => b && b.type === type).length;
+      const lv = D.GEAR[type].levels[gearOf(s, type) + queued];
+      return lv ? { materials: lv.materials, water: lv.water || 0, work: lv.work } : none;
+    }
+    if (type === 'launch') return { materials: D.COLONY.launch.materials, water: 0, work: D.COLONY.launch.work };
+    return { materials: D.BUILDS[type].materials, water: 0, work: D.BUILDS[type].work };
+  }
+
+  // Room for more: kits under the beacon limit, one rank-up below Colony, one launch a mission, a gear line's levels left,
+  // a module's limit.
+  function roomOf(s, type) {
+    if (type === 'kit') return D.EXPEDITION.beacon.max - kitsMade(s);
+    if (type === 'rankup') return rankOf(s) < D.RANKS.length - 1 ? 1 : 0;
+    if (type === 'launch') return s.launched === true ? 0 : 1;
+    if (own(D.GEAR, type)) return D.GEAR[type].levels.length - gearOf(s, type);
+    return maxOf(s, type) - (s.modules[type] ? s.modules[type].count : 0);
+  }
+
+  // Reasons, in order: 'unknown' (no such build), 'quick' (an M6 build in a Quick mission), 'rank' (a later rank unlocks
+  // it, or its tier is off: the console hides it), 'needs' (its building isn't built and working), 'max', 'materials',
+  // 'water' (a gear level's), 'space' (no free tile next to the base).
   function canBuild(s, type, pending) {
     if (!own(D.BUILDS, type)) return { ok: false, reason: 'unknown' };
-    const spec = D.BUILDS[type], pend = pending || [];
+    const pend = pending || [];
+    if (s.quick === true && M6_BUILDS.includes(type)) return { ok: false, reason: 'quick' };
+    const unlock = unlockRank(type);
+    if (unlock < 0 || unlock > rankOf(s)) return { ok: false, reason: 'rank' };
+    const needs = D.BUILDS[type].needs;
+    if (needs && activeCount(s, needs) <= 0) return { ok: false, reason: 'needs' };
     const planned = s.projects.filter(p => p.type === type).length + pend.filter(b => b.type === type).length;
-    const room = type === 'kit' ? D.EXPEDITION.beacon.max - kitsMade(s) : D.MODULES[type].max - s.modules[type].count;
-    if (planned >= room) return { ok: false, reason: 'max' };
-    const spent = pend.reduce((sum, b) => sum + (own(D.BUILDS, b.type) ? D.BUILDS[b.type].materials : 0), 0);
-    if (s.resources.materials - spent < spec.materials) return { ok: false, reason: 'materials' };
+    if (planned >= roomOf(s, type)) return { ok: false, reason: 'max' };
+    const spent = { materials: 0, water: 0 };
+    pend.forEach((b, i) => {
+      if (!own(D.BUILDS, b.type)) return;
+      const c = costOf(s, b.type, pend.slice(0, i));
+      spent.materials += c.materials;
+      spent.water += c.water;
+    });
+    const cost = costOf(s, type, pend);
+    if (s.resources.materials - spent.materials < cost.materials) return { ok: false, reason: 'materials' };
+    if (s.resources.water - spent.water < cost.water) return { ok: false, reason: 'water' };
     if (D.PLACED.includes(type) && buildSpots(s, type, pend).length === 0) return { ok: false, reason: 'space' };
     return { ok: true };
   }
@@ -795,14 +880,15 @@
     }
     report.unrepaired = D.REPAIR_ORDER.filter(t => s.modules[t] && s.modules[t].broken > 0);
 
-    // New construction projects (materials paid now; work applied at the end of the turn)
+    // New construction projects (materials, and a gear level's water, paid now; work applied at the end of the turn)
     for (const b of plan.builds || []) {
-      const spec = D.BUILDS[b.type];
-      if (!spec || !canBuild(s, b.type).ok) continue;
-      const placed = D.PLACED.includes(b.type); // a shield layer and a relay beacon kit take no tile
+      if (!canBuild(s, b.type).ok) continue;
+      const placed = D.PLACED.includes(b.type); // a shield layer, a relay beacon kit, a rank-up, gear and the launch take no tile
       if (placed && !buildSpots(s, b.type).some(([x, y]) => x === b.x && y === b.y)) continue;
-      s.resources.materials -= spec.materials;
-      s.projects.push({ type: b.type, x: placed ? b.x : null, y: placed ? b.y : null, progress: 0, work: spec.work });
+      const cost = costOf(s, b.type);
+      s.resources.materials -= cost.materials;
+      s.resources.water -= cost.water;
+      s.projects.push({ type: b.type, x: placed ? b.x : null, y: placed ? b.y : null, progress: 0, work: cost.work });
       report.started.push(b.type);
     }
 
@@ -1022,6 +1108,11 @@
     s.projects = s.projects.filter(p => {
       if (p.progress < p.work - 1e-9) return true;
       if (p.type === 'kit') s.expedition.kits += 1; // a relay beacon kit waits at the base for someone to take it out
+      else if (p.type === 'rankup') { // the new rank, its land and its limits arrive now; the next round announces it
+        grantRank(s, rankOf(s) + 1);
+        s.pending.rank = rankOf(s);
+      } else if (own(D.GEAR, p.type)) s.gear[p.type] = gearOf(s, p.type) + 1; // a gear level is the whole crew's
+      else if (p.type === 'launch') s.launched = true; // the samples go to Earth once a mission
       else s.modules[p.type].count += 1;
       if (p.x != null) s.layout.push({ type: p.type, x: p.x, y: p.y });
       if (p.type === 'greenhouse') s.crops.push(0);
@@ -1364,7 +1455,7 @@
     if (s.totals.foodLocal >= 1000) got.add('green_thumb');
     if (success && maxDose < 150) got.add('lead_apron');
     if (s.totals.built >= 5) got.add('builder');
-    if (s.modules.shield.count >= D.MODULES.shield.max) got.add('fortress');
+    if (s.modules.shield.count >= maxOf(s, 'shield')) got.add('fortress');
     if (s.totals.scrapped > 0) got.add('scrapper');
     if (success && s.totals.dropsUsed === 0) got.add('self_reliant');
     if (s.science >= 800) got.add('explorer');
@@ -1456,6 +1547,6 @@
     shielding, seasonAt, newMissionCode, rng, activeCount, independenceOf,
     buildSpots, touchesBase, canBuild, canRequest, difficultyOf, crewSizeOf, budgetFor, referenceKit, nextPlan,
     newExpedition, upgradeMission, repairExpedition, bankItem, isKit, kitItem,
-    rankOf, landOf, onLand, landTiles, zoneOf, grantRank,
+    rankOf, landOf, onLand, landTiles, zoneOf, grantRank, maxOf, unlockRank, costOf,
   };
 });
