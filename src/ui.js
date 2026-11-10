@@ -736,6 +736,7 @@
   }
 
   function showRegionCard(id, soloFirst) {
+    if (store.demo) return; // a scene's own card and the demo bar say what it shows; a region card would cover both
     const first = firstTime(id); // also keeps the device's list for the Science notes
     if (soloFirst == null ? first : soloFirst) arrive({ type: 'region', id });
   }

@@ -97,6 +97,8 @@
       return { s, x: X(p[0]), y: Y(p[1]) };
     }).sort((a, b) => a.y - b.y);
     for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+    // then up from the bottom, so no label sits on the x axis's numbers (lines that end near zero)
+    for (let i = ends.length - 1; i >= 0; i--) ends[i].y = Math.min(ends[i].y, i === ends.length - 1 ? H - M.b : ends[i + 1].y - 13);
     for (const e of ends) {
       const last = e.s.points[e.s.points.length - 1];
       el('circle', { cx: X(last[0]), cy: Y(last[1]), r: 3.5, fill: e.s.color, stroke: 'var(--panel)', 'stroke-width': 2 }, svg);

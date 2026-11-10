@@ -1548,6 +1548,34 @@ test('a demo writes no save, no regionsSeen, no opsView and no badges, even adva
   assert.equal(pg.UI.store.opsView, 'console', 'and the Operations tab they were on');
 });
 
+// Release QA F4: two lines ending near zero pushed the lower end label down onto the x axis's last number.
+test('a line chart\'s end labels stay above the x axis numbers, still 13 apart, when lines end near zero', () => {
+  const pg = page(), box = new El('div');
+  pg.win.SolCharts.lineChart(box, { xMin: 0, xMax: 200, xTicks: 50, series: [
+    { name: 'Oxygen', color: 'red', points: [[0, 900], [200, 2]] }, { name: 'Water', color: 'blue', points: [[0, 500], [200, 0]] }] });
+  const texts = walk(box, []).filter(n => n.tagName === 'TEXT');
+  const ys = ['Oxygen', 'Water'].map(name => Number(texts.find(n => n.text === name).attrs.y)).sort((a, b) => a - b);
+  const tick = Number(texts.find(n => n.text === '200').attrs.y);
+  assert.ok(ys[1] <= tick - 13, `the lower end label (${ys[1]}) clears the tick row (${tick})`);
+  assert.ok(ys[1] - ys[0] >= 13, 'still 13 apart');
+});
+
+// Release QA F1: a first-time region card covered every surface scene for 8 s, and held the landmark card back behind it.
+test('a demo opens no region card on entering a region, so a scene\'s own card comes up at once', async () => {
+  const pg = showPage(realDevice());
+  await settle();
+  Object.assign(pg.UI.store, { screen: 'showcase' });
+  pg.UI.render();
+  click(pg.byKey('show:landmark'));
+  pg.flush();
+  assert.ok(pg.UI.store.demo, 'in the demo');
+  pg.got.hooks.enterRegion('plains');
+  assert.equal(pg.UI.store.card, null, 'no region card in a demo');
+  click(pg.byKey('show-back'));
+  pg.flush();
+  assert.equal(pg.UI.store.demo, null);
+});
+
 test('a demo on the console tab and one that is a dialog leave the stored tab alone; a dialog card returns to the gallery when closed', async () => {
   const pg = showPage(realDevice());
   await settle();
