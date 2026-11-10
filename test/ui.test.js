@@ -1810,3 +1810,14 @@ test('the starvation lesson gives the packaged food for the mission own length: 
     assert.ok(body.includes(tonnes) && !/\{\w+\}/.test(body));
   }
 });
+
+test("the pilot card's role fact ends in a link to its source, outside the button that picks the pilot", () => {
+  const pg = page();
+  Object.assign(pg.UI.store, { loadout: pg.E.referenceKit('commander', 4), seed: 'UI-PILOTSRC', screen: 'pilot' });
+  pg.UI.render();
+  const pick = pg.byKey('pilot:minh'), card = pg.all().find(n => n.listeners && n.className.includes('pilot-card') && walk(n, []).includes(pick));
+  const role = pg.UI.store.mission ? null : pg.E.createMission({ seed: 'x', loadout: pg.E.referenceKit('commander', 4), events: false, pilot: 'minh' }).crew.find(c => c.id === 'minh').role;
+  const src = pg.I.SOURCES[pg.I.ROLE_SOURCES[role]];
+  assert.deepEqual(linksOf(card), [[src.url, pg.I.srcLabel('en', pg.I.ROLE_SOURCES[role])]]);
+  assert.deepEqual(linksOf(pick), [], 'a link inside a button is invalid and would start the mission');
+});

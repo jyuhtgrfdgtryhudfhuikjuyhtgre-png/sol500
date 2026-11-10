@@ -642,8 +642,11 @@ p { margin: 0; }
 .sf-side { display: grid; gap: 12px; min-width: 0; }
 .pilot { display: grid; gap: 14px; padding: 8px 0 24px; }
 .pilot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-.pilot-card { display: grid; grid-template-rows: auto auto auto 1fr auto; justify-items: center; gap: 6px; text-align: center; padding: 18px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--fg); cursor: pointer; font: inherit; }
-.pilot-card:hover, .pilot-card:focus-visible { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.pilot-card { display: grid; grid-template-rows: 1fr auto; gap: 6px; text-align: center; padding: 18px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--fg); }
+.pilot-pick { display: grid; grid-template-rows: auto auto auto auto 1fr auto; justify-items: center; gap: 6px; padding: 0; background: none; border: 0; color: inherit; cursor: pointer; font: inherit; text-align: center; }
+.pilot-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.pilot-card:hover, .pilot-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pilot-card .src { margin: 0; font-size: var(--fs-xs); }
 .seat-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .jobrows { display: grid; gap: 8px; }
 .jobrow { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--fs-sm); padding: 4px; border-radius: 8px; }
