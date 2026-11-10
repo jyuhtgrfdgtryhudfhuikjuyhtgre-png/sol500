@@ -1362,6 +1362,7 @@
     'eva.err.grounded': 'The drone is grounded in a global dust storm.',
     'eva.err.flights': 'The drone’s battery is flat until tomorrow.',
     'eva.err.notHere': 'Fly the drone from the base or from a rover you drive.',
+    'eva.err.fogFull': 'The map takes no more new ground from you this mission.',
     // M6 T9
     'show.card.ranks.name': 'Base ranks',
   };
@@ -2623,6 +2624,7 @@
     'eva.err.grounded': 'Drone không thể bay trong bão bụi toàn cầu.',
     'eva.err.flights': 'Pin drone đã cạn đến ngày mai.',
     'eva.err.notHere': 'Chỉ cho drone bay từ căn cứ hoặc từ xe thám hiểm bạn đang lái.',
+    'eva.err.fogFull': 'Bản đồ không nhận thêm vùng mới từ bạn trong nhiệm vụ này.',
     // M6 T9
     'show.card.ranks.name': 'Các cấp căn cứ',
   };

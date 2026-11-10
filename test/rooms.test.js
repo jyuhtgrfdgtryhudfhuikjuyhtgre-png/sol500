@@ -583,7 +583,7 @@ test("co-op: a driver whose game says they got out has parked the rover there, e
   assert.equal(room.mission.expedition.roverDriven, 31.5, 'with the last bit of driving');
   assert.equal(frames(c, mark).length, 1, 'teammates see the rover parked');
   assert.equal(say(R, room, host, 'park').body.error, 'notDriving', 'a late park changes nothing');
-  assert.equal(say(R, room, host, 'fly').body.error, 'badAction', 'an unknown action is refused, and parks nothing');
+  assert.equal(say(R, room, host, 'warp').body.error, 'badAction', 'an unknown action is refused, and parks nothing');
 });
 
 test("co-op: a rover:false position that lands just after the board is not a park: only a driver who was in the rover and got out has parked it", () => {
@@ -1022,4 +1022,39 @@ test('a host that is away is not taken over by a guest with the same name', () =
   const { player: guest } = R.join(room.code, 'Linh');
   assert.notEqual(guest.id, host.id);
   assert.equal(room.hostId, host.id);
+});
+
+// ---- M6 T7: the scout drone ----
+test("co-op: a drone flight's fog reaches the whole crew", async () => {
+  const { FOG_SEAT_BUDGET } = require('../lib/rooms.js');
+  const { R, room, host, guest, hc, gc } = inMission('EXP-1');
+  room.mission.modules.drone.count = 1;
+  assert.equal(say(R, room, guest, 'fly', { tx: 30, ty: 1 }).body.error, 'badPos', 'no position yet');
+  R.position(room, guest, at(0, 1));
+  for (const [tx, ty] of [['30', 1], [30.5, 1], [null, 1], [30, Infinity], [30, undefined], [[30], 1]]) {
+    assert.equal(say(R, room, guest, 'fly', { tx, ty }).body.error, 'badPos', 'the server checks the target is a tile: ' + JSON.stringify([tx, ty]));
+  }
+  assert.equal(say(R, room, guest, 'fly', { tx: 41, ty: 1 }).body.error, 'tooFar', 'from where the server last saw you');
+  const mark = hc.got.length, r = say(R, room, guest, 'fly', { tx: 30, ty: 1 });
+  assert.equal(r.status, 200);
+  assert.ok(Object.keys(r.body.fog).length > 0, 'it revealed fog');
+  assert.equal(frames(hc, mark).at(-1).data.mission.expedition.droneFlights, 1, 'everyone sees the flight spent');
+  await wait(650);
+  for (const c of [hc, gc]) {
+    const fog = c.got.slice(mark).filter(m => m.type === 'fog');
+    assert.equal(fog.length, 1);
+    assert.deepEqual(fog[0].data, r.body.fog, 'the flight\'s fog, to every tab');
+  }
+  // Its new chunks count against the flyer's fog budget, as fog a player sends does: a seat that has spent it flies no more.
+  const v = fogOf([[0, 0]]);
+  for (let n = 0; n * 64 < FOG_SEAT_BUDGET; n++) {
+    const batch = {};
+    for (let i = 0; i < 64; i++) batch[(n * 64 + i) + ',9999'] = v;
+    R.reveal(room, guest, batch);
+  }
+  const before = JSON.stringify(room.mission.expedition);
+  assert.equal(say(R, room, guest, 'fly', { tx: 0, ty: 30 }).body.error, 'fogFull');
+  assert.equal(JSON.stringify(room.mission.expedition), before, 'refused, nothing spent');
+  R.position(room, host, at(0, 1));
+  assert.equal(say(R, room, host, 'fly', { tx: 0, ty: 30 }).status, 200, 'a crewmate has their own budget');
 });
