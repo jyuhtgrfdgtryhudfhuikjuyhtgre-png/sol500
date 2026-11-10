@@ -1356,6 +1356,8 @@
     'ev.sample_launch.body': 'The samples are on their way to Earth: +{bonus} science.',
     // M6 T6
     'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
+    'eva.err.noCabin': 'The pressurized rover is out of action.',
+    'eva.err.inVehicle': 'Get out of the vehicle you are in first.',
     // M6 T7
     'eva.droneFly': 'Fly the drone',
     // M6 T9
@@ -2613,6 +2615,8 @@
     'ev.sample_launch.body': 'Mẫu vật đang trên đường về Trái Đất: +{bonus} điểm khoa học.',
     // M6 T6
     'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
+    'eva.err.noCabin': 'Xe thám hiểm điều áp đang không hoạt động.',
+    'eva.err.inVehicle': 'Hãy xuống chiếc xe bạn đang ngồi trước đã.',
     // M6 T7
     'eva.droneFly': 'Cho drone bay',
     // M6 T9

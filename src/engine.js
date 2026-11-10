@@ -314,6 +314,8 @@
   //   (since M4c): the hab pods ("S<i>,<j>") and beacons ("B<i>") that filled that suit this round; the advance clears it.
   // M4d's rebalance adds science: the science banked from the map this mission (finds, sites, landmarks, structures, goal
   //   rewards), which counts less in the score than the base's (scoreMission, D.SCORE.map); a save from before has 0.
+  // M6 adds the pressurised rover (src/expedition.js, kind 'cabin'): cabin and cabinDriven, as rover and roverDriven ·
+  //   riders { crewId: 'cabin' } (co-op passengers in it).
   const isKit = it => !!it && it.kind === 'kit';
   const kitItem = () => ({ kind: 'kit', res: 'kit', amount: 1 });
   const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
@@ -327,6 +329,7 @@
       v: 2, revealed: {}, sites: {}, structures: {}, landmarks: {}, regions: [], beacons: [], kits: 0, refills: {},
       carried: {}, drops: [], banked: freshBank(), science: 0, goals: [], goalsDone: [], bestFind: null, incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
+      cabin: null, cabinDriven: 0, riders: {},
       flare: null, clock: 0, where: {}, forecastUntil: -1,
     };
   }
@@ -1327,6 +1330,9 @@
     x.refills = {};
     x.roverDriven = 0;
     if (x.rover && x.rover.driver) x.rover = null;
+    x.cabinDriven = 0;
+    if (x.cabin && x.cabin.driver) x.cabin = null;
+    x.riders = {}; // everyone is home: a passenger too
     x.flare = null; // a flare that had not hit yet is over with the round: everyone is home
     x.clock = 0;
     x.where = {};

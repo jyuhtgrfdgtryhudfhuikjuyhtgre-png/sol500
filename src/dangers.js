@@ -242,8 +242,8 @@
     pickup: (m, id, b, pos) => X.pickUp(m, id, b.drop, pos),
     collapse: (m, id, b, pos) => X.collapse(m, id, pos, b.driven),
     revive: (m, id, b, pos) => X.revive(m, id, b.target, pos),
-    board: (m, id, b, pos) => X.board(m, id, pos),
-    park: (m, id, b, pos) => X.park(m, id, pos, b.driven),
+    board: (m, id, b, pos) => X.board(m, id, pos, b.kind), // kind: 'rover' (none) or 'cabin' (M6)
+    park: (m, id, b, pos) => X.park(m, id, pos, b.driven, b.kind),
     discover: (m, id, b, pos) => X.discover(m, id, b.landmark, pos),
     interact: (m, id, b, pos) => X.interact(m, id, b.structure, pos),
     refill: (m, id, b, pos) => X.refill(m, id, b.beacon || b.pod, pos), // a relay beacon's id ("B<i>") or a hab pod's
