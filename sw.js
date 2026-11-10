@@ -2,7 +2,7 @@
  * SOL 500 — service worker. Caches the app shell so the installed app starts offline.
  * App files: network first (always fresh when online), cache as the fallback. LAN API calls and the admin page are never cached.
  */
-const CACHE = 'sol500-v6';
+const CACHE = 'sol500-v7';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'src/style.css', 'src/data.js', 'src/engine.js', 'src/i18n.js', 'src/art.js', 'src/charts.js',

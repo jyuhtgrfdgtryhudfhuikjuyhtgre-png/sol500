@@ -43,7 +43,16 @@ The user accepted the numbers as they are: the sloppy S target is read as the no
 
 ## Release QA
 
-<<QA>>
+Browser QA on `5270e7e` (report: `.superpowers/sdd/2026-11-09-sol500-m5-polish-quick-showcase/release-qa-report.md`): 22 PASS, 3 SEEN, 0 FAIL; Critical 0, Important 1, Minor 6.
+
+- **F1 (Important), fixed `1f1e759`:** every surface scene opened under a first-time region card for 8 s, which also held the Landmarks scene's discovery card back. A demo now opens no region card (test first). Re-checked in Chrome: the landmark card is up 0.3 s after Show me.
+- **F4, fixed `1f1e759`:** on the Quick debrief chart, two lines ending near zero pushed an end label onto the last x tick. End labels now stay above the tick row and 13 px apart (test first).
+- **F2, F5, F6, fixed `298b01d`:** the demo bar's caption wraps instead of being cut, and the page scrolls clear of the bar so Advance can be reached; Quick scores get their own line on the Admin chart (Best already counted Full only); the gallery's Show me buttons line up across each row. Each re-checked in Chrome.
+- **F7, not a bug:** the Wi-Fi form shows "Use 8 to 64 characters." and "The two passwords don't match." and keeps what was typed (re-checked in Chrome).
+- **F3, left as designed:** the flare scene gives 20 s, and a straight run to cover takes 12.5 s, so a presenter who talks first has little slack. Nothing ends if the flare lands. Rehearse it, or ask for 30 s.
+- **SEEN:** frame rate 131.6 fps on battery, the same as 3.6.0's build measured the same minutes (129.9); 163.9 wasn't reproducible on battery. Repaint 420/420, world hash `3ae4db5e` (unchanged). Volcanic grains and the rover nose at diagonal walls were shot but not judged.
+- **Quick play time:** about 27 to 43 minutes, estimated from measured parts (the QA run was scripted). Confirm it with a stopwatch.
+- **Words:** all 1,139 keys in both languages, no placeholder leaks, no "xe tự hành". VI screenshots for the native read: `.superpowers/sdd/m4d/qa/shots-m5/`.
 
 ## For the user to decide
 
