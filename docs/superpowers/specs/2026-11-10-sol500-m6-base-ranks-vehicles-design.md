@@ -144,7 +144,7 @@ M6 moves the Full mission's balance on purpose, unlike M5. The targets, measured
 
 ## 9. The deadline, and the order things are built
 
-2.5 days is short for this much, so the work is built **in tiers**. Each tier leaves the game whole and releasable, and gets its Showcase card along with it:
+The judges see the game on the **evening of 13 November** (the user). About three days is short for this much, so the work is built **in tiers**. Each tier leaves the game whole and releasable, and gets its Showcase card along with it:
 
 1. **Ranks and land:** the four ranks, the growing land on the surface, the rank-up cards, the Garage and Fabricator buildings, and the Garage building today's rover.
 2. **Fabricator gear:** the four lines.
@@ -152,7 +152,7 @@ M6 moves the Full mission's balance on purpose, unlike M5. The targets, measured
 4. **The pressurised rover.**
 5. **The scout drone.**
 
-Tiers 2 to 5 can be built in parallel once tier 1 is in. **3.8.0 is released on the evening of 12 November** with every tier that passed review, balance and browser QA, so the user can rehearse; anything unfinished is left out, not shipped half-done. The release follows M5's (§6 of its spec): final balance, browser QA, version and service-worker cache bump, `dist/` rebuilt, the installer built, smoke-tested, installed and launch-checked, a copy on the Desktop, and ask before merging.
+Tiers 2 to 5 can be built in parallel once tier 1 is in. **3.8.0 is installed and ready by midday on 13 November** with every tier that passed review, balance and browser QA, so the user can rehearse; anything unfinished is left out, not shipped half-done. The release follows M5's (§6 of its spec): final balance, browser QA, version and service-worker cache bump, `dist/` rebuilt, the installer built, smoke-tested, installed and launch-checked, a copy on the Desktop, and ask before merging.
 
 ## 10. Constraints
 
@@ -178,5 +178,5 @@ The exact numbers (rank costs, land sizes, base-zone growth, vehicle and drone f
 - Gear upgrades apply to the whole crew.
 - The sample-return launch is once a mission.
 - The Quick mission doesn't change.
-- The build order of §9, with the drone last, and the release on 12 November's evening.
+- The build order of §9, with the drone last, and 3.8.0 ready by midday on 13 November, leaving the afternoon to rehearse.
 - Version 3.8.0.
