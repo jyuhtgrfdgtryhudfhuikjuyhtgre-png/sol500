@@ -79,6 +79,15 @@
     schmitt: { label: 'NASA: Former astronaut Harrison Schmitt', url: 'https://www.nasa.gov/former-astronaut-harrison-schmitt/' },
     ams: { label: 'NASA: Alpha Magnetic Spectrometer hits ten years of space station research', url: 'https://www.nasa.gov/general/alpha-magnetic-spectrometer-hits-ten-years-of-space-station-research/' },
     cmo: { label: 'NASA: 5.0 Training (Crew Medical Officer)', url: 'https://www.nasa.gov/reference/5-0-training/' },
+    // M6 base ranks, vehicles and gear (docs/superpowers/plans/2026-11-10-sol500-m6-sources.md).
+    m6Basecamp: { label: "NASA (2020): Lunar Living: NASA's Artemis Base Camp concept", url: 'https://www.nasa.gov/blogs/missions/2020/10/28/lunar-living-nasas-artemis-base-camp-concept/' },
+    m6Habitat3d: { label: 'NASA (2019): Teams 3D print planetary habitats, awarded $700K in NASA challenge', url: 'https://www.nasa.gov/directorates/spacetech/centennial_challenges/3DPHab/19-017.html' },
+    m6Isru: { label: 'NASA: Overview: In-Situ Resource Utilization (living off the land)', url: 'https://www.nasa.gov/overview-in-situ-resource-utilization/' },
+    m6Pressurized: { label: 'NASA (2024): NASA, Japan advance space cooperation, sign agreement for lunar rover', url: 'https://www.nasa.gov/news-release/nasa-japan-advance-space-cooperation-sign-agreement-for-lunar-rover' },
+    m6Ingenuity: { label: "NASA (2024): After three years on Mars, NASA's Ingenuity helicopter mission ends", url: 'https://www.nasa.gov/news-release/after-three-years-on-mars-nasas-ingenuity-helicopter-mission-ends/' },
+    m6Moxie: { label: "NASA (2023): NASA's oxygen-generating experiment MOXIE completes Mars mission", url: 'https://www.nasa.gov/missions/mars-2020-perseverance/perseverance-rover/nasas-oxygen-generating-experiment-moxie-completes-mars-mission/' },
+    m6Samples: { label: "NASA: A Martian roundtrip: NASA's Perseverance rover sample tubes", url: 'https://www.nasa.gov/missions/mars-2020-perseverance/perseverance-rover/a-martian-roundtrip-nasas-perseverance-rover-sample-tubes/' },
+    m6Printing: { label: 'NASA (2014): Open for business: 3-D printer creates first object in space on International Space Station', url: 'https://www.nasa.gov/missions/station/open-for-business-3-d-printer-creates-first-object-in-space-on-international-space-station/' },
   };
 
   // The real place each region of the endless map is modelled on (its fact cites this source).
@@ -2570,6 +2579,14 @@
     schmitt: "NASA: Cựu phi hành gia Harrison Schmitt",
     ams: "NASA: Máy quang phổ từ Alpha (AMS) tròn mười năm nghiên cứu trên trạm vũ trụ",
     cmo: "NASA: Huấn luyện 5.0 (Sĩ quan y tế của phi hành đoàn)",
+    m6Basecamp: "NASA (2020): Cuộc sống trên Mặt Trăng: ý tưởng Căn cứ Artemis của NASA",
+    m6Habitat3d: "NASA (2019): Các đội in 3D nơi ở hành tinh, nhận 700 nghìn USD trong cuộc thi của NASA",
+    m6Isru: "NASA: Tổng quan: Tận dụng tài nguyên tại chỗ (sống nhờ vào đất)",
+    m6Pressurized: "NASA (2024): NASA và Nhật Bản tăng cường hợp tác vũ trụ, ký thỏa thuận về xe tự hành Mặt Trăng",
+    m6Ingenuity: "NASA (2024): Sau ba năm trên sao Hỏa, sứ mệnh trực thăng Ingenuity của NASA kết thúc",
+    m6Moxie: "NASA (2023): Thí nghiệm tạo oxy MOXIE của NASA hoàn thành sứ mệnh trên sao Hỏa",
+    m6Samples: "NASA: Chuyến khứ hồi sao Hỏa: các ống mẫu của xe tự hành Perseverance",
+    m6Printing: "NASA (2014): Mở cửa kinh doanh: máy in 3D tạo ra vật thể đầu tiên trong không gian trên Trạm Vũ trụ Quốc tế",
   };
 
   const STR = { en, vi };
