@@ -500,7 +500,26 @@
       const pick = !m.coop && (m.crew.find(c => c.id === controlId && alive(c)) || m.crew.find(isActive) || m.crew.find(alive));
       m.pilot = pick ? pick.id : null;
     }
+    upgradeRanks(m);
     return m;
+  }
+
+  // M6: a 3.7.0 save (Full or Quick) resumes as a Camp with its buildings where they were. A rank, gear levels, the launch
+  // or the next round's rank-up news that are missing or of the wrong type are replaced (a Quick mission has no ranks), and
+  // every module the save doesn't know (the five M6 ones) is added, none built.
+  function upgradeRanks(m) {
+    if (m.quick === true || !(Number.isInteger(m.rank) && m.rank >= 0 && m.rank < D.RANKS.length)) m.rank = 0;
+    const gear = freshGear();
+    for (const line of Object.keys(gear)) {
+      const v = isMap(m.gear) ? m.gear[line] : 0;
+      if (Number.isInteger(v)) gear[line] = clamp(v, 0, D.GEAR[line].levels.length);
+    }
+    m.gear = gear;
+    if (typeof m.launched !== 'boolean') m.launched = false;
+    if (!isMap(m.pending)) m.pending = freshPending();
+    const r = m.pending.rank;
+    if (!(Number.isInteger(r) && r > 0 && r < D.RANKS.length)) m.pending.rank = null;
+    if (isMap(m.modules)) for (const type of D.MODULE_TYPES) if (!isMap(m.modules[type])) m.modules[type] = { count: 0, broken: 0 };
   }
 
   function shielding(s) {
