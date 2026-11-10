@@ -117,7 +117,7 @@ test('solo: the exploring hook runs the rules on the spot for the pilot; the fla
   // One tile outside the base zone: a co-op server covers it with its 1.5 tiles of slack; solo judges where you are.
   assert.deepEqual(plain(await exp('flareEnd', { t: 95 }, at(3, 1))), { ok: true, hit: ['minh'] });
   assert.deepEqual(plain(m.expedition.incidents), [{ crewId: 'minh', kind: 'flare' }]);
-  assert.deepEqual(plain(await exp('fly', {}, at(3, 1))), { error: 'badAction' }, 'an action the rules do not have');
+  assert.deepEqual(plain(await exp('warp', {}, at(3, 1))), { error: 'badAction' }, 'an action the rules do not have');
   pg.flush();
   assert.deepEqual(JSON.parse(pg.ls['sol500.save']).mission.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }], 'and the mission is saved');
 });
