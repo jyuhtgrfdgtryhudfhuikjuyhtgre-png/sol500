@@ -460,6 +460,7 @@
       rank: 0,                  // M6: the base's rank, an index into D.RANKS (0 Camp … 3 Colony)
       gear: freshGear(),        // M6: the Fabricator gear levels bought, per line
       launched: false,          // M6: the samples have gone to Earth (once a mission)
+      launchBonus: 0,           // M6: the science that launch added (for the debrief)
     };
     const order = ['recycler', 'oxygen', 'greenhouse', 'lab', 'rover', 'solar', 'battery', 'reactor', 'icedrill'];
     for (const type of order) for (let i = 0; i < L[type]; i++) autoPlace(s, type);
@@ -517,6 +518,7 @@
     m.gear = gear;
     if (typeof m.launched !== 'boolean') m.launched = false;
     if (!isMap(m.pending)) m.pending = freshPending();
+    if (!(Number.isFinite(m.launchBonus) && m.launchBonus >= 0)) m.launchBonus = 0;
     const lb = m.pending.launch;
     if (!(Number.isFinite(lb) && lb >= 0)) m.pending.launch = null;
     const r = m.pending.rank;
@@ -977,7 +979,7 @@
 
     // Water
     const waterGross = D.WATER_PER_CREW * n * T;
-    const recovered = run.recycler > 0 ? waterGross * D.MODULES.recycler.recovery * sf : 0;
+    const recovered = run.recycler > 0 ? waterGross * D.MODULES.recycler.recovery : 0; // the recycler returns water used: self-sufficiency never boosts it
     const iceWater = run.icedrill * D.MODULES.icedrill.waterPerSol * T * sf;
     const washWater = ch.perchlorate === 'wash' ? D.PERCHLORATE_WASH_WATER : 0;
     const leakWater = ch.water_leak === 'ignore' ? D.WATER_LEAK : 0;

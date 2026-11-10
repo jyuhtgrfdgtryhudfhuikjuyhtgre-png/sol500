@@ -484,9 +484,11 @@ test('a Colony makes more of its own oxygen, water and food', () => {
   assert.equal(station.report.selfSufficient, undefined);
   assert.equal(colony.report.selfSufficient, true);
   const k = D.COLONY.selfSufficient;
-  for (const f of ['o2', 'water', 'food', 'o2Plant', 'ghO2', 'recovered', 'iceWater']) {
+  for (const f of ['o2', 'food', 'o2Plant', 'ghO2', 'iceWater']) {
     assert.ok(Math.abs(colony.report.production[f] - station.report.production[f] * k) < 1e-9, f);
   }
+  // the recycler only returns water the crew used: self-sufficiency never boosts it
+  assert.equal(colony.report.production.recovered, station.report.production.recovered);
   assert.ok(colony.report.production.food > 0, 'the test grows food');
   assert.ok(E.independenceOf(colony.state) >= E.independenceOf(station.state));
 });
@@ -512,4 +514,24 @@ test('a rank without a max table does not throw', () => {
     E.grantRank(s, 1);
     assert.doesNotThrow(() => E.maxOf(s, 'solar'));
   } finally { D.RANKS[1].max = saved; }
+});
+
+test('at Colony a closed loop with no ice drill never makes water from nothing', () => {
+  const s = calm({ icedrill: 0 });
+  E.grantRank(s, 3);
+  s.wallWater = 0;
+  const before = s.resources.water;
+  const { report } = E.resolveTurn(s, E.defaultPlan(s));
+  assert.ok(report.production.recovered <= report.consumption.waterGross + 1e-9, 'recovery is at most the water used');
+  assert.equal(report.production.iceWater, 0);
+});
+
+test('a junk launchBonus on a save is repaired', () => {
+  const s = calm();
+  s.launchBonus = 'lots';
+  E.upgradeMission(s, {});
+  assert.equal(s.launchBonus, 0);
+  s.launchBonus = 7;
+  E.upgradeMission(s, {});
+  assert.equal(s.launchBonus, 7, 'a good value is kept');
 });
