@@ -107,7 +107,7 @@
   function shelterAt(m, pos, slack, peek) {
     if (!m || !okPos(pos)) return null;
     const s = slack || 0, r = Z.shelter + s, fx = pos.x / T, fy = pos.y / T;
-    if (X.inBaseZone(pos, s)) return 'base';
+    if (X.inBaseZone(m, pos, s)) return 'base';
     for (const k of coversIn(m, fx - r, fy - r, fx + r, fy + r, peek)) {
       const dx = k.x - fx, dy = k.y - fy;
       if (k.box ? inside(m, k, fx, fy, s, peek) : dx * dx + dy * dy <= r * r) return k.kind;

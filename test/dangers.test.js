@@ -93,7 +93,7 @@ test("cover from a flare: the base zone, a cave's mouth and the storm shelter on
 test('the storm shelter covers you once it is built, also outside the base zone: the build grid reaches 4 tiles from the HQ', () => {
   const m = solo('DNG-SHELTER');
   const pos = at(4, 0); // grid (8, 2) is world tile (4, 0): outside the 5×5 base zone
-  assert.equal(X.inBaseZone(pos), false);
+  assert.equal(X.inBaseZone(m, pos), false);
   m.projects.push({ type: 'shelter', x: 8, y: 2, progress: 0, work: 1.5 });
   assert.equal(Z.shelterAt(m, pos), null, 'a project is not a shelter yet');
   m.projects = [];

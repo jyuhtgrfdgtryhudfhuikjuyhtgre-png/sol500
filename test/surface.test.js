@@ -168,7 +168,7 @@ test('a new mission (SolSurface.reset) starts with a full suit and battery, even
   assert.equal(pg.probe().eva.suit, D.EXPEDITION.suit, 'mission B: a full suit');
   assert.equal(pg.probe().eva.driven, 0, 'mission B: a full rover battery');
   pg.qa.teleport(0, 4);
-  assert.equal(X.inBaseZone(pg.probe().player), false, 'one step outside the base zone');
+  assert.equal(X.inBaseZone(b, pg.probe().player), false, 'one step outside the base zone');
   pg.step(4);
   await flush();
   assert.equal(pg.calls.filter(c => c === 'collapse').length, 1, 'only mission A asked for a collapse');
@@ -255,7 +255,7 @@ test('a co-op driver who collapses is out of the rover: it stays parked where th
 test('a collapsed co-op player facing the rover in its bay is not offered a drive, and E does not get them in', async () => {
   const m = mission({ seed: 'COOP-B', coop: true });
   const bay = X.bay(m), spot = { x: bay.x, y: bay.y - 34 }; // just north of the bay, outside the base zone
-  assert.equal(X.inBaseZone(spot), false);
+  assert.equal(X.inBaseZone(m, spot), false);
   assert.equal(X.collapse(m, 'minh', spot).ok, true);
   const pg = page(m, 'minh'); // lying where they fell, facing down: the bay is the tile they look at
   pg.step(0.2);
@@ -368,7 +368,7 @@ test('a reload mid-round puts you back where you stood; after a solo collapse yo
   m.expedition.where.minh = { x: 30 * T + 32, y: 4 * T + 32 }; // saved before the layer sent you home
   const benched = page(plain(m), 'minh');
   const p = benched.probe().player;
-  assert.ok(X.inBaseZone(p), 'a collapsed solo astronaut sits out the round at the base: ' + p.x + ',' + p.y);
+  assert.ok(X.inBaseZone(m, p), 'a collapsed solo astronaut sits out the round at the base: ' + p.x + ',' + p.y);
   const coop = mission({ seed: 'BACK-2', coop: true });
   const seat = page(coop, 'minh', { lastPos: { x: 1300, y: 200 } });
   assert.deepEqual([seat.probe().player.x, seat.probe().player.y], [1300, 200], 'co-op: where the server last saw you');
@@ -462,7 +462,7 @@ test("a dust devil's hit that empties the suit collapses you where it caught you
   assert.equal(pg.probe().push, null, 'no throw is left to carry the benched astronaut off');
   pg.step(0.5);
   const p = pg.probe().player;
-  assert.ok(X.inBaseZone(p), 'minh sits out the round at the base: ' + Math.round(p.x) + ',' + Math.round(p.y));
+  assert.ok(X.inBaseZone(m, p), 'minh sits out the round at the base: ' + Math.round(p.x) + ',' + Math.round(p.y));
 
   // A hit that leaves suit still throws; and a throw still sliding when a new round puts you back at the HQ is over.
   const m2 = devilRound(), pg2 = page(m2, 'minh');
@@ -807,7 +807,7 @@ test('a refused beacon spot shows no key cap; a spot where E works does', () => 
 // A tile far enough from the base for a beacon, where nothing else is in reach.
 function openSpotFor(m) {
   const w = SW.create(m.seed);
-  for (let x = 14; x < 80; x++) if ([0, 1, 2].every(d => !w.isBlocked(x + d, 9)) && !X.inBaseZone({ x: (x + 0.5) * T, y: 9.5 * T })) return [x, 9];
+  for (let x = 14; x < 80; x++) if ([0, 1, 2].every(d => !w.isBlocked(x + d, 9)) && !X.inBaseZone(m, { x: (x + 0.5) * T, y: 9.5 * T })) return [x, 9];
   return null;
 }
 
@@ -857,6 +857,20 @@ test("the commander's aura speeds his walk by 10 % once he is out of the base zo
   const plainWalk = walked(4, 'minh'), led = walked(5, 'kai');
   assert.ok(plainWalk > 100, 'walked east: ' + plainWalk);
   assert.ok(Math.abs(led / plainWalk - D.SKILLS.commander.auraSpeed) < 0.01, 'the commander walks 10 % further: ' + led / plainWalk);
+});
+
+test("the suit pauses in the rank's base zone, as the rules count it: 3 tiles out it runs at a Camp and pauses at an Outpost", () => {
+  const drained = rank => {
+    const m = mission({ seed: 'ZONE-SUIT' });
+    E.grantRank(m, rank);
+    const pg = page(m, 'minh');
+    pg.qa.teleport(3, 0);
+    pg.step(2);
+    assert.equal(X.inBaseZone(m, pg.probe().player), rank > 0);
+    return D.EXPEDITION.suit - pg.probe().eva.suit;
+  };
+  assert.ok(drained(0) > 1.5, 'a Camp: the suit runs');
+  assert.equal(drained(1), 0, 'an Outpost: paused');
 });
 
 test("co-op: a teammate whose tab is gone counts for nobody's aura or route line, though they still stand where they left", () => {
