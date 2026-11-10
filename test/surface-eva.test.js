@@ -1241,3 +1241,14 @@ test('a pack with a kit counts the kit apart, and a pack of only kits is not "fu
   tick(s, outside(9, 1), 0.1);
   assert.equal(noteOf(s), 'eva.full', 'with loads in it, full is full');
 });
+
+test('a pack of only beacon kits, filled up, says so in the HUD: place one or put it back (not "bring it back")', () => {
+  const s = setup({ t: say });
+  const cap = X.capacity(s.m, 'minh');
+  s.m.expedition.carried.minh = Array.from({ length: cap - 1 }, E.kitItem);
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(noteOf(s), '', 'room left: no note');
+  s.m.expedition.carried.minh = Array.from({ length: cap }, E.kitItem);
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(noteOf(s), 'eva.fullKits');
+});
