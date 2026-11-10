@@ -253,3 +253,12 @@ test('played thoughtfully, the explorer also uses the points of interest near th
   const kinds = Object.keys(used).map(id => W.structureAt(W.seedOf('BAL-2'), ...id.slice(1).split(',').map(Number)).kind);
   assert.ok(kinds.length >= 1 && !kinds.includes('mast'), 'it leaves the comms masts, it knows the map: ' + kinds);
 });
+
+test('M6 gear: with bigger tanks, a bigger backpack and faster tools the explorer hauls more in a round than without', () => {
+  const plain = E.createMission({ seed: 'FARM-1', loadout: KIT, events: false, pilot: 'diego' });
+  const geared = E.createMission({ seed: 'FARM-1', loadout: KIT, events: false, pilot: 'diego' });
+  Object.assign(geared.gear, { tanks: 2, backpack: 2, tools: 2 });
+  const a = haulRound(plain, plain.pilot), b = haulRound(geared, geared.pilot);
+  assert.ok(b.loads > a.loads, 'geared ' + b.loads + ' > plain ' + a.loads);
+  assert.ok(b.loads <= 5 * Math.ceil(D.EXPEDITION.suit * 2), 'still bounded');
+});

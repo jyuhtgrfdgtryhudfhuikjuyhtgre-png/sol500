@@ -122,7 +122,7 @@ function haulRound(m, crewId, poi) {
   const speed = rover ? ROVER : FOOT, drain = rover ? D.EXPEDITION.drain.rover : 1;
   const toll = (m.schedule[m.turn].devil ? DEVIL_HITS.round : DEVIL_HITS.quiet) * D.DANGERS.devils.suit; // suit s a second on foot
   const cap = X.capacity(m, crewId), view = Z.viewTiles(m, rover);
-  let suit = D.EXPEDITION.suit, used = 0, here = HOME, loads = 0, carried = 0, clock = 0, flare = null;
+  let suit = X.suitMax(m), used = 0, here = HOME, loads = 0, carried = 0, clock = 0, flare = null;
   const range = rover ? X.roverLeft(m) : Infinity;
   let battery = range;
   // What a leg of `dist` tiles and `hold` seconds of work costs the suit. Work is on foot, even from the rover.
@@ -203,7 +203,7 @@ function haulRound(m, crewId, poi) {
     const d = Math.hypot(p.f.x - here.x, p.f.y - here.y), k = d > view - 0.5 ? (view - 0.5) / d : 1;
     return { x: p.f.x + (here.x - p.f.x) * k, y: p.f.y + (here.y - p.f.y) * k };
   };
-  const holdOf = p => (p.use === 'discover' || p.use === 'visit' ? 0 : X.holdSeconds(p.use === 'pickup' ? 'pickup' : p.f.kind, c.role));
+  const holdOf = p => (p.use === 'discover' || p.use === 'visit' ? 0 : X.holdSeconds(p.use === 'pickup' ? 'pickup' : p.f.kind, c.role, m));
   // A hab pod or a relay beacon it can reach now, not used this round, and the way home from it in the battery (its suit
   // will be full).
   const podFor = () => {
@@ -219,7 +219,7 @@ function haulRound(m, crewId, poi) {
   // more, or as far as an open beacon goal asks, when it can still get home after the hold.
   function placeHere() {
     const goal = open.find(g => g.kind === 'beacon'), sp = X.beaconSpot(m, crewId, px(here));
-    const hold = X.holdSeconds('beacon', c.role);
+    const hold = X.holdSeconds('beacon', c.role, m);
     if (sp.error || Math.hypot(sp.x, sp.y) < (goal ? goal.params.tiles : PLACE) || cost(far(here, HOME), hold) > suit) return;
     go(here, hold);
     if (!X.placeBeacon(m, crewId, px(here)).ok) return;
@@ -250,7 +250,7 @@ function haulRound(m, crewId, poi) {
       if (!pod) break;
       go(pod, 0);
       if (!X.refill(m, crewId, pod.id, px(pod)).ok) break;
-      suit = D.EXPEDITION.suit;
+      suit = X.suitMax(m);
       for (const p of pool) p.wait = false;
       continue;
     }
