@@ -1241,3 +1241,32 @@ test('a pack with a kit counts the kit apart, and a pack of only kits is not "fu
   tick(s, outside(9, 1), 0.1);
   assert.equal(noteOf(s), 'eva.full', 'with loads in it, full is full');
 });
+
+test('a pack of only beacon kits, filled up, says so in the HUD: place one or put it back (not "bring it back")', () => {
+  const s = setup({ t: say });
+  const cap = X.capacity(s.m, 'minh');
+  s.m.expedition.carried.minh = Array.from({ length: cap - 1 }, E.kitItem);
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(noteOf(s), '', 'room left: no note');
+  s.m.expedition.carried.minh = Array.from({ length: cap }, E.kitItem);
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(noteOf(s), 'eva.fullKits');
+});
+
+test('a note set while a card is up beats the round brief repeated when the card closes', async () => {
+  let up = false;
+  const m = E.createMission({ seed: 'EVA-BRIEF', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' });
+  Object.assign(m.schedule[m.turn], { spe: true });
+  const s = setup({ mission: m, t: say, cardUp: () => up });
+  tick(s, NEAR(0, 1), 0.1);
+  assert.match(noteOf(s), /^eva.brief /);
+  up = true;
+  tick(s, NEAR(0, 1), 1);
+  m.expedition.carried.minh = [{ kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 }];
+  s.eva.qaSuit(100);
+  s.eva.canister(NEAR(6, 4));
+  await flush();
+  up = false;
+  tick(s, NEAR(6, 4), 0.1);
+  assert.match(noteOf(s), /^eva.breathed/, 'the newer note stays');
+});

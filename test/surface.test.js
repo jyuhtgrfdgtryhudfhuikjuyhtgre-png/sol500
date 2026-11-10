@@ -1149,6 +1149,40 @@ test('the nose probe stops the rover before the drawn front reaches a wall, east
   pg.key('KeyW', false);
 });
 
+// A diagonal run of n open, smooth tiles heading (dx, dy) that ends at a tile the rover can't cross, which is a wall's
+// outer corner when `corner` (both tiles beside it along the way are open): [start x, start y, wall x, wall y].
+function diagToWall(seed, dx, dy, n, corner) {
+  const w = SW.create(seed), open = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y) && !w.isBlocked(x, y, true);
+  for (let y = 12; y < 300; y++) for (let x = 12; x < 300; x++) {
+    if (!w.isBlocked(x, y, true)) continue;
+    const cx = x - dx, cy = y - dy;
+    if (corner && !(open(cx, y) && open(x, cy))) continue;
+    let ok = true;
+    for (let i = 1; i <= n && ok; i++) ok = open(x - dx * i, y - dy * i) && open(x - dx * i + dx, y - dy * i) && open(x - dx * i, y - dy * i + dy);
+    if (ok) return [x - dx * n, y - dy * n, x, y];
+  }
+  return null;
+}
+test("the drawn nose of a rover driven diagonally never enters a wall, at a flat wall or at its corner", () => {
+  const keys = { '1,1': ['KeyD', 'KeyS'], '1,-1': ['KeyD', 'KeyW'], '-1,1': ['KeyA', 'KeyS'], '-1,-1': ['KeyA', 'KeyW'] };
+  for (const [dir, ks] of Object.entries(keys)) for (const corner of [false, true]) {
+    const [dx, dy] = dir.split(',').map(Number), { m, pg } = inRover('NOSE-' + dir);
+    const spot = diagToWall(m.seed, dx, dy, 8, corner), w = SW.create(m.seed), label = dir + (corner ? ' at a corner' : ' at a wall');
+    assert.ok(spot, 'a run ' + label);
+    pg.qa.teleport(spot[0], spot[1]);
+    pg.step(0.2);
+    ks.forEach(k => pg.key(k));
+    for (let i = 0; i < 160; i++) {
+      pg.step(0.05);
+      const p = pg.probe().player, nx = p.x + Math.cos(p.heading) * FRONT, ny = p.y - 10 + Math.sin(p.heading) * FRONT;
+      assert.ok(!w.isBlocked(Math.floor(nx / T), Math.floor(ny / T), true), label + ': the nose is inside a wall at ' + nx.toFixed(0) + ',' + ny.toFixed(0));
+    }
+    const e = pg.probe().player;
+    assert.ok(Math.hypot(e.x - (spot[0] + 0.5) * T, e.y - (spot[1] + 0.5) * T) > 5 * T, label + ': it drove up to the wall');
+    ks.forEach(k => pg.key(k, false));
+  }
+});
+
 test('a rover still drives north through a 1-tile gap between two rocks with the longer nose', () => {
   const w = SW.create('GAP-1'), open = (x, y) => !W.BLOCKING[w.tile(x, y)] && !w.rough(x, y) && !w.isBlocked(x, y, true);
   let gap = null;
@@ -1220,6 +1254,16 @@ test("a crewmate who boards the rover is drawn the way it was parked, not turned
   pg.remote([{ crewId: 'diego', x: 640, y: 600, rover: false, moving: true, dir: 'down' }]);
   pg.remote([{ crewId: 'diego', x: 640, y: 640, rover: true, moving: false, dir: 'down' }]);
   assert.equal(pg.probe().remote.diego.heading, parked, 'the rover still faces ' + parked);
+});
+
+test("a crewmate who leaves the rover forgets the angle it was drawn at, so boarding again does not swing it", () => {
+  const { pg } = inRover('DRIVE-8');
+  const r = (x, y, rover) => pg.remote([{ crewId: 'diego', x, y, rover, moving: rover, dir: 'down' }]);
+  r(640, 640, true); r(740, 640, true); r(740, 740, true);
+  pg.step(0.1);
+  assert.notEqual(pg.probe().remote.diego.shown, null, 'drawn at an angle while driving');
+  r(740, 740, false);
+  assert.equal(pg.probe().remote.diego.shown, null, 'on foot, no angle is kept');
 });
 
 test("the rover's dust is as thick at 30 fps as at 144: it is thrown up by the second, not by the frame", () => {
