@@ -400,7 +400,7 @@
   }
 
   // What the advance tells the next round (beginTurn): rank is the rank a rank-up reached this round, or null.
-  const freshPending = () => ({ discovery: false, injuries: [], breakdowns: [], rank: null });
+  const freshPending = () => ({ discovery: false, injuries: [], breakdowns: [], rank: null, launch: null });
   function freshGear() {
     const g = {};
     for (const line of Object.keys(D.GEAR)) g[line] = 0;
@@ -460,6 +460,7 @@
       rank: 0,                  // M6: the base's rank, an index into D.RANKS (0 Camp … 3 Colony)
       gear: freshGear(),        // M6: the Fabricator gear levels bought, per line
       launched: false,          // M6: the samples have gone to Earth (once a mission)
+      launchBonus: 0,           // M6: the science that launch added (for the debrief)
     };
     const order = ['recycler', 'oxygen', 'greenhouse', 'lab', 'rover', 'solar', 'battery', 'reactor', 'icedrill'];
     for (const type of order) for (let i = 0; i < L[type]; i++) autoPlace(s, type);
@@ -517,6 +518,9 @@
     m.gear = gear;
     if (typeof m.launched !== 'boolean') m.launched = false;
     if (!isMap(m.pending)) m.pending = freshPending();
+    if (!(Number.isFinite(m.launchBonus) && m.launchBonus >= 0)) m.launchBonus = 0;
+    const lb = m.pending.launch;
+    if (!(Number.isFinite(lb) && lb >= 0)) m.pending.launch = null;
     const r = m.pending.rank;
     if (!(Number.isInteger(r) && r > 0 && r < D.RANKS.length)) m.pending.rank = null;
     if (isMap(m.modules)) for (const type of D.MODULE_TYPES) if (!isMap(m.modules[type])) m.modules[type] = { count: 0, broken: 0 };
@@ -596,7 +600,7 @@
     if (!own(D.MODULES, type) || !tierOn(type)) return 0;
     if (s.quick === true) return M6_MODULES.includes(type) ? 0 : D.MODULES[type].max;
     let max = D.MODULES[type].max;
-    for (let r = 1; r <= rankOf(s); r++) max += D.RANKS[r].max[type] || 0;
+    for (let r = 1; r <= rankOf(s); r++) max += ((D.RANKS[r].max || {})[type]) || 0;
     return max;
   }
 
@@ -686,6 +690,7 @@
       if (now.winter && !before.winter) ev.push({ type: 'winter' });
     }
     if (s.pending.rank != null) ev.push({ type: 'rank_up', rank: s.pending.rank });
+    if (s.pending.launch != null) ev.push({ type: 'sample_launch', bonus: s.pending.launch });
     for (const b of s.pending.breakdowns) ev.push({ type: 'breakdown', module: b });
     for (const id of s.pending.injuries) ev.push({ type: 'injury', crewId: id });
 
@@ -947,17 +952,20 @@
     let harvesting = 0;
     for (let i = 0; i < ghRun; i++) if (s.crops[i] >= D.MODULES.greenhouse.growTurns) harvesting++;
     const tended = Math.min(harvesting, pts.farming * D.GREENHOUSES_PER_FARMER);
-    let ghFood = D.MODULES.greenhouse.foodPerSol * T * (tended + D.UNTENDED_YIELD * (harvesting - tended));
+    // M6: a Colony makes more of its own oxygen, water and food (D.COLONY.selfSufficient), before it reaches the stores.
+    const selfSufficient = s.quick !== true && D.M6.colony === true && rankOf(s) >= D.RANKS.length - 1;
+    const sf = selfSufficient ? D.COLONY.selfSufficient : 1;
+    let ghFood = D.MODULES.greenhouse.foodPerSol * T * (tended + D.UNTENDED_YIELD * (harvesting - tended)) * sf;
     if (ch.perchlorate === 'hydro') ghFood = 0;
     const cropsLost = s.crops.some((age, i) => i >= ghRun && age > 0);
     for (let i = 0; i < s.crops.length; i++) s.crops[i] = i < ghRun ? s.crops[i] + 1 : 0;
-    const ghO2 = ghRun * D.MODULES.greenhouse.o2PerSol * T;
+    const ghO2 = ghRun * D.MODULES.greenhouse.o2PerSol * T * sf;
     const ghWater = ghRun * D.MODULES.greenhouse.waterPerSol * T;
     report.greenhouse = { running: ghRun, harvesting, tended, cropsLost };
 
     // Oxygen
     const o2Need = D.O2_PER_CREW * n * T;
-    const o2Plant = run.oxygen * D.MODULES.oxygen.o2PerSol * T;
+    const o2Plant = run.oxygen * D.MODULES.oxygen.o2PerSol * T * sf;
     let o2Event = 0;
     if (ch.o2_rupture === 'hide') o2Event = -D.O2_RUPTURE.hideLoss;
     if (ch.o2_rupture === 'salvage') o2Event = D.O2_RUPTURE.salvageGain - D.O2_RUPTURE.salvageLoss;
@@ -971,8 +979,8 @@
 
     // Water
     const waterGross = D.WATER_PER_CREW * n * T;
-    const recovered = run.recycler > 0 ? waterGross * D.MODULES.recycler.recovery : 0;
-    const iceWater = run.icedrill * D.MODULES.icedrill.waterPerSol * T;
+    const recovered = run.recycler > 0 ? waterGross * D.MODULES.recycler.recovery : 0; // the recycler returns water used: self-sufficiency never boosts it
+    const iceWater = run.icedrill * D.MODULES.icedrill.waterPerSol * T * sf;
     const washWater = ch.perchlorate === 'wash' ? D.PERCHLORATE_WASH_WATER : 0;
     const leakWater = ch.water_leak === 'ignore' ? D.WATER_LEAK : 0;
     s.resources.water += iceWater + recovered - waterGross - ghWater - washWater - leakWater;
@@ -1002,6 +1010,7 @@
       o2: o2Need + o2Loss, water: waterGross + ghWater + washWater + leakWater, food: foodNeed,
       o2Loss, waterGross, ghWater, washWater, leakWater, o2Event,
     };
+    if (selfSufficient) report.selfSufficient = true;
     report.hypoxia = hypoxia;
     report.dehydration = dehydration;
 
@@ -1131,7 +1140,15 @@
         grantRank(s, rankOf(s) + 1);
         s.pending.rank = rankOf(s);
       } else if (own(D.GEAR, p.type)) s.gear[p.type] = gearOf(s, p.type) + 1; // a gear level is the whole crew's
-      else if (p.type === 'launch') s.launched = true; // the samples go to Earth once a mission
+      else if (p.type === 'launch') { // the samples go to Earth once a mission: a share of the map's science, capped, joins the base's
+        s.launched = true;
+        const map = Math.max(0, Number((s.expedition || {}).science) || 0);
+        const bonus = Math.round(Math.min(D.COLONY.launch.cap, map * D.COLONY.launch.share));
+        s.science += bonus;
+        s.launchBonus = bonus; // for the debrief
+        s.pending.launch = bonus;
+        report.launch = { bonus };
+      }
       else s.modules[p.type].count += 1;
       if (p.x != null) s.layout.push({ type: p.type, x: p.x, y: p.y });
       if (p.type === 'greenhouse') s.crops.push(0);

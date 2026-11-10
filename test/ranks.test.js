@@ -425,3 +425,113 @@ test('a 3.7.0 save resumes as a Camp', () => {
   E.upgradeMission(good, {});
   assert.deepEqual(good, before, 'a 3.8.0 save is untouched');
 });
+
+// M6 T5: the launch sends the samples home, and a Colony makes more of its own air, water and food.
+function colonyWithPad(map) {
+  const s = calm();
+  s.resources.materials = 5000;
+  E.grantRank(s, 3);
+  const [lx, ly] = E.buildSpots(s, 'launchpad')[0];
+  s.layout.push({ type: 'launchpad', x: lx, y: ly });
+  s.modules.launchpad.count = 1;
+  s.expedition.science = map;
+  return s;
+}
+
+test('the launch sends the samples home once a mission', () => {
+  const s = colonyWithPad(300);
+  const plan = builders(s);
+  plan.builds = [{ type: 'launch' }];
+  const { state, report } = E.resolveTurn(s, plan);
+  const bonus = Math.round(Math.min(D.COLONY.launch.cap, 300 * D.COLONY.launch.share));
+  assert.equal(bonus, 90);
+  assert.equal(state.launched, true);
+  assert.deepEqual(report.launch, { bonus });
+  const base = colonyWithPad(300);
+  const noLaunch = E.resolveTurn(base, builders(base));
+  assert.equal(Math.round(state.science - noLaunch.state.science), bonus);
+  assert.deepEqual(E.canBuild(state, 'launch'), { ok: false, reason: 'max' });
+  assert.deepEqual(state.events.filter(e => e.type === 'sample_launch'), [{ type: 'sample_launch', bonus }]);
+  const next = E.resolveTurn(state, builders(state));
+  assert.deepEqual(next.state.events.filter(e => e.type === 'sample_launch'), [], 'announced once');
+});
+
+test('a launch with no map science finishes with no bonus', () => {
+  const s = colonyWithPad(0);
+  const plan = builders(s);
+  plan.builds = [{ type: 'launch' }];
+  const { state, report } = E.resolveTurn(s, plan);
+  assert.equal(state.launched, true);
+  assert.deepEqual(report.launch, { bonus: 0 });
+});
+
+test('the launch bonus is capped', () => {
+  const s = colonyWithPad(100000);
+  const plan = builders(s);
+  plan.builds = [{ type: 'launch' }];
+  assert.equal(E.resolveTurn(s, plan).report.launch.bonus, D.COLONY.launch.cap);
+});
+
+test('a Colony makes more of its own oxygen, water and food', () => {
+  const make = rank => {
+    const s = calm();
+    E.grantRank(s, rank);
+    s.crops.fill(D.MODULES.greenhouse.growTurns);
+    return s;
+  };
+  const station = E.resolveTurn(make(2), E.defaultPlan(make(2)));
+  const colony = E.resolveTurn(make(3), E.defaultPlan(make(3)));
+  assert.equal(station.report.selfSufficient, undefined);
+  assert.equal(colony.report.selfSufficient, true);
+  const k = D.COLONY.selfSufficient;
+  for (const f of ['o2', 'food', 'o2Plant', 'ghO2', 'iceWater']) {
+    assert.ok(Math.abs(colony.report.production[f] - station.report.production[f] * k) < 1e-9, f);
+  }
+  // the recycler only returns water the crew used: self-sufficiency never boosts it
+  assert.equal(colony.report.production.recovered, station.report.production.recovered);
+  assert.ok(colony.report.production.food > 0, 'the test grows food');
+  assert.ok(E.independenceOf(colony.state) >= E.independenceOf(station.state));
+});
+
+test('the score counts the launch in full and still caps the map', () => {
+  const s = calm();
+  s.status = 'success';
+  s.expedition.science = 1000;
+  s.science = 1000;
+  const a = E.scoreMission(s);
+  s.science += 90;
+  const b = E.scoreMission(s);
+  assert.equal(b.parts.science - a.parts.science, 90);
+  assert.equal(a.map.counted, b.map.counted);
+  assert.equal(b.map.counted, D.SCORE.map.cap);
+});
+
+test('a rank without a max table does not throw', () => {
+  const saved = D.RANKS[1].max;
+  delete D.RANKS[1].max;
+  try {
+    const s = calm();
+    E.grantRank(s, 1);
+    assert.doesNotThrow(() => E.maxOf(s, 'solar'));
+  } finally { D.RANKS[1].max = saved; }
+});
+
+test('at Colony a closed loop with no ice drill never makes water from nothing', () => {
+  const s = calm({ icedrill: 0 });
+  E.grantRank(s, 3);
+  s.wallWater = 0;
+  const before = s.resources.water;
+  const { report } = E.resolveTurn(s, E.defaultPlan(s));
+  assert.ok(report.production.recovered <= report.consumption.waterGross + 1e-9, 'recovery is at most the water used');
+  assert.equal(report.production.iceWater, 0);
+});
+
+test('a junk launchBonus on a save is repaired', () => {
+  const s = calm();
+  s.launchBonus = 'lots';
+  E.upgradeMission(s, {});
+  assert.equal(s.launchBonus, 0);
+  s.launchBonus = 7;
+  E.upgradeMission(s, {});
+  assert.equal(s.launchBonus, 7, 'a good value is kept');
+});

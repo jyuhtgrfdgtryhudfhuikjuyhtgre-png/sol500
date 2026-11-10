@@ -1821,3 +1821,29 @@ test("the pilot card's role fact ends in a link to its source, outside the butto
   assert.deepEqual(linksOf(card), [[src.url, pg.I.srcLabel('en', pg.I.ROLE_SOURCES[role])]]);
   assert.deepEqual(linksOf(pick), [], 'a link inside a button is invalid and would start the mission');
 });
+
+// ---------- M6 T5: the launch and the self-sufficient base ----------
+
+test('the debrief names the launch and the self-sufficient base', () => {
+  const plain = finishedMission('DEB-L');
+  const none = debrief(page(), plain);
+  assert.ok(!none.all().some(n => n.attrs['data-k'] === 'deb-launch' || n.attrs['data-k'] === 'deb-selfsufficient'), 'a Camp has neither');
+  const m = finishedMission('DEB-L2');
+  m.rank = 3;
+  m.launched = true;
+  m.launchBonus = 90;
+  const pg = debrief(page(), m);
+  assert.ok(pg.byKey('deb-launch').textContent.includes(en('deb.launch', { n: 90 })));
+  assert.ok(pg.byKey('deb-selfsufficient').textContent.includes(en('deb.selfSufficient')));
+  assert.ok(pg.I.t('vi', 'deb.launch', { n: 90 }).includes('90') && pg.I.t('vi', 'deb.selfSufficient') !== 'deb.selfSufficient');
+});
+
+test('at Colony the console says the base is self-sufficient', () => {
+  const pg = page(), m = pg.mission();
+  Object.assign(pg.UI.store, { mission: m, plan: pg.E.defaultPlan(m), screen: 'ops', opsView: 'console', modal: null });
+  pg.UI.render();
+  assert.equal(pg.byKey('self-sufficient'), undefined, 'a Camp is not');
+  pg.E.grantRank(m, 3);
+  pg.UI.render();
+  assert.ok(pg.byKey('self-sufficient').textContent.includes(en('ops.selfSufficient')));
+});
