@@ -237,6 +237,7 @@
     if (!(store.mission && store.mission.status === 'active' && SV.slotOf(store.mission) === key)) {
       const r = loadSlot(key);
       if (!r) { toast(t('title.resumeDamaged')); return; } // the slot was damaged and is dropped; the title redraws without it
+      unseeUnread(); // a region card closed unread is not marked seen
       setCard(null); clearTimeout(holdTimer); holdTimer = null; held = []; // the other mission's card does not stay up over this one
       store.mission = r.mission;
       store.plan = r.plan;
@@ -636,16 +637,17 @@
         h('span', { class: 'eyebrow' }, t('pilot.step') + ' · ' + t('diff.' + store.settings.difficulty)),
         h('h1', { style: 'font-size:var(--fs-2xl)' }, t('pilot.title')),
         h('p', { class: 'muted', style: 'max-width:70ch' }, t('pilot.lead')),
-        h('div', { class: 'pilot-grid' }, crew.map((c, i) => h('button', {
-          type: 'button', class: 'pilot-card', 'data-k': 'pilot:' + c.id, onclick: () => startMission(c.id),
-        },
-          h('span', { html: A.portrait(c.role, 72, { variant: i }) }),
-          h('b', null, crewName(c.id)),
-          h('span', { class: 'role-tag', style: 'color:' + A.ROLE[c.role] }, t('role.' + c.role)),
-          h('span', { class: 'hint' }, t('role.' + c.role + '.skill')),
-          c.role === 'commander' ? h('span', { class: 'hint' }, t('role.commander.seat')) : null,
-          h('span', { class: 'hint role-fact' }, t('role.' + c.role + '.fact') + ' (' + I.srcLabel(store.lang, I.ROLE_SOURCES[c.role]) + ')'),
-          h('span', { class: 'btn btn-primary btn-sm' }, t('pilot.pick', { name: crewName(c.id) }))))),
+        // The source is a link, so it sits beside the picking button, not inside it (a link in a button is invalid).
+        h('div', { class: 'pilot-grid' }, crew.map((c, i) => h('div', { class: 'pilot-card' },
+          h('button', { type: 'button', class: 'pilot-pick', 'data-k': 'pilot:' + c.id, onclick: () => startMission(c.id) },
+            h('span', { html: A.portrait(c.role, 72, { variant: i }) }),
+            h('b', null, crewName(c.id)),
+            h('span', { class: 'role-tag', style: 'color:' + A.ROLE[c.role] }, t('role.' + c.role)),
+            h('span', { class: 'hint' }, t('role.' + c.role + '.skill')),
+            c.role === 'commander' ? h('span', { class: 'hint' }, t('role.commander.seat')) : null,
+            h('span', { class: 'hint role-fact' }, t('role.' + c.role + '.fact')),
+            h('span', { class: 'btn btn-primary btn-sm' }, t('pilot.pick', { name: crewName(c.id) }))),
+          h('p', { class: 'src' }, srcA(I.SOURCES[I.ROLE_SOURCES[c.role]]))))),
         h('div', { class: 'setup-actions' },
           h('button', { class: 'btn btn-ghost', type: 'button', 'data-k': 'pilot-back', onclick: () => go('manifest') }, t('pilot.back')))),
     ];
@@ -663,7 +665,7 @@
   // node into a new stage, which can drop a touch drag on the joystick and closes an open crew-job dropdown.
   function setCard(c) {
     store.card = c;
-    if (!c) clearTimeout(cardTimer);
+    if (!c) { clearTimeout(cardTimer); cardLeft = null; }
     const stage = document.querySelector('.sf-stage');
     if (!stage) return; // the surface isn't shown: the next render() takes the card from the store
     const old = stage.querySelector('.region-card'), card = surfaceCard();
@@ -681,10 +683,14 @@
     const card = document.querySelector('.region-card');
     return !!card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement));
   }
-  function armCardTimer() {
+  // The console takes the surface out of sight: setOpsView holds the card's time left (cardLeft) and gives it back on return.
+  let cardDue = 0, cardLeft = null;
+  function armCardTimer(ms = 15000) {
     clearTimeout(cardTimer);
+    cardLeft = null;
     if (!store.card) return;
-    cardTimer = setTimeout(() => { if (reading() || onConsole()) armCardTimer(); else closeCard(); }, 15000);
+    cardDue = Date.now() + ms;
+    cardTimer = setTimeout(() => { if (reading() || onConsole()) armCardTimer(); else closeCard(); }, ms);
   }
 
   // A card that comes while another opened less than 8 s ago is still up waits, in order, so a hab pod's log or a formation's
@@ -735,10 +741,21 @@
     return newId && newKind;
   }
 
+  // Resume drops the card up and the cards waiting, unread: their regions come up again the next time (a fact or a log keeps its mark).
+  const unread = new Set(); // mission key + region id: visited, but its card was dropped unread
+  function unseeUnread() {
+    const slot = mission() && mission().quick ? 'regionsSeenQuick' : 'regionsSeen', rs = store.demo ? demoSeen : store[slot];
+    const ids = [store.card].concat(held.map(e => e.c)).filter(c => c && c.type === 'region' && !c.again).map(c => c.id);
+    ids.forEach(id => unread.add(missionKey() + id)); // solo: the mission's own record keeps the region visited
+    if (!rs || rs.key !== missionKey()) return;
+    rs.list = rs.list.filter(id => !ids.includes(id));
+    if (!store.demo) LS.set(slot, rs);
+  }
+
   function showRegionCard(id, soloFirst) {
     if (store.demo) return; // a scene's own card and the demo bar say what it shows; a region card would cover both
-    const first = firstTime(id); // also keeps the device's list for the Science notes
-    if (soloFirst == null ? first : soloFirst) arrive({ type: 'region', id });
+    const first = firstTime(id), again = unread.delete(missionKey() + id); // firstTime also keeps the device's list for the Science notes
+    if (soloFirst == null ? first : soloFirst || again) arrive({ type: 'region', id });
   }
 
   // The region's name on the surface was selected: read its card again, for another 15 s.
@@ -879,7 +896,9 @@
   }
 
   function setOpsView(v) {
+    if (store.card && v === 'console' && store.opsView !== 'console') { cardLeft = Math.max(0, cardDue - Date.now()); clearTimeout(cardTimer); }
     store.opsView = v;
+    if (v !== 'console' && cardLeft != null && store.card) armCardTimer(cardLeft);
     LS.set('opsView', v);
     render();
   }
@@ -1783,7 +1802,7 @@
               h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total))))), mapHint]),
           panel(t('deb.lessons'), h('div', { class: 'lessons' }, lessonsFor(s).map(([k, src]) => h('article', { class: 'lesson' },
             h('h3', null, t('lesson.' + k + '.title')),
-            h('p', null, t('lesson.' + k + '.body', { end: E.turnsOf(s) * D.TURN_SOLS })),
+            h('p', null, t('lesson.' + k + '.body', { end: E.turnsOf(s) * D.TURN_SOLS, tonnes: nf(D.FOOD_PER_CREW * s.crew.length * E.turnsOf(s) * D.TURN_SOLS / 1000, 1) })),
             src.map(id => srcA(I.SOURCES[id])))))),
           panel(t('deb.badges'), h('div', { class: 'badges' }, earned.length
             ? earned.map(b => badgeCard(b, true, store.newBadges.includes(b)))

@@ -353,6 +353,7 @@ function clockOf() {
   let now = 0, n = 0;
   const pending = new Map();
   return {
+    now: () => now,
     globals: { setTimeout: (fn, ms) => { pending.set(++n, { at: now + ms, fn }); return n; }, clearTimeout: id => { pending.delete(id); } },
     advance(ms) {
       const end = now + ms;
@@ -1763,5 +1764,60 @@ test("the starvation and life-support lessons name the mission's own end sol: 20
     assert.ok(body.includes(String(end)) && !body.includes('{end}'));
     assert.ok(!text.includes('{end}'));
   }
-  for (const lang of ['en', 'vi']) assert.ok(I.t(lang, 'lesson.food.body', { end: 200 }).includes('200') && !I.t(lang, 'lesson.food.body', { end: 200 }).includes('500'));
+});
+
+test('Resume closing an unread region card leaves that region unseen, so its card comes again', () => {
+  const saves = twoSaves();
+  const pg = page({ save: saves.save, saveQuick: saves.saveQuick });
+  pg.play(pg.UI.store.mission);
+  pg.surface.hooks.enterRegion('icy');
+  assert.equal(pg.UI.store.card.id, 'icy');
+  pg.UI.store.screen = 'title';
+  pg.UI.render();
+  click(pg.byKey('resume:saveQuick'));
+  assert.equal(pg.UI.store.card, null);
+  pg.UI.store.screen = 'title';
+  pg.UI.render();
+  click(pg.byKey('resume:save'));
+  pg.surface.hooks.enterRegion('icy');
+  assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'icy', 'unread: it comes up again');
+});
+
+test('a card up when the console opens is held there and comes back with its time left', () => {
+  const { clock, pg, hooks, up } = holdPage();
+  pg.win.Date = class extends Date { static now() { return clock.now(); } };
+  hooks.card(POD);
+  clock.advance(5000);
+  click(pg.byKey('tab:console'));
+  clock.advance(62000);
+  assert.equal(up(), 'S4,-1', 'the card waited out of sight');
+  click(pg.byKey('tab:surface'));
+  clock.advance(9999);
+  assert.equal(up(), 'S4,-1', 'its 10 s left are still to run');
+  clock.advance(1);
+  assert.equal(up(), null);
+});
+
+test('the starvation lesson gives the packaged food for the mission own length: 1.8 kg x 4 crew x 200 or 500 sols', () => {
+  const saves = twoSaves(), I = page().I;
+  for (const [slot, end, tonnes, lang] of [['saveQuick', 200, '1.4', 'en'], ['save', 500, '3.6', 'en'], ['saveQuick', 200, '1,4', 'vi'], ['save', 500, '3,6', 'vi']]) {
+    const pg = page({ [slot]: saves[slot], lang });
+    Object.assign(pg.UI.store.mission, { status: 'lost', endCause: { reason: 'starvation', sol: 40 } });
+    pg.UI.store.screen = 'debrief';
+    pg.UI.render();
+    const body = I.t(lang, 'lesson.food.body', { end, tonnes });
+    assert.ok(pg.all()[0].textContent.includes(body), slot + ' ' + lang);
+    assert.ok(body.includes(tonnes) && !/\{\w+\}/.test(body));
+  }
+});
+
+test("the pilot card's role fact ends in a link to its source, outside the button that picks the pilot", () => {
+  const pg = page();
+  Object.assign(pg.UI.store, { loadout: pg.E.referenceKit('commander', 4), seed: 'UI-PILOTSRC', screen: 'pilot' });
+  pg.UI.render();
+  const pick = pg.byKey('pilot:minh'), card = pg.all().find(n => n.listeners && n.className.includes('pilot-card') && walk(n, []).includes(pick));
+  const role = pg.UI.store.mission ? null : pg.E.createMission({ seed: 'x', loadout: pg.E.referenceKit('commander', 4), events: false, pilot: 'minh' }).crew.find(c => c.id === 'minh').role;
+  const src = pg.I.SOURCES[pg.I.ROLE_SOURCES[role]];
+  assert.deepEqual(linksOf(card), [[src.url, pg.I.srcLabel('en', pg.I.ROLE_SOURCES[role])]]);
+  assert.deepEqual(linksOf(pick), [], 'a link inside a button is invalid and would start the mission');
 });
