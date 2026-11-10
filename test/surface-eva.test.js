@@ -1270,3 +1270,26 @@ test('a note set while a card is up beats the round brief repeated when the card
   tick(s, NEAR(6, 4), 0.1);
   assert.match(noteOf(s), /^eva.breathed/, 'the newer note stays');
 });
+
+// ---- M6 T4: Fabricator gear ----
+test('bigger tanks: the suit is as big as the tanks, the canister button waits for 45 s to fit, the bar never passes 100 %', () => {
+  const m = E.createMission({ seed: 'EVA-1', loadout: E.referenceKit('commander', 4), events: false, pilot: 'minh' });
+  m.gear.tanks = 1;
+  const s = setup({ mission: m });
+  const btn = s.eva.el.children.find(n => n.className === 'sf-can');
+  assert.equal(s.eva.state().suit, 200, 'a new suit at the new size');
+  s.eva.qaSuit(999);
+  assert.equal(s.eva.state().suit, 200);
+  m.expedition.carried.minh = [{ kind: 'pod', res: 'o2', amount: 30, canister: true, id: '1,1:0', region: 0 }];
+  s.eva.qaSuit(170);
+  tick(s, NEAR(6, 4), 0.1);
+  assert.equal(btn.hidden, true, 'above 155 s some of it would be wasted');
+  s.eva.qaSuit(150);
+  tick(s, NEAR(6, 4), 0.1);
+  assert.equal(btn.hidden, false, '45 s fit under 200');
+  s.eva.qaSuit(200);
+  const fills = [];
+  const walk = (n) => { if (n && n.style && n.style.width) fills.push(n.style.width); (n.children || []).forEach(walk); };
+  tick(s, NEAR(6, 4), 0.01); walk(s.eva.el);
+  assert.ok(fills.every(w => parseFloat(w) <= 100), 'no bar past 100 %: ' + fills.join(','));
+});

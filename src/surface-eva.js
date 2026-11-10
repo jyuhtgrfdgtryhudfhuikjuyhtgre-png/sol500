@@ -54,7 +54,6 @@
   // No message when these are refused: they are retried, or harmless (a discovery is asked for when a landmark comes into
   // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
   const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
-  const CAN_BELOW = XD.suit - XD.canister.suit;  // a canister is breathed only when all of its 45 s fit in the suit
   const VERDICT = 8;                             // seconds the flare's verdict stays on the banner
   const INSIDE = { cave: 'eva.inCave', tube: 'eva.inTube', pod: 'eva.inPod' }; // the note while you are in cover out there
   // What holding E does at a Kestrel structure's door (the hab pod has no hold: you walk in).
@@ -90,6 +89,9 @@
 
     const mission = () => (data && data.mission) || null;
     const exp = () => mission().expedition;
+    // The suit's size this mission (Fabricator tanks), and the level under which a canister's 45 s all fit.
+    const suitMax = () => (mission() ? X.suitMax(mission()) : XD.suit);
+    const canBelow = () => suitMax() - XD.canister.suit;
     const crew = () => (mission() && me ? mission().crew.find(c => c.id === me) || null : null);
     const pack = () => (me && Array.isArray(exp().carried[me]) ? exp().carried[me] : []);
     const collapsed = id => !!(mission() && mission().expedition && mission().expedition.collapsed[id]);
@@ -224,13 +226,13 @@
       if (p && p.inRover && driven >= XD.roverRange) return { text: t('eva.flat'), cls: 'warn' };
       const atBase = !!p && X.inBaseZone(p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t(pack().some(i => !E.isKit(i)) ? 'eva.full' : 'eva.fullKits'), cls: '' }; // kits are placed, not delivered
-      if (live() && suit <= XD.suit * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
+      if (live() && suit <= suitMax() * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
       const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
       if (cover) return { text: t(cover), cls: 'ok' };
       return null;
     }
     // The canister button shows only when breathing one now is worth it: outside, on your feet, and with room for all 45 s.
-    const canBreathe = p => live() && !collapsed(me) && !benched() && pack().some(i => i.canister) && suit <= CAN_BELOW && !(p && X.inBaseZone(p));
+    const canBreathe = p => live() && !collapsed(me) && !benched() && pack().some(i => i.canister) && suit <= canBelow() && !(p && X.inBaseZone(p));
     // The round's goals from ui.js's goals hook ([{ text, done, frac }], frac 0–1; text has "(p/n)" when it needs more than
     // one), asked twice a second: a line each with a thin bar, a done one ticked. No hook or no goals: no block.
     function renderGoals() {
@@ -268,8 +270,8 @@
       text(suitM.k, 'sk', t('eva.suit'));
       const seconds = t('eva.secs', { s: Math.ceil(suit) }); // one unit, paused or not
       text(suitM.v, 'sv', atBase && !benched() ? t('eva.paused', { v: seconds }) : seconds);
-      prop('sw', (100 * suit / XD.suit).toFixed(1) + '%', v => { suitM.fill.style.width = v; });
-      const f = suit / XD.suit;
+      prop('sw', (100 * Math.min(1, suit / suitMax())).toFixed(1) + '%', v => { suitM.fill.style.width = v; });
+      const f = suit / suitMax();
       prop('sc', 'sf-suit' + (f <= 0.2 ? ' crit' : f <= 0.4 ? ' warn' : ''), v => { suitM.row.className = v; });
       const inRover = !!(p && p.inRover);
       prop('bh', !inRover, v => { battM.row.hidden = v; });
@@ -315,7 +317,7 @@
       if (!h || !h.exp) return Promise.resolve({ error: 'net' });
       return Promise.resolve(h.exp(type, payload || {}, p ? at(p) : null)).then(r => {
         const res = r || { error: 'net' };
-        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + res.error, { s: CAN_BELOW }), 'warn');
+        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + res.error, { s: canBelow() }), 'warn');
         return res;
       }, () => { if (!QUIET.includes(type)) say(t('eva.err.net'), 'warn'); return { error: 'net' }; });
     }
@@ -326,7 +328,7 @@
       if (!live() || !pack().some(i => i.canister)) return;
       act('canister', p, { suit: Math.round(suit * 10) / 10 }).then(r => {
         if (!r.ok) return;
-        suit = Number.isFinite(r.suit) ? r.suit : Math.min(XD.suit, suit + XD.canister.suit);
+        suit = Number.isFinite(r.suit) ? r.suit : Math.min(suitMax(), suit + XD.canister.suit);
         say(t('eva.breathed', { s: XD.canister.suit }), 'ok');
       });
     }
@@ -364,7 +366,7 @@
         fresh = !round;
         turn = m.turn;
         me = id;
-        suit = me ? X.suitOf(m, me) : XD.suit;
+        suit = me ? X.suitOf(m, me) : suitMax();
         driven = Number(m.expedition.roverDriven) || 0;
         hold = null;
         told = [];
@@ -478,7 +480,7 @@
         // A relay beacon (spec §3.8): within its refill tiles your suit is filled, once at each beacon a round (x.refills, shared
         // with the pods). Only when that gives a canister's worth or more: walking out past it with a nearly full suit would
         // spend this round's refill before the way home.
-        if (out && suit <= CAN_BELOW) {
+        if (out && suit <= canBelow()) {
           const r2 = (XD.beacon.refill * T) * (XD.beacon.refill * T);
           const reach = x.beacons.map((b, j) => (near2((b.x + 0.5) * T, (b.y + 0.5) * T, p.x, p.y) <= r2 ? 'B' + j : null)).filter(Boolean);
           const id = reach.find(b => !had.includes(b));
@@ -563,7 +565,7 @@
     // ---------- what you can work on ----------
     // Every hold's seconds come from the rules' one function (X.holdSeconds), with your role's skill (spec §3.3).
     const holdKind = f => (f.kind === 'find' ? f.find.kind : f.kind === 'drop' ? 'pickup' : f.kind === 'kestrel' ? f.struct.kind : f.kind === 'beacon' ? 'beacon' : 'revive');
-    const hold0 = f => X.holdSeconds(holdKind(f), crew() && crew().role);
+    const hold0 = f => X.holdSeconds(holdKind(f), crew() && crew().role, mission());
     const holdable = f => !!f && (f.kind === 'find' || (f.kind === 'drop' && hasRoom()) || f.kind === 'revive' || f.kind === 'kestrel' || (f.kind === 'beacon' && !!f.spot.ok));
     // A relay beacon by its id "B<i>": "Beacon <i + 1>".
     const beaconName = id => t('eva.beaconName', { n: Number(String(id).slice(1)) + 1 });
@@ -612,15 +614,15 @@
       const role = crew() && crew().role;
       if (f.kind === 'find') {
         const what = t('find.' + f.find.kind) + (f.find.sub ? ' · ' + t('sci.' + f.find.sub) : '');
-        return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role)) });
+        return t(f.find.kind === 'science' ? 'eva.survey' : 'eva.collect', { what, s: secs(X.holdSeconds(f.find.kind, role, mission())) });
       }
-      if (f.kind === 'drop') return !hasRoom() ? t('eva.err.full') : t('eva.pickup', { s: secs(X.holdSeconds('pickup', role)) });
-      if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role)) });
-      if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role)) });
+      if (f.kind === 'drop') return !hasRoom() ? t('eva.err.full') : t('eva.pickup', { s: secs(X.holdSeconds('pickup', role, mission())) });
+      if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role, mission())) });
+      if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role, mission())) });
       if (f.kind === 'rover') return t('sf.boardRover');
       if (f.kind === 'beacon') {
         const s = f.spot, more = Math.max(1, Math.ceil(s.need - 1e-9)); // whole tiles, at least one more
-        if (s.ok) return t('eva.placeBeacon', { s: secs(X.holdSeconds('beacon', role)) });
+        if (s.ok) return t('eva.placeBeacon', { s: secs(X.holdSeconds('beacon', role, mission())) });
         if (s.error === 'nearBase') return t(more === 1 ? 'eva.beaconNearBase1' : 'eva.beaconNearBase', { n: more });
         if (s.error === 'nearBeacon') return t(more === 1 ? 'eva.beaconNearBeacon1' : 'eva.beaconNearBeacon', { name: beaconName(s.beacon), n: more });
         if (s.error === 'limit') return t('eva.beaconLimit', { n: XD.beacon.max });
@@ -714,7 +716,7 @@
       return { warn, flash };
     }
     // A teammate's suit level (co-op positions carry it), 0–1, for the bar on their name tag; none at the base or when full.
-    const suitBar = r => (r.suit == null || r.suit >= XD.suit || X.inBaseZone(r) ? null : r.suit / XD.suit);
+    const suitBar = r => (r.suit == null || r.suit >= suitMax() || X.inBaseZone(r) ? null : r.suit / suitMax());
 
     // Minimap and map markers: finds you have seen (the biologist senses ice and methane vents further), cave mouths you
     // have seen, dropped loads, the parked rover. Rebuilt at most every 150 ms.
@@ -764,7 +766,7 @@
       driving: () => !!(me && mission() && mission().expedition && exp().rover && exp().rover.driver === me),
       collapsed,
       state: () => ({ suit, driven, hold: hold && hold.f.key, collapsed: collapsed(me), benched: !!me && !!mission() && benched(), pack: me && mission() ? pack().length : 0, clock: clock() }),
-      qaSuit: s => { suit = Math.max(0, Math.min(XD.suit, Number(s) || 0)); }, // play-testing: jump the suit level
+      qaSuit: s => { suit = Math.max(0, Math.min(suitMax(), Number(s) || 0)); }, // play-testing: jump the suit level
       qaClock: s => { soloClock = Math.max(0, Number(s) || 0); },              // play-testing: jump the solo round clock
     };
   }
