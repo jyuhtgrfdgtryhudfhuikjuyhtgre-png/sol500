@@ -1143,6 +1143,7 @@
         const map = Math.max(0, Number((s.expedition || {}).science) || 0);
         const bonus = Math.round(Math.min(D.COLONY.launch.cap, map * D.COLONY.launch.share));
         s.science += bonus;
+        s.launchBonus = bonus; // for the debrief
         s.pending.launch = bonus;
         report.launch = { bonus };
       }

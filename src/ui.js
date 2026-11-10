@@ -1249,6 +1249,7 @@
     const params = {};
     if (e.module) params.module = t('mod.' + e.module);
     if (e.crewId) params.name = crewName(e.crewId);
+    if (e.bonus != null) params.bonus = nf(e.bonus);
     if (e.kind) { params.kind = t('earth.' + e.kind).toLowerCase(); params.amount = nf(e.amount || 0); }
     return t('ev.' + e.type + '.' + part, params);
   }
@@ -1256,8 +1257,9 @@
   function eventsPanel(s, p) {
     const decisions = (s.events || []).filter(e => e.options);
     const infos = (s.events || []).filter(e => !e.options);
+    const selfSufficient = s.quick !== true && D.M6.colony === true && E.rankOf(s) >= D.RANKS.length - 1; // a Colony makes more of its own
     const flareDue = s.quick === true && s.turn === D.QUICK.flareTurn; // the Quick mission's set flare: invite the player outside
-    if (!decisions.length && !infos.length && !flareDue) return null;
+    if (!decisions.length && !infos.length && !flareDue && !selfSufficient) return null;
     const optionDisabled = (e, o) => (e.type === 'water_leak' && o === 'patch' && s.resources.spares < 1) ||
       (e.type === 'perchlorate' && o === 'wash' && s.resources.water < D.PERCHLORATE_WASH_WATER);
     return panel(t('panel.events'), h('div', { class: 'events' },
@@ -1273,6 +1275,7 @@
         }, h('b', null, t('ev.' + e.type + '.' + o)), h('span', null, t('ev.' + e.type + '.' + o + '.hint'))))))),
       infos.length ? h('div', { class: 'infos' }, infos.map(e => h('div', { class: 'info-ev' },
         h('b', null, eventText(e, 'title')), h('span', null, eventText(e, 'body'))))) : null,
+      selfSufficient ? h('div', { class: 'info-ev', 'data-k': 'self-sufficient' }, h('span', null, t('ops.selfSufficient'))) : null,
       flareDue ? h('div', { class: 'info-ev', 'data-k': 'quick-flare' }, h('span', null, t('quick.flareHint'))) : null));
   }
 
@@ -1779,6 +1782,9 @@
     const mapHint = success && sc.map.found > 0 ? h('p', { class: 'hint' }, t('sc.mapHint', {
       pct: Math.round(D.SCORE.map.share * 100), cap: nf(D.SCORE.map.cap), found: nf(sc.map.found), counted: nf(sc.map.counted),
     })) : null;
+    const launchNote = s.launched === true ? h('p', { class: 'hint', 'data-k': 'deb-launch' }, t('deb.launch', { n: nf(Number(s.launchBonus) || 0) })) : null;
+    const selfNote = s.quick !== true && D.M6.colony === true && E.rankOf(s) >= D.RANKS.length - 1
+      ? h('p', { class: 'hint', 'data-k': 'deb-selfsufficient' }, t('deb.selfSufficient')) : null;
     return [
       topbar(lanOn() ? lanChip() : null),
       h('section', { class: 'deb-hero' + (success ? '' : ' lost') },
@@ -1799,7 +1805,7 @@
           panel(t('deb.score'), [h('table', { class: 'score-table' },
             h('tbody', null,
               scoreRows.map(k => h('tr', null, h('td', null, t('sc.' + k)), h('td', null, signed(sc.parts[k])))),
-              h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total))))), mapHint]),
+              h('tr', { class: 'total' }, h('td', null, t('sc.total')), h('td', null, nf(sc.total))))), mapHint, launchNote, selfNote]),
           panel(t('deb.lessons'), h('div', { class: 'lessons' }, lessonsFor(s).map(([k, src]) => h('article', { class: 'lesson' },
             h('h3', null, t('lesson.' + k + '.title')),
             h('p', null, t('lesson.' + k + '.body', { end: E.turnsOf(s) * D.TURN_SOLS, tonnes: nf(D.FOOD_PER_CREW * s.crew.length * E.turnsOf(s) * D.TURN_SOLS / 1000, 1) })),

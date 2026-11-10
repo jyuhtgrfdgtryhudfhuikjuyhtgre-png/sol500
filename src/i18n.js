@@ -1305,6 +1305,10 @@
     'gear.tanks': 'Bigger suit tanks',
     // M6 T5
     'ops.selfSufficient': 'Self-sufficient base: it makes more of its own oxygen, water and food.',
+    'deb.launch': 'The sample launch sent the base’s findings to Earth: +{n} science.',
+    'deb.selfSufficient': 'A self-sufficient Colony: it made more of its own oxygen, water and food.',
+    'ev.sample_launch.title': 'Samples launched',
+    'ev.sample_launch.body': 'The samples are on their way to Earth: +{bonus} science.',
     // M6 T6
     'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
     // M6 T7
@@ -2514,6 +2518,10 @@
     'gear.tanks': 'Bình khí bộ đồ lớn hơn',
     // M6 T5
     'ops.selfSufficient': 'Căn cứ tự cung tự cấp: tự làm ra nhiều oxy, nước và thức ăn hơn.',
+    'deb.launch': 'Vụ phóng mẫu đã gửi phát hiện của căn cứ về Trái Đất: +{n} điểm khoa học.',
+    'deb.selfSufficient': 'Một Thuộc địa tự cung tự cấp: tự làm ra nhiều oxy, nước và thức ăn hơn.',
+    'ev.sample_launch.title': 'Đã phóng mẫu',
+    'ev.sample_launch.body': 'Mẫu vật đang trên đường về Trái Đất: +{bonus} điểm khoa học.',
     // M6 T6
     'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
     // M6 T7
