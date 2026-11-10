@@ -1023,3 +1023,45 @@ test('a host that is away is not taken over by a guest with the same name', () =
   assert.notEqual(guest.id, host.id);
   assert.equal(room.hostId, host.id);
 });
+
+// ---------- the pressurised rover (M6) ----------
+// A co-op room whose mission has the rover and a working pressurised rover in a bay of its own (grid (8, 3), world tile
+// (4, 1)): lena (the host) and minh (the guest).
+function roomWithCabin() {
+  const R = createRooms();
+  const { room, player: host } = R.create('Host');
+  const { player: guest } = R.join(room.code, 'Guest');
+  say(R, room, host, 'claim', { crewId: 'lena' });
+  say(R, room, guest, 'claim', { crewId: 'minh' });
+  say(R, room, host, 'phase', { phase: 'manifest' });
+  say(R, room, host, 'loadout', { loadout: Object.assign({}, room.loadout, { rover: 1, waterwall: 0 }) });
+  say(R, room, host, 'launch');
+  room.mission.modules.cabin.count = 1;
+  room.mission.layout.push({ type: 'cabin', x: 8, y: 3 });
+  return { R, room, host, guest };
+}
+
+test("co-op: a cabin driver's lost park is per vehicle", async () => {
+  const { R, room, host, guest } = roomWithCabin(), x = room.mission.expedition, c = fakeClient();
+  R.attach(room, guest, c);
+  R.position(room, host, X.bay(room.mission, 'cabin'));
+  R.position(room, guest, X.bay(room.mission));
+  assert.equal(say(R, room, host, 'board', { kind: 'cabin' }).status, 200);
+  assert.equal(say(R, room, guest, 'board').status, 200, 'the rover, as before M6');
+  R.position(room, host, Object.assign(at(-30, 0), { rover: true, vehicle: 'cabin', driven: 40 }));
+  R.position(room, guest, Object.assign(at(30, 0), { rover: true, vehicle: 'rover', driven: 25 }));
+  assert.deepEqual([x.cabinDriven, x.roverDriven], [40, 25], 'each driver reports their own battery');
+  await wait(150);
+  const pos = c.got.filter(q => q.type === 'pos').at(-1).data;
+  assert.deepEqual(pos.map(p => [p.crewId, p.rover, p.vehicle]).sort(), [['lena', true, 'cabin'], ['minh', true, 'rover']], 'teammates are told which vehicle');
+  // lena's park never arrives: her game says she is on foot.
+  R.position(room, host, Object.assign(at(-31, 0), { rover: false, vehicle: null, driven: 41 }));
+  assert.deepEqual(x.cabin, at(-31, 0), 'the pressurised rover is parked where her game says she got out');
+  assert.equal(x.cabinDriven, 41, 'with the last bit of driving');
+  assert.deepEqual(x.rover, { driver: 'minh' }, "minh's rover is still driven");
+  assert.equal(say(R, room, host, 'park', { kind: 'cabin' }).body.error, 'notDriving', 'a late park changes nothing');
+  // A game from before M6 sends only rover: false, and its rover is parked.
+  R.position(room, guest, Object.assign(at(31, 0), { rover: false, driven: 26 }));
+  assert.deepEqual(x.rover, at(31, 0));
+  assert.deepEqual(x.cabin, at(-31, 0), 'the pressurised rover stays where lena left it');
+});
