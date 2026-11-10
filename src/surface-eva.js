@@ -347,7 +347,7 @@
       const params = { storm: { n: Z.viewTiles(m, false) } };
       const list = Z.outside(m).map(k => t('eva.brief.' + k, params[k]));
       briefed = list.length ? { until: now + 8, covered: false } : null;
-      if (list.length) say(t('eva.brief', { list: list.join(', ') }), 'warn', 8);
+      if (list.length) { say(t('eva.brief', { list: list.join(', ') }), 'warn', 8); briefed.note = note; }
     }
 
     // ---------- each new look at the mission ----------
@@ -419,7 +419,7 @@
         const h = env.hooks(), up = !!(h && h.cardUp && h.cardUp());
         if (up) briefed.covered = true; // seen only once the card is gone, however long it stays
         else if (now >= briefed.until && !briefed.covered) briefed = null;
-        else if (briefed.covered && m) brief(m);
+        else if (briefed.covered && m) { if (note && note !== briefed.note && now < note.until) briefed = null; else brief(m); } // a newer note wins
       }
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
       if (live()) {
