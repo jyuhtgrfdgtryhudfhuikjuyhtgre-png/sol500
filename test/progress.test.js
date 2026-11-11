@@ -22,7 +22,7 @@ test('the spec checklist becomes milestones and features', () => {
 test('the real spec has a checklist for every milestone and M1 is all done', () => {
   const md = fs.readFileSync(path.join(__dirname, '..', 'docs/superpowers/specs/2026-10-01-sol500-v3-app-online-bigmap-admin-design.md'), 'utf8');
   const { milestones, features } = parseChecklist(md);
-  assert.deepEqual(milestones.map(m => m.id), ['M1', 'M2', 'M3', 'M4', 'M5']);
+  assert.deepEqual(milestones.map(m => m.id), ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']);
   assert.ok(features.filter(f => f.milestone === 'M1').every(f => f.done));
   assert.ok(features.length >= 30);
 });

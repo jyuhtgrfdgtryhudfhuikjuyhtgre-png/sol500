@@ -1919,6 +1919,12 @@ test('the build list shows only what the rank unlocks: the Garage at Outpost, it
   assert.ok(pg.byKey('bld:tanks').textContent.includes(en('bld.costWater', { kg: tanks.materials, water: tanks.water, w: tanks.work })), 'a cost with water says so');
   assert.ok(pg.byKey('bld:backpack').textContent.includes(en('gear.level', { n: 1 })) &&
     pg.byKey('bld:backpack').textContent.includes(en('bld.cost', { kg: pack.materials, w: pack.work })), "the next level's cost");
+  // Its last level queued: the row shows no cost, as a maxed line does (it read "0 kg · 0 work").
+  pg.UI.store.plan.builds = [{ type: 'backpack' }];
+  pg.UI.render();
+  assert.ok(!pg.byKey('bld:backpack').textContent.includes(en('bld.cost', { kg: 0, w: 0 })), pg.byKey('bld:backpack').textContent);
+  pg.UI.store.plan.builds = [];
+  pg.UI.render();
   assert.ok(!rowsOf(pg).includes('launch') && !rowsOf(pg).includes('launchpad'));
   pg.E.grantRank(m, 3);
   consoleOf(pg, m);

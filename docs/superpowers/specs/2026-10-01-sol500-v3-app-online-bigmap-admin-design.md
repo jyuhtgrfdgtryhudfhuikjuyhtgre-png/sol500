@@ -628,6 +628,13 @@ Built **one at a time**. Each gets its own branch off `master`, its own written 
 - [x] Offline single-file build updated
 - [x] Final installer build tested
 
+### M6 — Base ranks, the Garage and the Fabricator
+- [x] Base ranks bought with materials: Camp, Outpost, Station, Colony, each with more land and room for buildings
+- [x] The Fabricator and its four gear lines: suit tanks, backpack, rover cargo racks, tools
+- [x] Colony: the sample-return launch and a self-sufficient base
+- [x] The Garage and the pressurised rover
+- [x] The scout drone
+
 ## 13. Refinements made while writing this spec (need the user's OK)
 
 1. **Suit oxygen refills once per round, not at the base.** Rounds have no clock, so if the base refilled your suit, the best play would be emptying the map in round 1. With one charge per round, each EVA is a real decision. Standing at the base still pauses the drain.

@@ -1452,7 +1452,8 @@
   // A build's button: one with a tile (a module, a vehicle) picks its tile on the map; the rest are queued at once.
   function buildRow(s, type, pending) {
     const chk = E.canBuild(s, type, pending), gear = D.GEAR[type] ? s.gear[type] || 0 : null;
-    const maxed = gear != null && gear >= D.GEAR[type].levels.length;
+    // Levels queued or being built count: with its last level on the way the row shows no cost (it read "0 kg · 0 work").
+    const maxed = gear != null && gear + s.projects.concat(pending).filter(b => b.type === type).length >= D.GEAR[type].levels.length;
     return h('button', {
       type: 'button', class: 'bld', 'data-k': 'bld:' + type, 'aria-pressed': String(store.buildType === type),
       disabled: !chk.ok, title: !chk.ok ? whyNot(type, chk) : gear != null ? gearHelp(s, type, pending) : t('bld.' + type),
