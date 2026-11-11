@@ -133,9 +133,9 @@
       // M6 (spec §3-§6). `needs`: a module that must be built and working. A zero cost is set elsewhere: a rank-up costs
       // the next rank's (RANKS), a gear line its next level's (GEAR), the launch COLONY.launch (src/engine.js costOf).
       rankup: { materials: 0, work: 0 },
-      garage: { materials: 600, work: 2 },
-      fabricator: { materials: 800, work: 3 },
-      launchpad: { materials: 1000, work: 3 },
+      garage: { materials: 200, work: 1 },
+      fabricator: { materials: 300, work: 1 },
+      launchpad: { materials: 400, work: 1 },
       rover: { materials: 500, work: 2, needs: 'garage' },
       cabin: { materials: 900, work: 3, needs: 'garage' },
       drone: { materials: 300, work: 1, needs: 'garage' },
@@ -174,14 +174,14 @@
     // Fabricator gear: each line's levels in order. `value`: the suit's seconds (tanks), loads on foot (backpack), loads
     // in a rover (racks), the factor on hold seconds (tools).
     GEAR: {
-      tanks: { levels: [{ materials: 300, water: 100, work: 1, value: 200 }, { materials: 500, water: 200, work: 1.5, value: 250 }] },
-      backpack: { levels: [{ materials: 250, work: 1, value: 4 }, { materials: 400, work: 1.5, value: 5 }] },
-      racks: { levels: [{ materials: 300, work: 1, value: 12 }, { materials: 500, work: 1.5, value: 16 }] },
-      tools: { levels: [{ materials: 250, work: 1, value: 0.8 }, { materials: 400, work: 1.5, value: 0.6 }] },
+      tanks: { levels: [{ materials: 100, water: 50, work: 0.5, value: 200 }, { materials: 200, water: 100, work: 0.5, value: 250 }] },
+      backpack: { levels: [{ materials: 100, work: 0.5, value: 4 }, { materials: 200, work: 0.5, value: 5 }] },
+      racks: { levels: [{ materials: 100, work: 0.5, value: 12 }, { materials: 200, work: 0.5, value: 16 }] },
+      tools: { levels: [{ materials: 100, work: 0.5, value: 0.8 }, { materials: 200, work: 0.5, value: 0.6 }] },
     },
     // Colony: the sample-return launch (its cost; `share` of the map's science, up to `cap` points) and the self-sufficient
     // base's factor on local production.
-    COLONY: { launch: { materials: 600, work: 2, share: 0.3, cap: 120 }, selfSufficient: 1.2 },
+    COLONY: { launch: { materials: 200, work: 0.5, share: 0.3, cap: 120 }, selfSufficient: 1.2 },
     // The scout drone: flights a round, range and the fog it clears (tiles).
     DRONE: { flights: 3, range: 40, reveal: 16 },
 
