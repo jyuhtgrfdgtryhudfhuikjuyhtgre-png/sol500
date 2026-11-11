@@ -130,7 +130,7 @@ function page(m, me, opts) {
   const root = S.mount(hooks), canvas = root.children[0];
   show(m);
   return {
-    sent, calls, walks, queued, cards, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
+    sent, calls, walks, queued, cards, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d), scene: o => S.scene(o),
     canvas, overlay: root.children[1], seen, resize: () => resized(), setGfx(g) { gfx = g; show(cur); },
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
     // `secs` of frames at `hz` with synthetic timestamps, as requestAnimationFrame gives them (the clock is the frame's exact time;
@@ -1364,6 +1364,49 @@ test("the rover's dust is as thick at 30 fps as at 144: it is thrown up by the s
   };
   const slow = count(30), fast = count(144);
   assert.ok(slow > 20 && Math.abs(fast / slow - 1) < 0.3, '30 fps: ' + slow + ' grains, 144 fps: ' + fast);
+});
+
+// ---------- the Showcase's scenes that board a vehicle (SolSurface.scene, M6 T9) ----------
+const SH = require('../src/showcase.js');
+// The demo mission as ui.js showScene builds it (the same options, then the card's prepare), on a page of its pilot.
+function demoPage(id) {
+  const c = SH.card(id), sc = D.SHOWCASE;
+  const s = E.createMission({
+    seed: SH.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, !c.full), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
+    pilot: D.CREW.find(x => x.role === 'commander').id, quick: !c.full, schedulePatch: c.schedule,
+  });
+  if (c.prepare) c.prepare(s, { E, Z, X });
+  return { c, s, pg: page(s, s.pilot) };
+}
+const sceneOf = c => ({ at: c.at, board: c.board, suit: c.suit, clock: c.clock }); // what ui.js setUpScene asks for
+
+test("the Showcase's cabin scene boards the pressurised rover outside the base zone, and the suit does not drain there", async () => {
+  const { c, s, pg } = demoPage('cabin');
+  await pg.scene(sceneOf(c));
+  const p = pg.probe().player;
+  assert.deepEqual([p.inRover, p.vehicle], [true, 'cabin'], 'at its wheel');
+  assert.deepEqual([plain(s.expedition.cabin), s.expedition.rover], [{ driver: s.pilot }, null], 'boarded by the rules');
+  assert.deepEqual(pg.cards, [{ type: 'm6', id: 'm6:cabin', key: 'cabin' }], 'its own card comes up by itself, as in a game');
+  assert.equal(X.inBaseZone(s, p, D.EXPEDITION.reach), false, 'outside the base zone');
+  const suit = pg.probe().eva.suit;
+  pg.step(5);
+  assert.equal(pg.probe().eva.suit, suit, '5 s out there: the suit is unchanged');
+  // Out of it on the same spot, the suit runs: the spot is one where a suit drains.
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  pg.step(2);
+  assert.equal(pg.probe().player.inRover, false);
+  assert.ok(pg.probe().eva.suit < suit - 1.5, 'on foot there it drains: ' + pg.probe().eva.suit);
+});
+
+test("the Showcase's rover scene is as it was: `board: true` boards the rover, not the pressurised rover", async () => {
+  const { c, s, pg } = demoPage('rover');
+  assert.equal(c.board, true);
+  await pg.scene(sceneOf(c));
+  assert.deepEqual([pg.probe().player.inRover, pg.probe().player.vehicle], [true, 'rover']);
+  assert.deepEqual([plain(s.expedition.rover), s.expedition.cabin], [{ driver: s.pilot }, null]);
+  assert.deepEqual(pg.calls, ['board']);
 });
 
 // ---------- the pressurised rover (M6) ----------
