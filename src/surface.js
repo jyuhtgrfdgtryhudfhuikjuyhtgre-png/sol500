@@ -26,7 +26,7 @@
 (function (root) {
   'use strict';
   const D = root.SolData, E = root.SolEngine, A = root.SolArt, W = root.SolWorldgen, SW = root.SolWorld, P = root.SolPaint, SM = root.SolMap, EV = root.SolEva, PH = root.SolPhysics;
-  const { drawAvatar, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks } = P.sprites;
+  const { drawAvatar, footfall, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks } = P.sprites;
   const T = 64;
   const BASE = W.BASE_RECT;
   const LANDER = [-6, -4];
@@ -729,7 +729,7 @@
       // Both refused (you are down, out of suit or battery, or in a corner): you stand still, and a click-to-walk ends here.
       if (!okX && !okY) { moving = false; p.path = null; }
       if (Math.abs(nx) > Math.abs(ny)) p.dir = nx > 0 ? 'right' : 'left'; else p.dir = ny > 0 ? 'down' : 'up';
-      p.phase += dt * sp / 26;
+      stride(p, dt * sp / 26);
       S.hintUntil = Math.min(S.hintUntil, S.time + 3);
     }
     // A throw obeys the exploring rules like a step: once the suit is out it ends where the collapse was asked for, not 2 tiles on.
@@ -820,7 +820,7 @@
       n.x += dx / d * sp * dt;
       n.y += dy / d * sp * dt;
       if (Math.abs(dx) > Math.abs(dy)) n.dir = dx > 0 ? 'right' : 'left'; else n.dir = dy > 0 ? 'down' : 'up';
-      n.phase += dt * sp / 26;
+      stride(n, dt * sp / 26);
       n.moving = true;
     }
   }
@@ -828,6 +828,14 @@
   // Dust and wheel tracks behind every rover that moves (a local effect, never sent). The dust flies up and falls back
   // under Mars' gravity (src/physics.js); the tracks, two lines of the last TRACKS points, fade as newer ones are laid.
   const TRACKS = 240, TRACK_GAP = 8;
+  // A walker's stride moves on by d (quiet: someone in a vehicle). Where a foot lands it kicks up a little dust, which flies
+  // and falls as the rover's does (a local effect, never sent).
+  function stride(o, d, quiet) {
+    const was = o.phase;
+    o.phase += d;
+    if (quiet || !footfall(was, o.phase)) return;
+    for (let i = 0; i < 3 && S.fx.dust.length < 160; i++) S.fx.dust.push({ x: o.x + (Math.random() - 0.5) * 10, y: o.y, z: 0.01, vx: (Math.random() - 0.5) * 40, vy: (Math.random() - 0.5) * 16, vz: 0.6 + Math.random() * 0.9, r: 2 + Math.random() * 2, age: 0 });
+  }
   function roverFx(dt) {
     const fx = S.fx, list = [], due = fx.due || (fx.due = {});
     if (S.player.inRover && S.player.car) list.push(['me', S.player.x, S.player.y, S.player.car.heading, S.player.moving]);
@@ -883,7 +891,7 @@
         const d = r.heading - r.shown;
         r.shown += (d - Math.round(d / (2 * Math.PI)) * 2 * Math.PI) * k;
       }
-      if (Math.hypot(dx, dy) > 1) r.phase += dt * 6;
+      if (Math.hypot(dx, dy) > 1) stride(r, dt * 6, r.rover);
       if (r.rover) r.odo = (r.odo || 0) + Math.hypot(dx, dy) * k; // its wheels roll as far as it moves
     }
   }
@@ -919,7 +927,7 @@
     const byId = id => m.crew.find(c => c.id === id);
     const color = role => A.ROLE[role] || '#ccc';
     const me = controlledCrew();
-    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover, vehicle: S.player.vehicle, heading: S.player.inRover && S.player.car ? S.player.car.heading : null, odo: S.player.odo || 0 });
+    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, working: S.eva.working(), air: S.eva.suitBar({ x: S.player.x, y: S.player.y, suit: S.eva.report().suit }), down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover, vehicle: S.player.vehicle, heading: S.player.inRover && S.player.car ? S.player.car.heading : null, odo: S.player.odo || 0 });
     for (const [id, n] of Object.entries(S.npcs)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;

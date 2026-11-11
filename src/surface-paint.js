@@ -870,8 +870,11 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(x, y + 2, 17, 6, 0, 0, Math.PI * 2); ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath(); ctx.ellipse(x, y + 2, 12, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    // A stride is a hop (M6.1): the walker leaves the ground and comes down as a jump does under steady gravity, a parabola.
+    // The shadow stays on the ground and shrinks under the hop.
+    const u = a.moving && !a.down ? (a.phase * STRIDE / Math.PI) % 1 : 0, air = 4 * u * (1 - u), hop = air * 7;
+    ctx.fillStyle = 'rgba(0,0,0,' + (0.35 - 0.13 * air).toFixed(2) + ')';
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 12 - 3 * air, 4.5 - 1.2 * air, 0, 0, Math.PI * 2); ctx.fill();
     if (a.down) {
       ctx.translate(x, y - 6);
       ctx.fillStyle = '#e9e2d8';
@@ -885,60 +888,121 @@
       tag(x, y - 34, name, '#f46e5f', a.you);
       return;
     }
-    const bob = a.moving ? Math.abs(Math.sin(a.phase)) * 2 : Math.sin(time * 2 + x) * 0.6;
-    const swing = a.moving ? Math.sin(a.phase) * 4 : 0;
-    // legs
-    ctx.fillStyle = '#d6cec3';
-    roundRect(ctx, x - 7, y - 11 + (swing > 0 ? 0 : 1), 6, 11 - (swing > 0 ? 0 : 1) + Math.max(0, swing * 0.3), 2); ctx.fill();
-    roundRect(ctx, x + 1, y - 11 + (swing < 0 ? 0 : 1), 6, 11 - (swing < 0 ? 0 : 1) + Math.max(0, -swing * 0.3), 2); ctx.fill();
-    ctx.fillStyle = '#6d6266';
-    ctx.fillRect(x - 7, y - 2, 6, 2); ctx.fillRect(x + 1, y - 2, 6, 2);
-    const by = y - 12 - bob;
-    // backpack behind (visible from the sides and back)
-    if (a.dir !== 'down') {
-      ctx.fillStyle = '#9da3a9';
-      const bx = a.dir === 'left' ? x + 4 : a.dir === 'right' ? x - 14 : x - 9;
-      roundRect(ctx, bx, by - 18, a.dir === 'up' ? 18 : 10, 16, 3); ctx.fill();
+    const step = a.moving ? Math.sin(a.phase * STRIDE) : 0; // which leg leads, -1..1: widest apart at the top of the hop
+    const side = a.dir === 'left' ? -1 : a.dir === 'right' ? 1 : 0, ws = side || 1; // ws: the side the tool is on
+    const seed = a.id ? String(a.id).charCodeAt(String(a.id).length - 1) : 0; // so the crew don't blink and glint together
+    const left = a.bar != null ? a.bar : a.air, low = left != null && left <= 0.2; // a fifth of the suit's air: the HUD's "low"
+    if (low) { // the suit pulses red, twice a second
+      const beat = 0.5 + 0.5 * Math.sin(time * 12);
+      ctx.fillStyle = 'rgba(244,70,60,' + (0.1 + 0.16 * beat).toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(x, y - 26 - hop, 24 + 4 * beat, 36 + 4 * beat, 0, 0, Math.PI * 2); ctx.fill();
     }
-    // arms
-    ctx.fillStyle = '#e1d9ce';
-    roundRect(ctx, x - 13, by - 17 + swing * 0.5, 5, 12, 2.5); ctx.fill();
-    roundRect(ctx, x + 8, by - 17 - swing * 0.5, 5, 12, 2.5); ctx.fill();
+    // From here the figure is drawn about its feet: lifted by the hop, leaning into a walk to the side, stretched in the
+    // air and squashed as it lands; standing, it breathes.
+    const stretch = a.moving ? 1 + 0.07 * (air - 0.45) : 1 + 0.018 * Math.sin(time * 2.2 + x);
+    ctx.translate(x, y - hop);
+    if (a.moving) ctx.rotate(side * 0.09);
+    ctx.scale(2 - stretch, stretch);
+    const by = -12, hy = by - 27;
+    const blink = low ? Math.sin(time * 12) > 0 : (time * 0.8 + seed * 0.37) % 1 < 0.18; // the suit's lamp: a flash; fast and red when the air is low
+    const lamp = (lx, ly) => {
+      const c = low ? '255,74,61' : '150,255,200';
+      if (blink) { ctx.fillStyle = 'rgba(' + c + ',0.3)'; ctx.beginPath(); ctx.arc(lx, ly, 5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = blink ? 'rgb(' + c + ')' : '#4a5a55';
+      ctx.beginPath(); ctx.arc(lx, ly, 1.8, 0, Math.PI * 2); ctx.fill();
+    };
+    // legs: from the side they swing from the hip; from the front or back the leading one lifts
+    const leg = (hx, k, shade) => {
+      ctx.save(); ctx.translate(hx, -11);
+      if (side) ctx.rotate(-side * k * 0.55);
+      const len = 11 - (side ? 0 : Math.max(0, k) * 4);
+      ctx.fillStyle = shade; roundRect(ctx, -3, 0, 6, len, 2); ctx.fill();
+      ctx.fillStyle = '#6d6266'; ctx.fillRect(side < 0 ? -5 : -3, len - 2, side ? 8 : 6, 2); // the boot, its toe forward
+      ctx.restore();
+    };
+    leg(side ? -1 : -4, step, '#c9c1b6'); leg(side ? 1 : 4, -step, '#d6cec3');
+    // the backpack, its lamp on it: behind the body from the side, on the back from behind (not seen from the front)
+    const pack = (bx, w) => { ctx.fillStyle = '#9da3a9'; roundRect(ctx, bx, by - 18, w, 16, 3); ctx.fill(); lamp(bx + w - 5, by - 14); };
+    if (side) pack(side < 0 ? 4 : -14, 10);
+    // arms: from the side they swing against the legs; from the front they float out in the air; the tool arm hammers
+    const arm = (sx, k, tool) => {
+      ctx.save(); ctx.translate(sx, by - 16 + (side || tool ? 0 : k * 2));
+      ctx.rotate(tool ? -ws * (1.6 + 0.4 * Math.sin(time * 11)) : side ? side * k * 0.7 : (sx < 0 ? 1 : -1) * (0.06 + air * 0.35));
+      ctx.fillStyle = '#e1d9ce'; roundRect(ctx, -2.5, -1, 5, 12, 2.5); ctx.fill();
+      if (tool) { ctx.fillStyle = '#6d6266'; ctx.fillRect(-1.5, 10, 3, 6); } // the tool in the hand
+      ctx.restore();
+    };
+    if (side) arm(0, step, false); else { arm(-10.5, step, a.working && ws < 0); arm(10.5, -step, a.working && ws > 0); }
     // torso
     ctx.fillStyle = '#ece5db';
-    roundRect(ctx, x - 9, by - 19, 18, 19, 5); ctx.fill();
+    roundRect(ctx, -9, by - 19, 18, 19, 5); ctx.fill();
     ctx.fillStyle = color;
-    ctx.fillRect(x - 9, by - 9, 18, 3);
-    if (a.dir === 'down') { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 4, by - 14, 2.2, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillRect(-9, by - 9, 18, 3);
+    if (a.dir === 'down') { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(4, by - 14, 2.2, 0, Math.PI * 2); ctx.fill(); lamp(-4, by - 14); }
+    if (a.dir === 'up') pack(-7, 14);
+    if (side) arm(0, -step, !!a.working); // the near arm, over the torso
     // helmet
-    const hy = by - 27;
     ctx.fillStyle = '#f4efe8';
     ctx.strokeStyle = '#b9afa4';
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(x, hy, 10.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, hy, 10.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = color;
-    roundRect(ctx, x - 3.5, hy - 12, 7, 3, 1.5); ctx.fill();
+    roundRect(ctx, -3.5, hy - 12, 7, 3, 1.5); ctx.fill();
     if (a.dir !== 'up') {
-      const ox = a.dir === 'left' ? -3 : a.dir === 'right' ? 3 : 0;
-      const grad = ctx.createLinearGradient(x, hy - 6, x, hy + 6);
+      const ox = side * 3, vw = a.dir === 'down' ? 7.5 : 6;
+      const grad = ctx.createLinearGradient(0, hy - 6, 0, hy + 6);
       grad.addColorStop(0, '#0e1a2b');
       grad.addColorStop(0.65, '#1f3c62');
       grad.addColorStop(1, color);
       ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.ellipse(x + ox, hy + 1, a.dir === 'down' ? 7.5 : 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(ox, hy + 1, vw, 6, 0, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.55)';
       ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(x + ox - 1, hy, 4.5, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ox - 1, hy, 4.5, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
+      const g = (time / 3.2 + seed * 0.21) % 1; // sunlight glints across the visor every 3 s
+      if (g < 0.3) {
+        const gx = ox + (g / 0.3 * 2 - 1) * (vw + 4);
+        ctx.save();
+        ctx.beginPath(); ctx.ellipse(ox, hy + 1, vw, 6, 0, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath(); ctx.moveTo(gx - 1, hy - 6); ctx.lineTo(gx + 3, hy - 6); ctx.lineTo(gx, hy + 8); ctx.lineTo(gx - 4, hy + 8); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
     }
     if (a.working) {
-      const wob = Math.sin(time * 6) * 1.5;
-      ctx.fillStyle = 'rgba(20,14,16,0.85)';
-      ctx.beginPath(); ctx.arc(x + 15, hy - 14 + wob, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(x + 15, hy - 14 + wob, 3, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 6; i++) { // sparks fly from the tool and fall
+        const n = time * 2.4 + i * 0.37, q = n % 1, ang = i * 2.4 + Math.floor(n) * 1.7;
+        ctx.fillStyle = 'rgba(255,' + Math.round(210 - 90 * q) + ',110,' + (1 - q).toFixed(2) + ')';
+        ctx.fillRect(ws * 19 + Math.cos(ang) * q * 13, by - 22 + Math.sin(ang) * q * 9 + q * q * 9, 2, 2);
+      }
+      if (!a.you) { // a crewmate's job badge (yours is the ring over what you work on)
+        const wob = Math.sin(time * 6) * 1.5;
+        ctx.fillStyle = 'rgba(20,14,16,0.85)';
+        ctx.beginPath(); ctx.arc(-ws * 15, hy - 14 + wob, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(-ws * 15, hy - 14 + wob, 3, 0, Math.PI * 2); ctx.fill();
+      }
     }
     ctx.restore();
-    tag(x, hy - 17, name, color, a.you);
+    tag(x, y - hop - 56, name, color, a.you);
+  }
+  // A stride is STRIDE of the walk's phase (surface.js moves it on with the distance walked), so the hops are long and
+  // slow, as a walk is in Mars' 38 % gravity. footfall: did a foot land between two phases? (surface.js kicks up dust there)
+  const STRIDE = 0.7;
+  const footfall = (was, now) => Math.floor(was * STRIDE / Math.PI) !== Math.floor(now * STRIDE / Math.PI);
+  // A find just collected, k = 0–1 of its way from the ground (x0, y0) into the backpack at (x1, y1): a bright bead on an
+  // arc, shrinking, then a ring of light where it lands.
+  function drawPop(ctx, kind, x0, y0, x1, y1, k) {
+    const e = k * k * (3 - 2 * k), px = x0 + (x1 - x0) * e, py = y0 + (y1 - y0) * e - Math.sin(k * Math.PI) * 30, c = FIND_GLOW[kind] || FIND_GLOW.pod;
+    ctx.save();
+    ctx.fillStyle = 'rgba(' + c + ',0.35)'; ctx.beginPath(); ctx.arc(px, py, 13 - 6 * k, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgb(' + c + ')'; ctx.beginPath(); ctx.arc(px, py, 6 - 3 * k, 0, Math.PI * 2); ctx.fill();
+    if (k > 0.7) {
+      const r = (k - 0.7) / 0.3;
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.85 * (1 - r)).toFixed(2) + ')'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x1, y1, 8 + r * 18, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // ---------- finds (spec §3.1) ----------
@@ -1144,6 +1208,6 @@
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, photoOf, tileable, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
-    sprites: { drawAvatar, drawRoverTop, drawCabinTop, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
+    sprites: { drawAvatar, footfall, drawPop, drawRoverTop, drawCabinTop, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
   };
 });

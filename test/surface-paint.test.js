@@ -531,3 +531,25 @@ test("the base ground follows the rank's land", () => {
   p.work(Infinity);
   assert.equal(p.stats().queue, 0);
 });
+
+test('an astronaut on foot hops through each stride, kicks dust where a foot lands, pulses red on low air and throws sparks at work', () => {
+  const draw = a => {
+    const { ctx, calls } = recorder();
+    ctx.createLinearGradient = () => ({ addColorStop() {} });
+    const tags = [];
+    P.sprites.drawAvatar(ctx, Object.assign({ x: 100, y: 200, dir: 'right', phase: 0, moving: false, color: '#4fd0c4' }, a), 'Lena', 0, tags);
+    return { calls, lift: 200 - calls.find(c => c[0] === 'translate')[2], tagY: tags[0].y };
+  };
+  const stride = Math.PI / 0.7, standing = draw({}), top = draw({ moving: true, phase: stride / 2 }), landed = draw({ moving: true, phase: stride });
+  assert.equal(standing.lift, 0, 'standing: on the ground');
+  assert.equal(top.lift, 7, 'mid-stride: 7 px up, the top of the hop');
+  assert.ok(landed.lift < 0.001, 'at the end of the stride: down again');
+  assert.equal(top.tagY, standing.tagY - 7, 'the name tag rides the hop');
+  assert.ok(P.sprites.footfall(stride - 0.01, stride + 0.01) && !P.sprites.footfall(0.1, 0.2), 'a foot lands once a stride');
+  const halo = c => c[0] === 'ellipse' && c[3] === 26 && c[4] === 38; // the red pulse round the suit, at time 0
+  assert.ok(draw({ air: 0.2 }).calls.some(halo) && draw({ bar: 0.1 }).calls.some(halo), 'a fifth of the air left: yours and a teammate are both drawn pulsing');
+  assert.ok(!draw({ air: 0.21 }).calls.some(halo) && !standing.calls.some(halo), 'not above that, nor with no level known');
+  const sparks = r => r.calls.filter(c => c[0] === 'fillRect' && c[3] === 2 && c[4] === 2).length;
+  assert.equal(sparks(draw({ working: true, you: true })), 6, 'at work: six sparks');
+  assert.equal(sparks(standing), 0);
+});

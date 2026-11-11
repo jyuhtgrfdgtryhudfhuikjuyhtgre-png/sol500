@@ -49,7 +49,7 @@
 (function (root) {
   'use strict';
   const D = root.SolData, E = root.SolEngine, W = root.SolWorldgen, X = root.SolExpedition, Z = root.SolDangers, P = root.SolPaint, SW = root.SolWorld, A = root.SolArt, PH = root.SolPhysics;
-  const { drawFind, drawDrop, drawRing, drawDevil, drawBeacon, drawPing, roundRect } = P.sprites;
+  const { drawFind, drawPop, drawDrop, drawRing, drawDevil, drawBeacon, drawPing, roundRect } = P.sprites;
   const XD = D.EXPEDITION, ZD = D.DANGERS;
   const T = 64, ICY = W.REGIONS.indexOf('icy');
   const REACH = 0.9 * T;                        // how close the spot you look at must be to a find
@@ -107,6 +107,7 @@
     const wall = () => (env.now ? env.now() : 0);
     let data = null, me = null, turn = null, wasDown = false;
     let suit = XD.suit, dv = { rover: 0, cabin: 0 }, seat = null, hold = null, keyHeld = false; // dv: each vehicle's tiles this round
+    let pops = []; // finds just collected, on their way into your backpack: { kind, x, y, t } (a local effect)
     let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [], refillAt = -1e9, inPod = null;
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
@@ -608,6 +609,7 @@
           if (p.moving || !focus || focus.key !== hold.f.key) hold = null;
           else if ((hold.t += dt) >= hold.dur) finish(p);
         }
+        if (pops.length) pops = pops.filter(q => (q.t += dt) < 0.5);
         if (now - reportAt > 2) {
           reportAt = now;
           const h = env.hooks();
@@ -633,6 +635,7 @@
         // it, so the note says only what the beacon does for a suit (R28: two lines of the HUD column).
         if (f.kind === 'beacon') return say(t('eva.placed', { name: beaconName(r.beacon), r: XD.beacon.refill }), 'ok', 6);
         if (f.kind === 'find') {
+          pops.push({ kind: f.find.kind, x: f.x, y: f.y, t: 0 });
           say(r.item ? t('haul.' + r.item.res, { n: r.item.amount }) : t('eva.collected'), 'ok', 2);
           // A formation's survey: its real fact and source, once per formation (spec §3.7).
           if (f.id[0] === 'F') card({ type: 'formation', id: f.id.split(':')[0], kind: f.find.sub });
@@ -802,6 +805,8 @@
       const d = dronePos();
       if (d) drawDrone(ctx, d.x, d.y, now);
       if (hold) drawRing(ctx, hold.f.x, hold.f.y - 40, hold.t / hold.dur);
+      const p = env.player();
+      for (const q of pops) drawPop(ctx, q.kind, q.x, q.y, p.x, p.y - 30, q.t / 0.5);
     }
     // The flare on the whole screen: a red edge that grows through the countdown while you are in the open, then a flash.
     function flareFx(p) {
@@ -862,6 +867,7 @@
       el, alert, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, takeKit, returnKit, drawZone, sprites, drawOver,
       flareFx, suitBar, marks, lines, clock, addPing, speed, drone, cancelDrone, flyTo, rings,
       aiming: () => aim,
+      working: () => !!hold, // holding E on something: your astronaut is drawn at work
       view: viewOf,
       alerting: () => !alert.hidden,
       // While you are down your suit is not sent: a position in flight could undo a revive the server has just made.
