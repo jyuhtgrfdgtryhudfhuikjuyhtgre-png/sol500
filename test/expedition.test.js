@@ -1492,3 +1492,52 @@ test('a 3.7.0 expedition, with no pressurised rover fields, loads with them fres
   const r = E.repairExpedition(x);
   assert.deepEqual([r.cabin, r.cabinDriven, r.riders], [null, 0, {}]);
 });
+
+test('a passenger rides along and gets out where it parks', () => {
+  const m = withCabin(E.createMission({ seed: 'EXP-RIDE', loadout: ROVER_KIT, events: false, coop: true })), x = m.expedition, bay = X.bay(m, 'cabin');
+  const out = at(30, 0), where = { lena: out }; // where the crew stand (the server's positions): lena drives it out there
+  assert.equal(X.ride(m, 'minh', out, where).error, 'notDriven', 'nobody drives it');
+  assert.deepEqual(X.board(m, 'lena', bay, 'cabin'), { ok: true });
+  assert.equal(X.ride(m, 'minh', at(34, 0), where).error, 'tooFar', 'within reach of it');
+  assert.equal(X.ride(m, 'minh', at(30, 1), {}).error, 'tooFar', 'nor where nobody knows it is');
+  assert.equal(X.ride(m, 'lena', out, where).error, 'inVehicle', 'its driver is in it already');
+  assert.equal(X.ride(solo('EXP-RIDE'), 'minh', out, where).error, 'solo', 'a passenger is a teammate');
+  assert.deepEqual(X.ride(m, 'minh', at(30, 1), where), { ok: true });
+  assert.deepEqual(x.riders, { minh: 'cabin' });
+  assert.equal(X.vehicleOf(m, 'minh'), 'cabin', 'in it');
+  assert.equal(X.addDistance(m, 'minh', at(30, 1), at(31, 1), 1), 0, 'a ride is not a walk (its position says it is on foot)');
+  assert.deepEqual(x.cabin, { driver: 'lena' }, 'still driven by lena');
+  assert.equal(X.ride(m, 'diego', at(30, 1), where).error, 'full', 'one passenger');
+  assert.equal(X.board(m, 'minh', X.bay(m)).error, 'inVehicle', 'a passenger takes no other vehicle');
+  // You breathe the cabin's air as a passenger too; your backpack is still your backpack.
+  X.setSuit(m, 'minh', 60);
+  assert.equal(X.suitOf(m, 'minh'), X.suitMax(m), 'no suit drain');
+  assert.equal(X.capacity(m, 'minh'), X.packOf(m));
+  // The driver parks: both get out there.
+  const stop = at(40, -12);
+  assert.deepEqual(X.park(m, 'lena', stop, 30, 'cabin'), { ok: true, home: false });
+  assert.deepEqual(x.riders, {}, 'the passenger is out');
+  assert.equal(X.vehicleOf(m, 'minh'), null);
+  assert.deepEqual(X.board(m, 'minh', stop, 'cabin'), { ok: true }, 'standing by it where it stopped');
+  // Alight works any time; out of it, the suit drains again.
+  assert.deepEqual(X.ride(m, 'lena', stop, { minh: stop }), { ok: true });
+  assert.deepEqual(X.alight(m, 'lena'), { ok: true });
+  assert.equal(X.alight(m, 'lena').error, 'notRiding');
+  X.setSuit(m, 'lena', 60);
+  assert.equal(X.suitOf(m, 'lena'), 60);
+  // A driver who collapses lets the passenger out too, and a new round has nobody in a seat.
+  assert.deepEqual(X.ride(m, 'diego', stop, { minh: stop }), { ok: true });
+  assert.equal(X.collapse(m, 'minh', stop, 31).ok, true);
+  assert.deepEqual(x.riders, {});
+  assert.deepEqual(X.ride(m, 'diego', stop, { lena: stop }).error, 'notDriven');
+  assert.deepEqual(X.ride(m, 'amara', stop, {}).error, 'notDriven');
+  x.riders.amara = 'cabin';
+  assert.deepEqual(E.resolveTurn(m, E.defaultPlan(m)).state.expedition.riders, {});
+});
+
+test('the passenger actions run in the rules table, with where the crew stand', () => {
+  const m = withCabin(coop('EXP-RIDE')), bay = X.bay(m, 'cabin');
+  X.board(m, 'lena', bay, 'cabin');
+  assert.deepEqual(Z.act(m, 'minh', 'ride', {}, bay, { lena: bay }), { ok: true });
+  assert.deepEqual(Z.act(m, 'minh', 'alight', {}, bay), { ok: true });
+});

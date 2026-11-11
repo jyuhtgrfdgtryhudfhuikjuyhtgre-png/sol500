@@ -114,7 +114,7 @@ function page(m, me, opts) {
   const hooks = {
     exp: (type, payload, pos) => {
       calls.push(type);
-      const r = Z.act(cur, me, type, payload, pos);
+      const r = Z.act(cur, me, type, payload, pos, o.positions); // o.positions: where the server last saw the crew (co-op)
       if (!r.error) show(cur);
       return Promise.resolve(r);
     },
@@ -1409,4 +1409,53 @@ test("a crewmate in the pressurised rover is told apart from one in the rover", 
   const pg = page(withCabin(mission({ seed: 'CABIN-2' })), 'minh');
   pg.remote([{ crewId: 'diego', x: 640, y: 640, rover: true, vehicle: 'cabin', moving: false, dir: 'down' }, { crewId: 'lena', x: 900, y: 640, rover: true, moving: false, dir: 'down' }]);
   assert.deepEqual([pg.probe().remote.diego.vehicle, pg.probe().remote.lena.vehicle], ['cabin', 'rover'], 'a game from before M6 is in the rover');
+});
+
+test("a passenger rides along in a teammate's pressurised rover: E by it gets in, you go where it goes and breathe its air, and get out where it parks", async () => {
+  const m = withCabin(mission({ seed: 'CABIN-RIDE', coop: true })), x = m.expedition;
+  const [tx, ty] = openRow(m.seed, 24), near = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 1;
+  const spot = { x: (tx + 4.5) * T, y: (ty + 0.5) * T }, far = { x: spot.x + 12 * T, y: spot.y };
+  assert.equal(X.board(m, 'lena', X.bay(m, 'cabin'), 'cabin').ok, true);
+  const where = { lena: spot }, drive = (at, moving) => pg.remote([{ crewId: 'lena', x: at.x, y: at.y, rover: true, vehicle: 'cabin', moving, dir: 'right' }]);
+  const pg = page(m, 'minh', { positions: where });
+  pg.qa.teleport(tx + 3, ty); // a tile west of it
+  drive(spot, false);
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'ride', 'E rides along');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual(pg.calls, ['ride']);
+  assert.deepEqual(plain(x.riders), { minh: 'cabin' });
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'alight', 'and E gets out again');
+  assert.ok(near(pg.probe().player, spot), 'in its seat');
+  // lena drives off east: minh goes with her, breathing the cabin's air.
+  const suit = pg.probe().eva.suit;
+  pg.key('KeyW'); // a passenger does not steer
+  drive(far, true);
+  pg.step(3);
+  pg.key('KeyW', false);
+  assert.ok(near(pg.probe().player, far), 'where it is: ' + JSON.stringify(pg.probe().player));
+  assert.equal(pg.probe().eva.suit, suit, 'no suit drain');
+  assert.deepEqual([pg.probe().player.inRover, pg.sent.at(-1).rover], [false, false], "a passenger is not its driver: the cabin is lena's to park");
+  // E gets out any time, and back in.
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual([pg.calls.at(-1), plain(x.riders)], ['alight', {}]);
+  where.lena = far; // where the server last saw her
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'ride');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual([pg.calls.at(-1), plain(x.riders)], ['ride', { minh: 'cabin' }]);
+  // She parks: minh is out there too, on foot, and the suit drains again.
+  assert.equal(X.park(m, 'lena', far, 12, 'cabin').ok, true);
+  pg.show(m);
+  pg.step(2);
+  assert.notEqual(pg.probe().focusKey, 'alight');
+  assert.ok(near(pg.probe().player, far), 'out where it parked');
+  assert.ok(pg.probe().eva.suit < suit, 'breathing the suit again');
 });

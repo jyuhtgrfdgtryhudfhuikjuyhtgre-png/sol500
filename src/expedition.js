@@ -21,7 +21,8 @@
  *        "F<cx>,<cy>:0") · deliver(m, crewId, pos) · useCanister(m, crewId, pos, liveSuit)
  *      pickUp(m, crewId, dropId, pos) · collapse(m, crewId, pos, driven) · revive(m, crewId, targetId, pos)
  *      board(m, crewId, pos, kind) · park(m, crewId, pos, driven, kind) (kind: 'rover', the default, or 'cabin', the
- *        pressurised rover, M6) · vehicleOf(m, crewId) → 'rover' | 'cabin' | null: the vehicle they are in
+ *        pressurised rover, M6) · vehicleOf(m, crewId) → 'rover' | 'cabin' | null: the vehicle they are in (driving it, or
+ *        riding in the pressurised rover) · ride(m, crewId, pos, positions) · alight(m, crewId): co-op's passenger (M6)
  *      discover(m, crewId, landmarkId, pos) → { ok, landmark, science }: the first sighting of a landmark's centre
  *      interact(m, crewId, structId, pos) → { ok, done: 'used' | 'repaired', items, left, fog }: a Kestrel structure
  *      refill(m, crewId, id, pos) → { ok, suit }: a full suit inside a hab pod ("S<i>,<j>") or by a relay beacon ("B<i>"),
@@ -163,7 +164,7 @@
   const drives = (x, id) => KINDS.find(k => drivesThe(x, id, k)) || null; // the vehicle they drive, or null
   function vehicleOf(m, crewId) {
     const x = m && m.expedition;
-    return x ? drives(x, crewId) : null;
+    return x ? drives(x, crewId) || (x.riders && x.riders[crewId] === 'cabin' ? 'cabin' : null) : null;
   }
   // Fabricator gear (M6): the levels bought apply to the whole crew at once. A mission with none (a Quick one, a 3.7.0 save)
   // has today's numbers.
@@ -264,6 +265,7 @@
   // a sample in the rover counts for nothing (the rover has its own odometer, roverDriven).
   function addDistance(m, crewId, from, to, dt) {
     if (able(m, crewId).error || !okPos(from) || !okPos(to) || from.rover || to.rover) return 0;
+    if (m.expedition.riders && m.expedition.riders[crewId]) return 0; // a passenger's ride (M6): their position says on foot
     const walk = D.TEAM.walk;
     let tiles = Math.hypot(to.x - from.x, to.y - from.y) / T;
     if (tiles > walk.jump) return 0;
@@ -358,6 +360,7 @@
     if (k) {
       setRoverDriven(m, crewId, driven);
       x[k] = { x: spot.x, y: spot.y };
+      if (k === 'cabin') x.riders = {}; // its passenger gets out there too
     }
     if (m.coop) {
       x.collapsed[crewId] = spot;
@@ -425,7 +428,30 @@
     const b = k === 'cabin' && bay(m, k);
     const home = nearPx(pos, 0.5 * T, 0.5 * T, k === 'cabin' ? X.cabin.home : X.roverHome) || (!!b && nearPx(pos, b.x, b.y, X.reach + 0.5));
     x[k] = home ? null : { x: Math.round(pos.x), y: Math.round(pos.y) };
+    if (k === 'cabin') x.riders = {}; // its passenger gets out where it parks
     return { ok: true, home };
+  }
+  // Co-op's passenger (M6): rides along in the pressurised rover a teammate drives, within reach of where the driver's game
+  // last said it was (positions: the server's, as speedFactor's), in its free seat (EXPEDITION.cabin.riders). Inside you
+  // breathe its air (setSuit); you get out with alight, any time, or where the driver parks.
+  function ride(m, crewId, pos, positions) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!m.coop) return { error: 'solo' };
+    if (!okPos(pos)) return { error: 'badPos' };
+    const x = m.expedition, driver = x.cabin && x.cabin.driver, at = driver && spotIn(positions, driver);
+    if (vehicleOf(m, crewId)) return { error: 'inVehicle' };
+    if (!driver) return { error: 'notDriven' };
+    if (Object.keys(x.riders).length >= X.cabin.riders) return { error: 'full' };
+    if (!at || !nearPx(pos, at.x, at.y, X.reach + 0.5)) return { error: 'tooFar' };
+    x.riders[crewId] = 'cabin';
+    return { ok: true };
+  }
+  function alight(m, crewId) {
+    const x = m && m.expedition;
+    if (!x || !x.riders || !x.riders[crewId]) return { error: 'notRiding' };
+    delete x.riders[crewId];
+    return { ok: true };
   }
 
   // A vehicle's battery: it drives rangeOf(kind) tiles a round and recharges overnight (spec ruling, M4a). → tiles left.
@@ -700,6 +726,7 @@
   return {
     findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, commanderOut, speedFactor, addDistance, capacity, suitMax, packOf, rackOf, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
     left, vehicleOf,
+    ride, alight,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
     interact, refill, forecastAhead, mastMarks, takeKit, returnKit, beaconSpot, placeBeacon, routeHome,
     cacheSize: () => cache.size,

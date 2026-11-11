@@ -41,6 +41,10 @@
   // drive by their own physics. A player in one has inRover set, and vehicle 'cabin' in the pressurised rover (none: the rover).
   const headOf = k => (k === 'cabin' ? 'cabinHeading' : 'roverHeading');
   const specOf = p => (p.vehicle === 'cabin' ? PH.CABIN : PH.ROVER);
+  // Co-op's passenger (M6): crewId rides while the rules have them in the pressurised rover's seat (expedition.riders), and goes
+  // where its driver's relayed position says it is.
+  const rides = id => { const x = S.data.mission.expedition; return !!(x && x.riders && x.riders[id]); };
+  const cabinDriver = () => { const x = S.data.mission.expedition, d = x && x.cabin && x.cabin.driver; return d && d !== S.data.controlId ? S.remote[d] || null : null; };
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   let S = null;
@@ -639,6 +643,12 @@
     const p = S.player, ox = p.x, oy = p.y;
     const me = controlledCrew();
     const canMove = me && me.status === 'active';
+    if (rides(S.data.controlId)) { // a passenger does not steer: they sit where the pressurised rover is
+      const d = cabinDriver();
+      if (d) Object.assign(p, { x: d.x, y: d.y, path: null, push: null });
+      p.moving = p.sprinting = false;
+      return 0;
+    }
     let vx = 0, vy = 0;
     if (canMove) {
       if (S.keys.has('KeyW') || S.keys.has('ArrowUp')) vy -= 1;
@@ -957,6 +967,9 @@
     const lx = p.x + dx * 38, ly = p.y - 8 + dy * 34;
     const crew = avatars().find(a => !a.you && !a.remote && Math.hypot(a.x - lx, a.y - ly) < 30);
     if (crew) f = { kind: 'crew', key: 'c:' + crew.id, id: crew.id };
+    // The pressurised rover a teammate drives, by you with its seat free: E rides along.
+    const d = cabinDriver(), x = S.data.mission.expedition;
+    if (!f && d && !p.inRover && Object.keys(x.riders || {}).length < D.EXPEDITION.cabin.riders && Math.hypot(p.x - d.x, p.y - d.y) < D.EXPEDITION.reach * T) f = { kind: 'ride', key: 'ride' };
     const ef = S.eva.focusAt(lx, ly, p, S.world); // a find, a dropped load, a crewmate down outside, the parked rover
     if (!f && !(ef && ef.kind === 'beacon')) f = ef;
     if (!f) f = focusAt(Math.floor(lx / T), Math.floor(ly / T));
@@ -969,6 +982,7 @@
     // In the rover, E gets you out, unless there is work right there: a crewmate to revive, or a find or a dropped load your
     // backpack has room for (you step out to work on it and get back in). A full backpack never keeps you in a flat rover.
     if (p.inRover) f = ef && S.eva.holdable(ef) && (ef.kind === 'revive' || S.eva.hasRoom()) ? ef : { kind: 'rover', key: 'rover-exit', driving: true, vehicle: p.vehicle };
+    if (rides(S.data.controlId)) f = { kind: 'ride', key: 'alight', riding: true }; // a passenger's E gets them out, any time
     const changed = (f && f.key) !== (S.focus && S.focus.key);
     S.focus = f;
     if (changed && S.menuOpen) closeMenu();
@@ -979,6 +993,7 @@
     if (!f) return '';
     switch (f.kind) {
       case 'hq': return t('mod.hab');
+      case 'ride': return t(f.riding ? 'sf.exitCabin' : 'sf.ride');
       case 'rover': return t(f.vehicle === 'cabin' ? (f.driving ? 'sf.exitCabin' : 'sf.boardCabin') : f.driving ? 'sf.exitRover' : 'sf.boardRover');
       case 'structure': return t('mod.' + f.type);
       case 'project': return t('mod.' + f.project.type) + ' · ' + t('bld.projects');
@@ -1017,6 +1032,11 @@
     if (!S.focus) return;
     if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
     if (S.focus.kind === 'rover') { toggleRover(S.focus.vehicle); return; }
+    if (S.focus.kind === 'ride') { // a passenger gets in, or out where it is now (by a rock: the nearest open spot)
+      const p = S.player, out = !!S.focus.riding;
+      S.eva.act(out ? 'alight' : 'ride', p).then(r => { if (r.ok && out && hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } } });
+      return;
+    }
     if (S.focus.kind === 'beacon' || S.focus.kind === 'drop') return; // where a beacon cannot go, or a load will not fit: the prompt says why, and there is no menu
     openMenu();
   }
@@ -1337,6 +1357,7 @@
     sprites.push({ y: LANDER[1] * T + T / 2 + 22, draw: () => drawLander(ctx, LANDER[0], LANDER[1]) });
     for (const a of avatars()) {
       if (a.x < x0 - T * 2 || a.x > x1 + T * 2 || a.y < y0 - T || a.y > y1 + T * 3) continue; // off screen
+      if (rides(a.id)) continue; // a passenger is inside the pressurised rover their driver is drawn as (M6)
       let name = S.data.crewName(a.id);
       if (a.you) name = t('sf.you') + ' · ' + name;
       // Someone lying down is drawn after what stands at the same spot, so a fallen driver is not hidden by the parked rover.

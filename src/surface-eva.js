@@ -59,7 +59,8 @@
   const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science', kit: 'kit' };
   // No message when these are refused: they are retried, or harmless (a discovery is asked for when a landmark comes into
   // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
-  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
+  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill',
+    'alight']; // M6: a passenger the driver's park has just let out is out already
   const VERDICT = 8;                             // seconds the flare's verdict stays on the banner
   const INSIDE = { cave: 'eva.inCave', tube: 'eva.inTube', pod: 'eva.inPod' }; // the note while you are in cover out there
   // What holding E does at a Kestrel structure's door (the hab pod has no hold: you walk in).
@@ -110,6 +111,8 @@
     const clock = () => (coopClock ? coopClock.t + (wall() - coopClock.at) : soloClock);
     const driven = () => dv[seat || 'rover'];      // the battery of the vehicle you were in last frame (the rover's on foot)
     const flat = p => { const k = kindOf(p); return !!k && dv[k] >= rangeOf(k); };
+    // In the pressurised rover (M6): its driver, or co-op's passenger while the rules have them in its seat (expedition.riders).
+    const inCabin = p => kindOf(p) === 'cabin' || (!!me && !!mission() && !!mission().expedition && !!(exp().riders || {})[me]);
     function say(text, cls, s) { note = { text, cls: cls || '', until: now + (s || 3) }; }
     // A point of interest's card over the surface (ui.js shows each once a mission): { type: 'log' | ..., id, kind }.
     const card = c => { const h = env.hooks(); if (h && h.card) h.card(c); };
@@ -221,7 +224,7 @@
         const safe = covered(p);
         // − 1e-6: float noise (263.182 − 203.182 is 60.00000000000003) must not round a whole second up to 61.
         // The pressurised rover is no cover (M6): out in the open it says so.
-        return { cls: safe ? 'ok' : 'crit', msg: t(safe ? 'eva.flare.covered' : kindOf(p) === 'cabin' ? 'eva.cabinFlare' : 'eva.flare.run'), left: Math.ceil(f.end - rt - 1e-6) };
+        return { cls: safe ? 'ok' : 'crit', msg: t(safe ? 'eva.flare.covered' : inCabin(p) ? 'eva.cabinFlare' : 'eva.flare.run'), left: Math.ceil(f.end - rt - 1e-6) };
       }
       if (rt >= f.end + VERDICT) return null;
       const hit = f.hit.includes(me);
@@ -235,7 +238,7 @@
       if (flat(p)) return { text: t(kindOf(p) === 'cabin' ? 'eva.cabinFlat' : 'eva.flat'), cls: 'warn' };
       const atBase = !!p && X.inBaseZone(mission(), p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t(pack().some(i => !E.isKit(i)) ? 'eva.full' : 'eva.fullKits'), cls: '' }; // kits are placed, not delivered
-      if (live() && kindOf(p) === 'cabin' && !hold && !atBase) return { text: t('eva.cabinAir'), cls: 'ok' };
+      if (live() && inCabin(p) && !hold && !atBase) return { text: t('eva.cabinAir'), cls: 'ok' };
       if (live() && suit <= suitMax() * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
       const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
       if (cover) return { text: t(cover), cls: 'ok' };
@@ -279,7 +282,7 @@
       const atBase = !!p && X.inBaseZone(mission(), p);
       text(suitM.k, 'sk', t('eva.suit'));
       const seconds = t('eva.secs', { s: Math.ceil(suit) }); // one unit, paused or not
-      text(suitM.v, 'sv', (atBase && !benched()) || (kindOf(p) === 'cabin' && !hold) ? t('eva.paused', { v: seconds }) : seconds);
+      text(suitM.v, 'sv', (atBase && !benched()) || (inCabin(p) && !hold) ? t('eva.paused', { v: seconds }) : seconds);
       prop('sw', (100 * Math.min(1, suit / suitMax())).toFixed(1) + '%', v => { suitM.fill.style.width = v; });
       const f = suit / suitMax();
       prop('sc', 'sf-suit' + (f <= 0.2 ? ' crit' : f <= 0.4 ? ' warn' : ''), v => { suitM.row.className = v; });
@@ -327,7 +330,8 @@
       if (!h || !h.exp) return Promise.resolve({ error: 'net' });
       return Promise.resolve(h.exp(type, payload || {}, p ? at(p) : null)).then(r => {
         const res = r || { error: 'net' };
-        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + res.error, { s: canBelow() }), 'warn');
+        // A ride refused for its one seat (M6) is not a full backpack.
+        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + (type === 'ride' && res.error === 'full' ? 'seatTaken' : res.error), { s: canBelow() }), 'warn');
         return res;
       }, () => { if (!QUIET.includes(type)) say(t('eva.err.net'), 'warn'); return { error: 'net' }; });
     }
@@ -443,13 +447,13 @@
         if (seat && moved > 0) dv[seat] = Math.min(rangeOf(seat), dv[seat] + moved / T * (p.drain || 1));
         if (out) {
           // You step out of the vehicle to work; in the pressurised rover you breathe its air (drain 0).
-          let k = p.inRover && !hold ? (seat === 'cabin' ? XD.cabin.drain : XD.drain.rover) : 1;
+          let k = inCabin(p) && !hold ? XD.cabin.drain : p.inRover && !hold ? XD.drain.rover : 1;
           if (p.sprinting) k *= XD.drain.sprint;
           if (world.region(Math.floor(p.x / T), Math.floor(p.y / T)) === ICY) k *= XD.drain.icy;
           suit = Math.max(0, suit - dt * k);
           // A dust devil that catches you on foot throws you aside and takes suit time (spec §3.4); the rover is immune. A hit
           // that empties the suit throws nobody: you collapse where it caught you, which is where the server anchors it.
-          const d = !p.inRover && now - hitAt > ZD.devils.calm ? Z.devilHit(m, p, clock()) : null;
+          const d = !p.inRover && !inCabin(p) && now - hitAt > ZD.devils.calm ? Z.devilHit(m, p, clock()) : null;
           if (d) {
             hitAt = now;
             hold = null;

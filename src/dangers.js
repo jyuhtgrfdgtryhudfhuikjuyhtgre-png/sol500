@@ -31,8 +31,9 @@
  *      devils(m, x0, y0, x1, y1, t) → [{ id, x, y, a, dx, dy, spin }] in that box (world px) at round time t;
  *        a: 0–1, how formed it is (it fades in and out); (dx, dy): the way it drifts
  *      devilHit(m, pos, t) → the formed devil close enough to hit you at pos, or null
- *      act(m, crewId, type, body, pos) → the rules' answer to one exploring action ({ ok, ... } or { error }; 'badAction' for
- *        one they do not have): the one table solo play and the co-op server both run
+ *      act(m, crewId, type, body, pos, positions) → the rules' answer to one exploring action ({ ok, ... } or { error };
+ *        'badAction' for one they do not have): the one table solo play and the co-op server both run (positions: where
+ *        the crew stand, the server's, for a passenger's ride, M6)
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./data.js'), require('./worldgen.js'), require('./engine.js'), require('./expedition.js'));
@@ -244,6 +245,8 @@
     revive: (m, id, b, pos) => X.revive(m, id, b.target, pos),
     board: (m, id, b, pos) => X.board(m, id, pos, b.kind), // kind: 'rover' (none) or 'cabin' (M6)
     park: (m, id, b, pos) => X.park(m, id, pos, b.driven, b.kind),
+    ride: (m, id, b, pos, all) => X.ride(m, id, pos, all), // co-op's passenger (M6); all: where the crew stand (the server's)
+    alight: (m, id) => X.alight(m, id),
     discover: (m, id, b, pos) => X.discover(m, id, b.landmark, pos),
     interact: (m, id, b, pos) => X.interact(m, id, b.structure, pos),
     refill: (m, id, b, pos) => X.refill(m, id, b.beacon || b.pod, pos), // a relay beacon's id ("B<i>") or a hab pod's
@@ -255,9 +258,9 @@
     flareStart: (m, id, b) => flareStart(m, b.t),
     flareEnd: (m, id, b, pos) => flareEnd(m, { [id]: pos }, slackOf(m), b.t),
   };
-  function act(m, crewId, type, body, pos) {
+  function act(m, crewId, type, body, pos, positions) {
     const run = Object.prototype.hasOwnProperty.call(ACTIONS, type) ? ACTIONS[type] : null;
-    return run ? run(m, crewId, body || {}, pos) : { error: 'badAction' };
+    return run ? run(m, crewId, body || {}, pos, positions) : { error: 'badAction' };
   }
 
   return { viewTiles, viewAt, outside, coversIn, shelterAt, slackOf, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit, act };

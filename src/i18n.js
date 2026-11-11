@@ -1370,6 +1370,11 @@
     'card.cabin.title': 'Aboard the pressurized rover',
     'card.cabin.body': 'Inside, you breathe the cabin’s air, so your suit does not drain. Your pressurized rover is based on a rover Japan is building for NASA’s Artemis Moon missions: under an agreement with NASA, Japan will design, develop and operate it, and it will hold two astronauts for up to 30 days.',
     'card.cabin.src': 'm6Pressurized',
+    // Co-op's passenger (src/surface.js): E by the pressurised rover a teammate drives.
+    'sf.ride': 'Ride along in the pressurized rover',
+    'eva.err.seatTaken': 'Someone is already riding in the pressurized rover.',
+    'eva.err.notDriven': 'Nobody is driving the pressurized rover now.',
+    'eva.err.notRiding': 'You are not riding in the pressurized rover.',
     // M6 T7
     'eva.droneFly': 'Fly the drone',
     // M6 T9
@@ -2640,6 +2645,11 @@
     'card.cabin.title': 'Trên xe thám hiểm điều áp',
     'card.cabin.body': 'Ở trong xe, bạn thở không khí của xe, nên bộ đồ không hao oxy. Xe thám hiểm điều áp của bạn dựa trên một chiếc xe Nhật Bản đang làm cho các sứ mệnh Mặt Trăng Artemis của NASA: theo thỏa thuận với NASA, Nhật Bản sẽ thiết kế, phát triển và vận hành nó, và nó sẽ chở được hai phi hành gia trong tối đa 30 ngày.',
     'card.cabin.src': 'm6Pressurized',
+    // Hành khách khi chơi cùng nhau (src/surface.js): nhấn E cạnh xe thám hiểm điều áp một đồng đội đang lái.
+    'sf.ride': 'Đi cùng xe thám hiểm điều áp',
+    'eva.err.seatTaken': 'Đã có người ngồi cùng trên xe thám hiểm điều áp.',
+    'eva.err.notDriven': 'Lúc này không ai lái xe thám hiểm điều áp.',
+    'eva.err.notRiding': 'Bạn đang không ngồi trên xe thám hiểm điều áp.',
     // M6 T7
     'eva.droneFly': 'Cho drone bay',
     // M6 T9

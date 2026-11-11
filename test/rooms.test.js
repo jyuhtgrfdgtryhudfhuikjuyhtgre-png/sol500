@@ -1065,3 +1065,20 @@ test("co-op: a cabin driver's lost park is per vehicle", async () => {
   assert.deepEqual(x.rover, at(31, 0));
   assert.deepEqual(x.cabin, at(-31, 0), 'the pressurised rover stays where lena left it');
 });
+
+test("co-op: a rider's suit doesn't drain", () => {
+  const { R, room, host, guest } = roomWithCabin(), m = room.mission, full = X.suitMax(m);
+  R.position(room, host, X.bay(m, 'cabin'));
+  assert.equal(say(R, room, host, 'board', { kind: 'cabin' }).status, 200);
+  R.position(room, host, Object.assign(at(30, 0), { rover: true, vehicle: 'cabin', driven: 30 }));
+  R.position(room, guest, at(34, 0));
+  assert.equal(say(R, room, guest, 'ride').body.error, 'tooFar', "the server checks it against the driver's last position");
+  R.position(room, guest, at(30, 1));
+  assert.equal(say(R, room, guest, 'ride').status, 200);
+  assert.deepEqual(m.expedition.riders, { minh: 'cabin' });
+  R.position(room, guest, Object.assign(at(31, 0), { suit: full - 40 }));
+  assert.equal(X.suitOf(m, 'minh'), full, 'the suit a rider reports never goes down');
+  assert.equal(say(R, room, guest, 'alight').status, 200);
+  R.position(room, guest, Object.assign(at(31, 0), { suit: full - 40 }));
+  assert.equal(X.suitOf(m, 'minh'), full - 40, 'out of it, it does');
+});
