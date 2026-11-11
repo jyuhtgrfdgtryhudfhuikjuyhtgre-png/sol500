@@ -1398,6 +1398,9 @@
     // The source is a Moon rover, never a Mars one (ruling R8).
     'show.card.cabin.name': 'The pressurized rover',
     'show.card.cabin.why': 'Under an agreement with NASA, Japan will design, develop and operate a pressurized rover for the Moon, able to hold two astronauts for up to 30 days. In the game, your pressurized rover is based on that Moon rover: inside you breathe the cabin’s air, so your suit does not drain.',
+    // Ingenuity's source has no line about dust or seasons: the game's storm rule is not said here.
+    'show.card.drone.name': 'The scout drone',
+    'show.card.drone.why': 'NASA’s Ingenuity helicopter flew 72 times on Mars and served as an aerial scout for Perseverance’s scientists and rover drivers. In the game, your scout drone flies from the base or from a rover you drive and maps the land around the spot you pick.',
   };
 
   const vi = {
@@ -2692,6 +2695,9 @@
     // Nguồn là một chiếc xe Mặt Trăng, không phải xe sao Hỏa (R8).
     'show.card.cabin.name': 'Xe thám hiểm điều áp',
     'show.card.cabin.why': 'Theo một thỏa thuận với NASA, Nhật Bản sẽ thiết kế, phát triển và vận hành một chiếc xe thám hiểm điều áp cho Mặt Trăng, chở được hai phi hành gia trong tối đa 30 ngày. Trong game, xe thám hiểm điều áp của bạn dựa trên chiếc xe Mặt Trăng đó: ở trong xe bạn thở không khí của xe, nên bộ đồ không hao oxy.',
+    // Nguồn về Ingenuity không có câu nào về bụi hay mùa: luật bão của game không được nêu ở đây.
+    'show.card.drone.name': 'Drone trinh sát',
+    'show.card.drone.why': 'Trực thăng Ingenuity của NASA đã bay 72 lần trên sao Hỏa và làm trinh sát trên không cho các nhà khoa học và người lái xe thám hiểm Perseverance. Trong game, drone trinh sát của bạn bay từ căn cứ hoặc từ xe thám hiểm bạn đang lái và khám phá vùng đất quanh điểm bạn chọn.',
   };
 
   // The "Why Mars?" story, page by page (the title screen's button): Earth's future, the Moon, the rovers, the astronaut's

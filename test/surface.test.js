@@ -1409,6 +1409,20 @@ test("the Showcase's rover scene is as it was: `board: true` boards the rover, n
   assert.deepEqual(pg.calls, ['board']);
 });
 
+// The HUD's node of class `cls`, wherever it sits under the overlay.
+const hudNode = (n, cls) => (n.className === cls ? n : (n.children || []).reduce((f, k) => f || hudNode(k, cls), null));
+
+test("the Showcase's drone scene stands in the base with the Drone button live: every flight left, nobody in a vehicle", async () => {
+  const { c, s, pg } = demoPage('drone');
+  await pg.scene(sceneOf(c));
+  pg.step(0.2);
+  const p = pg.probe().player, btn = hudNode(pg.overlay, 'sf-drone');
+  assert.equal(p.inRover, false);
+  assert.deepEqual([Math.floor(p.x / T), Math.floor(p.y / T)], c.at);
+  assert.deepEqual([btn.hidden, btn.disabled, btn.textContent], [false, false, I.t('en', 'eva.droneFly', { n: D.DRONE.flights })]);
+  assert.deepEqual([pg.calls, pg.cards, s.expedition.droneFlights], [[], [], 0], 'the scene flies nothing and opens no card');
+});
+
 // ---------- the pressurised rover (M6) ----------
 // A working pressurised rover in a bay of its own at grid (8, 3), world tile (4, 1), 4 tiles east of the rover's.
 const withCabin = m => { m.modules.cabin.count = 1; m.layout.push({ type: 'cabin', x: 8, y: 3 }); return m; };

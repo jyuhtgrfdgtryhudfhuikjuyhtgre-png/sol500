@@ -81,6 +81,11 @@
     { id: 'launch', tier: 'colony', source: 'm6Samples', full: true, view: 'console', prepare: (s, { E }) => raise(s, E, 3, [0, 4], ['launchpad']) },
     // board: 'cabin' gets into the pressurised rover by the rules (SolSurface.scene), which opens its own card, as in a game.
     { id: 'cabin', tier: 'cabin', source: 'm6Pressurized', full: true, view: 'surface', at: CABIN_AT, board: 'cabin', prepare: parkCabin },
+    // On foot at [0, 3], Outpost ground a tile south of the Camp's pad and inside the base zone, where the rules let the drone
+    // take off: the Drone button is live with every flight left, in a round pinned clear (a global dust storm grounds it), and
+    // the fog starts a few tiles out. The drone has no tile: it lives in the Garage. Its first flight opens Ingenuity's card.
+    { id: 'drone', tier: 'drone', source: 'm6Ingenuity', full: true, view: 'surface', at: [0, 3], schedule: { 0: { weather: 'clear' } },
+      prepare: (s, { E }) => { raise(s, E, 1, [0, 3], ['garage']); s.modules.drone.count = 1; } },
   ];
   const card = id => CARDS.find(c => c.id === id);
   // The gallery: the cards whose tier (D.M6) is on.
