@@ -177,7 +177,7 @@ function play(loadoutName, planner, seed, explore, haul, level, tally) {
       }
       if (tally) { tally.loads += got.loads; tally.time += got.time; }
     }
-    const plan = planner(s, explore), r = explore ? G.advance(s, plan) : E.resolveTurn(s, plan), was = E.rankOf(s);
+    const was = E.rankOf(s), plan = planner(s, explore), r = explore ? G.advance(s, plan) : E.resolveTurn(s, plan);
     if (tally && r.report.expedition) tally.map += r.report.expedition.got.science;
     s = r.state;
     if (tally) for (let k = was + 1; k <= E.rankOf(s); k++) tally.ranks[k] = s.turn;

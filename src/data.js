@@ -154,7 +154,7 @@
     TILE_PX: 64, // world pixels a tile spans (the surface, the rules and the Showcase all place things in tiles)
     GRID: { w: 9, h: 5, hq: [4, 2], ice: 3, rock: 4 },
 
-    // M6 base ranks (spec §3). Starting values: Task 8 tunes them against tools/balance.js. Each rank's land is w × h tiles
+    // M6 base ranks (spec §3). Costs measured with tools/balance.js (Task 8). Each rank's land is w × h tiles
     // round the HQ (GRID.hq), cut to the flat disc of LAND_R2; `zone` is the base zone (tiles round the HQ, Chebyshev).
     // A rank after the Camp costs `materials` and `work` (a rank-up build), adds `ice` and `rock` tiles on its new ground
     // and raises each building's limit by `max` (on top of MODULES' max and every rank before it).
