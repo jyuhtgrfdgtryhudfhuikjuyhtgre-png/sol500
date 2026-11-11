@@ -1337,3 +1337,23 @@ test("a flat pressurised rover says which battery is flat, and the rover's still
   assert.equal(s.eva.canMove(cab, cab.x + 5, cab.y), false, 'it stops');
   assert.equal(s.eva.canMove(rover, rover.x + 5, rover.y), true, 'the rover has its own battery');
 });
+
+test("a pressurised rover that is flat or taken says so in its own words; the rover keeps its own", async () => {
+  const I = require('../src/i18n.js');
+  for (const k of ['eva.err.cabinFlat', 'eva.err.cabinTaken']) {
+    assert.match(I.STR.en[k] || '', /pressurized rover/, 'en ' + k);
+    assert.match(I.STR.vi[k] || '', /xe thám hiểm điều áp/, 'vi ' + k);
+  }
+  let error = 'flat';
+  const s = setup({ answer: type => (type === 'board' ? { error } : null) });
+  const p = outside(1, 1);
+  const said = async kind => { await s.eva.act('board', p, kind ? { kind } : {}); s.eva.step(0.1, p, s.world, 0, null); return noteOf(s); };
+  assert.equal(await said('cabin'), 'eva.err.cabinFlat');
+  assert.equal(await said('rover'), 'eva.err.flat', "the rover's own");
+  assert.equal(await said(), 'eva.err.flat', 'no kind is the rover');
+  error = 'taken';
+  assert.equal(await said('cabin'), 'eva.err.cabinTaken');
+  assert.equal(await said('rover'), 'eva.err.taken');
+  error = 'tooFar';
+  assert.equal(await said('cabin'), 'eva.err.tooFar', 'any other refusal reads as before');
+});
