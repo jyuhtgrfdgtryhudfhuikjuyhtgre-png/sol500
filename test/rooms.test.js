@@ -492,6 +492,13 @@ test("positions carry each astronaut's suit level and load, and the server keeps
   assert.equal(last.load, 0);
   R.position(room, guest, Object.assign(at(20, 0), { suit: 'lots' }));
   assert.equal(X.suitOf(room.mission, 'minh'), 88.4, 'a bad value is ignored');
+  // the tool a player works with travels with the position, so teammates see it in their hand; only known names do
+  R.position(room, guest, Object.assign(at(20, 0), { tool: 'pick' }));
+  assert.equal(room.positions.minh.tool, 'pick');
+  await wait(150);
+  assert.equal(hc.got.filter(m => m.type === 'pos').at(-1).data.find(p => p.crewId === 'minh').tool, 'pick', 'it reaches the others');
+  R.position(room, guest, Object.assign(at(20, 0), { tool: 'constructor' }));
+  assert.equal(room.positions.minh.tool, undefined, 'an unknown name is dropped, and so is the tool once the work is done');
 });
 
 test('co-op: one driver at a time, and only the driver reports the battery', () => {
