@@ -1459,3 +1459,23 @@ test("a passenger rides along in a teammate's pressurised rover: E by it gets in
   assert.ok(near(pg.probe().player, far), 'out where it parked');
   assert.ok(pg.probe().eva.suit < suit, 'breathing the suit again');
 });
+
+test("by a driven pressurised rover, work in reach comes before the ride: a crewmate to revive, a dropped load; the ride with nothing there and a free seat", () => {
+  const m = withCabin(mission({ seed: 'CABIN-WORK', coop: true })), x = m.expedition;
+  const [tx, ty] = openRow(m.seed, 24);
+  const spot = { x: (tx + 4.5) * T, y: (ty + 0.5) * T }, feet = { x: (tx + 3.5) * T, y: (ty + 0.5) * T }; // the cabin a tile east of you
+  assert.equal(X.board(m, 'lena', X.bay(m, 'cabin'), 'cabin').ok, true);
+  const pg = page(m, 'minh', { positions: { lena: spot } });
+  const focus = () => { pg.show(m); pg.step(0.2); return pg.probe().focusKey; };
+  pg.qa.teleport(tx + 3, ty);
+  pg.remote([{ crewId: 'lena', x: spot.x, y: spot.y, rover: true, vehicle: 'cabin', moving: false, dir: 'right' }]);
+  assert.equal(focus(), 'ride', 'nothing to work on and a free seat: E rides along');
+  x.collapsed.diego = feet;
+  assert.equal(focus(), 'v:diego', 'a crewmate down at your feet: E revives them');
+  delete x.collapsed.diego;
+  x.drops.push({ id: 'd1', x: feet.x, y: feet.y, items: loads(1) });
+  assert.equal(focus(), 'd:d1', 'a dropped load at your feet: E picks it up');
+  x.drops = [];
+  x.riders = { diego: 'cabin' };
+  assert.notEqual(focus(), 'ride', 'the seat is taken: no ride');
+});

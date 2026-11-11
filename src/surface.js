@@ -967,11 +967,11 @@
     const lx = p.x + dx * 38, ly = p.y - 8 + dy * 34;
     const crew = avatars().find(a => !a.you && !a.remote && Math.hypot(a.x - lx, a.y - ly) < 30);
     if (crew) f = { kind: 'crew', key: 'c:' + crew.id, id: crew.id };
-    // The pressurised rover a teammate drives, by you with its seat free: E rides along.
-    const d = cabinDriver(), x = S.data.mission.expedition;
-    if (!f && d && !p.inRover && Object.keys(x.riders || {}).length < D.EXPEDITION.cabin.riders && Math.hypot(p.x - d.x, p.y - d.y) < D.EXPEDITION.reach * T) f = { kind: 'ride', key: 'ride' };
     const ef = S.eva.focusAt(lx, ly, p, S.world); // a find, a dropped load, a crewmate down outside, the parked rover
     if (!f && !(ef && ef.kind === 'beacon')) f = ef;
+    // The pressurised rover a teammate drives, by you with its seat free: E rides along, when there is no work in reach.
+    const d = cabinDriver(), x = S.data.mission.expedition;
+    if (!f && d && !p.inRover && Object.keys(x.riders || {}).length < D.EXPEDITION.cabin.riders && Math.hypot(p.x - d.x, p.y - d.y) < D.EXPEDITION.reach * T) f = { kind: 'ride', key: 'ride' };
     if (!f) f = focusAt(Math.floor(lx / T), Math.floor(ly / T));
     if (!f || f.kind === 'empty') {
       const under = focusAt(Math.floor(p.x / T), Math.floor((p.y - 4) / T));
