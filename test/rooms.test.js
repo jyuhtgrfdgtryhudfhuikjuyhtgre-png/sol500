@@ -1118,3 +1118,35 @@ test("co-op: a rider's suit doesn't drain", () => {
   R.position(room, guest, Object.assign(at(31, 0), { suit: full - 40 }));
   assert.equal(X.suitOf(m, 'minh'), full - 40, 'out of it, it does');
 });
+
+test("co-op: a rider who leaves the room, gives up their astronaut or loses it frees the seat", () => {
+  const { R, room, host, guest } = roomWithCabin(), m = room.mission, x = m.expedition;
+  const { player: third } = R.join(room.code, 'Third');
+  assert.equal(say(R, room, third, 'claim', { crewId: 'diego' }).status, 200);
+  R.position(room, host, X.bay(m, 'cabin'));
+  assert.equal(say(R, room, host, 'board', { kind: 'cabin' }).status, 200);
+  R.position(room, host, Object.assign(at(30, 0), { rover: true, vehicle: 'cabin', driven: 30 }));
+  const rides = p => { R.position(room, p, at(30, 1)); return say(R, room, p, 'ride'); };
+  // Leaves the room: the next teammate can ride.
+  assert.equal(rides(guest).status, 200);
+  assert.equal(rides(third).body.error, 'full');
+  assert.equal(say(R, room, guest, 'leave').status, 200);
+  assert.deepEqual(x.riders, {}, 'the seat is free');
+  assert.equal(rides(third).status, 200, 'the next teammate rides');
+  // Gives up their astronaut.
+  assert.equal(say(R, room, third, 'claim', { crewId: null }).status, 200);
+  assert.deepEqual(x.riders, {}, 'given up: out of the seat');
+  // Takes another astronaut: the one they had is out of the seat.
+  assert.equal(say(R, room, third, 'claim', { crewId: 'diego' }).status, 200);
+  assert.equal(rides(third).status, 200);
+  assert.equal(say(R, room, third, 'claim', { crewId: 'minh' }).status, 200);
+  assert.deepEqual(x.riders, {}, 'swapped: out of the seat');
+  // Their tab is gone and another player takes the astronaut: it starts on foot.
+  assert.equal(rides(third).status, 200);
+  assert.deepEqual(x.riders, { minh: 'cabin' });
+  makeAbsent(third);
+  const { player: back } = R.join(room.code, 'Back');
+  assert.equal(say(R, room, back, 'claim', { crewId: 'minh' }).status, 200);
+  assert.deepEqual(x.riders, {}, 'taken over: out of the seat');
+  assert.deepEqual(x.cabin, { driver: 'lena' }, 'the driver drives on through all of it');
+});

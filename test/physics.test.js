@@ -70,7 +70,7 @@ test('the wheels hold at most their grip in all: pushing or braking along the he
 });
 
 // ---------- the pressurised rover (M6) ----------
-test('the pressurised rover is heavier: it gets to speed slower and needs longer to stop', () => {
+test('the pressurised rover is heavier and grips less: slower to speed, longer to stop', () => {
   const C = PH.CABIN, R = PH.ROVER;
   assert.ok(C.mass > R.mass, 'heavier');
   const toSpeed = spec => { const car = { heading: 0, speed: 0 }; let t = 0; while (car.speed < 4 * PH.PX_PER_M && t < 30) { PH.drive(car, { x: 1, y: 0 }, 0.01, {}, spec); t += 0.01; } return t; };

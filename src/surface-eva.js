@@ -235,11 +235,12 @@
       return null;
     }
     // Tiles you see from where you stand (Z.viewAt): the weather's view, a lava tube's headlamp, a star dune's crest. The
-    // tile under you comes from the chunks the surface holds; before the first frame, or off them, it is open ground.
+    // tile under you comes from the chunks the surface holds; before the first frame, or off them, it is open ground. A
+    // passenger in the pressurised rover (M6) sees as far as the driver beside them.
     function viewOf(p) {
       const tx = p ? Math.floor(p.x / T) : 0, ty = p ? Math.floor(p.y / T) : 0, cx = SW.chunkOf(tx), cy = SW.chunkOf(ty);
       const c = p && peek ? peek(cx, cy) : null;
-      return Z.viewAt(mission(), !!(p && p.inRover), c ? W.tileOf(c, tx - cx * W.CHUNK, ty - cy * W.CHUNK) : null);
+      return Z.viewAt(mission(), !!(p && p.inRover) || inCabin(p), c ? W.tileOf(c, tx - cx * W.CHUNK, ty - cy * W.CHUNK) : null);
     }
     // The flare as your astronaut sees it: null, or { cls, msg, left (seconds, or null) } for the banner.
     function flareView(p) {
@@ -364,8 +365,11 @@
       if (!h || !h.exp) return Promise.resolve({ error: 'net' });
       return Promise.resolve(h.exp(type, payload || {}, p ? at(p) : null)).then(r => {
         const res = r || { error: 'net' };
-        // A ride refused for its one seat (M6) is not a full backpack.
-        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + (type === 'ride' && res.error === 'full' ? 'seatTaken' : res.error), { s: canBelow() }), 'warn');
+        // A ride refused for its one seat (M6) is not a full backpack, and a pressurised rover that is flat or taken is not
+        // "the rover": with both in a mission that would read as the other one.
+        const cab = type === 'board' && !!payload && payload.kind === 'cabin';
+        const code = type === 'ride' && res.error === 'full' ? 'seatTaken' : cab && res.error === 'flat' ? 'cabinFlat' : cab && res.error === 'taken' ? 'cabinTaken' : res.error;
+        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + code, { s: canBelow() }), 'warn');
         return res;
       }, () => { if (!QUIET.includes(type)) say(t('eva.err.net'), 'warn'); return { error: 'net' }; });
     }

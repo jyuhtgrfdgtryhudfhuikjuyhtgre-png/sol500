@@ -1455,7 +1455,7 @@ function withCabin(m, gx, gy) {
   return m;
 }
 
-test('the pressurised rover: its own bay and battery, no suit drain, 8 loads', () => {
+test("the pressurised rover: its own bay and battery, 8 loads, and a driver's suit as their game reports it", () => {
   const m = withCabin(solo('EXP-CABIN', ROVER_KIT)), x = m.expedition;
   const bay = X.bay(m, 'cabin'), rbay = X.bay(m);
   assert.deepEqual(bay, at(4, 1), 'its bay is its own tile');
@@ -1473,9 +1473,11 @@ test('the pressurised rover: its own bay and battery, no suit drain, 8 loads', (
   m.gear.racks = 1;
   assert.equal(X.capacity(m, 'minh'), 12, "and the Fabricator's racks");
   m.gear.racks = 0;
-  // You breathe the cabin's air: a suit level reported inside never goes down.
+  // In the seat the driver's game drains nothing (EXPEDITION.cabin.drain 0); it does while they step out to work on a find.
+  // The level it reports is recorded, as a rover driver's is, so a reload gives nothing back (ruling R22). Only a passenger,
+  // who cannot work, is held at the level they got in with (the passenger test below).
   X.setSuit(m, 'minh', 60);
-  assert.equal(X.suitOf(m, 'minh'), 100, 'no suit drain inside');
+  assert.equal(X.suitOf(m, 'minh'), 60, "a driver's report goes through");
   assert.equal(D.EXPEDITION.cabin.drain, 0);
   // Its own battery: 800 tiles a round.
   assert.equal(X.left(m, 'cabin'), 800);
@@ -1491,8 +1493,8 @@ test('the pressurised rover: its own bay and battery, no suit drain, 8 loads', (
   assert.deepEqual(x.cabin, { x: Math.round(at(40, -12).x), y: Math.round(at(40, -12).y) });
   assert.equal(x.cabinDriven, 260, 'with the last bit of driving');
   assert.equal(X.capacity(m, 'minh'), 3, 'on foot again');
-  X.setSuit(m, 'minh', 60);
-  assert.equal(X.suitOf(m, 'minh'), 60, 'out of it the suit drains again');
+  X.setSuit(m, 'minh', 40);
+  assert.equal(X.suitOf(m, 'minh'), 40, 'and on foot as before');
   assert.equal(X.board(m, 'lena', bay, 'cabin').error, 'tooFar', 'it is not in its bay any more');
   assert.deepEqual(X.board(m, 'lena', at(40, -11), 'cabin'), { ok: true });
   assert.deepEqual(X.park(m, 'lena', at(2, 3), null, 'cabin'), { ok: true, home: true });
@@ -1551,6 +1553,9 @@ test('the rover and the pressurised rover can be out at once', () => {
   // A new round: the driven one comes home, the parked one stays where it was left, and both batteries recharge.
   const next = E.resolveTurn(m, E.defaultPlan(m)).state.expedition;
   assert.deepEqual([next.rover, next.cabin, next.roverDriven, next.cabinDriven], [null, x.cabin, 0, 0]);
+  // Still driven at a new round, the pressurised rover is back at its bay as the rover is: null (R16).
+  assert.deepEqual(X.board(m, 'diego', at(-31, 0), 'cabin'), { ok: true });
+  assert.equal(E.resolveTurn(m, E.defaultPlan(m)).state.expedition.cabin, null);
 });
 
 test('the pressurised rover is not flare cover', () => {
@@ -1617,4 +1622,27 @@ test('the passenger actions run in the rules table, with where the crew stand', 
   X.board(m, 'lena', bay, 'cabin');
   assert.deepEqual(Z.act(m, 'minh', 'ride', {}, bay, { lena: bay }), { ok: true });
   assert.deepEqual(Z.act(m, 'minh', 'alight', {}, bay), { ok: true });
+});
+
+test('a passenger who collapses is out of the seat, and the next teammate can ride', () => {
+  const m = withCabin(E.createMission({ seed: 'EXP-RIDE', loadout: ROVER_KIT, events: false, coop: true })), x = m.expedition;
+  const out = at(30, 0), where = { lena: out };
+  assert.deepEqual(X.board(m, 'lena', X.bay(m, 'cabin'), 'cabin'), { ok: true });
+  assert.deepEqual(X.ride(m, 'minh', out, where), { ok: true });
+  assert.equal(X.collapse(m, 'minh', out).ok, true);
+  assert.deepEqual(x.riders, {}, 'out of the seat where they fell');
+  assert.deepEqual(x.cabin, { driver: 'lena' }, 'the driver drives on');
+  assert.deepEqual(X.ride(m, 'diego', out, where), { ok: true }, 'the next teammate rides');
+});
+
+test("a rover whose bay lies far out on a bigger rank's land goes back to it when parked next to it, as the pressurised rover does", () => {
+  const m = solo('EXP-CABIN', ROVER_KIT);
+  m.layout.find(q => q.type === 'rover').x = 16; // world tile (12, 1): 11.5 tiles from the HQ
+  const bay = X.bay(m);
+  assert.ok(Math.hypot(bay.x - 0.5 * T, bay.y - 0.5 * T) > D.EXPEDITION.roverHome * T, 'beyond `roverHome` of the HQ');
+  assert.deepEqual(X.board(m, 'minh', bay), { ok: true });
+  assert.deepEqual(X.park(m, 'minh', { x: bay.x + T, y: bay.y }, 3), { ok: true, home: true });
+  assert.equal(m.expedition.rover, null, 'in its bay');
+  assert.deepEqual(X.board(m, 'minh', bay), { ok: true });
+  assert.deepEqual(X.park(m, 'minh', { x: bay.x + 4 * T, y: bay.y }, 6), { ok: true, home: false }, '4 tiles off is not next to it');
 });

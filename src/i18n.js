@@ -1365,6 +1365,9 @@
     'sf.cabinSub': 'Your suit does not drain inside',
     'sf.key.cabin': 'Parked pressurized rover',
     'eva.cabinFlat': 'The pressurized rover battery is flat until tomorrow: press E to get out and walk.',
+    // E at it, refused (src/surface-eva.js): with both vehicles in a mission, "the rover" would read as the other one.
+    'eva.err.cabinFlat': "The pressurized rover's battery is flat until tomorrow.",
+    'eva.err.cabinTaken': 'Someone else is driving the pressurized rover.',
     // The card the first time you board it (src/surface.js): the real rover it is based on, within sources.md's m6Pressurized
     // (a Moon rover, never a Mars one: R8), beside the game's own rule.
     'card.cabin.title': 'Aboard the pressurized rover',
@@ -2657,6 +2660,9 @@
     'sf.cabinSub': 'Bộ đồ không hao oxy khi ngồi trong xe',
     'sf.key.cabin': 'Xe thám hiểm điều áp đang đỗ',
     'eva.cabinFlat': 'Pin xe thám hiểm điều áp đã cạn đến ngày mai: nhấn E để xuống xe và đi bộ.',
+    // Nhấn E cạnh xe mà bị từ chối (src/surface-eva.js): khi có cả hai xe, "xe thám hiểm" sẽ bị hiểu là chiếc kia.
+    'eva.err.cabinFlat': 'Pin xe thám hiểm điều áp đã cạn đến ngày mai.',
+    'eva.err.cabinTaken': 'Người khác đang lái xe thám hiểm điều áp.',
     // Thẻ lần đầu bạn lên xe (src/surface.js): chiếc xe thật mà nó dựa theo, trong giới hạn m6Pressurized của sources.md (R8).
     'card.cabin.title': 'Trên xe thám hiểm điều áp',
     'card.cabin.body': 'Ở trong xe, bạn thở không khí của xe, nên bộ đồ không hao oxy. Xe thám hiểm điều áp của bạn dựa trên một chiếc xe Nhật Bản đang làm cho các sứ mệnh Mặt Trăng Artemis của NASA: theo thỏa thuận với NASA, Nhật Bản sẽ thiết kế, phát triển và vận hành nó, và nó sẽ chở được hai phi hành gia trong tối đa 30 ngày.',

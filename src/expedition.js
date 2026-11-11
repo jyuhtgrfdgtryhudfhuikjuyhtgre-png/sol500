@@ -359,6 +359,7 @@
     if (inBaseZone(m, pos, 0)) return { error: 'atBase' };
     const x = m.expedition, spot = { x: Math.round(pos.x), y: Math.round(pos.y) };
     x.suits[crewId] = 0;
+    if (x.riders) delete x.riders[crewId]; // a passenger is out of the seat where they fell: the next teammate can ride
     const k = drives(x, crewId);
     if (k) {
       setRoverDriven(m, crewId, driven);
@@ -417,9 +418,9 @@
     x[k] = { driver: crewId };
     return { ok: true };
   }
-  // Gets out: the vehicle stays where you are, or goes back to its bay if you are at the outpost (its `home` tiles of the HQ;
-  // the pressurised rover also next to its own bay, which a bigger rank's land puts further out). The driver's game says how
-  // far it went (`driven`), so the last seconds of driving count too.
+  // Gets out: the vehicle stays where you are, or goes back to its bay if you are at the outpost (its `home` tiles of the HQ)
+  // or next to its own bay, which a bigger rank's land can put further out than that. The driver's game says how far it went
+  // (`driven`), so the last seconds of driving count too.
   function park(m, crewId, pos, driven, kind) {
     if (!m || m.status !== 'active' || !m.expedition) return { error: 'badPhase' };
     const k = kindOf(kind);
@@ -428,7 +429,7 @@
     if (!drivesThe(x, crewId, k)) return { error: 'notDriving' };
     if (!okPos(pos)) return { error: 'badPos' };
     setRoverDriven(m, crewId, driven);
-    const b = k === 'cabin' && bay(m, k);
+    const b = bay(m, k);
     const home = nearPx(pos, 0.5 * T, 0.5 * T, k === 'cabin' ? X.cabin.home : X.roverHome) || (!!b && nearPx(pos, b.x, b.y, X.reach + 0.5));
     x[k] = home ? null : { x: Math.round(pos.x), y: Math.round(pos.y) };
     if (k === 'cabin') x.riders = {}; // its passenger gets out where it parks
@@ -476,8 +477,9 @@
   function setSuit(m, crewId, seconds) {
     const x = m && m.expedition;
     if (!x || !crewOf(m, crewId) || x.collapsed[crewId] || typeof seconds !== 'number' || !Number.isFinite(seconds)) return;
-    // In the pressurised rover you breathe its air (EXPEDITION.cabin.drain 0): a level reported there never goes down.
-    const low = vehicleOf(m, crewId) === 'cabin' && !(X.cabin.drain > 0) ? suitOf(m, crewId) : 0;
+    // A passenger breathes the pressurised rover's air and cannot work (EXPEDITION.cabin.drain 0): a level reported from the
+    // seat never goes down. Its driver's reports go through, as a rover driver's do: they step out to work on a find (R22).
+    const low = x.riders && x.riders[crewId] && !(X.cabin.drain > 0) ? suitOf(m, crewId) : 0;
     x.suits[crewId] = Math.max(low, Math.min(suitMax(m), seconds));
   }
 
