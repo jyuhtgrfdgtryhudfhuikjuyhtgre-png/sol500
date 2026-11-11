@@ -1554,3 +1554,15 @@ test('a passenger who collapses is out of the seat, and the next teammate can ri
   assert.deepEqual(x.cabin, { driver: 'lena' }, 'the driver drives on');
   assert.deepEqual(X.ride(m, 'diego', out, where), { ok: true }, 'the next teammate rides');
 });
+
+test("a rover whose bay lies far out on a bigger rank's land goes back to it when parked next to it, as the pressurised rover does", () => {
+  const m = solo('EXP-CABIN', ROVER_KIT);
+  m.layout.find(q => q.type === 'rover').x = 16; // world tile (12, 1): 11.5 tiles from the HQ
+  const bay = X.bay(m);
+  assert.ok(Math.hypot(bay.x - 0.5 * T, bay.y - 0.5 * T) > D.EXPEDITION.roverHome * T, 'beyond `roverHome` of the HQ');
+  assert.deepEqual(X.board(m, 'minh', bay), { ok: true });
+  assert.deepEqual(X.park(m, 'minh', { x: bay.x + T, y: bay.y }, 3), { ok: true, home: true });
+  assert.equal(m.expedition.rover, null, 'in its bay');
+  assert.deepEqual(X.board(m, 'minh', bay), { ok: true });
+  assert.deepEqual(X.park(m, 'minh', { x: bay.x + 4 * T, y: bay.y }, 6), { ok: true, home: false }, '4 tiles off is not next to it');
+});

@@ -415,9 +415,9 @@
     x[k] = { driver: crewId };
     return { ok: true };
   }
-  // Gets out: the vehicle stays where you are, or goes back to its bay if you are at the outpost (its `home` tiles of the HQ;
-  // the pressurised rover also next to its own bay, which a bigger rank's land puts further out). The driver's game says how
-  // far it went (`driven`), so the last seconds of driving count too.
+  // Gets out: the vehicle stays where you are, or goes back to its bay if you are at the outpost (its `home` tiles of the HQ)
+  // or next to its own bay, which a bigger rank's land can put further out than that. The driver's game says how far it went
+  // (`driven`), so the last seconds of driving count too.
   function park(m, crewId, pos, driven, kind) {
     if (!m || m.status !== 'active' || !m.expedition) return { error: 'badPhase' };
     const k = kindOf(kind);
@@ -426,7 +426,7 @@
     if (!drivesThe(x, crewId, k)) return { error: 'notDriving' };
     if (!okPos(pos)) return { error: 'badPos' };
     setRoverDriven(m, crewId, driven);
-    const b = k === 'cabin' && bay(m, k);
+    const b = bay(m, k);
     const home = nearPx(pos, 0.5 * T, 0.5 * T, k === 'cabin' ? X.cabin.home : X.roverHome) || (!!b && nearPx(pos, b.x, b.y, X.reach + 0.5));
     x[k] = home ? null : { x: Math.round(pos.x), y: Math.round(pos.y) };
     if (k === 'cabin') x.riders = {}; // its passenger gets out where it parks
