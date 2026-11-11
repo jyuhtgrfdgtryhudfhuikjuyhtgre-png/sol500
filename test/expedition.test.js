@@ -1378,7 +1378,7 @@ function withCabin(m, gx, gy) {
   return m;
 }
 
-test('the pressurised rover: its own bay and battery, no suit drain, 8 loads', () => {
+test("the pressurised rover: its own bay and battery, 8 loads, and a driver's suit as their game reports it", () => {
   const m = withCabin(solo('EXP-CABIN', ROVER_KIT)), x = m.expedition;
   const bay = X.bay(m, 'cabin'), rbay = X.bay(m);
   assert.deepEqual(bay, at(4, 1), 'its bay is its own tile');
@@ -1396,9 +1396,11 @@ test('the pressurised rover: its own bay and battery, no suit drain, 8 loads', (
   m.gear.racks = 1;
   assert.equal(X.capacity(m, 'minh'), 12, "and the Fabricator's racks");
   m.gear.racks = 0;
-  // You breathe the cabin's air: a suit level reported inside never goes down.
+  // In the seat the driver's game drains nothing (EXPEDITION.cabin.drain 0); it does while they step out to work on a find.
+  // The level it reports is recorded, as a rover driver's is, so a reload gives nothing back (ruling R22). Only a passenger,
+  // who cannot work, is held at the level they got in with (the passenger test below).
   X.setSuit(m, 'minh', 60);
-  assert.equal(X.suitOf(m, 'minh'), 100, 'no suit drain inside');
+  assert.equal(X.suitOf(m, 'minh'), 60, "a driver's report goes through");
   assert.equal(D.EXPEDITION.cabin.drain, 0);
   // Its own battery: 800 tiles a round.
   assert.equal(X.left(m, 'cabin'), 800);
@@ -1414,8 +1416,8 @@ test('the pressurised rover: its own bay and battery, no suit drain, 8 loads', (
   assert.deepEqual(x.cabin, { x: Math.round(at(40, -12).x), y: Math.round(at(40, -12).y) });
   assert.equal(x.cabinDriven, 260, 'with the last bit of driving');
   assert.equal(X.capacity(m, 'minh'), 3, 'on foot again');
-  X.setSuit(m, 'minh', 60);
-  assert.equal(X.suitOf(m, 'minh'), 60, 'out of it the suit drains again');
+  X.setSuit(m, 'minh', 40);
+  assert.equal(X.suitOf(m, 'minh'), 40, 'and on foot as before');
   assert.equal(X.board(m, 'lena', bay, 'cabin').error, 'tooFar', 'it is not in its bay any more');
   assert.deepEqual(X.board(m, 'lena', at(40, -11), 'cabin'), { ok: true });
   assert.deepEqual(X.park(m, 'lena', at(2, 3), null, 'cabin'), { ok: true, home: true });

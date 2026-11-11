@@ -473,8 +473,9 @@
   function setSuit(m, crewId, seconds) {
     const x = m && m.expedition;
     if (!x || !crewOf(m, crewId) || x.collapsed[crewId] || typeof seconds !== 'number' || !Number.isFinite(seconds)) return;
-    // In the pressurised rover you breathe its air (EXPEDITION.cabin.drain 0): a level reported there never goes down.
-    const low = vehicleOf(m, crewId) === 'cabin' && !(X.cabin.drain > 0) ? suitOf(m, crewId) : 0;
+    // A passenger breathes the pressurised rover's air and cannot work (EXPEDITION.cabin.drain 0): a level reported from the
+    // seat never goes down. Its driver's reports go through, as a rover driver's do: they step out to work on a find (R22).
+    const low = x.riders && x.riders[crewId] && !(X.cabin.drain > 0) ? suitOf(m, crewId) : 0;
     x.suits[crewId] = Math.max(low, Math.min(suitMax(m), seconds));
   }
 
