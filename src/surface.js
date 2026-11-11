@@ -921,6 +921,7 @@
   }
 
   // ---------- what the player is looking at ----------
+  const JOB_TOOL = { eva: 'pick', construction: 'drill', science: 'scanner', farming: 'scanner' }; // what a crewmate at work holds (the rest: a wrench)
   function avatars() {
     const m = S.data.mission;
     const out = [];
@@ -931,7 +932,7 @@
     for (const [id, n] of Object.entries(S.npcs)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: n.x, y: n.y, dir: n.dir, phase: n.phase, moving: n.moving, down: c.status === 'down', working: n.working, job: n.job });
+      out.push({ id, role: c.role, color: color(c.role), x: n.x, y: n.y, dir: n.dir, phase: n.phase, moving: n.moving, down: c.status === 'down', working: n.working && (JOB_TOOL[n.job] || 'wrench'), job: n.job });
     }
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);

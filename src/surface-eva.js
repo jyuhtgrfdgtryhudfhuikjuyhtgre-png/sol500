@@ -867,7 +867,8 @@
       el, alert, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, takeKit, returnKit, drawZone, sprites, drawOver,
       flareFx, suitBar, marks, lines, clock, addPing, speed, drone, cancelDrone, flyTo, rings,
       aiming: () => aim,
-      working: () => !!hold, // holding E on something: your astronaut is drawn at work
+      // holding E on something: the tool your astronaut is drawn working with (SolPaint's TOOLS), or null
+      working: () => (!hold ? null : hold.f.kind === 'find' ? { ice: 'drill', metal: 'pick', science: 'scanner', pod: 'crowbar' }[hold.f.find.kind] || 'hand' : hold.f.kind === 'revive' ? 'medkit' : hold.f.kind === 'drop' ? 'hand' : 'wrench'),
       view: viewOf,
       alerting: () => !alert.hidden,
       // While you are down your suit is not sent: a position in flight could undo a revive the server has just made.

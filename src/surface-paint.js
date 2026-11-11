@@ -890,6 +890,7 @@
     }
     const step = a.moving ? Math.sin(a.phase * STRIDE) : 0; // which leg leads, -1..1: widest apart at the top of the hop
     const side = a.dir === 'left' ? -1 : a.dir === 'right' ? 1 : 0, ws = side || 1; // ws: the side the tool is on
+    const tool = a.working ? TOOLS[a.working] || TOOLS.wrench : null; // a.working: the tool's name (true: a wrench)
     const seed = a.id ? String(a.id).charCodeAt(String(a.id).length - 1) : 0; // so the crew don't blink and glint together
     const left = a.bar != null ? a.bar : a.air, low = left != null && left <= 0.2; // a fifth of the suit's air: the HUD's "low"
     if (low) { // the suit pulses red, twice a second
@@ -924,15 +925,16 @@
     // the backpack, its lamp on it: behind the body from the side, on the back from behind (not seen from the front)
     const pack = (bx, w) => { ctx.fillStyle = '#9da3a9'; roundRect(ctx, bx, by - 18, w, 16, 3); ctx.fill(); lamp(bx + w - 5, by - 14); };
     if (side) pack(side < 0 ? 4 : -14, 10);
-    // arms: from the side they swing against the legs; from the front they float out in the air; the tool arm hammers
+    // arms: from the side they swing against the legs; from the front they float out in the air; the tool arm holds its
+    // tool up and works it
     const arm = (sx, k, tool) => {
       ctx.save(); ctx.translate(sx, by - 16 + (side || tool ? 0 : k * 2));
-      ctx.rotate(tool ? -ws * (1.6 + 0.4 * Math.sin(time * 11)) : side ? side * k * 0.7 : (sx < 0 ? 1 : -1) * (0.06 + air * 0.35));
+      ctx.rotate(tool ? -ws * tool.swing(time) : side ? side * k * 0.7 : (sx < 0 ? 1 : -1) * (0.06 + air * 0.35));
       ctx.fillStyle = '#e1d9ce'; roundRect(ctx, -2.5, -1, 5, 12, 2.5); ctx.fill();
-      if (tool) { ctx.fillStyle = '#6d6266'; ctx.fillRect(-1.5, 10, 3, 6); } // the tool in the hand
+      if (tool) tool.draw(ctx, time);
       ctx.restore();
     };
-    if (side) arm(0, step, false); else { arm(-10.5, step, a.working && ws < 0); arm(10.5, -step, a.working && ws > 0); }
+    if (side) arm(0, step, null); else { arm(-10.5, step, null); if (!tool) arm(10.5, -step, null); }
     // torso
     ctx.fillStyle = '#ece5db';
     roundRect(ctx, -9, by - 19, 18, 19, 5); ctx.fill();
@@ -940,7 +942,7 @@
     ctx.fillRect(-9, by - 9, 18, 3);
     if (a.dir === 'down') { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(4, by - 14, 2.2, 0, Math.PI * 2); ctx.fill(); lamp(-4, by - 14); }
     if (a.dir === 'up') pack(-7, 14);
-    if (side) arm(0, -step, !!a.working); // the near arm, over the torso
+    if (side && !tool) arm(0, -step, null); // the near arm, over the torso
     // helmet
     ctx.fillStyle = '#f4efe8';
     ctx.strokeStyle = '#b9afa4';
@@ -969,11 +971,13 @@
         ctx.restore();
       }
     }
-    if (a.working) {
-      for (let i = 0; i < 6; i++) { // sparks fly from the tool and fall
+    if (tool) {
+      arm(side ? 0 : 10.5, -step, tool); // the tool arm, over everything: raised, it passes in front of the helmet
+      const tx = ws * ((side ? 0 : 10.5) + 24 * Math.sin(tool.at)), ty = by - 16 + 24 * Math.cos(tool.at); // the tip where it strikes
+      if (tool.fx) for (let i = 0; i < 6; i++) { // sparks (a drill: chips of ice) fly from the tip and fall
         const n = time * 2.4 + i * 0.37, q = n % 1, ang = i * 2.4 + Math.floor(n) * 1.7;
-        ctx.fillStyle = 'rgba(255,' + Math.round(210 - 90 * q) + ',110,' + (1 - q).toFixed(2) + ')';
-        ctx.fillRect(ws * 19 + Math.cos(ang) * q * 13, by - 22 + Math.sin(ang) * q * 9 + q * q * 9, 2, 2);
+        ctx.fillStyle = 'rgba(' + (tool.fx === 'chip' ? '215,240,250' : '255,' + Math.round(210 - 90 * q) + ',110') + ',' + (1 - q).toFixed(2) + ')';
+        ctx.fillRect(tx + Math.cos(ang) * q * 13, ty + Math.sin(ang) * q * 9 + q * q * 9, 2, 2);
       }
       if (!a.you) { // a crewmate's job badge (yours is the ring over what you work on)
         const wob = Math.sin(time * 6) * 1.5;
@@ -989,6 +993,47 @@
   // A stride is STRIDE of the walk's phase (surface.js moves it on with the distance walked), so the hops are long and
   // slow, as a walk is in Mars' 38 % gravity. footfall: did a foot land between two phases? (surface.js kicks up dust there)
   const STRIDE = 0.7;
+  // The tools (M6.1), each drawn in its arm's own frame: the shoulder at (0, 0), the hand at (0, 10), the tool pointing on
+  // from it. swing(time) is the arm's angle up from hanging (rad): the pick is raised over the head and brought down, the
+  // drill is pressed to the ground, the scanner is held out. at: the angle where it strikes; fx: what flies from its tip.
+  const TOOLS = {
+    pick: { at: 1, fx: 'spark', swing: t => 1.75 + 0.75 * Math.sin(t * 8), draw(ctx, t) { // rock
+      ctx.fillStyle = '#8a6a4a'; ctx.fillRect(-1, 8, 2, 13);
+      ctx.fillStyle = '#aeb6bf'; ctx.beginPath(); ctx.moveTo(-8, 23); ctx.quadraticCurveTo(0, 16, 8, 23); ctx.quadraticCurveTo(0, 20, -8, 23); ctx.fill();
+      const hit = -Math.sin(t * 8) - 0.8; // the bottom of the swing: a flash where it strikes
+      if (hit > 0) { ctx.fillStyle = 'rgba(255,244,214,' + (hit * 4).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(0, 24, 3 + hit * 22, 0, Math.PI * 2); ctx.fill(); }
+    } },
+    drill: { at: 0.95, fx: 'chip', swing: t => 0.95 + 0.03 * Math.sin(t * 70), draw(ctx, t) { // ice: the bit turns, its flutes running down it
+      ctx.fillStyle = '#f0c35a'; roundRect(ctx, -3, 8, 6, 8, 2); ctx.fill();
+      ctx.fillStyle = '#5b6168'; ctx.fillRect(-1, 16, 2, 9);
+      ctx.fillStyle = '#c9d0d6'; for (let i = 0; i < 3; i++) ctx.fillRect(-1, 16 + (t * 24 + i * 3) % 9, 2, 1);
+      ctx.fillStyle = Math.sin(t * 20) > 0 ? '#7dffb0' : '#3d6b58'; ctx.fillRect(-1, 10, 2, 2);
+    } },
+    wrench: { at: 1.45, fx: 'spark', swing: t => 1.45 + 0.1 * Math.sin(t * 3), draw(ctx, t) { // repairs and building: it turns on the bolt, a pull and a slower return
+      ctx.translate(0, 21.5); ctx.rotate(0.6 * Math.sin(t * 6) + 0.2 * Math.sin(t * 12)); ctx.translate(0, -21.5);
+      ctx.fillStyle = '#aeb6bf'; ctx.fillRect(-1.2, 8, 2.4, 11);
+      ctx.strokeStyle = '#aeb6bf'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(0, 21.5, 3, Math.PI / 2 + 0.7, Math.PI * 2.5 - 0.7); ctx.stroke();
+    } },
+    crowbar: { at: 1.1, fx: 'spark', swing: t => 1.1 + 0.3 * Math.sin(t * 5), draw(ctx, t) { // a cargo pod: it levers, and shakes as the lid gives
+      ctx.translate(Math.sin(t * 5) > 0.7 ? Math.sin(t * 60) * 0.8 : 0, 0);
+      ctx.fillStyle = '#c0453a'; ctx.fillRect(-1, 8, 2, 14); ctx.fillRect(-1, 20, 5, 2);
+    } },
+    scanner: { at: 1.3, fx: null, swing: t => 1.3 + 0.05 * Math.sin(t * 2), draw(ctx, t) { // science: its light sweeps what it reads
+      ctx.fillStyle = 'rgba(127,232,255,' + (0.34 + 0.16 * Math.sin(t * 7)).toFixed(3) + ')';
+      const sweep = 6 * Math.sin(t * 4);
+      ctx.beginPath(); ctx.moveTo(0, 17); ctx.lineTo(-9, 36); ctx.lineTo(9, 36); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(200,250,255,0.75)'; ctx.fillRect(sweep * 1.2 - 1, 30, 2, 6); // the bright line that sweeps what it reads
+      ctx.fillStyle = '#2a3a4f'; roundRect(ctx, -3.5, 8, 7, 9, 2); ctx.fill();
+      ctx.fillStyle = '#7fe8ff'; ctx.fillRect(-2.2, 9.5, 4.4, 4);
+      ctx.fillStyle = '#2a3a4f'; ctx.fillRect(-2.2 + (t * 5 % 1) * 3.6, 9.5, 0.8, 4); // its screen ticks over
+    } },
+    medkit: { at: 1.1, fx: null, swing: t => 1.1 + 0.08 * Math.sin(t * 4), draw(ctx, t) { // reviving a crewmate: its cross beats like a pulse
+      ctx.fillStyle = 'rgba(125,255,176,' + (0.25 + 0.2 * Math.sin(t * 6)).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(0, 13, 8 + 1.5 * Math.sin(t * 6), 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f4efe8'; roundRect(ctx, -4.5, 9, 9, 8, 2); ctx.fill();
+      ctx.fillStyle = '#e0483c'; ctx.fillRect(-0.9, 10.5, 1.8, 5); ctx.fillRect(-2.5, 12.1, 5, 1.8);
+    } },
+    hand: { at: 1, fx: null, swing: t => 1 + 0.25 * Math.sin(t * 5), draw() {} }, // picking a load up
+  };
   const footfall = (was, now) => Math.floor(was * STRIDE / Math.PI) !== Math.floor(now * STRIDE / Math.PI);
   // A find just collected, k = 0–1 of its way from the ground (x0, y0) into the backpack at (x1, y1): a bright bead on an
   // arc, shrinking, then a ring of light where it lands.

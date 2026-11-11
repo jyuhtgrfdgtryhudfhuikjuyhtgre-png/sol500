@@ -552,4 +552,8 @@ test('an astronaut on foot hops through each stride, kicks dust where a foot lan
   const sparks = r => r.calls.filter(c => c[0] === 'fillRect' && c[3] === 2 && c[4] === 2).length;
   assert.equal(sparks(draw({ working: true, you: true })), 6, 'at work: six sparks');
   assert.equal(sparks(standing), 0);
+  assert.equal(sparks(draw({ working: 'pick' })), 6, 'the pick strikes sparks');
+  assert.equal(sparks(draw({ working: 'scanner' })), 0, 'the scanner strikes none: it shines a light');
+  const beam = r => r.calls.some(c => c[0] === 'lineTo' && c[1] === -9 && c[2] === 36);
+  assert.ok(beam(draw({ working: 'scanner' })) && !beam(draw({ working: 'pick' })), 'each tool is its own drawing');
 });
