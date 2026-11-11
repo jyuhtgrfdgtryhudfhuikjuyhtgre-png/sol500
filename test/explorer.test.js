@@ -206,7 +206,8 @@ test('played thoughtfully, the explorer has beacon kits built, takes one out a r
       s = r.state;
     }
     const x = s.expedition, B0 = D.EXPEDITION.beacon;
-    assert.ok(built >= 3 && x.beacons.length >= 3, seed + ': ' + built + ' kits built, ' + x.beacons.length + ' beacons placed');
+    // M6: it grows the base before a shield, and a kit waits on the shields, so a mission builds 2 or more (3.7.0: 3 or more).
+    assert.ok(built >= 2 && x.beacons.length >= 2, seed + ': ' + built + ' kits built, ' + x.beacons.length + ' beacons placed');
     for (const b of x.beacons) assert.ok(Math.hypot(b.x, b.y) >= B0.base && b.by === 'diego', JSON.stringify(b));
     assert.ok(refills >= x.beacons.length, seed + ': ' + refills + ' refills at beacons');
     // Played without exploring, the plan builds none.

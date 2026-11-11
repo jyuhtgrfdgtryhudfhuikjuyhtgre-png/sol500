@@ -297,6 +297,33 @@ test('gear needs a working Fabricator, costs the next level, and stops at the la
   assert.equal(both.state.resources.materials, 5000 - R[0].materials - R[1].materials + both.report.regolith);
 });
 
+// M6 T8 (the Task 1 review's minor): the gear's water check compares the store with the level's cost, so a tanks level
+// bought with the crew's last water is allowed. The forecast and Earth's advice run the plan's builds, so they say the
+// water runs out before the player advances.
+test('a tanks level that takes the water the crew drinks this round is warned of, red, before the advance', () => {
+  const s = calm();
+  E.grantRank(s, 2);
+  const [fx, fy] = E.buildSpots(s, 'fabricator')[0];
+  s.layout.push({ type: 'fabricator', x: fx, y: fy });
+  s.modules.fabricator.count = 1;
+  s.resources.materials = 5000;
+  s.wallWater = 0;
+  const safe = builders(s);
+  s.resources.water = 5000;
+  const need = -E.forecast(s, safe).delta.water;
+  assert.ok(need > 0, 'the crew drinks more than the base makes');
+  s.resources.water = need + D.GEAR.tanks.levels[0].water - 1; // the round's need and a level, less 1 kg
+  assert.ok(!E.forecast(s, safe).warnings.some(w => w.code === 'water_out'), 'without the level the water lasts the round');
+  const plan = builders(s);
+  plan.builds = [{ type: 'tanks' }];
+  assert.deepEqual(E.canBuild(s, 'tanks'), { ok: true }, 'the store covers the level');
+  const f = E.forecast(s, plan);
+  assert.ok(f.dehydration > 0);
+  assert.ok(f.warnings.some(w => w.code === 'water_out'), 'the forecast says the water runs out');
+  assert.ok(E.advise(s, plan).some(a => a.code === 'water_out'), 'and so does Earth');
+  assert.ok(E.resolveTurn(s, plan).report.dehydration > 0, 'as it does at the advance');
+});
+
 test('the launch needs a working launch pad at Colony, and goes once a mission', () => {
   const s = calm();
   s.resources.materials = 5000;

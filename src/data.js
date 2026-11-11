@@ -133,9 +133,9 @@
       // M6 (spec §3-§6). `needs`: a module that must be built and working. A zero cost is set elsewhere: a rank-up costs
       // the next rank's (RANKS), a gear line its next level's (GEAR), the launch COLONY.launch (src/engine.js costOf).
       rankup: { materials: 0, work: 0 },
-      garage: { materials: 600, work: 2 },
-      fabricator: { materials: 800, work: 3 },
-      launchpad: { materials: 1000, work: 3 },
+      garage: { materials: 200, work: 1 },
+      fabricator: { materials: 300, work: 1 },
+      launchpad: { materials: 400, work: 1 },
       rover: { materials: 500, work: 2, needs: 'garage' },
       cabin: { materials: 900, work: 3, needs: 'garage' },
       drone: { materials: 300, work: 1, needs: 'garage' },
@@ -154,18 +154,18 @@
     TILE_PX: 64, // world pixels a tile spans (the surface, the rules and the Showcase all place things in tiles)
     GRID: { w: 9, h: 5, hq: [4, 2], ice: 3, rock: 4 },
 
-    // M6 base ranks (spec §3). Starting values: Task 8 tunes them against tools/balance.js. Each rank's land is w × h tiles
+    // M6 base ranks (spec §3). Costs measured with tools/balance.js (Task 8). Each rank's land is w × h tiles
     // round the HQ (GRID.hq), cut to the flat disc of LAND_R2; `zone` is the base zone (tiles round the HQ, Chebyshev).
     // A rank after the Camp costs `materials` and `work` (a rank-up build), adds `ice` and `rock` tiles on its new ground
     // and raises each building's limit by `max` (on top of MODULES' max and every rank before it).
     LAND_R2: 169, // must equal src/worldgen.js (FLAT_RADIUS + 1) ** 2: nothing that blocks stands on the base's land
     RANKS: [
       { id: 'camp', w: 9, h: 5, zone: 2 },
-      { id: 'outpost', w: 15, h: 9, zone: 3, materials: 800, work: 2, ice: 3, rock: 4,
+      { id: 'outpost', w: 15, h: 9, zone: 3, materials: 500, work: 1, ice: 3, rock: 4,
         max: { solar: 4, battery: 2, greenhouse: 1, icedrill: 1, habitat: 1, garage: 1, cabin: 1, drone: 1 } },
-      { id: 'station', w: 21, h: 13, zone: 4, materials: 1600, work: 3, ice: 3, rock: 5,
+      { id: 'station', w: 21, h: 13, zone: 4, materials: 800, work: 1.5, ice: 3, rock: 5,
         max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, fabricator: 1 } },
-      { id: 'colony', w: 27, h: 17, zone: 5, materials: 2800, work: 4, ice: 4, rock: 6,
+      { id: 'colony', w: 27, h: 17, zone: 5, materials: 1100, work: 1.5, ice: 4, rock: 6,
         max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, reactor: 1, launchpad: 1 } },
     ],
     // The tier switches (spec §9): an unlock whose tier is off is hidden. gear: the Fabricator and its four lines; colony:
@@ -174,14 +174,14 @@
     // Fabricator gear: each line's levels in order. `value`: the suit's seconds (tanks), loads on foot (backpack), loads
     // in a rover (racks), the factor on hold seconds (tools).
     GEAR: {
-      tanks: { levels: [{ materials: 300, water: 100, work: 1, value: 200 }, { materials: 500, water: 200, work: 1.5, value: 250 }] },
-      backpack: { levels: [{ materials: 250, work: 1, value: 4 }, { materials: 400, work: 1.5, value: 5 }] },
-      racks: { levels: [{ materials: 300, work: 1, value: 12 }, { materials: 500, work: 1.5, value: 16 }] },
-      tools: { levels: [{ materials: 250, work: 1, value: 0.8 }, { materials: 400, work: 1.5, value: 0.6 }] },
+      tanks: { levels: [{ materials: 100, water: 50, work: 0.5, value: 200 }, { materials: 200, water: 100, work: 0.5, value: 250 }] },
+      backpack: { levels: [{ materials: 100, work: 0.5, value: 4 }, { materials: 200, work: 0.5, value: 5 }] },
+      racks: { levels: [{ materials: 100, work: 0.5, value: 12 }, { materials: 200, work: 0.5, value: 16 }] },
+      tools: { levels: [{ materials: 100, work: 0.5, value: 0.8 }, { materials: 200, work: 0.5, value: 0.6 }] },
     },
     // Colony: the sample-return launch (its cost; `share` of the map's science, up to `cap` points) and the self-sufficient
     // base's factor on local production.
-    COLONY: { launch: { materials: 600, work: 2, share: 0.3, cap: 120 }, selfSufficient: 1.2 },
+    COLONY: { launch: { materials: 200, work: 0.5, share: 0.3, cap: 120 }, selfSufficient: 1.2 },
     // The scout drone: flights a round, range and the fog it clears (tiles).
     DRONE: { flights: 3, range: 40, reveal: 16,
       drawn: 3 }, // seconds its flight is drawn on the surface, there and back (the rules' flight is instant)
