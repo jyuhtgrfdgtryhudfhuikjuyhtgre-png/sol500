@@ -1355,3 +1355,14 @@ test("the Drone button shows only with a drone and says why it can't fly", async
   tick(s, home, 0.2);
   assert.equal(btn.hidden, true);
 });
+
+test("the drone's words are in both languages, and its button counts the flights left", () => {
+  const I = require('../src/i18n.js');
+  const src = ['surface-eva.js', 'surface.js'].map(f => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8')).join('\n');
+  const keys = [...new Set([...src.matchAll(/'(eva\.drone\w*)'/g)].map(g => g[1]))];
+  assert.ok(keys.length >= 6, 'the surface says them: ' + keys.join());
+  for (const lang of ['en', 'vi']) {
+    assert.deepEqual(keys.filter(k => !I.STR[lang][k]), [], 'missing in ' + lang);
+    assert.match(I.STR[lang]['eva.droneFly'], /\{n\}/, lang);
+  }
+});

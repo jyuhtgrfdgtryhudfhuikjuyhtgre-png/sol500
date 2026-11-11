@@ -796,6 +796,7 @@
   };
   function m6Cards(s) {
     for (const e of s.events || []) if (Object.prototype.hasOwnProperty.call(M6_CARD_EVENTS, e.type)) M6_CARD_EVENTS[e.type](e).forEach(showM6Card);
+    if (s.expedition && s.expedition.droneFlights > 0) showM6Card('drone'); // M6 T7: the drone's first flight, on every tab
   }
 
   // A server event (src/net.js): a crewmate's discovery opens its card on every tab (spec §5, C6). The event names the

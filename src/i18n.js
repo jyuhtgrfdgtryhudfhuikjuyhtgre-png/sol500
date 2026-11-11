@@ -1357,7 +1357,12 @@
     // M6 T6
     'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
     // M6 T7
-    'eva.droneFly': 'Fly the drone',
+    'eva.droneFly': 'Fly the drone ({n} flights left) · F',
+    'eva.droneCancel': 'Call the flight off · Esc',
+    'eva.droneFlying': 'The drone is flying…',
+    'eva.droneAim': 'Pick where the drone should scout: click the ground, or the map (M). Esc calls it off.',
+    'eva.droneAimMap': 'Click inside the ring, up to {n} tiles from you, where the drone should scout · M or Esc to close',
+    'eva.droneFlew': 'The drone mapped the ground within {n} tiles of its target and is flying back.',
     'eva.err.noDrone': 'No working scout drone: build one in the Garage.',
     'eva.err.grounded': 'The drone is grounded in a global dust storm.',
     'eva.err.flights': 'The drone’s battery is flat until tomorrow.',
@@ -2619,7 +2624,12 @@
     // M6 T6
     'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
     // M6 T7
-    'eva.droneFly': 'Cho drone bay',
+    'eva.droneFly': 'Cho drone bay (còn {n} chuyến) · F',
+    'eva.droneCancel': 'Hủy chuyến bay · Esc',
+    'eva.droneFlying': 'Drone đang bay…',
+    'eva.droneAim': 'Chọn nơi drone sẽ trinh sát: bấm xuống đất, hoặc trên bản đồ (M). Esc để hủy.',
+    'eva.droneAimMap': 'Bấm vào trong vòng tròn, cách bạn tối đa {n} ô, nơi drone sẽ trinh sát · M hoặc Esc để đóng',
+    'eva.droneFlew': 'Drone đã khám phá vùng đất trong phạm vi {n} ô quanh điểm đến và đang bay về.',
     'eva.err.noDrone': 'Không có drone trinh sát nào hoạt động: hãy chế tạo một chiếc ở Xưởng xe.',
     'eva.err.grounded': 'Drone không thể bay trong bão bụi toàn cầu.',
     'eva.err.flights': 'Pin drone đã cạn đến ngày mai.',
