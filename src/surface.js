@@ -1465,13 +1465,14 @@
 
   // The Showcase's scene (ui.js asks once the world is up): stand on a tile, get into the rover by the real rule (the E key's
   // toggleRover, which asks the rules to board), and set the suit and the round clock. Throws when there is nothing to set up.
+  // board: 'cabin' is the pressurised rover (M6); anything else truthy is the rover, as before.
   function scene(o) {
     if (!S || !S.player) throw new Error('the surface is not ready');
     if (o.at) qa.teleport(o.at[0], o.at[1]);
     if (o.suit != null) qa.suit(o.suit);
     if (o.clock != null) qa.clock(o.clock);
     if (!o.board || S.player.inRover) return Promise.resolve();
-    return toggleRover().then(r => { if (r && r.error) throw new Error('the rover cannot be boarded: ' + r.error); }); // the rules' answer, not the optimistic one
+    return toggleRover(o.board).then(r => { if (r && r.error) throw new Error('the rover cannot be boarded: ' + r.error); }); // the rules' answer, not the optimistic one
   }
 
   root.SolSurface = Object.assign({ mount, update, setRemote, mergeFog, reset, isMounted: () => !!S, probe, scene, ping: d => { if (S) S.eva.addPing(d); } }, DEBUG ? { qa } : {});

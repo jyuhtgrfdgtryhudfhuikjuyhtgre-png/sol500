@@ -1472,11 +1472,11 @@ function realDevice() {
   return { save: { mission: m, plan: seed.E.defaultPlan(m) }, badges: ['landing'], regionsSeen: { key: 'REAL-1|solo', list: ['plains'], kinds: [] }, opsView: 'console' };
 }
 
-test('?showcase=1 opens the gallery with its 15 cards when this page is the host\'s own (adminHere)', async () => {
+test('?showcase=1 opens the gallery with its 17 cards when this page is the host\'s own (adminHere)', async () => {
   const pg = showPage();
   await settle();
   assert.equal(pg.UI.store.screen, 'showcase');
-  assert.equal(galleryKeys(pg).length, 15);
+  assert.equal(galleryKeys(pg).length, 17);
   assert.equal(galleryKeys(pg)[0], 'show:flare');
   assert.ok(pg.all().some(n => n.textContent === en('show.title')));
   assert.equal(pg.UI.store.demo, null);
@@ -1567,16 +1567,24 @@ test('a line chart\'s end labels stay above the x axis numbers, still 13 apart, 
 
 // Release QA F1: a first-time region card covered every surface scene for 8 s, and held the landmark card back behind it.
 test('an M6 demo is a Full mission that writes no save, and an M5 demo stays Quick', async () => {
-  for (const [id, quick, rank] of [['ranks', false, 2], ['launch', false, 3], ['flare', true, 0]]) {
+  for (const [id, quick, rank] of [['ranks', false, 2], ['launch', false, 3], ['flare', true, 0], ['cabin', false, 1], ['drone', false, 1]]) {
     const pg = showPage(realDevice());
     await settle();
-    const before = JSON.stringify(pg.ls['sol500.save']);
+    const before = JSON.stringify(pg.ls['sol500.save']), all = Object.assign({}, pg.ls);
     click(pg.byKey('show:' + id));
     pg.flush();
     assert.equal(pg.UI.store.demo.id, id);
     assert.equal(pg.UI.store.mission.quick === true, quick, id);
     assert.equal(pg.UI.store.mission.rank || 0, rank, id);
     assert.equal(JSON.stringify(pg.ls['sol500.save']), before, id + ' wrote no save');
+    if (rank !== 1) continue;
+    // The vehicle cards (M6 T9 part 2): the surface is asked for the card's own moment, and the card boarding opens records nothing.
+    const c = require('../src/showcase.js').card(id);
+    assert.deepEqual(plain(pg.got.scenes), [plain({ at: c.at, board: c.board, suit: c.suit, clock: c.clock })], id);
+    pg.got.hooks.card({ type: 'm6', id: 'm6:' + id, key: id });
+    pg.got.hooks.suit({ suit: 50, driven: 3, clock: 9, at: { x: 700, y: 40 } });
+    pg.flush();
+    assert.deepEqual(pg.ls, all, id + ' wrote nothing at all');
   }
 });
 
