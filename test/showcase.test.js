@@ -5,11 +5,11 @@ const assert = require('node:assert/strict');
 const C = require('../src/showcase.js');
 const I = require('../src/i18n.js');
 
-test('the code is the one QA mapped, and there are 12 cards, the first three flare, rover, oxygen', () => {
+test('the code is the one QA mapped, and there are 15 cards, the first three flare, rover, oxygen', () => {
   assert.equal(C.CODE, 'PAINT-QA-1');
-  assert.equal(C.CARDS.length, 12);
+  assert.equal(C.CARDS.length, 15);
   assert.deepEqual(C.CARDS.slice(0, 3).map(c => c.id), ['flare', 'rover', 'oxygen']);
-  assert.equal(new Set(C.CARDS.map(c => c.id)).size, 12);
+  assert.equal(new Set(C.CARDS.map(c => c.id)).size, 15);
 });
 
 test('every card has a name and a purpose in both languages', () => {
@@ -47,10 +47,10 @@ const px = ([tx, ty]) => ({ x: (tx + 0.5) * T, y: (ty + 0.5) * T });
 function demo(id) {
   const c = C.card(id), sc = D.SHOWCASE;
   const s = E.createMission({
-    seed: C.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, true), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
-    pilot: D.CREW.find(x => x.role === 'commander').id, quick: true, schedulePatch: c.schedule,
+    seed: C.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, !c.full), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
+    pilot: D.CREW.find(x => x.role === 'commander').id, quick: !c.full, schedulePatch: c.schedule,
   });
-  if (c.prepare) c.prepare(s, { Z, X });
+  if (c.prepare) c.prepare(s, { E, Z, X });
   return { c, s };
 }
 const tileAt = (s, [tx, ty]) => {
@@ -199,5 +199,63 @@ test("the crew card puts the Commander's and the Engineer's seconds for the same
     const line = card.line((k, p) => I.t(lang, k, p), X);
     assert.ok(line.includes(String(a)) && line.includes(String(b)), lang + ': ' + line);
     assert.ok(I.STR[lang]['show.crew.holds']);
+  }
+});
+
+// ---- M6 T9: the ranks, Fabricator and launch cards ----
+const M6IDS = ['ranks', 'fabricator', 'launch'];
+const gridOf = ([tx, ty]) => [tx - W.BASE_RECT.x, ty - W.BASE_RECT.y];
+
+test('the M6 cards come after the 12 M5 cards, are Full missions, and the M5 cards stay Quick', () => {
+  assert.deepEqual(C.CARDS.slice(12).map(c => c.id), M6IDS);
+  for (const c of C.CARDS.slice(0, 12)) assert.ok(!c.full, c.id + ' stays Quick');
+  for (const id of M6IDS) { const { c, s } = demo(id); assert.equal(c.full, true); assert.notEqual(s.quick, true, id); }
+  assert.equal(demo('flare').s.quick, true);
+});
+
+test('the M6 cards name a source or none, and their purpose lines are in both languages', () => {
+  assert.equal(C.card('fabricator').source, 'm6Printing');
+  assert.equal(C.card('launch').source, 'm6Samples');
+  for (const id of M6IDS) for (const lang of ['en', 'vi']) for (const part of ['name', 'why']) assert.ok(I.STR[lang]['show.card.' + id + '.' + part], lang + id + part);
+});
+
+test('a rank scene stands inside a Station base, not on the old pad edge', () => {
+  const { c, s } = demo('ranks'), [gx, gy] = gridOf(c.at);
+  assert.equal(E.rankOf(s), 2);
+  assert.ok(E.onLand(s, gx, gy), 'on the Station land');
+  assert.ok(!E.onLand({ rank: 0 }, gx, gy), 'off the Camp land');
+  assert.ok(!E.onLand({ rank: 0 }, gx, gy - 1) && !E.onLand({ rank: 0 }, gx, gy + 1) && !E.onLand({ rank: 0 }, gx - 1, gy) && !E.onLand({ rank: 0 }, gx + 1, gy), 'not on its edge either');
+  assert.ok(s.layout.length > 1, 'the bigger land is built on');
+  for (const b of s.layout) assert.ok(E.onLand(s, b.x, b.y));
+  for (const lang of ['en', 'vi']) {
+    const line = c.line((k, p) => I.t(lang, k, p), X);
+    assert.ok(line.includes(I.t(lang, 'rank.station')), lang + ' ' + line);
+  }
+});
+
+test('the Fabricator scene is a Station with a working Fabricator and gear already bought, and its rows can still be built', () => {
+  const { c, s } = demo('fabricator');
+  assert.equal(c.view, 'console');
+  assert.equal(E.rankOf(s), 2);
+  assert.ok(E.activeCount(s, 'fabricator') >= 1);
+  assert.ok(Object.values(s.gear).some(v => v > 0));
+  assert.ok(Object.keys(D.GEAR).some(l => E.canBuild(s, l).ok), 'a row can be queued');
+});
+
+test('the launch scene is a Colony with a working launch pad and the launch ready to queue', () => {
+  const { c, s } = demo('launch');
+  assert.equal(c.view, 'console');
+  assert.equal(E.rankOf(s), 3);
+  assert.ok(E.activeCount(s, 'launchpad') >= 1);
+  assert.deepEqual(E.canBuild(s, 'launch'), { ok: true });
+});
+
+test('a card whose tier is off is not in the gallery, and comes back with it', () => {
+  const ids = () => C.gallery().map(c => c.id);
+  assert.deepEqual(ids(), C.CARDS.map(c => c.id));
+  for (const [tier, id] of [['gear', 'fabricator'], ['colony', 'launch']]) {
+    D.M6[tier] = false;
+    try { assert.ok(!ids().includes(id), id + ' hidden'); assert.ok(ids().includes('ranks')); } finally { D.M6[tier] = true; }
+    assert.ok(ids().includes(id));
   }
 });

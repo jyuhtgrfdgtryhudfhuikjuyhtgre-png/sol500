@@ -1472,11 +1472,11 @@ function realDevice() {
   return { save: { mission: m, plan: seed.E.defaultPlan(m) }, badges: ['landing'], regionsSeen: { key: 'REAL-1|solo', list: ['plains'], kinds: [] }, opsView: 'console' };
 }
 
-test('?showcase=1 opens the gallery with its 12 cards when this page is the host\'s own (adminHere)', async () => {
+test('?showcase=1 opens the gallery with its 15 cards when this page is the host\'s own (adminHere)', async () => {
   const pg = showPage();
   await settle();
   assert.equal(pg.UI.store.screen, 'showcase');
-  assert.equal(galleryKeys(pg).length, 12);
+  assert.equal(galleryKeys(pg).length, 15);
   assert.equal(galleryKeys(pg)[0], 'show:flare');
   assert.ok(pg.all().some(n => n.textContent === en('show.title')));
   assert.equal(pg.UI.store.demo, null);
@@ -1566,6 +1566,20 @@ test('a line chart\'s end labels stay above the x axis numbers, still 13 apart, 
 });
 
 // Release QA F1: a first-time region card covered every surface scene for 8 s, and held the landmark card back behind it.
+test('an M6 demo is a Full mission that writes no save, and an M5 demo stays Quick', async () => {
+  for (const [id, quick, rank] of [['ranks', false, 2], ['launch', false, 3], ['flare', true, 0]]) {
+    const pg = showPage(realDevice());
+    await settle();
+    const before = JSON.stringify(pg.ls['sol500.save']);
+    click(pg.byKey('show:' + id));
+    pg.flush();
+    assert.equal(pg.UI.store.demo.id, id);
+    assert.equal(pg.UI.store.mission.quick === true, quick, id);
+    assert.equal(pg.UI.store.mission.rank || 0, rank, id);
+    assert.equal(JSON.stringify(pg.ls['sol500.save']), before, id + ' wrote no save');
+  }
+});
+
 test('a demo opens no region card on entering a region, so a scene\'s own card comes up at once', async () => {
   const pg = showPage(realDevice());
   await settle();
