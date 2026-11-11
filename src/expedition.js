@@ -356,6 +356,7 @@
     if (inBaseZone(m, pos, 0)) return { error: 'atBase' };
     const x = m.expedition, spot = { x: Math.round(pos.x), y: Math.round(pos.y) };
     x.suits[crewId] = 0;
+    if (x.riders) delete x.riders[crewId]; // a passenger is out of the seat where they fell: the next teammate can ride
     const k = drives(x, crewId);
     if (k) {
       setRoverDriven(m, crewId, driven);

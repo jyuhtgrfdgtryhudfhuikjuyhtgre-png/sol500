@@ -1543,3 +1543,14 @@ test('the passenger actions run in the rules table, with where the crew stand', 
   assert.deepEqual(Z.act(m, 'minh', 'ride', {}, bay, { lena: bay }), { ok: true });
   assert.deepEqual(Z.act(m, 'minh', 'alight', {}, bay), { ok: true });
 });
+
+test('a passenger who collapses is out of the seat, and the next teammate can ride', () => {
+  const m = withCabin(E.createMission({ seed: 'EXP-RIDE', loadout: ROVER_KIT, events: false, coop: true })), x = m.expedition;
+  const out = at(30, 0), where = { lena: out };
+  assert.deepEqual(X.board(m, 'lena', X.bay(m, 'cabin'), 'cabin'), { ok: true });
+  assert.deepEqual(X.ride(m, 'minh', out, where), { ok: true });
+  assert.equal(X.collapse(m, 'minh', out).ok, true);
+  assert.deepEqual(x.riders, {}, 'out of the seat where they fell');
+  assert.deepEqual(x.cabin, { driver: 'lena' }, 'the driver drives on');
+  assert.deepEqual(X.ride(m, 'diego', out, where), { ok: true }, 'the next teammate rides');
+});
