@@ -1319,6 +1319,7 @@ test("the Drone button shows only with a drone and says why it can't fly", async
   // The button (or F) asks for a target; a tap on the ground or the map flies it there, and back.
   s.eva.drone(home);
   assert.equal(s.eva.aiming(), true);
+  assert.equal(s.eva.rings(home)[0].r, D.DRONE.range * T, "the map's ring is the range the hint names");
   tick(s, home, 0.2);
   assert.deepEqual(look(), [false, false, 'eva.droneCancel'], 'while you pick, it calls the flight off');
   s.eva.flyTo(home, 30.5 * T, 1.5 * T);
@@ -1343,6 +1344,8 @@ test("the Drone button shows only with a drone and says why it can't fly", async
   const far = s.calls.filter(c => c.type === 'fly')[1].payload;
   assert.equal(far.ty, 1);
   assert.ok(far.tx > 30 && far.tx <= D.DRONE.range - 1, 'in range, with a tile to spare: ' + far.tx);
+  assert.ok(Math.hypot((far.tx + 0.5) * T - home.x, (far.ty + 0.5) * T - home.y) / T <= D.DRONE.range - D.EXPEDITION.reach,
+    "the tile it snaps to still leaves the whole reach for the server's lag");
   assert.equal(s.m.expedition.droneFlights, 2);
   s.eva.drone(home);
   s.eva.cancelDrone();

@@ -390,11 +390,12 @@
     }
     function cancelDrone() { aim = false; }
     // A target past the drone's range is brought in along the line to it, D.EXPEDITION.reach short of the range, so it is in
-    // range of where the co-op server last saw you too. (wx, wy): world px.
+    // range of where the co-op server last saw you too; half a tile's diagonal more, since the target then snaps to a tile's
+    // middle. (wx, wy): world px.
     function flyTo(p, wx, wy) {
       if (!aim || !p) return;
       aim = false;
-      const dx = wx - p.x, dy = wy - p.y, d = Math.hypot(dx, dy) / T, max = D.DRONE.range - XD.reach, k = d > max ? max / d : 1;
+      const dx = wx - p.x, dy = wy - p.y, d = Math.hypot(dx, dy) / T, max = D.DRONE.range - XD.reach - Math.SQRT1_2, k = d > max ? max / d : 1;
       const tx = Math.floor((p.x + dx * k) / T), ty = Math.floor((p.y + dy * k) / T);
       flight = { x0: p.x, y0: p.y, x1: (tx + 0.5) * T, y1: (ty + 0.5) * T, t: 0 };
       act('fly', p, { tx, ty }).then(r => {
@@ -817,7 +818,7 @@
     // What moves on the maps between rebuilds: the live pings, and the drone in flight (pale, edged in dark).
     const liveMarks = () => { const d = dronePos(); return pingMarks().concat(d ? [{ x: d.x, y: d.y, color: '#e8e2d6', ring: '#120a0c' }] : []); };
     // While you pick the drone's target, the full map rings the reach it may fly to (world px).
-    const rings = p => (aim && p ? [{ x: p.x, y: p.y, r: (D.DRONE.range - XD.reach) * T, color: '#e8e2d6' }] : []);
+    const rings = p => (aim && p ? [{ x: p.x, y: p.y, r: D.DRONE.range * T, color: '#e8e2d6' }] : []);
     // The maps' lines: the dashed route home (X.routeHome), each beacon to the nearest of the HQ and the older beacons nearer home.
     function lines() {
       const m = mission();

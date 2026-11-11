@@ -1038,6 +1038,7 @@ test("co-op: a drone flight's fog reaches the whole crew", async () => {
   const mark = hc.got.length, r = say(R, room, guest, 'fly', { tx: 30, ty: 1 });
   assert.equal(r.status, 200);
   assert.ok(Object.keys(r.body.fog).length > 0, 'it revealed fog');
+  assert.ok(room.fogUsed[guest.crewId] > 0, "the flight's new chunks count against the flyer's fog budget");
   assert.equal(frames(hc, mark).at(-1).data.mission.expedition.droneFlights, 1, 'everyone sees the flight spent');
   await wait(650);
   for (const c of [hc, gc]) {
