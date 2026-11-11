@@ -2420,6 +2420,9 @@
     Object.assign(store, { demo: { id }, mission: s, plan: E.defaultPlan(s), report: null, advice: null, card: null, opsView: c.view === 'console' ? 'console' : 'surface', modal: c.view === 'modal' ? c.modal : null, storyPage: 0 });
     if (window.SolSurface && window.SolSurface.isMounted()) window.SolSurface.reset();
     go('ops');
+    // A console scene about rows far down the page (the Fabricator's gear, the launch) brings them into view.
+    const row = c.focus && document.querySelector('[data-k="' + c.focus + '"]');
+    if (row && row.scrollIntoView) row.scrollIntoView({ block: 'center' });
     if (c.view === 'surface' && (c.at || c.board || c.suit != null || c.clock != null)) setUpScene(c, 0);
   }
   // The surface builds its world on the render that mounts it; the scene waits for it (about 3 s at most), then asks once.

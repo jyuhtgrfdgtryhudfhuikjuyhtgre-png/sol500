@@ -1588,6 +1588,21 @@ test('an M6 demo is a Full mission that writes no save, and an M5 demo stays Qui
   }
 });
 
+// Release QA (3.8.0): the Fabricator and launch scenes opened the console at its top, with the rows they are about 900 px
+// and more below the fold, so a judge saw nothing of them.
+test('a console scene about rows far down the page brings them into view: the gear rows, the launch', async () => {
+  for (const [id, row] of [['fabricator', 'bld:tanks'], ['launch', 'bld:launch'], ['isru', null]]) {
+    const pg = showPage(realDevice()), seen = [];
+    await settle();
+    pg.win.document.querySelector = sel => ({ scrollIntoView: o => seen.push([sel, o.block]) });
+    click(pg.byKey('show:' + id));
+    pg.flush();
+    assert.equal(pg.UI.store.demo.id, id);
+    assert.deepEqual(seen, row ? [['[data-k="' + row + '"]', 'center']] : [], id);
+    if (row) assert.ok(pg.byKey(row), id + ': the row is on the page');
+  }
+});
+
 test('a demo opens no region card on entering a region, so a scene\'s own card comes up at once', async () => {
   const pg = showPage(realDevice());
   await settle();

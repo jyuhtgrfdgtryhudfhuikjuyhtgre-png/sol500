@@ -77,8 +77,9 @@
     { id: 'ranks', source: 'm6Habitat3d', full: true, view: 'surface', at: [0, 4], prepare: (s, { E }) => raise(s, E, 2, [0, 4], ['habitat', 'garage'].concat(D.M6.gear ? ['fabricator'] : [])),
       // Rank and what it unlocked, from the rules: the modules the Station's limits open that no rank before it had.
       line: t => t('show.ranks.line', { rank: t('rank.' + D.RANKS[2].id), list: Object.keys(D.RANKS[2].max).filter(k => !D.MODULES[k].max && !D.RANKS[1].max[k] && (k !== 'fabricator' || D.M6.gear)).map(k => t('mod.' + k)).join(', ') }) },
-    { id: 'fabricator', tier: 'gear', source: 'm6Printing', full: true, view: 'console', prepare: (s, { E }) => { raise(s, E, 2, [0, 4], ['fabricator']); s.gear.tanks = 1; s.gear.backpack = 1; } },
-    { id: 'launch', tier: 'colony', source: 'm6Samples', full: true, view: 'console', prepare: (s, { E }) => raise(s, E, 3, [0, 4], ['launchpad']) },
+    // focus: the build row a console scene is about; it sits far down the page, so the scene brings it into view (src/ui.js).
+    { id: 'fabricator', tier: 'gear', source: 'm6Printing', full: true, view: 'console', focus: 'bld:tanks', prepare: (s, { E }) => { raise(s, E, 2, [0, 4], ['fabricator']); s.gear.tanks = 1; s.gear.backpack = 1; } },
+    { id: 'launch', tier: 'colony', source: 'm6Samples', full: true, view: 'console', focus: 'bld:launch', prepare: (s, { E }) => raise(s, E, 3, [0, 4], ['launchpad']) },
     // board: 'cabin' gets into the pressurised rover by the rules (SolSurface.scene), which opens its own card, as in a game.
     { id: 'cabin', tier: 'cabin', source: 'm6Pressurized', full: true, view: 'surface', at: CABIN_AT, board: 'cabin', prepare: parkCabin },
     // On foot at [0, 3], Outpost ground a tile south of the Camp's pad and inside the base zone, where the rules let the drone
