@@ -1328,9 +1328,9 @@ test("the Drone button shows only with a drone and says why it can't fly", async
   assert.equal(s.m.expedition.droneFlights, 1);
   tick(s, home, 0.2);
   assert.deepEqual(look(), [false, true, 'eva.droneFlying'], 'one flight at a time');
-  // The maps draw it there and back in 3 s: over its target half-way, gone once it is home.
+  // The maps draw it there and back in D.DRONE.drawn s: over its target half-way, gone once it is home.
   const drone = () => plain(s.eva.marks(s.world, home.x, home.y)).find(k => k.color === '#e8e2d6');
-  tick(s, home, 1.3);
+  tick(s, home, D.DRONE.drawn / 2 - 0.2);
   const mid = drone();
   assert.ok(mid && Math.hypot(mid.x - 30.5 * T, mid.y - 1.5 * T) < 2, 'over the target half-way: ' + JSON.stringify(mid));
   tick(s, home, 4);

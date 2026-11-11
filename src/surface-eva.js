@@ -57,7 +57,6 @@
   // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
   const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
   const VERDICT = 8;                             // seconds the flare's verdict stays on the banner
-  const FLIGHT = 3;                              // seconds the drone's flight is drawn, there and back (the rules' is instant)
   const INSIDE = { cave: 'eva.inCave', tube: 'eva.inTube', pod: 'eva.inPod' }; // the note while you are in cover out there
   // What holding E does at a Kestrel structure's door (the hab pod has no hold: you walk in).
   const VERB = { cache: 'eva.open', wreck: 'eva.salvage', array: 'eva.salvage', weather: 'eva.repair', mast: 'eva.repair' };
@@ -381,7 +380,7 @@
 
     // The scout drone (spec §4.2, M6). The button (or F) asks for a target, again calls it off (or Esc); a tap on the ground or
     // on the map (flyTo) picks it. The rules fly it at once (X.fly, its fog comes as a beacon's does); here it is drawn there
-    // and back over everything, as it flies over cliffs and walls, in FLIGHT seconds. One flight at a time.
+    // and back over everything, as it flies over cliffs and walls, in D.DRONE.drawn seconds. One flight at a time.
     const droneCheck = p => (live() ? X.canFly(mission(), me, p ? at(p) : null) : { error: 'badPhase' });
     function drone(p) {
       if (aim) { aim = false; return; }
@@ -406,7 +405,7 @@
     // Where the drone is now (world px), or null: out to its target in the first half of the flight, back to you in the second.
     function dronePos() {
       if (!flight) return null;
-      const p = env.player && env.player(), f = flight.t / FLIGHT, back = f > 0.5, k = back ? 2 - 2 * f : 2 * f, e = k * k * (3 - 2 * k);
+      const p = env.player && env.player(), f = flight.t / D.DRONE.drawn, back = f > 0.5, k = back ? 2 - 2 * f : 2 * f, e = k * k * (3 - 2 * k);
       const hx = back && p ? p.x : flight.x0, hy = back && p ? p.y : flight.y0;
       return { x: hx + (flight.x1 - hx) * e, y: hy + (flight.y1 - hy) * e };
     }
@@ -485,7 +484,7 @@
     function step(dt, p, world, moved, focus) {
       now += dt;
       peek = world.peek;
-      if (flight && (flight.t += dt) >= FLIGHT) flight = null;
+      if (flight && (flight.t += dt) >= D.DRONE.drawn) flight = null;
       const m = mission();
       if (briefed) { // a card over the HUD hides the note: say it again when the card closes
         const h = env.hooks(), up = !!(h && h.cardUp && h.cardUp());

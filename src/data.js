@@ -183,7 +183,8 @@
     // base's factor on local production.
     COLONY: { launch: { materials: 600, work: 2, share: 0.3, cap: 120 }, selfSufficient: 1.2 },
     // The scout drone: flights a round, range and the fog it clears (tiles).
-    DRONE: { flights: 3, range: 40, reveal: 16 },
+    DRONE: { flights: 3, range: 40, reveal: 16,
+      drawn: 3 }, // seconds its flight is drawn on the surface, there and back (the rules' flight is instant)
 
     BREAKDOWN: {
       hab: 0.02, solar: 0.02, battery: 0.02, reactor: 0.015, recycler: 0.035, oxygen: 0.035,
