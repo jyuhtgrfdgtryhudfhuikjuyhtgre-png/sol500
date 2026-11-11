@@ -232,7 +232,7 @@ test('every {placeholder} in English is in the Vietnamese', () => {
   for (const k of Object.keys(I.STR.en)) assert.deepEqual(ph(I.STR.vi[k] || ''), ph(I.STR.en[k]), k);
 });
 
-test('the Vietnamese says xe thám hiểm, never xe tự hành', () => assert.ok(!viText.includes('xe tự hành')));
+test('the Vietnamese says xe thám hiểm, never xe tự hành, source titles included', () => assert.ok(!(viText + Object.values(I.SOURCE_VI).join(' ')).includes('xe tự hành')));
 
 test('the Vietnamese has one word each for the base, the beacon and methane', () => {
   for (const w of ['trụ sở', 'trạm tiếp sóng', 'mê-tan']) assert.ok(!viText.includes(w), w);

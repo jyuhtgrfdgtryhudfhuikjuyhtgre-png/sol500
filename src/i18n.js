@@ -2838,10 +2838,10 @@
     m6Basecamp: "NASA (2020): Cuộc sống trên Mặt Trăng: ý tưởng Căn cứ Artemis của NASA",
     m6Habitat3d: "NASA (2019): Các đội in 3D nơi ở hành tinh, nhận 700 nghìn USD trong cuộc thi của NASA",
     m6Isru: "NASA: Tổng quan: Tận dụng tài nguyên tại chỗ (sống nhờ vào đất)",
-    m6Pressurized: "NASA (2024): NASA và Nhật Bản tăng cường hợp tác vũ trụ, ký thỏa thuận về xe tự hành Mặt Trăng",
+    m6Pressurized: "NASA (2024): NASA và Nhật Bản tăng cường hợp tác vũ trụ, ký thỏa thuận về xe thám hiểm Mặt Trăng",
     m6Ingenuity: "NASA (2024): Sau ba năm trên sao Hỏa, sứ mệnh trực thăng Ingenuity của NASA kết thúc",
     m6Moxie: "NASA (2023): Thí nghiệm tạo oxy MOXIE của NASA hoàn thành sứ mệnh trên sao Hỏa",
-    m6Samples: "NASA: Chuyến khứ hồi sao Hỏa: các ống mẫu của xe tự hành Perseverance",
+    m6Samples: "NASA: Chuyến khứ hồi sao Hỏa: các ống mẫu của xe thám hiểm Perseverance",
     m6Printing: "NASA (2014): Mở cửa kinh doanh: máy in 3D tạo ra vật thể đầu tiên trong không gian trên Trạm Vũ trụ Quốc tế",
   };
 
