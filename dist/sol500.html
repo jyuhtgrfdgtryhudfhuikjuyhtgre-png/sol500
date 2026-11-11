@@ -12108,7 +12108,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       if (p.rover && heading != null) S[headOf(vehicle)] = heading; // so it is parked as its driver left it
       next[p.crewId] = {
         x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, vehicle, heading, shown: prev && p.rover ? prev.shown : null, odo: prev ? prev.odo || 0 : 0,
-        phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0, away: !!p.away,
+        phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0, away: !!p.away, tool: p.tool || null,
       };
     }
     S.remote = next;
@@ -12506,15 +12506,15 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
   function maybeSend(ts) {
     if (!S.hooks.sendPos || ts - S.lastSent < 110) return;
     const p = S.player;
-    const ev = S.eva.report();
-    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + p.vehicle + ',' + (ev.suit == null ? '-' : Math.ceil(ev.suit)) + ',' + Math.floor(ev.driven);
+    const ev = S.eva.report(), tool = S.eva.working() || undefined; // the tool in your hand: teammates see you at work
+    const k = tool + ',' + Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + p.vehicle + ',' + (ev.suit == null ? '-' : Math.ceil(ev.suit)) + ',' + Math.floor(ev.driven);
     if (k === S.lastSentKey && ts - S.lastSent < 2000) return;
     S.lastSent = ts;
     S.lastSentKey = k;
     // The suit level travels with the position (teammates see it), except while you are down; the driver also says how far
     // the vehicle has gone, and `rover: false` from the driver parks it there even if the park action was lost. `vehicle` (M6)
     // says which one; `rover` stays for a game from before.
-    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, vehicle: p.inRover ? p.vehicle || 'rover' : undefined, suit: ev.suit == null ? undefined : ev.suit, driven: p.inRover ? ev.driven : undefined });
+    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, vehicle: p.inRover ? p.vehicle || 'rover' : undefined, suit: ev.suit == null ? undefined : ev.suit, driven: p.inRover ? ev.driven : undefined, tool });
   }
   // Walked distance (spec §3.10, R5): where you stand goes to the walk hook every WALK_GAP seconds of the surface's clock, with
   // where you stood before, the way co-op's positions reach the server. Solo's rules count the tiles (X.addDistance: a jump or a
@@ -12544,7 +12544,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, vehicle: r.vehicle, heading: r.shown != null ? r.shown : r.heading, odo: r.odo, bar: S.eva.suitBar(r) });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, working: r.tool, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, vehicle: r.vehicle, heading: r.shown != null ? r.shown : r.heading, odo: r.odo, bar: S.eva.suitBar(r) });
     }
     return out;
   }
