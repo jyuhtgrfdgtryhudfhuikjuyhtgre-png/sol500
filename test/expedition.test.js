@@ -1476,6 +1476,9 @@ test('the rover and the pressurised rover can be out at once', () => {
   // A new round: the driven one comes home, the parked one stays where it was left, and both batteries recharge.
   const next = E.resolveTurn(m, E.defaultPlan(m)).state.expedition;
   assert.deepEqual([next.rover, next.cabin, next.roverDriven, next.cabinDriven], [null, x.cabin, 0, 0]);
+  // Still driven at a new round, the pressurised rover is back at its bay as the rover is: null (R16).
+  assert.deepEqual(X.board(m, 'diego', at(-31, 0), 'cabin'), { ok: true });
+  assert.equal(E.resolveTurn(m, E.defaultPlan(m)).state.expedition.cabin, null);
 });
 
 test('the pressurised rover is not flare cover', () => {

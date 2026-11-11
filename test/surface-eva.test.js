@@ -1357,3 +1357,31 @@ test("a pressurised rover that is flat or taken says so in its own words; the ro
   error = 'tooFar';
   assert.equal(await said('cabin'), 'eva.err.tooFar', 'any other refusal reads as before');
 });
+
+test("a flare warning in the pressurised rover says it is no cover; in the base zone you are covered", () => {
+  const m = flareMission('EVA-FLARE-5');
+  m.expedition.flare = { warn: 35, end: 95, over: false, hit: [] };
+  m.expedition.clock = 40;
+  const s = setup({ mission: m, t: say });
+  const cab = tx => Object.assign(NEAR(tx, 1), { inRover: true, vehicle: 'cabin' });
+  tick(s, cab(6), 0.1);
+  assert.equal(banner(s).msg, 'eva.cabinFlare', 'out in the open, in it');
+  assert.match(banner(s).cls, /crit/);
+  tick(s, Object.assign(NEAR(6, 1), { inRover: true }), 0.1);
+  assert.equal(banner(s).msg, 'eva.flare.run', "the rover's hint is as before");
+  tick(s, cab(0), 0.1);
+  assert.equal(banner(s).msg, 'eva.flare.covered', 'in the base zone');
+  assert.match(banner(s).cls, /ok/);
+});
+
+test('a passenger in the pressurised rover sees as far as its driver', () => {
+  const m = E.createMission({ seed: 'EVA-1', loadout: E.referenceKit('commander', 4), events: false, coop: true, pilot: 'minh' });
+  const s = setup({ mission: m });
+  const p = outside(20, 1), driver = Object.assign(outside(20, 1), { inRover: true, vehicle: 'cabin' });
+  assert.equal(s.eva.view(p), D.DANGERS.view.clear, 'on foot');
+  assert.equal(s.eva.view(driver), D.DANGERS.view.rover, 'driving it');
+  m.expedition.riders.minh = 'cabin'; // riding along: their position still says on foot
+  assert.equal(s.eva.view(p), D.DANGERS.view.rover, 'riding in it');
+  delete m.expedition.riders.minh;
+  assert.equal(s.eva.view(p), D.DANGERS.view.clear, 'out of it again');
+});
