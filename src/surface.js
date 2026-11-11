@@ -37,6 +37,10 @@
   const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
   const DEBUG = /[?&]debug=chunks\b/.test((root.location && root.location.search) || '');
   const tkey = (x, y) => x + ',' + y;
+  // The vehicles (M6): the rover and the pressurised rover each keep the way they face (S.roverHeading, S.cabinHeading) and
+  // drive by their own physics. A player in one has inRover set, and vehicle 'cabin' in the pressurised rover (none: the rover).
+  const headOf = k => (k === 'cabin' ? 'cabinHeading' : 'roverHeading');
+  const specOf = p => (p.vehicle === 'cabin' ? PH.CABIN : PH.ROVER);
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   let S = null;
@@ -157,7 +161,7 @@
   function brakesNow(p, d) {
     let left = d;
     for (let i = 1; i < p.path.length; i++) left += Math.hypot(p.path[i][0] - p.path[i - 1][0], p.path[i][1] - p.path[i - 1][1]);
-    return PH.stopDistance(p.car.speed) * PH.PX_PER_M * S.eva.speed(p) * S.qa.speed >= left - 8;
+    return PH.stopDistance(p.car.speed, PH.MARS_G, specOf(p)) * PH.PX_PER_M * S.eva.speed(p) * S.qa.speed >= left - 8;
   }
 
   function spotNear(gx, gy, rnd) {
@@ -181,8 +185,9 @@
   function ensurePlayer() {
     if (S.player) return;
     const [x, y] = spawnPoint();
-    S.player = { x, y, dir: 'down', phase: 0, moving: false, stamina: 100, path: null, inRover: false, crewId: S.data.controlId, car: null, odo: 0 };
+    S.player = { x, y, dir: 'down', phase: 0, moving: false, stamina: 100, path: null, inRover: false, vehicle: null, crewId: S.data.controlId, car: null, odo: 0 };
     S.roverHeading = 0; // where the rover faces (0 = east), driven or parked: a new mission's waits at its bay facing east
+    S.cabinHeading = 0; // and the pressurised rover
     S.fx = { dust: [], tracks: {} }; // the rovers' dust and wheel tracks (roverFx)
   }
 
@@ -212,7 +217,7 @@
     S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }), onPing: (x, y) => ping(x, y) });
     S.eva = EV.create({
       t: (k, p) => t(k, p), hooks: () => S.hooks, crewName: id => S.data.crewName(id), player: () => S.player, home: goHome,
-      drawRover: (ctx, x, y) => P.sprites.drawRoverTop(ctx, x, y - 10, S.roverHeading || 0, 0, false, null), // parked, as it was left
+      drawRover: (ctx, x, y, kind) => (kind === 'cabin' ? P.sprites.drawCabinTop : P.sprites.drawRoverTop)(ctx, x, y - 10, S[headOf(kind)] || 0, 0, false, null), // parked, as it was left
       now: () => performance.now() / 1000,
       push: (dx, dy) => { if (S.player) S.player.push = { x: dx, y: dy, left: PUSH_TIME }; },
       team: () => team(),
@@ -397,7 +402,7 @@
   function moveToCrewmate(id) {
     const p = S.player, from = S.npcs[id] || S.remote[id];
     const [x, y] = from ? [from.x, from.y] : spawnPoint();
-    Object.assign(p, { x, y, dir: (from && from.dir) || 'down', path: null, push: null, inRover: false, autoFocus: null, faceTo: null });
+    Object.assign(p, { x, y, dir: (from && from.dir) || 'down', path: null, push: null, inRover: false, vehicle: null, autoFocus: null, faceTo: null });
     delete S.npcs[id];
     S.pendingAuto = null;
     S.camSnap = true;
@@ -408,7 +413,7 @@
     const p = S.player;
     if (!p) return;
     const [x, y] = spawnPoint();
-    Object.assign(p, { x, y, dir: 'down', path: null, push: null, inRover: false, autoFocus: null, faceTo: null });
+    Object.assign(p, { x, y, dir: 'down', path: null, push: null, inRover: false, vehicle: null, autoFocus: null, faceTo: null });
     S.pendingAuto = null;
     S.camSnap = true;
     if (S.menuOpen) closeMenu();
@@ -457,9 +462,10 @@
       // A reload (or a new seat) mid-round: back where you stood (the solo save, or where the server last saw you), not a free
       // walk home. After a solo collapse you are already home, where you sit out the round.
       if (back && !S.eva.state().benched) place(back);
-      if (S.eva.driving()) { S.player.inRover = true; S.player.car = null; } // back in the seat you left (a reload while driving), from rest
+      const seat = S.eva.driving(); // back in the seat you left (a reload while driving), from rest
+      if (seat) Object.assign(S.player, { inRover: true, vehicle: seat, car: null });
     }
-    if (down) S.player.inRover = false; // a collapse parks the rover where you fell (X.collapse): you are never left in it
+    if (down) Object.assign(S.player, { inRover: false, vehicle: null }); // a collapse parks the vehicle where you fell (X.collapse): you are never left in it
     S.canvas.setAttribute('aria-label', t('sf.aria'));
     S.hintKey = null; // the next frame writes the key hint in the language of the moment, on foot or in the rover
     S.btnAct.setAttribute('aria-label', t('sf.interact'));
@@ -479,12 +485,14 @@
       if (!p.crewId || (S.data && p.crewId === S.data.controlId)) continue;
       const prev = S.remote[p.crewId];
       // A rover's heading comes from how its relayed position moves (no new network field); standing still keeps it, and a
-      // crewmate who has just got in is drawn the way the rover was parked.
+      // crewmate who has just got in is drawn the way the rover was parked. Which vehicle: the position's `vehicle` (M6), or
+      // the rover for a game from before.
+      const vehicle = p.rover ? (p.vehicle === 'cabin' ? 'cabin' : 'rover') : null;
       const shift = prev && prev.rover && p.rover ? Math.hypot(p.x - prev.tx, p.y - prev.ty) : 0;
-      const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : p.rover ? (prev && prev.heading != null ? prev.heading : S.roverHeading) : null;
-      if (p.rover && heading != null) S.roverHeading = heading; // so it is parked as its driver left it
+      const heading = shift > 1 ? Math.atan2(p.y - prev.ty, p.x - prev.tx) : p.rover ? (prev && prev.heading != null ? prev.heading : S[headOf(vehicle)]) : null;
+      if (p.rover && heading != null) S[headOf(vehicle)] = heading; // so it is parked as its driver left it
       next[p.crewId] = {
-        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, heading, shown: prev && p.rover ? prev.shown : null, odo: prev ? prev.odo || 0 : 0,
+        x: prev ? prev.x : p.x, y: prev ? prev.y : p.y, tx: p.x, ty: p.y, dir: p.dir || 'down', moving: !!p.moving, rover: !!p.rover, vehicle, heading, shown: prev && p.rover ? prev.shown : null, odo: prev ? prev.odo || 0 : 0,
         phase: prev ? prev.phase : 0, at: now, suit: Number.isFinite(p.suit) ? p.suit : null, load: p.load || 0, away: !!p.away,
       };
     }
@@ -665,13 +673,13 @@
       // The rover drives by the physics engine (src/physics.js): it turns toward the way you push and speeds up, brakes and
       // turns only as hard as its wheels grip in Mars' gravity. Shift opens up its governor; boulders and crater rims are
       // rough ground it creeps over. The battery counts each tile boosted, or rough, twice (p.drain, src/surface-eva.js).
-      if (!p.car) p.car = { heading: S.roverHeading || 0, speed: 0 };
+      if (!p.car) p.car = { heading: S[headOf(p.vehicle)] || 0, speed: 0 };
       const turnedFrom = p.car.heading;
       const rough = S.world.rough(Math.floor(p.x / T), Math.floor(p.y / T)), boost = moving && (S.keys.has('Shift') || S.sprintHeld);
-      const step = PH.drive(p.car, { x: vx, y: vy }, dt, { boost, rough }) * S.eva.speed(p) * S.qa.speed; // the commander's aura
+      const step = PH.drive(p.car, { x: vx, y: vy }, dt, { boost, rough }, specOf(p)) * S.eva.speed(p) * S.qa.speed; // the commander's aura
       const RD = D.EXPEDITION.roverDrain;
       p.drain = (boost && p.car.speed > 1 ? RD.boost : 1) * (rough ? RD.rough : 1);
-      S.roverHeading = p.car.heading;
+      S[headOf(p.vehicle)] = p.car.heading;
       moving = p.car.speed > 4;
       if (step > 0) {
         const hx = Math.cos(p.car.heading), hy = Math.sin(p.car.heading), mx = p.x + hx * step, my = p.y + hy * step;
@@ -869,13 +877,14 @@
     if (!S.hooks.sendPos || ts - S.lastSent < 110) return;
     const p = S.player;
     const ev = S.eva.report();
-    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + (ev.suit == null ? '-' : Math.ceil(ev.suit)) + ',' + Math.floor(ev.driven);
+    const k = Math.round(p.x) + ',' + Math.round(p.y) + ',' + p.dir + ',' + p.moving + ',' + p.inRover + ',' + p.vehicle + ',' + (ev.suit == null ? '-' : Math.ceil(ev.suit)) + ',' + Math.floor(ev.driven);
     if (k === S.lastSentKey && ts - S.lastSent < 2000) return;
     S.lastSent = ts;
     S.lastSentKey = k;
     // The suit level travels with the position (teammates see it), except while you are down; the driver also says how far
-    // the rover has gone, and `rover: false` from the driver parks it there even if the park action was lost.
-    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, suit: ev.suit == null ? undefined : ev.suit, driven: p.inRover ? ev.driven : undefined });
+    // the vehicle has gone, and `rover: false` from the driver parks it there even if the park action was lost. `vehicle` (M6)
+    // says which one; `rover` stays for a game from before.
+    S.hooks.sendPos({ x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, moving: p.moving, rover: p.inRover, vehicle: p.inRover ? p.vehicle || 'rover' : undefined, suit: ev.suit == null ? undefined : ev.suit, driven: p.inRover ? ev.driven : undefined });
   }
   // Walked distance (spec §3.10, R5): where you stand goes to the walk hook every WALK_GAP seconds of the surface's clock, with
   // where you stood before, the way co-op's positions reach the server. Solo's rules count the tiles (X.addDistance: a jump or a
@@ -895,7 +904,7 @@
     const byId = id => m.crew.find(c => c.id === id);
     const color = role => A.ROLE[role] || '#ccc';
     const me = controlledCrew();
-    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover, heading: S.player.inRover && S.player.car ? S.player.car.heading : null, odo: S.player.odo || 0 });
+    if (me && me.status !== 'dead') out.push({ id: me.id, role: me.role, color: color(me.role), x: S.player.x, y: S.player.y, dir: S.player.dir, phase: S.player.phase, moving: S.player.moving, you: true, down: me.status === 'down' || S.eva.collapsed(me.id), rover: S.player.inRover, vehicle: S.player.vehicle, heading: S.player.inRover && S.player.car ? S.player.car.heading : null, odo: S.player.odo || 0 });
     for (const [id, n] of Object.entries(S.npcs)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
@@ -904,7 +913,7 @@
     for (const [id, r] of Object.entries(S.remote)) {
       const c = byId(id);
       if (!c || c.status === 'dead') continue;
-      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, heading: r.shown != null ? r.shown : r.heading, odo: r.odo, bar: S.eva.suitBar(r) });
+      out.push({ id, role: c.role, color: color(c.role), x: r.x, y: r.y, dir: r.dir, phase: r.phase, moving: r.moving, remote: true, down: c.status === 'down' || S.eva.collapsed(id), rover: r.rover, vehicle: r.vehicle, heading: r.shown != null ? r.shown : r.heading, odo: r.odo, bar: S.eva.suitBar(r) });
     }
     return out;
   }
@@ -917,9 +926,11 @@
     const tile = m.layout.find(x => x.x === gx && x.y === gy);
     if (tile) {
       if (tile.type === 'hab') return { kind: 'hq', key: 'hq', gx, gy, wx, wy };
-      // The rover in its bay is something to drive, unless you are down (co-op, waiting for a revive): then it is just the bay.
-      const drivable = S.eva.roverAtBay(S.player) && !S.eva.collapsed(S.data.controlId);
-      if (tile.type === 'rover') return drivable ? { kind: 'rover', key: 'rover', gx, gy, wx, wy, type: 'rover' } : { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: 'rover' };
+      // A vehicle in its bay is something to drive, unless you are down (co-op, waiting for a revive): then it is just the bay.
+      if (tile.type === 'rover' || tile.type === 'cabin') {
+        const ty = tile.type, drivable = S.eva.atBay(S.player, ty) && !S.eva.collapsed(S.data.controlId);
+        return drivable ? { kind: 'rover', key: ty, vehicle: ty, gx, gy, wx, wy, type: ty } : { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: ty };
+      }
       return { kind: 'structure', key: 's:' + gx + ',' + gy, gx, gy, wx, wy, type: tile.type };
     }
     const pr = m.projects.find(x => x.x === gx && x.y === gy);
@@ -957,7 +968,7 @@
     if (!f && ef) f = ef;
     // In the rover, E gets you out, unless there is work right there: a crewmate to revive, or a find or a dropped load your
     // backpack has room for (you step out to work on it and get back in). A full backpack never keeps you in a flat rover.
-    if (p.inRover) f = ef && S.eva.holdable(ef) && (ef.kind === 'revive' || S.eva.hasRoom()) ? ef : { kind: 'rover', key: 'rover-exit', driving: true };
+    if (p.inRover) f = ef && S.eva.holdable(ef) && (ef.kind === 'revive' || S.eva.hasRoom()) ? ef : { kind: 'rover', key: 'rover-exit', driving: true, vehicle: p.vehicle };
     const changed = (f && f.key) !== (S.focus && S.focus.key);
     S.focus = f;
     if (changed && S.menuOpen) closeMenu();
@@ -968,7 +979,7 @@
     if (!f) return '';
     switch (f.kind) {
       case 'hq': return t('mod.hab');
-      case 'rover': return f.driving ? t('sf.exitRover') : t('sf.boardRover');
+      case 'rover': return t(f.vehicle === 'cabin' ? (f.driving ? 'sf.exitCabin' : 'sf.boardCabin') : f.driving ? 'sf.exitRover' : 'sf.boardRover');
       case 'structure': return t('mod.' + f.type);
       case 'project': return t('mod.' + f.project.type) + ' · ' + t('bld.projects');
       case 'queued': return t('mod.' + S.data.plan.builds[f.index].type) + ' · ' + t('bld.queue');
@@ -1005,29 +1016,31 @@
     if (S.menuOpen) { closeMenu(); return; }
     if (!S.focus) return;
     if (S.eva.holdable(S.focus)) { S.eva.start(S.focus); return; }
-    if (S.focus.kind === 'rover') { toggleRover(); return; }
+    if (S.focus.kind === 'rover') { toggleRover(S.focus.vehicle); return; }
     if (S.focus.kind === 'beacon' || S.focus.kind === 'drop') return; // where a beacon cannot go, or a load will not fit: the prompt says why, and there is no menu
     openMenu();
   }
 
-  // Getting in and out of the rover goes through the exploring rules: one driver at a time, it stays where you leave it
-  // (or goes back to its bay at the outpost), and its battery drives roverRange tiles a round.
-  function toggleRover() {
+  // Getting in and out of a vehicle (kind: 'rover', the default, or 'cabin') goes through the exploring rules: one driver
+  // each, it stays where you leave it (or goes back to its bay at the outpost), and its battery drives so far a round.
+  function toggleRover(kind) {
     const p = S.player, m = S.data.mission;
     if (p.inRover) {
-      p.inRover = false;
-      p.car = null; // parked: S.roverHeading keeps the way it faces
+      const driven = S.eva.report().driven, was = p.vehicle || 'rover'; // with the last bit of driving, so its battery is saved right
+      Object.assign(p, { inRover: false, vehicle: null, car: null }); // parked: its heading keeps the way it faces
       refreshWorld(m);
       if (hitsWall(p.x, p.y)) { const sp = freeSpot(p.x, p.y); if (sp) { p.x = sp[0]; p.y = sp[1]; } }
-      return S.eva.act('park', p, { driven: S.eva.report().driven }); // with the last bit of driving, so the battery is saved right
+      return S.eva.act('park', p, { driven, kind: was });
     }
-    if (m.modules.rover.count - m.modules.rover.broken <= 0) { openMenu(); return Promise.resolve({ error: 'noRover' }); }
+    const k = kind === 'cabin' ? 'cabin' : 'rover';
+    if (E.activeCount(m, k) <= 0) { openMenu(); return Promise.resolve({ error: k === 'cabin' ? 'noCabin' : 'noRover' }); }
     if (S.eva.collapsed(S.data.controlId)) return Promise.resolve({ error: 'collapsed' }); // down (co-op): you can't get in, not even until the server says no
     p.inRover = true; // at once, so it feels immediate; in co-op the server may say someone else has it
-    p.car = { heading: S.roverHeading || 0, speed: 0 }; // it faces the way it was left
+    p.vehicle = k;
+    p.car = { heading: S[headOf(k)] || 0, speed: 0 }; // it faces the way it was left
     S.hintUntil = S.time + 12; // the rover's own key hint
     refreshWorld(m);
-    return S.eva.act('board', p).then(r => { if (r.error && p.inRover) { p.inRover = false; refreshWorld(S.data.mission); } return r; });
+    return S.eva.act('board', p, { kind: k }).then(r => { if (r.error && p.inRover) { Object.assign(p, { inRover: false, vehicle: null }); refreshWorld(S.data.mission); } return r; });
   }
   // The nearest open spot to stand on, within 3 tiles of (x, y) (world px), for getting out of the rover by a rock.
   function freeSpot(x, y) {
@@ -1180,7 +1193,10 @@
       } else if (ty === 'reactor') {
         note('+' + nf(fc.power.reactorKw, 1) + ' kW');
       }
-      if (ty === 'rover' && mod.count - mod.broken > 0 && S.eva.roverAtBay(S.player) && !S.eva.collapsed(S.data.controlId)) body.appendChild(numbered(mbtn(t('sf.boardRover'), t('sf.roverSub'), () => { closeMenu(); toggleRover(); }, { primary: true, icon: A.icon('eva', 18) })));
+      if ((ty === 'rover' || ty === 'cabin') && mod.count - mod.broken > 0 && S.eva.atBay(S.player, ty) && !S.eva.collapsed(S.data.controlId)) {
+        const cab = ty === 'cabin';
+        body.appendChild(numbered(mbtn(t(cab ? 'sf.boardCabin' : 'sf.boardRover'), t(cab ? 'sf.cabinSub' : 'sf.roverSub'), () => { closeMenu(); toggleRover(ty); }, { primary: true, icon: A.icon('eva', 18) })));
+      }
       const scrapping = (plan.scrap || []).includes(ty);
       body.appendChild(numbered(mbtn(scrapping ? t('sys.scrapQueued') : t('sys.scrap'), fc.points.maintenance ? '' : t('sys.scrapNeed'),
         () => { H.toggleScrap(ty); renderMenu(); }, { on: scrapping, disabled: !fc.points.maintenance && !scrapping, icon: A.icon('scrap', 18) })));
@@ -1283,7 +1299,7 @@
     for (const ty of D.MODULE_TYPES) brokenLeft[ty] = m.modules[ty].broken;
     const runningLeft = Object.assign({}, fc.power.running);
     for (const tile of m.layout) {
-      if (tile.type === 'rover' && !S.eva.roverAtBay(p)) continue; // driven, or parked out on the map
+      if ((tile.type === 'rover' || tile.type === 'cabin') && !S.eva.atBay(p, tile.type)) continue; // driven, or parked out on the map
       const [wx, wy] = gridToWorld(tile.x, tile.y);
       let status = null;
       if (brokenLeft[tile.type] > 0) { brokenLeft[tile.type]--; status = 'broken'; }
@@ -1389,7 +1405,7 @@
     const tileScreen = (gx, gy) => { const [wx, wy] = gridToWorld(gx, gy); return toScreen(wx * T + T / 2, wy * T + T / 2); };
     const tx = Math.floor(S.player.x / T), ty = Math.floor(S.player.y / T);
     return {
-      player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, stamina: S.player.stamina, path: S.player.path && S.player.path.length, heading: S.player.car ? S.player.car.heading : null, speed: S.player.car ? S.player.car.speed : 0 },
+      player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, vehicle: S.player.vehicle, stamina: S.player.stamina, path: S.player.path && S.player.path.length, heading: S.player.car ? S.player.car.heading : null, speed: S.player.car ? S.player.car.speed : 0 },
       lastTap: S.lastTap, focus: S.focus && S.focus.kind, menu: S.menuOpen, npcs: Object.keys(S.npcs), tileScreen, toScreen,
       npcAt: Object.fromEntries(Object.entries(S.npcs).map(([id, n]) => [id, [n.x, n.y]])),
       remote: JSON.parse(JSON.stringify(S.remote)),

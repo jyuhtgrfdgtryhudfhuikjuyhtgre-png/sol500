@@ -1364,3 +1364,47 @@ test("the rover's dust is as thick at 30 fps as at 144: it is thrown up by the s
   const slow = count(30), fast = count(144);
   assert.ok(slow > 20 && Math.abs(fast / slow - 1) < 0.3, '30 fps: ' + slow + ' grains, 144 fps: ' + fast);
 });
+
+// ---------- the pressurised rover (M6) ----------
+// A working pressurised rover in a bay of its own at grid (8, 3), world tile (4, 1), 4 tiles east of the rover's.
+const withCabin = m => { m.modules.cabin.count = 1; m.layout.push({ type: 'cabin', x: 8, y: 3 }); return m; };
+
+test('E at the pressurised rover boards it: it drives with its own physics, teammates are told which vehicle, and E out on the map parks it there', async () => {
+  const m = withCabin(mission({ seed: 'CABIN-1' })), bay = X.bay(m, 'cabin');
+  X.setWhere(m, 'minh', { x: bay.x, y: bay.y - 34 }); // just north of its bay, facing down at it
+  const pg = page(m, 'minh');
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'cabin', 'its bay is something to drive');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual(pg.calls, ['board']);
+  assert.deepEqual(plain(m.expedition.cabin), { driver: 'minh' }, 'the pressurised rover');
+  assert.equal(m.expedition.rover, null, 'not the rover, which stays in its bay');
+  assert.deepEqual([pg.probe().player.inRover, pg.probe().player.vehicle], [true, 'cabin']);
+  pg.step(0.2);
+  assert.deepEqual([pg.sent.at(-1).rover, pg.sent.at(-1).vehicle], [true, 'cabin'], 'teammates are told which vehicle');
+  const [x, y] = openRow(m.seed, 48);
+  pg.qa.teleport(x + 1, y);
+  pg.key('KeyD');
+  pg.step(8);
+  pg.key('KeyD', false);
+  assert.ok(Math.abs(pg.probe().player.speed - PH.CABIN.top * PH.PX_PER_M) < 1e-6, 'its own governor: ' + pg.probe().player.speed);
+  pg.step(3);
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.equal(pg.calls.at(-1), 'park');
+  const at = plain(m.expedition.cabin), pr = pg.probe();
+  assert.deepEqual(at, { x: Math.round(pr.player.x), y: Math.round(pr.player.y) }, 'parked where you got out');
+  assert.ok(m.expedition.cabinDriven > 20 && m.expedition.roverDriven === 0, 'on its own battery: ' + m.expedition.cabinDriven);
+  pg.step(0.3);
+  assert.equal(pg.probe().focusKey, 'cabin-parked', 'E by it boards it again');
+  assert.ok(pg.probe().marks.some(k => k.x === at.x && k.y === at.y && k.square && k.color === '#4fd0c4'), 'marked on the maps, apart from the rover');
+});
+
+test("a crewmate in the pressurised rover is told apart from one in the rover", () => {
+  const pg = page(withCabin(mission({ seed: 'CABIN-2' })), 'minh');
+  pg.remote([{ crewId: 'diego', x: 640, y: 640, rover: true, vehicle: 'cabin', moving: false, dir: 'down' }, { crewId: 'lena', x: 900, y: 640, rover: true, moving: false, dir: 'down' }]);
+  assert.deepEqual([pg.probe().remote.diego.vehicle, pg.probe().remote.lena.vehicle], ['cabin', 'rover'], 'a game from before M6 is in the rover');
+});

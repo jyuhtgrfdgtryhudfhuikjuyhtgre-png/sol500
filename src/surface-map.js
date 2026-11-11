@@ -8,7 +8,7 @@
  *        map.minimap · map.openBtn · map.el  elements for the surface overlay (openBtn: the minimap's open-the-map corner)
  *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, diamond, beacon, text, ring,
  *                                            ping, label, alpha }], lines: [{ x0, y0, x1, y1, color, width?, dash?, alpha? }] }
- *                                            (world pixels; marks are finds, cave mouths, dropped loads, the parked rover, relay beacons, live
+ *                                            (world pixels; marks are finds, cave mouths, dropped loads, the parked vehicles, relay beacons, live
  *                                            pings and poiMarks; lines the dashed route home and the commander's route line)
  *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
  *        map.frame(state, deadline)          every animation frame (does nothing while closed)
@@ -21,7 +21,7 @@
   const T = 64, CH = W.CHUNK, MINI = 160;
   const ZOOMS = [1, 2, 3, 4, 6, 8]; // screen pixels per tile on the full map
   // The map key: [id, glyph, colour] for each mark the maps draw (see markers); the strings are sf.key.<id>.
-  const MARKS = [['find', '●', '#9fd3ea'], ['cave', '○', '#e8c9a8'], ['drop', '●', '#f46e5f'], ['rover', '■', '#e9e2d8'], ['beacon', '▲', '#ffcf7a'],
+  const MARKS = [['find', '●', '#9fd3ea'], ['cave', '○', '#e8c9a8'], ['drop', '●', '#f46e5f'], ['rover', '■', '#e9e2d8'], ['cabin', '■', '#4fd0c4'], ['beacon', '▲', '#ffcf7a'],
     ['landmark', '◆', '#f0c35a'], ['structure', '■', '#a9f4e4'], ['mast', '?', '#a9f4e4'], ['base', '■', '#f4e9df'], ['you', '◎', '#ffffff']];
   const PAN = { ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0], ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1] };
 

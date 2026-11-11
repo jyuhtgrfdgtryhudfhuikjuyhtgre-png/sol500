@@ -822,12 +822,44 @@
     }
     ctx.restore();
   }
+  // The pressurised rover (M6), seen from above as the rover is, as long (128 px) and a little wider: a white pressurised
+  // cabin on four wheels a side, the window of its cockpit at the nose, the hatch at the back where you climb in, the
+  // Garage's teal stripe along its flanks and the driver's crew colour on its roof.
+  function drawCabinTop(ctx, x, y, heading, odo, moving, color) {
+    ctx.save(); // its shadow, as the rover's
+    ctx.translate(x + 9, y + 11); ctx.rotate(heading);
+    ctx.fillStyle = 'rgba(10,4,2,.2)'; roundRect(ctx, -66, -48, 130, 96, 22); ctx.fill();
+    ctx.fillStyle = 'rgba(10,4,2,.3)'; roundRect(ctx, -60, -42, 118, 84, 18); ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(heading);
+    for (const s of [-1, 1]) for (const wx of [-44, -15, 15, 44]) roverWheel(ctx, wx, s * 40, odo);
+    const body = ctx.createLinearGradient(-60, -32, 60, 32);
+    body.addColorStop(0, '#ffffff'); body.addColorStop(1, '#c4c8cd');
+    ctx.fillStyle = body; roundRect(ctx, -62, -32, 124, 64, 20); ctx.fill();
+    ctx.strokeStyle = 'rgba(80,85,92,.45)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = '#4fd0c4'; for (const s of [-1, 1]) { roundRect(ctx, -56, s * 29 - 2, 104, 4, 2); ctx.fill(); } // the Garage's stripe
+    ctx.fillStyle = color || '#ff9a5c'; roundRect(ctx, -34, -9, 52, 18, 6); ctx.fill(); // the crew colour on the roof
+    ctx.fillStyle = '#d6d8db'; roundRect(ctx, -60, -12, 10, 24, 3); ctx.fill(); // the hatch
+    ctx.strokeStyle = '#8f9399'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#2a3a4f'; ctx.beginPath(); ctx.moveTo(36, -24); ctx.quadraticCurveTo(62, -20, 62, 0); ctx.quadraticCurveTo(62, 20, 36, 24); ctx.closePath(); ctx.fill(); // the cockpit window
+    ctx.fillStyle = 'rgba(160,210,255,.35)'; ctx.beginPath(); ctx.moveTo(42, -16); ctx.quadraticCurveTo(56, -12, 57, -2); ctx.lineTo(44, -6); ctx.closePath(); ctx.fill();
+    for (const s of [-1, 1]) { // the headlights, and their beams on the ground while it drives
+      if (moving) {
+        const beam = ctx.createRadialGradient(60, s * 20, 4, 60, s * 20, 120);
+        beam.addColorStop(0, 'rgba(255,240,200,.3)'); beam.addColorStop(1, 'rgba(255,240,200,0)');
+        ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(60, s * 20); ctx.arc(60, s * 20, 120, -0.35, 0.35); ctx.fill();
+      }
+      ctx.fillStyle = '#fff4cf'; ctx.beginPath(); ctx.arc(59, s * 21, 3.2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
   function drawAvatar(ctx, a, name, time, tags) {
     const color = a.color || '#ccc';
     const x = a.x, y = a.y;
     const tag = (tx, ty, text, c, you) => { if (text) tags.push({ x: tx, y: ty, text, color: c, you, bar: a.bar == null ? null : a.bar }); };
-    if (a.rover) { // in the rover: the rover is all that shows, its middle a little above where the driver stands
-      drawRoverTop(ctx, x, y - 10, a.heading == null ? DIR_ANGLE[a.dir] || 0 : a.heading, a.odo || 0, !!a.moving, color);
+    if (a.rover) { // in a vehicle: it is all that shows, its middle a little above where the driver stands
+      (a.vehicle === 'cabin' ? drawCabinTop : drawRoverTop)(ctx, x, y - 10, a.heading == null ? DIR_ANGLE[a.dir] || 0 : a.heading, a.odo || 0, !!a.moving, color);
       tag(x, y - 78, name, color, a.you);
       return;
     }
@@ -1112,6 +1144,6 @@
 
   return {
     IMG, PX, REGION_COLORS, tileRGB, photoOf, tileable, decorFor, createPainter, drawFog, drawDark, scenery, tubeAt,
-    sprites: { drawAvatar, drawRoverTop, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
+    sprites: { drawAvatar, drawRoverTop, drawCabinTop, drawTags, roundRect, badge, drawRock, drawLander, drawIceCracks, drawFind, drawDrop, drawBeacon, drawPing, drawRing, drawSuitBar, drawDevil, drawRoof },
   };
 });

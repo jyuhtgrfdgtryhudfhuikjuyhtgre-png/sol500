@@ -1358,6 +1358,12 @@
     'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
     'eva.err.noCabin': 'The pressurized rover is out of action.',
     'eva.err.inVehicle': 'Get out of the vehicle you are in first.',
+    'eva.cabinBattery': 'Pressurized rover battery',
+    'eva.cabinFlare': '☢ Solar flare coming: the pressurized rover is no cover. Get to the base, a cave, a lava tube, a hab pod or the storm shelter',
+    'sf.boardCabin': 'Drive the pressurized rover',
+    'sf.exitCabin': 'Leave the pressurized rover',
+    'sf.cabinSub': 'Your suit does not drain inside',
+    'sf.key.cabin': 'Parked pressurized rover',
     // M6 T7
     'eva.droneFly': 'Fly the drone',
     // M6 T9
@@ -2617,6 +2623,12 @@
     'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
     'eva.err.noCabin': 'Xe thám hiểm điều áp đang không hoạt động.',
     'eva.err.inVehicle': 'Hãy xuống chiếc xe bạn đang ngồi trước đã.',
+    'eva.cabinBattery': 'Pin xe thám hiểm điều áp',
+    'eva.cabinFlare': '☢ Bão hạt Mặt Trời sắp tới: xe thám hiểm điều áp không che chắn được. Hãy vào căn cứ, hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão',
+    'sf.boardCabin': 'Lái xe thám hiểm điều áp',
+    'sf.exitCabin': 'Xuống xe thám hiểm điều áp',
+    'sf.cabinSub': 'Bộ đồ không hao oxy khi ngồi trong xe',
+    'sf.key.cabin': 'Xe thám hiểm điều áp đang đỗ',
     // M6 T7
     'eva.droneFly': 'Cho drone bay',
     // M6 T9
