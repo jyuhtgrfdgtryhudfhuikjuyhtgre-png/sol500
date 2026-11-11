@@ -282,10 +282,9 @@ test('the cabin scene is an Outpost with a working Garage and pressurised rover,
   assert.equal(X.inBaseZone(s, at, D.EXPEDITION.reach), false, 'outside the base zone, slack and all');
   assert.equal(X.left(s, 'cabin'), D.EXPEDITION.cabin.range, 'with a full battery');
   assert.equal(X.board(s, s.pilot, at, 'cabin').ok, true, 'within boarding reach');
-  // The suit doesn't drain: a lower level reported from inside never takes.
-  const full = X.suitOf(s, s.pilot);
-  X.setSuit(s, s.pilot, full - 30);
-  assert.equal(X.suitOf(s, s.pilot), full);
+  // The suit doesn't drain at the wheel: the seat's drain is 0 (the surface test steps time through the scene). The server
+  // no longer holds a driver's level (R22: their reports go through, as a rover driver's do), so that is not asserted here.
+  assert.equal(D.EXPEDITION.cabin.drain, 0);
 });
 
 test('the drone card rests on Ingenuity, and its words give NASA no line about dust storms or seasons', () => {
