@@ -72,6 +72,9 @@
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
     return img;
   }
+  // A building stands on one tile but is drawn bigger than it, from the tile's bottom edge up (3.8.3): beside an astronaut
+  // a habitat is a habitat, not a model of one. The HQ is the biggest.
+  const bigOf = type => (type === 'hab' ? 1.8 : 1.45);
   function moduleImage(type, clean) {
     const b = type === 'solar' ? Math.round((clean == null ? 1 : clean) * 10) / 10 : 1;
     const k = type + '|' + b;
@@ -1342,9 +1345,20 @@
       let status = null;
       if (brokenLeft[tile.type] > 0) { brokenLeft[tile.type]--; status = 'broken'; }
       else if (D.CONSUMERS.includes(tile.type)) { if (runningLeft[tile.type] > 0) runningLeft[tile.type]--; else status = 'off'; }
+      if (tile.type === 'rover' || tile.type === 'cabin') { // in its bay: the vehicle you drive, from above, facing as it was left
+        sprites.push({ y: wy * T + T - 5, draw: () => { // just in front of the buildings in its row: its nose is not under their edge
+          ctx.save();
+          ctx.globalAlpha = status === 'off' ? 0.6 : 1;
+          ctx.translate(wx * T + T / 2, wy * T + T / 2); ctx.scale(0.8, 0.8); // parked, it takes a little less room than its two tiles
+          (tile.type === 'cabin' ? P.sprites.drawCabinTop : P.sprites.drawRoverTop)(ctx, 0, 0, S[headOf(tile.type)] || 0, 0, false, null);
+          ctx.restore();
+          if (status) badge(ctx, wx * T + T - 10, wy * T + 12, status);
+        } });
+        continue;
+      }
       sprites.push({ y: wy * T + T - 6, draw: () => {
         const img = moduleImage(tile.type, m.cleanliness);
-        const big = tile.type === 'hab' ? 1.3 : 1;
+        const big = bigOf(tile.type);
         if (ready(img)) {
           ctx.globalAlpha = status === 'off' ? 0.6 : 1;
           ctx.drawImage(img, wx * T + T / 2 - T * big / 2, wy * T + T - T * big, T * big, T * big);
@@ -1358,8 +1372,9 @@
       const [wx, wy] = gridToWorld(pr.x, pr.y);
       sprites.push({ y: wy * T + T - 6, draw: () => {
         const sc = moduleImage('scaffold', 1), ghost = moduleImage(pr.type, 1);
-        if (ready(ghost)) { ctx.globalAlpha = 0.4; ctx.drawImage(ghost, wx * T, wy * T, T, T); ctx.globalAlpha = 1; }
-        if (ready(sc)) ctx.drawImage(sc, wx * T, wy * T, T, T);
+        const big = bigOf(pr.type), bx = wx * T + T / 2 - T * big / 2, by = wy * T + T - T * big; // the size it will stand at
+        if (ready(ghost)) { ctx.globalAlpha = 0.4; ctx.drawImage(ghost, bx, by, T * big, T * big); ctx.globalAlpha = 1; }
+        if (ready(sc)) ctx.drawImage(sc, bx, by, T * big, T * big);
         ctx.fillStyle = '#140e10'; roundRect(ctx, wx * T + 8, wy * T + T - 7, 48, 4, 2); ctx.fill();
         ctx.fillStyle = '#8cbcec'; roundRect(ctx, wx * T + 8, wy * T + T - 7, 48 * pr.progress / pr.work, 4, 2); ctx.fill();
       } });
@@ -1374,6 +1389,8 @@
       if (rides(a.id)) continue; // a passenger is inside the pressurised rover their driver is drawn as (M6)
       let name = S.data.crewName(a.id);
       if (a.you) name = t('sf.you') + ' · ' + name;
+      // Your own tag would cover what you stand just below and are about to work on (a find, a dropped load): it steps aside.
+      if (a.you && S.focus && S.focus.x != null && Math.abs(S.focus.x - a.x) < 75 && S.focus.y < a.y - 25 && S.focus.y > a.y - 100) name = '';
       // Someone lying down is drawn after what stands at the same spot, so a fallen driver is not hidden by the parked rover.
       sprites.push({ y: a.y + (a.down ? 24 : 0), draw: () => drawAvatar(ctx, a, name, S.time, S.tags) });
     }

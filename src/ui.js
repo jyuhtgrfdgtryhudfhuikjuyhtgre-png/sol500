@@ -1473,7 +1473,7 @@
     if (s.quick === true || !D.RANKS[r]) return null;
     const chk = E.canBuild(s, 'rankup', pending), unlocks = t('rank.unlocks', { list: unlocksAt(r) });
     return h('button', {
-      type: 'button', class: 'bld', 'data-k': 'bld:rankup', disabled: !chk.ok, title: chk.ok ? unlocks : whyNot('rankup', chk),
+      type: 'button', class: 'bld', 'data-k': 'bld:rankup', disabled: !chk.ok, title: chk.ok ? unlocks : chk.reason === 'max' ? t('bld.why.underway') : whyNot('rankup', chk),
       onclick: () => { if (chk.ok) patchPlan({ builds: pending.concat([{ type: 'rankup' }]) }); },
     }, h('span', { html: A.module('rankup', 36) }),
     h('span', null, h('span', { class: 't' }, t('rank.next', { rank: t('rank.' + D.RANKS[r].id) })), h('br'),

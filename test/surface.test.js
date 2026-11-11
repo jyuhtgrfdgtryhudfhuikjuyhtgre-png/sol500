@@ -1072,7 +1072,8 @@ test('a building at a negative grid spot stands on its world tile', () => {
   const [wx, wy] = [-2 + W.BASE_RECT.x, 3 + W.BASE_RECT.y];
   assert.deepEqual([wx, wy], [-6, 1]);
   pg.frame();
-  const drawnAt = (gx, gy) => rec.images.find(a => a[1] === (gx + W.BASE_RECT.x) * T && a[2] === (gy + W.BASE_RECT.y) * T && a[3] === T && a[4] === T);
+  const big = 1.45; // a building is drawn bigger than its tile, from the middle of the tile's bottom edge up (3.8.3)
+  const drawnAt = (gx, gy) => rec.images.find(a => a[1] === (gx + W.BASE_RECT.x) * T + T / 2 - T * big / 2 && a[2] === (gy + W.BASE_RECT.y) * T + T - T * big && a[3] === T * big && a[4] === T * big);
   const solar = m.layout.find(k => k.type === 'solar' && k.x >= 0);
   assert.ok(drawnAt(-2, 3), 'a sprite on world tile (-6, 1)');
   assert.equal(drawnAt(-2, 3)[0], drawnAt(solar.x, solar.y)[0], "the solar array's picture");
