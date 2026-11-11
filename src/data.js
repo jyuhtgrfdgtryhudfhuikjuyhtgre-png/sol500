@@ -136,8 +136,11 @@
       garage: { materials: 200, work: 1 },
       fabricator: { materials: 300, work: 1 },
       launchpad: { materials: 400, work: 1 },
-      rover: { materials: 500, work: 2, needs: 'garage' },
-      cabin: { materials: 900, work: 3, needs: 'garage' },
+      // Measured (tools/balance.js, 1000 runs, commander, a thoughtful explorer): the rover is dearer than the pressurised
+      // rover because it also raises the EVA job's science (SCIENCE.eva against evaNoRover); at 500 kg half its buyers got
+      // an S. At these prices an S comes 26-28 % of the time whichever is bought, or both.
+      rover: { materials: 900, work: 3, needs: 'garage' },
+      cabin: { materials: 600, work: 2, needs: 'garage' },
       drone: { materials: 300, work: 1, needs: 'garage' },
       tanks: { materials: 0, work: 0, needs: 'fabricator' },
       backpack: { materials: 0, work: 0, needs: 'fabricator' },
