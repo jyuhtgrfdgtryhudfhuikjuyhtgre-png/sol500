@@ -209,7 +209,8 @@
       region: null, seenAt: [NaN, NaN, 0], fogSent: 0, debug: DEBUG, debugAt: 0, lang: null, qa: { ghost: false, speed: 1 }, pingAt: -Infinity, walk: null,
     };
     S.touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }), onPing: (x, y) => ping(x, y) });
+    S.map = SM.create({ t: (k, p) => t(k, p), onOpen: () => S.keys.clear(), onClose: () => S.canvas.focus({ preventScroll: true }),
+      onPing: (x, y) => (S.eva.aiming() ? S.eva.flyTo(S.player, x, y) : ping(x, y)) }); // picking the drone's target, a tap flies it there
     S.eva = EV.create({
       t: (k, p) => t(k, p), hooks: () => S.hooks, crewName: id => S.data.crewName(id), player: () => S.player, home: goHome,
       drawRover: (ctx, x, y) => P.sprites.drawRoverTop(ctx, x, y - 10, S.roverHeading || 0, 0, false, null), // parked, as it was left
@@ -345,6 +346,8 @@
       if (e.code === 'KeyE' && !e.repeat) { interact(); e.preventDefault(); }
       if (e.code === 'KeyQ' && !e.repeat) { S.eva.canister(S.player); e.preventDefault(); }
       if (e.code === 'KeyK' && !e.repeat) { S.eva.takeKit(S.player); e.preventDefault(); }
+      if (e.code === 'KeyF' && !e.repeat) { S.eva.drone(S.player); e.preventDefault(); }
+      if (e.code === 'Escape' && S.eva.aiming()) { S.eva.cancelDrone(); e.preventDefault(); return; }
       if (e.code === 'KeyP' && !e.repeat && S.player) { ping(S.player.x, S.player.y); e.preventDefault(); }
       if (e.code === 'Escape' && S.menuOpen) { closeMenu(); e.preventDefault(); }
       if (e.code === 'KeyC' && !e.repeat && S.hooks.openConsole) S.hooks.openConsole();
@@ -366,6 +369,7 @@
       const r = S.canvas.getBoundingClientRect();
       const wx = (e.clientX - r.left) / S.view.zoom + S.view.camX;
       const wy = (e.clientY - r.top) / S.view.zoom + S.view.camY;
+      if (S.eva.aiming()) { S.eva.flyTo(S.player, wx, wy); return; } // the drone's target, not a walk
       const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
       // Tap a crew member to talk to them
       const crewHit = avatars().find(a => !a.you && Math.hypot(a.x - wx, a.y - 18 - wy) < 26);
@@ -602,6 +606,7 @@
     return {
       px: S.player.x, py: S.player.y, crew: avatars().map(a => ({ x: a.x, y: a.y, color: a.color, you: !!a.you })),
       marks: S.eva.marks(S.world, S.player.x, S.player.y).concat(poiMarks()), lines: S.eva.lines(),
+      rings: S.eva.rings(S.player), hint: S.eva.aiming() ? t('eva.droneAimMap', { n: D.DRONE.range }) : null,
     };
   }
   // The maps' marks for the points of interest (src/surface-map.js poiMarks), made again only when what they show changes:

@@ -1293,3 +1293,65 @@ test('bigger tanks: the suit is as big as the tanks, the canister button waits f
   tick(s, NEAR(6, 4), 0.01); walk(s.eva.el);
   assert.ok(fills.every(w => parseFloat(w) <= 100), 'no bar past 100 %: ' + fills.join(','));
 });
+
+// ---- M6 T7: the scout drone ----
+test("the Drone button shows only with a drone and says why it can't fly", async () => {
+  const s = setup(), home = outside(0, 1), btn = s.eva.el.children.find(n => n.className === 'sf-drone');
+  const look = () => [btn.hidden, btn.disabled, btn.textContent];
+  tick(s, home, 0.2);
+  assert.equal(btn.hidden, true, 'no drone, no button');
+  s.m.modules.drone.count = 1;
+  tick(s, home, 0.2);
+  assert.deepEqual(look(), [false, false, 'eva.droneFly'], 'at the base');
+  tick(s, outside(20, 1), 0.2);
+  assert.deepEqual(look(), [false, true, 'eva.err.notHere'], 'on foot out on the map');
+  s.m.expedition.rover = { driver: 'minh' };
+  tick(s, Object.assign(outside(20, 1), { inRover: true }), 0.2);
+  assert.deepEqual(look(), [false, false, 'eva.droneFly'], 'from the rover you drive');
+  s.m.expedition.rover = null;
+  s.m.schedule[s.m.turn].weather = 'global';
+  tick(s, home, 0.2);
+  assert.deepEqual(look(), [false, true, 'eva.err.grounded'], 'in a global dust storm');
+  s.eva.drone(home);
+  assert.equal(s.eva.aiming(), false, 'a grounded drone takes no target');
+  s.m.schedule[s.m.turn].weather = 'clear';
+
+  // The button (or F) asks for a target; a tap on the ground or the map flies it there, and back.
+  s.eva.drone(home);
+  assert.equal(s.eva.aiming(), true);
+  tick(s, home, 0.2);
+  assert.deepEqual(look(), [false, false, 'eva.droneCancel'], 'while you pick, it calls the flight off');
+  s.eva.flyTo(home, 30.5 * T, 1.5 * T);
+  assert.equal(s.eva.aiming(), false);
+  await flush();
+  assert.deepEqual(plain(s.calls.filter(c => c.type === 'fly').map(c => c.payload)), [{ tx: 30, ty: 1 }]);
+  assert.equal(s.m.expedition.droneFlights, 1);
+  tick(s, home, 0.2);
+  assert.deepEqual(look(), [false, true, 'eva.droneFlying'], 'one flight at a time');
+  // The maps draw it there and back in 3 s: over its target half-way, gone once it is home.
+  const drone = () => plain(s.eva.marks(s.world, home.x, home.y)).find(k => k.color === '#e8e2d6');
+  tick(s, home, 1.3);
+  const mid = drone();
+  assert.ok(mid && Math.hypot(mid.x - 30.5 * T, mid.y - 1.5 * T) < 2, 'over the target half-way: ' + JSON.stringify(mid));
+  tick(s, home, 4);
+  assert.equal(drone(), undefined, 'home again');
+  assert.deepEqual(look(), [false, false, 'eva.droneFly'], 'back');
+  // A pick past its range is brought in along the same line, inside the range wherever the server last saw you.
+  s.eva.drone(home);
+  s.eva.flyTo(home, 500.5 * T, 1.5 * T);
+  await flush();
+  const far = s.calls.filter(c => c.type === 'fly')[1].payload;
+  assert.equal(far.ty, 1);
+  assert.ok(far.tx > 30 && far.tx <= D.DRONE.range - 1, 'in range, with a tile to spare: ' + far.tx);
+  assert.equal(s.m.expedition.droneFlights, 2);
+  s.eva.drone(home);
+  s.eva.cancelDrone();
+  assert.equal(s.eva.aiming(), false, 'Esc calls it off');
+  tick(s, home, 4);
+  s.m.expedition.droneFlights = D.DRONE.flights;
+  tick(s, home, 0.2);
+  assert.deepEqual(look(), [false, true, 'eva.err.flights'], 'no flight left this round');
+  s.m.modules.drone.count = 0;
+  tick(s, home, 0.2);
+  assert.equal(btn.hidden, true);
+});

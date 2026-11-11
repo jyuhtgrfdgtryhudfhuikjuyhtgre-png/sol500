@@ -232,3 +232,19 @@ test('the big map has a key naming every mark, in both languages', () => {
   assert.deepEqual(key.children.map(i => i.children[1].textContent), ids, 'one entry per mark: a swatch and its name');
   for (const lang of ['en', 'vi']) for (const id of ids) assert.notEqual(I.t(lang, id), id, lang + ' ' + id);
 });
+
+// ---------- the scout drone (M6 T7) ----------
+test("while you pick the drone's target, the maps ring its reach and the full map says how to pick", () => {
+  const { map } = setup('MAP-DRONE');
+  map.relabel();
+  const calls = [], hint = map.el.children[2];
+  const ctx = new Proxy({}, { get(t, p) { if (p in t) return t[p]; return (...a) => { calls.push([p, ...a]); }; }, set(t, p, v) { calls.push(['set', p, v]); t[p] = v; return true; } });
+  map.el.children[0].getContext = () => ctx;
+  map.open({ px: 32, py: 32, crew: [] }); // centred on you at the HQ's tile, 3 screen pixels a tile, on a 160 × 160 map
+  map.frame({ px: 32, py: 32, crew: [], rings: [{ x: 32, y: 32, r: 38.5 * 64, color: '#e8e2d6' }], hint: 'pick' }, 0);
+  assert.equal(hint.textContent, 'pick');
+  const ring = calls.find(c => c[0] === 'arc' && Math.abs(c[3] - 38.5 * 3) < 1e-6);
+  assert.ok(ring && Math.abs(ring[1] - 80) < 1e-6 && Math.abs(ring[2] - 80) < 1e-6, 'a ring of 38.5 tiles round you: ' + ring);
+  map.frame({ px: 32, py: 32, crew: [] }, 0);
+  assert.equal(hint.textContent, 'sf.mapHint', 'the usual hint once the pick is over');
+});

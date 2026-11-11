@@ -30,6 +30,8 @@
  *      eva.hasRoom() → does your backpack take another load?
  *      eva.act(type, player, payload) → Promise of the rules' answer (board, park) · eva.canister(player) (the button, or Q)
  *      eva.takeKit(player) (the button, or K) · eva.returnKit(player): a relay beacon kit from the base into your backpack, and back
+ *      eva.drone(player) (the button, or F): pick the scout drone's target, or call it off · eva.aiming() · eva.cancelDrone() (Esc)
+ *        eva.flyTo(player, x, y): the target picked on the ground or the map (world px) · eva.rings(player) → the map's reach ring
  *      eva.drawZone(ctx, x0, y0, x1, y1, world) the base zone, and every cover in view during a flare warning
  *      eva.sprites(x0, y0, x1, y1, world, time) → [{ y, draw(ctx) }] · eva.drawOver(ctx)
  *      eva.flareFx(player) → { warn: 0–1, flash: 0–1 }: the red edge of a flare countdown, the flash when it hits
@@ -55,6 +57,7 @@
   // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
   const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
   const VERDICT = 8;                             // seconds the flare's verdict stays on the banner
+  const FLIGHT = 3;                              // seconds the drone's flight is drawn, there and back (the rules' is instant)
   const INSIDE = { cave: 'eva.inCave', tube: 'eva.inTube', pod: 'eva.inPod' }; // the note while you are in cover out there
   // What holding E does at a Kestrel structure's door (the hab pod has no hold: you walk in).
   const VERB = { cache: 'eva.open', wreck: 'eva.salvage', array: 'eva.salvage', weather: 'eva.repair', mast: 'eva.repair' };
@@ -72,6 +75,27 @@
     return out;
   }
 
+  // The scout drone in flight, over everything: its shadow on the ground at (x, y), and above it its legs, body and mast with
+  // two rotors, one over the other, turning opposite ways (Ingenuity's). `time` (s) turns them.
+  function drawDrone(ctx, x, y, time) {
+    const h = y - 52, a = time * 40;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath(); ctx.ellipse(x, y, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#2b1d1a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x - 9, h + 11); ctx.lineTo(x - 4, h + 4); ctx.moveTo(x + 9, h + 11); ctx.lineTo(x + 4, h + 4); ctx.moveTo(x, h); ctx.lineTo(x, h - 17); ctx.stroke();
+    ctx.fillStyle = '#e8e2d6';
+    roundRect(ctx, x - 6, h - 4, 12, 9, 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(232,226,214,0.9)';
+    ctx.lineWidth = 2.5;
+    for (const [dy, s] of [[-12, 1], [-17, -1]]) {
+      const c = Math.cos(a * s) * 22, d = Math.sin(a * s) * 5;
+      ctx.beginPath(); ctx.moveTo(x - c, h + dy - d); ctx.lineTo(x + c, h + dy + d); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function create(env) {
     const t = (k, p) => env.t(k, p);
     const wall = () => (env.now ? env.now() : 0);
@@ -86,6 +110,7 @@
     let told = [];                                 // the beacons and pods whose "already refilled" was said this round
     let pings = [];                                // the live pings (spec §3.5): { x, y, by, at }, `at` on the wall clock
     let goals = [], goalsAt = -1e9;                // the round's goals as ui.js last gave them (renderGoals), and when
+    let aim = false, flight = null;                // the scout drone: picking its target; its flight { x0, y0, x1, y1, t } (world px)
 
     const mission = () => (data && data.mission) || null;
     const exp = () => mission().expedition;
@@ -144,6 +169,10 @@
     kitBtn.type = backBtn.type = 'button';
     kitBtn.addEventListener('click', () => takeKit(env.player && env.player()));
     backBtn.addEventListener('click', () => returnKit(env.player && env.player()));
+    // The scout drone (M6): with a working drone, its button (or F) asks for a target, or says why it can't fly.
+    const droneBtn = node('button', 'sf-drone');
+    droneBtn.type = 'button';
+    droneBtn.addEventListener('click', () => drone(env.player && env.player()));
     const auraEl = node('p', 'sf-aura');           // the commander's aura, while it speeds you up
     auraEl.hidden = true;
     // The round's goals (spec §3.9), under the backpack, where they stay put while the buttons and notes below come and go.
@@ -152,7 +181,7 @@
     goalsEl.hidden = true;
     const noteEl = node('p', 'sf-evanote');
     noteEl.setAttribute('role', 'status');
-    el.append(suitM.row, battM.row, packEl, goalsEl, canBtn, kitBtn, backBtn, auraEl, noteEl);
+    el.append(suitM.row, battM.row, packEl, goalsEl, canBtn, kitBtn, backBtn, droneBtn, auraEl, noteEl);
     // The flare's banner: what to do is announced when it changes; the seconds tick on their own, unannounced.
     const alert = node('div', 'sf-alert');
     alert.hidden = true;
@@ -302,6 +331,12 @@
       text(kitBtn, 'kt', t('eva.takeKit', { n: kits }));
       prop('rh', !(kitHere && pack().some(E.isKit)), v => { backBtn.hidden = v; });
       text(backBtn, 'rt', t('eva.returnKit'));
+      // The drone's button: hidden without a working drone; while it can't fly, it says why (the rules' own refusal).
+      const dc = droneCheck(p);
+      if (aim && !dc.ok) aim = false; // you walked out of the base zone, or the round's flights ran out, while picking
+      prop('dh', !live() || collapsed(me) || benched() || dc.error === 'noDrone', v => { droneBtn.hidden = v; });
+      text(droneBtn, 'dt', aim ? t('eva.droneCancel') : flight ? t('eva.droneFlying') : dc.ok ? t('eva.droneFly', { n: dc.left }) : t('eva.err.' + dc.error));
+      prop('dd', !aim && (!!flight || !dc.ok), v => { droneBtn.disabled = v; });
       const aura = speed(p) > 1, lead = aura && crew().role === 'commander', pct = Math.round((D.SKILLS.commander.auraSpeed - 1) * 100);
       prop('uh', !aura, v => { auraEl.hidden = v; });
       if (aura) text(auraEl, 'ut', lead ? t('eva.auraLead', { p: pct, n: D.SKILLS.commander.auraRange }) : t('eva.aura', { p: pct }));
@@ -344,6 +379,38 @@
       act('returnKit', p).then(r => { if (r.ok) say(t('eva.returnedKit'), 'ok', 3); });
     }
 
+    // The scout drone (spec §4.2, M6). The button (or F) asks for a target, again calls it off (or Esc); a tap on the ground or
+    // on the map (flyTo) picks it. The rules fly it at once (X.fly, its fog comes as a beacon's does); here it is drawn there
+    // and back over everything, as it flies over cliffs and walls, in FLIGHT seconds. One flight at a time.
+    const droneCheck = p => (live() ? X.canFly(mission(), me, p ? at(p) : null) : { error: 'badPhase' });
+    function drone(p) {
+      if (aim) { aim = false; return; }
+      if (flight || !droneCheck(p).ok) return;
+      aim = true;
+      say(t('eva.droneAim'), '', 8);
+    }
+    function cancelDrone() { aim = false; }
+    // A target past the drone's range is brought in along the line to it, D.EXPEDITION.reach short of the range, so it is in
+    // range of where the co-op server last saw you too. (wx, wy): world px.
+    function flyTo(p, wx, wy) {
+      if (!aim || !p) return;
+      aim = false;
+      const dx = wx - p.x, dy = wy - p.y, d = Math.hypot(dx, dy) / T, max = D.DRONE.range - XD.reach, k = d > max ? max / d : 1;
+      const tx = Math.floor((p.x + dx * k) / T), ty = Math.floor((p.y + dy * k) / T);
+      flight = { x0: p.x, y0: p.y, x1: (tx + 0.5) * T, y1: (ty + 0.5) * T, t: 0 };
+      act('fly', p, { tx, ty }).then(r => {
+        if (!r.ok) { flight = null; return; }
+        say(t('eva.droneFlew', { n: D.DRONE.reveal }), 'ok', 4);
+      });
+    }
+    // Where the drone is now (world px), or null: out to its target in the first half of the flight, back to you in the second.
+    function dronePos() {
+      if (!flight) return null;
+      const p = env.player && env.player(), f = flight.t / FLIGHT, back = f > 0.5, k = back ? 2 - 2 * f : 2 * f, e = k * k * (3 - 2 * k);
+      const hx = back && p ? p.x : flight.x0, hy = back && p ? p.y : flight.y0;
+      return { x: hx + (flight.x1 - hx) * e, y: hy + (flight.y1 - hy) * e };
+    }
+
     // What is waiting outside this round (Z.outside), said once a round when you first look at it.
     function brief(m) {
       const params = { storm: { n: Z.viewTiles(m, false) } };
@@ -370,6 +437,7 @@
         driven = Number(m.expedition.roverDriven) || 0;
         hold = null;
         told = [];
+        aim = false;
         collapseAt = hitAt = flareAskAt = flareEndAt = -1e9;
         wasDown = !!(me && m.expedition.collapsed[me]);
         if (round) soloClock = 0;
@@ -394,7 +462,8 @@
       suit = XD.suit;
       driven = soloClock = 0;
       deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = refillAt = goalsAt = -1e9;
-      inPod = null;
+      inPod = flight = null;
+      aim = false;
       asked = {};
       told = [];
       marksCache = [];
@@ -416,6 +485,7 @@
     function step(dt, p, world, moved, focus) {
       now += dt;
       peek = world.peek;
+      if (flight && (flight.t += dt) >= FLIGHT) flight = null;
       const m = mission();
       if (briefed) { // a card over the HUD hides the note: say it again when the card closes
         const h = env.hooks(), up = !!(h && h.cardUp && h.cardUp());
@@ -701,9 +771,11 @@
       return out;
     }
 
-    // Over the fog: the pings (seen wherever they are), then the hold ring.
+    // Over the fog: the pings (seen wherever they are), the drone in flight, then the hold ring.
     function drawOver(ctx) {
       for (const q of livePings()) drawPing(ctx, q.x, q.y, pingColor(q.by), env.crewName(q.by), q.fade, q.age);
+      const d = dronePos();
+      if (d) drawDrone(ctx, d.x, d.y, now);
       if (hold) drawRing(ctx, hold.f.x, hold.f.y - 40, hold.t / hold.dur);
     }
     // The flare on the whole screen: a red edge that grows through the countdown while you are in the open, then a flash.
@@ -722,7 +794,7 @@
     // have seen, dropped loads, the parked rover. Rebuilt at most every 150 ms.
     function marks(world, px, py) {
       if (!mission() || !mission().expedition || !world) return [];
-      if (now - marksAt < 0.15) return marksCache.concat(pingMarks());
+      if (now - marksAt < 0.15) return marksCache.concat(liveMarks());
       marksAt = now;
       const m = mission(), x = exp(), out = [];
       const sniff = ((D.SKILLS[crew() && crew().role] || {}).sight) || 0;
@@ -741,8 +813,12 @@
       if (x.rover && !x.rover.driver) out.push({ x: x.rover.x, y: x.rover.y, color: '#e9e2d8', square: true });
       for (const b of x.beacons) out.push({ x: (b.x + 0.5) * T, y: (b.y + 0.5) * T, color: BEACON, beacon: true }); // its reveal lit them
       marksCache = out;
-      return out.concat(pingMarks());
+      return out.concat(liveMarks());
     }
+    // What moves on the maps between rebuilds: the live pings, and the drone in flight (pale, edged in dark).
+    const liveMarks = () => { const d = dronePos(); return pingMarks().concat(d ? [{ x: d.x, y: d.y, color: '#e8e2d6', ring: '#120a0c' }] : []); };
+    // While you pick the drone's target, the full map rings the reach it may fly to (world px).
+    const rings = p => (aim && p ? [{ x: p.x, y: p.y, r: (D.DRONE.range - XD.reach) * T, color: '#e8e2d6' }] : []);
     // The maps' lines: the dashed route home (X.routeHome), each beacon to the nearest of the HQ and the older beacons nearer home.
     function lines() {
       const m = mission();
@@ -757,7 +833,8 @@
 
     return {
       el, alert, sync, reset, canMove, step, focusAt, holdable, hasRoom, label, start, stop, act, canister, takeKit, returnKit, drawZone, sprites, drawOver,
-      flareFx, suitBar, marks, lines, clock, addPing, speed,
+      flareFx, suitBar, marks, lines, clock, addPing, speed, drone, cancelDrone, flyTo, rings,
+      aiming: () => aim,
       view: viewOf,
       alerting: () => !alert.hidden,
       // While you are down your suit is not sent: a position in flight could undo a revive the server has just made.
