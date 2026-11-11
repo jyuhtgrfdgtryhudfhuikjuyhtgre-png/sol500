@@ -11,7 +11,7 @@
  *      (the finds and caves under a point of interest's footprint are left out: never shown, never collected)
  *      landmarksIn(m, cx, cy) · structuresIn(m, cx, cy) · landmarkById(m, id, pos) · structureById(m, id, pos) → or null
  *      chunkAt(m, cx, cy) → the data chunk · loadsLeft(m, find, id) · itemFor(m, find, load, role) · holdSeconds(kind, role)
- *      capacity(m, crewId) · inBaseZone(m, pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m) → the rover's bay
+ *      capacity(m, crewId) · inBaseZone(m, pos, slack) · suitOf(m, crewId) · setSuit(m, crewId, s) · bay(m, kind) → a vehicle's bay
  *      setWhere(m, crewId, pos) · whereOf(m, crewId) (solo: where you stand, so a reload puts you back there)
  *      commanderOut(m, positions) → { id, x, y } while the commander is out on the map, else null (his aura and route line)
  *      speedFactor(m, crewId, positions) → 1.1 within 5 tiles of the commander while he is out, else 1 (positions: the server's
@@ -20,7 +20,9 @@
  *      collect(m, crewId, siteId, pos) (a find "<cx>,<cy>:<n>", a landmark's site "L<i>,<j>:<n>", a formation's survey
  *        "F<cx>,<cy>:0") · deliver(m, crewId, pos) · useCanister(m, crewId, pos, liveSuit)
  *      pickUp(m, crewId, dropId, pos) · collapse(m, crewId, pos, driven) · revive(m, crewId, targetId, pos)
- *      board(m, crewId, pos) · park(m, crewId, pos, driven)
+ *      board(m, crewId, pos, kind) · park(m, crewId, pos, driven, kind) (kind: 'rover', the default, or 'cabin', the
+ *        pressurised rover, M6) · vehicleOf(m, crewId) → 'rover' | 'cabin' | null: the vehicle they are in (driving it, or
+ *        riding in the pressurised rover) · ride(m, crewId, pos, positions) · alight(m, crewId): co-op's passenger (M6)
  *      discover(m, crewId, landmarkId, pos) → { ok, landmark, science }: the first sighting of a landmark's centre
  *      interact(m, crewId, structId, pos) → { ok, done: 'used' | 'repaired', items, left, fog }: a Kestrel structure
  *      refill(m, crewId, id, pos) → { ok, suit }: a full suit inside a hab pod ("S<i>,<j>") or by a relay beacon ("B<i>"),
@@ -32,7 +34,8 @@
  *      beaconSpot(m, crewId, pos) → { ok, x, y } (the tile) or { error, need?, beacon? }: may a beacon go where you stand?
  *        No changes · placeBeacon(m, crewId, pos) → { ok, beacon: "B<i>", fog }: places one there from your kit
  *      routeHome(m) → [{ from, to, x0, y0, x1, y1 }]: the dashed route home, a link a beacon (world tiles)
- *      roverLeft(m) → tiles the rover can still drive this round · setRoverDriven(m, crewId, tiles) (the driver's game)
+ *      left(m, kind) → tiles a vehicle can still drive this round · roverLeft(m) → the rover's
+ *      setRoverDriven(m, crewId, tiles) (the driver's game: the vehicle they drive)
  *      revealAround(m, cx, cy, r) → what changed: the fog within r tiles of (cx, cy) (tile units) revealed for good
  *      canFly(m, crewId, pos) → { ok, left } or { error }: may the scout drone take off from where you are? No changes ·
  *        fly(m, crewId, pos, tx, ty) → { ok, fog }: it flies to tile (tx, ty) and clears the fog round it (M6)
@@ -154,7 +157,18 @@
   }
   const crewOf = (m, id) => m.crew.find(c => c.id === id) || null;
   const pack = (x, id) => (Array.isArray(x.carried[id]) ? x.carried[id] : []);
-  const driving = (x, id) => !!id && !!x.rover && x.rover.driver === id;
+  // The vehicles (M6): today's rover and the pressurised rover ('cabin'). Each has its bay (a layout tile of its type), its state
+  // (x.rover / x.cabin: null at its bay, { x, y } parked, { driver } driven), its battery (x.roverDriven / x.cabinDriven: tiles
+  // driven this round, rangeOf a round) and one driver. No kind is the rover, as before M6; any other is no vehicle (null).
+  const KINDS = ['rover', 'cabin'];
+  const kindOf = k => (k == null ? 'rover' : KINDS.includes(k) ? k : null);
+  const rangeOf = k => (k === 'cabin' ? X.cabin.range : X.roverRange);
+  const drivesThe = (x, id, k) => !!id && !!x[k] && x[k].driver === id;
+  const drives = (x, id) => KINDS.find(k => drivesThe(x, id, k)) || null; // the vehicle they drive, or null
+  function vehicleOf(m, crewId) {
+    const x = m && m.expedition;
+    return x ? drives(x, crewId) || (x.riders && x.riders[crewId] === 'cabin' ? 'cabin' : null) : null;
+  }
   // Fabricator gear (M6): the levels bought apply to the whole crew at once. A mission with none (a Quick one, a 3.7.0 save)
   // has today's numbers.
   const gearLevel = (m, line) => {
@@ -165,7 +179,7 @@
   const suitMax = m => gearValue(m, 'tanks', X.suit);     // seconds
   const packOf = m => gearValue(m, 'backpack', X.pack);   // loads on foot
   const rackOf = m => gearValue(m, 'racks', X.packRover); // loads in a rover
-  function capacity(m, crewId) { return driving(m.expedition, crewId) ? rackOf(m) : packOf(m); }
+  function capacity(m, crewId) { return drives(m.expedition, crewId) ? rackOf(m) : packOf(m); }
   function suitOf(m, crewId) {
     const v = m.expedition.suits[crewId];
     return Number.isFinite(v) ? v : suitMax(m);
@@ -254,6 +268,7 @@
   // a sample in the rover counts for nothing (the rover has its own odometer, roverDriven).
   function addDistance(m, crewId, from, to, dt) {
     if (able(m, crewId).error || !okPos(from) || !okPos(to) || from.rover || to.rover) return 0;
+    if (m.expedition.riders && m.expedition.riders[crewId]) return 0; // a passenger's ride (M6): their position says on foot
     const walk = D.TEAM.walk;
     let tiles = Math.hypot(to.x - from.x, to.y - from.y) / T;
     if (tiles > walk.jump) return 0;
@@ -335,8 +350,8 @@
 
   // Your suit ran out outside the base zone. In co-op you wait where you fell for a crewmate to revive you; if nobody does
   // before the round advances, it counts as a collapse then. In solo nobody can come, so the collapse counts now, your load
-  // stays where you fell and you are back at the base until the next round. A driver's game also says how far the rover
-  // went (`driven`), so the last seconds of driving count too.
+  // stays where you fell and you are back at the base until the next round. A driver's game also says how far the vehicle
+  // went (`driven`), so the last seconds of driving count too; it is left where you fell.
   function collapse(m, crewId, pos, driven) {
     const a = able(m, crewId);
     if (a.error) return a;
@@ -344,9 +359,11 @@
     if (inBaseZone(m, pos, 0)) return { error: 'atBase' };
     const x = m.expedition, spot = { x: Math.round(pos.x), y: Math.round(pos.y) };
     x.suits[crewId] = 0;
-    if (driving(x, crewId)) {
+    const k = drives(x, crewId);
+    if (k) {
       setRoverDriven(m, crewId, driven);
-      x.rover = { x: spot.x, y: spot.y };
+      x[k] = { x: spot.x, y: spot.y };
+      if (k === 'cabin') x.riders = {}; // its passenger gets out there too
     }
     if (m.coop) {
       x.collapsed[crewId] = spot;
@@ -377,46 +394,81 @@
     return { ok: true };
   }
 
-  // The rover's bay: the centre of its tile on the build grid (world pixels), or null if the base has no rover.
-  function bay(m) {
-    const t = m.layout.find(k => k.type === 'rover');
+  // A vehicle's bay: the centre of its tile on the build grid (world pixels), or null if the base has none.
+  function bay(m, kind) {
+    const k = kindOf(kind), t = k && m.layout.find(q => q.type === k);
     return t ? { x: (t.x + W.BASE_RECT.x + 0.5) * T, y: (t.y + W.BASE_RECT.y + 0.5) * T } : null;
   }
-  // Gets into the rover, at its bay or where it was parked. One driver at a time.
-  function board(m, crewId, pos) {
+  // Gets into a vehicle, at its bay or where it was parked. One driver each, and one vehicle at a time.
+  function board(m, crewId, pos, kind) {
     const a = able(m, crewId);
     if (a.error) return a;
     if (!okPos(pos)) return { error: 'badPos' };
-    const x = m.expedition;
-    if (E.activeCount(m, 'rover') <= 0) return { error: 'noRover' };
-    if (x.rover && x.rover.driver) return x.rover.driver === crewId ? { ok: true } : { error: 'taken' };
-    if (roverLeft(m) <= 0) return { error: 'flat' };
-    const at = x.rover || bay(m);
-    if (!at) return { error: 'noRover' };
+    const k = kindOf(kind);
+    if (!k) return { error: 'badKind' };
+    const x = m.expedition, none = { error: k === 'cabin' ? 'noCabin' : 'noRover' };
+    if (E.activeCount(m, k) <= 0) return none;
+    if (x[k] && x[k].driver) return x[k].driver === crewId ? { ok: true } : { error: 'taken' };
+    if (vehicleOf(m, crewId)) return { error: 'inVehicle' };
+    if (left(m, k) <= 0) return { error: 'flat' };
+    const at = x[k] || bay(m, k);
+    if (!at) return none;
     if (!nearPx(pos, at.x, at.y, X.reach + 0.5)) return { error: 'tooFar' };
-    x.rover = { driver: crewId };
+    x[k] = { driver: crewId };
     return { ok: true };
   }
-  // Gets out: the rover stays where you are, or goes back to its bay if you are at the outpost. The driver's game says how
+  // Gets out: the vehicle stays where you are, or goes back to its bay if you are at the outpost (its `home` tiles of the HQ;
+  // the pressurised rover also next to its own bay, which a bigger rank's land puts further out). The driver's game says how
   // far it went (`driven`), so the last seconds of driving count too.
-  function park(m, crewId, pos, driven) {
+  function park(m, crewId, pos, driven, kind) {
     if (!m || m.status !== 'active' || !m.expedition) return { error: 'badPhase' };
+    const k = kindOf(kind);
+    if (!k) return { error: 'badKind' };
     const x = m.expedition;
-    if (!driving(x, crewId)) return { error: 'notDriving' };
+    if (!drivesThe(x, crewId, k)) return { error: 'notDriving' };
     if (!okPos(pos)) return { error: 'badPos' };
     setRoverDriven(m, crewId, driven);
-    const home = nearPx(pos, 0.5 * T, 0.5 * T, X.roverHome);
-    x.rover = home ? null : { x: Math.round(pos.x), y: Math.round(pos.y) };
+    const b = k === 'cabin' && bay(m, k);
+    const home = nearPx(pos, 0.5 * T, 0.5 * T, k === 'cabin' ? X.cabin.home : X.roverHome) || (!!b && nearPx(pos, b.x, b.y, X.reach + 0.5));
+    x[k] = home ? null : { x: Math.round(pos.x), y: Math.round(pos.y) };
+    if (k === 'cabin') x.riders = {}; // its passenger gets out where it parks
     return { ok: true, home };
   }
-
-  // The rover's battery: it drives roverRange tiles a round and recharges overnight (spec ruling, M4a).
-  function roverLeft(m) { return Math.max(0, X.roverRange - (Number(m.expedition.roverDriven) || 0)); }
-  // How far the rover has been driven this round, as the driver's game reports it. It only ever goes up.
-  function setRoverDriven(m, crewId, tiles) {
+  // Co-op's passenger (M6): rides along in the pressurised rover a teammate drives, within reach of where the driver's game
+  // last said it was (positions: the server's, as speedFactor's), in its free seat (EXPEDITION.cabin.riders). Inside you
+  // breathe its air (setSuit); you get out with alight, any time, or where the driver parks.
+  function ride(m, crewId, pos, positions) {
+    const a = able(m, crewId);
+    if (a.error) return a;
+    if (!m.coop) return { error: 'solo' };
+    if (!okPos(pos)) return { error: 'badPos' };
+    const x = m.expedition, driver = x.cabin && x.cabin.driver, at = driver && spotIn(positions, driver);
+    if (vehicleOf(m, crewId)) return { error: 'inVehicle' };
+    if (!driver) return { error: 'notDriven' };
+    if (Object.keys(x.riders).length >= X.cabin.riders) return { error: 'full' };
+    if (!at || !nearPx(pos, at.x, at.y, X.reach + 0.5)) return { error: 'tooFar' };
+    x.riders[crewId] = 'cabin';
+    return { ok: true };
+  }
+  function alight(m, crewId) {
     const x = m && m.expedition;
-    if (!x || !driving(x, crewId) || typeof tiles !== 'number' || !Number.isFinite(tiles)) return;
-    x.roverDriven = Math.max(Number(x.roverDriven) || 0, Math.min(X.roverRange, tiles));
+    if (!x || !x.riders || !x.riders[crewId]) return { error: 'notRiding' };
+    delete x.riders[crewId];
+    return { ok: true };
+  }
+
+  // A vehicle's battery: it drives rangeOf(kind) tiles a round and recharges overnight (spec ruling, M4a). → tiles left.
+  function left(m, kind) {
+    const k = kindOf(kind);
+    return k ? Math.max(0, rangeOf(k) - (Number(m.expedition[k + 'Driven']) || 0)) : 0;
+  }
+  function roverLeft(m) { return left(m, 'rover'); }
+  // How far the vehicle a crew member drives has gone this round, as the driver's game reports it. It only ever goes up.
+  function setRoverDriven(m, crewId, tiles) {
+    const x = m && m.expedition, k = x && drives(x, crewId);
+    if (!k || typeof tiles !== 'number' || !Number.isFinite(tiles)) return;
+    const f = k + 'Driven';
+    x[f] = Math.max(Number(x[f]) || 0, Math.min(rangeOf(k), tiles));
   }
 
   // The suit level a crew member's own game reports (it is drained there, frame by frame). Kept between 0 and full;
@@ -424,7 +476,9 @@
   function setSuit(m, crewId, seconds) {
     const x = m && m.expedition;
     if (!x || !crewOf(m, crewId) || x.collapsed[crewId] || typeof seconds !== 'number' || !Number.isFinite(seconds)) return;
-    x.suits[crewId] = Math.max(0, Math.min(suitMax(m), seconds));
+    // In the pressurised rover you breathe its air (EXPEDITION.cabin.drain 0): a level reported there never goes down.
+    const low = vehicleOf(m, crewId) === 'cabin' && !(X.cabin.drain > 0) ? suitOf(m, crewId) : 0;
+    x.suits[crewId] = Math.max(low, Math.min(suitMax(m), seconds));
   }
 
   // Solo play: where your astronaut stands, saved every 2 s with the suit, so a reload puts you back there instead of giving
@@ -687,8 +741,7 @@
     if (((m.schedule && m.schedule[m.turn]) || {}).weather === 'global') return { error: 'grounded' };
     if (flown >= D.DRONE.flights) return { error: 'flights' };
     if (!okPos(pos)) return { error: 'badPos' };
-    const cabin = !!x.cabin && x.cabin.driver === crewId; // the pressurised rover: null at its bay, { x, y } parked, { driver }
-    if (!inBaseZone(m, pos, X.reach) && !driving(x, crewId) && !cabin) return { error: 'notHere' };
+    if (!inBaseZone(m, pos, X.reach) && !drives(x, crewId)) return { error: 'notHere' }; // from a vehicle you drive, not one you ride in
     return { ok: true, left: D.DRONE.flights - flown };
   }
   // Flies the drone to tile (tx, ty) (world tiles: whole numbers, from the network unchecked). → { ok, fog: what changed,
@@ -705,6 +758,8 @@
 
   return {
     findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, commanderOut, speedFactor, addDistance, capacity, suitMax, packOf, rackOf, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
+    left, vehicleOf,
+    ride, alight,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
     interact, refill, forecastAhead, mastMarks, takeKit, returnKit, beaconSpot, placeBeacon, routeHome,
     revealAround, canFly, fly,

@@ -1369,3 +1369,47 @@ test("the drone's words are in both languages, and its button counts the flights
     assert.match(I.STR[lang]['eva.droneFly'], /\{n\}/, lang);
   }
 });
+
+// ---------- the pressurised rover (M6) ----------
+test('in the pressurised rover the suit does not drain outside', () => {
+  const I = require('../src/i18n.js'), PH = require('../src/physics.js'), en = (k, p) => I.t('en', k, p), s = setup({ t: en });
+  const p = Object.assign(outside(20, 1), { inRover: true, vehicle: 'cabin', car: { heading: 0, speed: 300 } });
+  s.player.p = p;
+  for (let i = 0; i < 100; i++) s.eva.step(0.1, p, s.world, 0.3 * T, null); // 10 s of driving outside the zone, 30 tiles
+  assert.equal(s.eva.state().suit, D.EXPEDITION.suit, 'the suit is unchanged');
+  assert.ok(Math.abs(s.eva.report().driven - 30) < 1e-6, "the pressurised rover's battery: " + s.eva.report().driven);
+  const row = re => s.eva.el.children.find(n => re.test(n.className));
+  const suit = row(/^sf-suit/), batt = row(/ batt$/), note = row(/^sf-evanote/);
+  assert.equal(suit.children[2].textContent, en('eva.paused', { v: en('eva.secs', { s: D.EXPEDITION.suit }) }), 'the suit timer says it is paused');
+  assert.equal(batt.children[0].textContent, en('eva.cabinBattery'), 'the HUD says which vehicle');
+  assert.equal(batt.children[2].textContent, '770 tiles', 'of 800 a round');
+  const stop = v => (Math.round(v * 10) / 10).toLocaleString('en-US');
+  assert.equal(batt.children[3].textContent, en('eva.drive', { kmh: 17, m: stop(PH.stopDistance(300, PH.MARS_G, PH.CABIN)), e: stop(PH.stopDistance(300, PH.EARTH_G, PH.CABIN)) }),
+    'its own stopping distance');
+  assert.equal(note.textContent, en('eva.cabinAir'));
+  // The rover's battery is its own: in the rover the HUD reads the rover's.
+  const q = Object.assign(outside(20, 1), { inRover: true });
+  s.player.p = q;
+  s.eva.step(0.1, q, s.world, 0, null);
+  assert.equal(batt.children[0].textContent, en('eva.battery'));
+  assert.equal(batt.children[2].textContent, D.EXPEDITION.roverRange + ' tiles');
+  // Stepping out of it to work on a find, you breathe your suit.
+  s.player.p = p;
+  const f = { kind: 'find', key: 'f:x', id: 'x', find: { kind: 'metal' }, x: p.x, y: p.y };
+  s.eva.start(f);
+  s.eva.step(1, p, s.world, 0, f);
+  assert.ok(s.eva.state().suit < D.EXPEDITION.suit, 'out of the cabin the suit drains');
+});
+
+test("a flat pressurised rover says which battery is flat, and the rover's still drives", () => {
+  const I = require('../src/i18n.js'), en = (k, p) => I.t('en', k, p), s = setup({ t: en });
+  s.m.expedition.cabinDriven = D.EXPEDITION.cabin.range;
+  s.eva.sync(s.data);
+  const cab = Object.assign(outside(20, 1), { inRover: true, vehicle: 'cabin' }), rover = Object.assign(outside(20, 1), { inRover: true });
+  const note = () => s.eva.el.children.find(n => /^sf-evanote/.test(n.className)).textContent;
+  s.player.p = cab;
+  tick(s, cab, 0.1);
+  assert.equal(note(), en('eva.cabinFlat'));
+  assert.equal(s.eva.canMove(cab, cab.x + 5, cab.y), false, 'it stops');
+  assert.equal(s.eva.canMove(rover, rover.x + 5, rover.y), true, 'the rover has its own battery');
+});

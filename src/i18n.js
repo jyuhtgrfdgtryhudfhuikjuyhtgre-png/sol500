@@ -1356,6 +1356,25 @@
     'ev.sample_launch.body': 'The samples are on their way to Earth: +{bonus} science.',
     // M6 T6
     'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
+    'eva.err.noCabin': 'The pressurized rover is out of action.',
+    'eva.err.inVehicle': 'Get out of the vehicle you are in first.',
+    'eva.cabinBattery': 'Pressurized rover battery',
+    'eva.cabinFlare': '☢ Solar flare coming: the pressurized rover is no cover. Get to the base, a cave, a lava tube, a hab pod or the storm shelter',
+    'sf.boardCabin': 'Drive the pressurized rover',
+    'sf.exitCabin': 'Leave the pressurized rover',
+    'sf.cabinSub': 'Your suit does not drain inside',
+    'sf.key.cabin': 'Parked pressurized rover',
+    'eva.cabinFlat': 'The pressurized rover battery is flat until tomorrow: press E to get out and walk.',
+    // The card the first time you board it (src/surface.js): the real rover it is based on, within sources.md's m6Pressurized
+    // (a Moon rover, never a Mars one: R8), beside the game's own rule.
+    'card.cabin.title': 'Aboard the pressurized rover',
+    'card.cabin.body': 'Inside, you breathe the cabin’s air, so your suit does not drain. Your pressurized rover is based on a rover Japan is building for NASA’s Artemis Moon missions: under an agreement with NASA, Japan will design, develop and operate it, and it will hold two astronauts for up to 30 days.',
+    'card.cabin.src': 'm6Pressurized',
+    // Co-op's passenger (src/surface.js): E by the pressurised rover a teammate drives.
+    'sf.ride': 'Ride along in the pressurized rover',
+    'eva.err.seatTaken': 'Someone is already riding in the pressurized rover.',
+    'eva.err.notDriven': 'Nobody is driving the pressurized rover now.',
+    'eva.err.notRiding': 'You are not riding in the pressurized rover.',
     // M6 T7
     'eva.droneFly': 'Fly the drone ({n} flights left) · F',
     'eva.droneCancel': 'Call the flight off · Esc',
@@ -2629,6 +2648,24 @@
     'ev.sample_launch.body': 'Mẫu vật đang trên đường về Trái Đất: +{bonus} điểm khoa học.',
     // M6 T6
     'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
+    'eva.err.noCabin': 'Xe thám hiểm điều áp đang không hoạt động.',
+    'eva.err.inVehicle': 'Hãy xuống chiếc xe bạn đang ngồi trước đã.',
+    'eva.cabinBattery': 'Pin xe thám hiểm điều áp',
+    'eva.cabinFlare': '☢ Bão hạt Mặt Trời sắp tới: xe thám hiểm điều áp không che chắn được. Hãy vào căn cứ, hang, ống dung nham, khoang sinh hoạt hoặc hầm trú bão',
+    'sf.boardCabin': 'Lái xe thám hiểm điều áp',
+    'sf.exitCabin': 'Xuống xe thám hiểm điều áp',
+    'sf.cabinSub': 'Bộ đồ không hao oxy khi ngồi trong xe',
+    'sf.key.cabin': 'Xe thám hiểm điều áp đang đỗ',
+    'eva.cabinFlat': 'Pin xe thám hiểm điều áp đã cạn đến ngày mai: nhấn E để xuống xe và đi bộ.',
+    // Thẻ lần đầu bạn lên xe (src/surface.js): chiếc xe thật mà nó dựa theo, trong giới hạn m6Pressurized của sources.md (R8).
+    'card.cabin.title': 'Trên xe thám hiểm điều áp',
+    'card.cabin.body': 'Ở trong xe, bạn thở không khí của xe, nên bộ đồ không hao oxy. Xe thám hiểm điều áp của bạn dựa trên một chiếc xe Nhật Bản đang làm cho các sứ mệnh Mặt Trăng Artemis của NASA: theo thỏa thuận với NASA, Nhật Bản sẽ thiết kế, phát triển và vận hành nó, và nó sẽ chở được hai phi hành gia trong tối đa 30 ngày.',
+    'card.cabin.src': 'm6Pressurized',
+    // Hành khách khi chơi cùng nhau (src/surface.js): nhấn E cạnh xe thám hiểm điều áp một đồng đội đang lái.
+    'sf.ride': 'Đi cùng xe thám hiểm điều áp',
+    'eva.err.seatTaken': 'Đã có người ngồi cùng trên xe thám hiểm điều áp.',
+    'eva.err.notDriven': 'Lúc này không ai lái xe thám hiểm điều áp.',
+    'eva.err.notRiding': 'Bạn đang không ngồi trên xe thám hiểm điều áp.',
     // M6 T7
     'eva.droneFly': 'Cho drone bay (còn {n} chuyến) · F',
     'eva.droneCancel': 'Hủy chuyến bay · Esc',

@@ -228,7 +228,7 @@ test('the big map has a key naming every mark, in both languages', () => {
   const { map } = setup('MAP-KEY');
   map.relabel();
   const key = map.el.children[1].children.find(c => /sf-map-key/.test(c.className));
-  const ids = ['find', 'cave', 'drop', 'rover', 'beacon', 'landmark', 'structure', 'mast', 'base', 'you'].map(k => 'sf.key.' + k);
+  const ids = ['find', 'cave', 'drop', 'rover', 'cabin', 'beacon','landmark', 'structure', 'mast', 'base', 'you'].map(k => 'sf.key.' + k);
   assert.deepEqual(key.children.map(i => i.children[1].textContent), ids, 'one entry per mark: a swatch and its name');
   for (const lang of ['en', 'vi']) for (const id of ids) assert.notEqual(I.t(lang, id), id, lang + ' ' + id);
 });

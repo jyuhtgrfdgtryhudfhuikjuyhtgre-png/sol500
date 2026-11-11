@@ -68,3 +68,20 @@ test('the wheels hold at most their grip in all: pushing or braking along the he
     assert.ok(Math.hypot(along, side) <= most, speed + ' px/s, pushed ' + (a * 180 / Math.PI).toFixed(0) + '°, ' + JSON.stringify(o) + ': ' + Math.hypot(along, side).toFixed(2) + ' m/s² against ' + most.toFixed(2));
   }
 });
+
+// ---------- the pressurised rover (M6) ----------
+test('the pressurised rover is heavier: it gets to speed slower and needs longer to stop', () => {
+  const C = PH.CABIN, R = PH.ROVER;
+  assert.ok(C.mass > R.mass, 'heavier');
+  const toSpeed = spec => { const car = { heading: 0, speed: 0 }; let t = 0; while (car.speed < 4 * PH.PX_PER_M && t < 30) { PH.drive(car, { x: 1, y: 0 }, 0.01, {}, spec); t += 0.01; } return t; };
+  assert.ok(toSpeed(C) > toSpeed(R), 'slower to 4 m/s: ' + toSpeed(C) + ' s against ' + toSpeed(R) + ' s');
+  for (const v of [100, 300]) assert.ok(PH.stopDistance(v, PH.MARS_G, C) > PH.stopDistance(v, PH.MARS_G, R), 'a longer stop from ' + v + ' px/s');
+  assert.ok(PH.grip(PH.MARS_G, C) < PH.grip(PH.MARS_G, R), 'its wheels push and brake less hard');
+  const car = { heading: 0, speed: 0 };
+  run(car, { x: 1, y: 0 }, 12, {}); // no spec: today's rover
+  near(car.speed, 390, 1e-6, 'no spec is the rover');
+  const cab = { heading: 0, speed: 0 };
+  for (let t = 0; t < 12; t += 0.01) PH.drive(cab, { x: 1, y: 0 }, 0.01, {}, C);
+  near(cab.speed, C.top * PH.PX_PER_M, 1e-6, 'its own governor: 300 px/s');
+  near(PH.stopDistance(390), PH.stopDistance(390, PH.MARS_G, R), 1e-12, 'stopDistance with no spec is the rover');
+});

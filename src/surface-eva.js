@@ -10,7 +10,7 @@
  * while the surface is hidden (like the suit) and is saved with the mission; in co-op it is the server's (data.clock).
  *
  * API: SolEva.create(env) → eva
- *        env: { t(key, params), hooks(), crewName(id), home(), drawRover(ctx, x, y), player(), now() → seconds,
+ *        env: { t(key, params), hooks(), crewName(id), home(), drawRover(ctx, x, y, kind), player(), now() → seconds,
  *               push(dx, dy) (a dust devil throws your astronaut that far, world px),
  *               team() → [{ crewId, x, y }] where the crew who count stand, you included (the commander's aura and route line) }
  *        hooks() is ui.js's: exp(type, payload, pos) runs the rules (above), suit(report) keeps the solo save,
@@ -41,7 +41,10 @@
  *        commander's route line to his pings), world px
  *      eva.addPing({ x, y, by }) a ping to show for D.TEAM.ping.life s · eva.speed(player) → the commander's aura factor (1 or 1.1)
  *      eva.report() → { suit (null while collapsed), driven } for positions
- *      eva.roverAtBay(player) · eva.driving() · eva.collapsed(crewId) · eva.state() (play-testing)
+ *      eva.roverAtBay(player) · eva.atBay(player, kind) · eva.driving() → the vehicle you drive ('rover' | 'cabin') or null
+ *      eva.collapsed(crewId) · eva.state() (play-testing)
+ * A player in a vehicle has inRover set, and vehicle 'cabin' in the pressurised rover (M6; none is the rover). Each vehicle
+ * has its own battery; in the pressurised rover you breathe its air, so the suit does not drain.
  */
 (function (root) {
   'use strict';
@@ -52,10 +55,14 @@
   const REACH = 0.9 * T;                        // how close the spot you look at must be to a find
   const COLORS = { ice: '#9fd3ea', metal: '#d9b46a', pod: '#ece5db', science: '#6fa8ff' };
   const BEACON = '#ffcf7a';                      // a relay beacon's light: its mark and the route home on the maps
+  const VEHICLES = ['rover', 'cabin'], PARKED = { rover: '#e9e2d8', cabin: '#4fd0c4' }; // a parked vehicle's mark on the maps
+  const kindOf = p => (p && p.inRover ? (p.vehicle === 'cabin' ? 'cabin' : 'rover') : null); // the vehicle you are in
+  const rangeOf = k => (k === 'cabin' ? XD.cabin.range : XD.roverRange);
   const RES_ICON = { water: 'water', materials: 'materials', food: 'food', o2: 'o2', spares: 'spares', science: 'science', kit: 'kit' };
   // No message when these are refused: they are retried, or harmless (a discovery is asked for when a landmark comes into
   // view, a refill as you walk into a hab pod; 'known' only means a crewmate saw it first).
-  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill'];
+  const QUIET = ['deliver', 'collapse', 'park', 'flareStart', 'flareEnd', 'discover', 'refill',
+    'alight']; // M6: a passenger the driver's park has just let out is out already
   const VERDICT = 8;                             // seconds the flare's verdict stays on the banner
   const INSIDE = { cave: 'eva.inCave', tube: 'eva.inTube', pod: 'eva.inPod' }; // the note while you are in cover out there
   // What holding E does at a Kestrel structure's door (the hab pod has no hold: you walk in).
@@ -99,7 +106,7 @@
     const t = (k, p) => env.t(k, p);
     const wall = () => (env.now ? env.now() : 0);
     let data = null, me = null, turn = null, wasDown = false;
-    let suit = XD.suit, driven = 0, hold = null, keyHeld = false;
+    let suit = XD.suit, dv = { rover: 0, cabin: 0 }, seat = null, hold = null, keyHeld = false; // dv: each vehicle's tiles this round
     let now = 0, deliverAt = -1e9, collapseAt = -1e9, reportAt = -1e9, marksAt = -1e9, marksCache = [], refillAt = -1e9, inPod = null;
     let soloClock = 0, coopClock = null, hitAt = -1e9, flareAskAt = -1e9, flareEndAt = -1e9, warned = false;
     let note = null;                               // { text, cls, until }
@@ -126,6 +133,10 @@
     const near2 = (ax, ay, bx, by) => (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
     const secs = s => (Math.round(s * 10) / 10).toLocaleString(shown.lang === 'vi' ? 'vi-VN' : 'en-US'); // 1.5, or 1,5 in Vietnamese (R31)
     const clock = () => (coopClock ? coopClock.t + (wall() - coopClock.at) : soloClock);
+    const driven = () => dv[seat || 'rover'];      // the battery of the vehicle you were in last frame (the rover's on foot)
+    const flat = p => { const k = kindOf(p); return !!k && dv[k] >= rangeOf(k); };
+    // In the pressurised rover (M6): its driver, or co-op's passenger while the rules have them in its seat (expedition.riders).
+    const inCabin = p => kindOf(p) === 'cabin' || (!!me && !!mission() && !!mission().expedition && !!(exp().riders || {})[me]);
     function say(text, cls, s) { note = { text, cls: cls || '', until: now + (s || 3) }; }
     // A point of interest's card over the surface (ui.js shows each once a mission): { type: 'log' | ..., id, kind }.
     const card = c => { const h = env.hooks(); if (h && h.card) h.card(c); };
@@ -240,7 +251,8 @@
         if (rt >= f.end) return { cls: 'crit', msg: t('eva.flare.now'), left: null };
         const safe = covered(p);
         // − 1e-6: float noise (263.182 − 203.182 is 60.00000000000003) must not round a whole second up to 61.
-        return { cls: safe ? 'ok' : 'crit', msg: t(safe ? 'eva.flare.covered' : 'eva.flare.run'), left: Math.ceil(f.end - rt - 1e-6) };
+        // The pressurised rover is no cover (M6): out in the open it says so.
+        return { cls: safe ? 'ok' : 'crit', msg: t(safe ? 'eva.flare.covered' : inCabin(p) ? 'eva.cabinFlare' : 'eva.flare.run'), left: Math.ceil(f.end - rt - 1e-6) };
       }
       if (rt >= f.end + VERDICT) return null;
       const hit = f.hit.includes(me);
@@ -251,9 +263,10 @@
       if (!me || !mission()) return null;
       if (collapsed(me)) return { text: t('eva.collapsedCoop'), cls: 'crit' };
       if (benched()) return { text: t('eva.benched'), cls: 'warn' };
-      if (p && p.inRover && driven >= XD.roverRange) return { text: t('eva.flat'), cls: 'warn' };
+      if (flat(p)) return { text: t(kindOf(p) === 'cabin' ? 'eva.cabinFlat' : 'eva.flat'), cls: 'warn' };
       const atBase = !!p && X.inBaseZone(mission(), p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t(pack().some(i => !E.isKit(i)) ? 'eva.full' : 'eva.fullKits'), cls: '' }; // kits are placed, not delivered
+      if (live() && inCabin(p) && !hold && !atBase) return { text: t('eva.cabinAir'), cls: 'ok' };
       if (live() && suit <= suitMax() * 0.2 && !atBase) return { text: t('eva.low'), cls: 'crit' };
       const cover = live() && p && !atBase ? INSIDE[Z.shelterAt(mission(), p, 0, peek)] : null;
       if (cover) return { text: t(cover), cls: 'ok' };
@@ -297,19 +310,19 @@
       const atBase = !!p && X.inBaseZone(mission(), p);
       text(suitM.k, 'sk', t('eva.suit'));
       const seconds = t('eva.secs', { s: Math.ceil(suit) }); // one unit, paused or not
-      text(suitM.v, 'sv', atBase && !benched() ? t('eva.paused', { v: seconds }) : seconds);
+      text(suitM.v, 'sv', (atBase && !benched()) || (inCabin(p) && !hold) ? t('eva.paused', { v: seconds }) : seconds);
       prop('sw', (100 * Math.min(1, suit / suitMax())).toFixed(1) + '%', v => { suitM.fill.style.width = v; });
       const f = suit / suitMax();
       prop('sc', 'sf-suit' + (f <= 0.2 ? ' crit' : f <= 0.4 ? ' warn' : ''), v => { suitM.row.className = v; });
-      const inRover = !!(p && p.inRover);
-      prop('bh', !inRover, v => { battM.row.hidden = v; });
-      if (inRover) {
-        const left = Math.max(0, XD.roverRange - driven);
-        text(battM.k, 'bk', t('eva.battery'));
+      const kind = kindOf(p); // the battery and the physics of the vehicle you are in
+      prop('bh', !kind, v => { battM.row.hidden = v; });
+      if (kind) {
+        const range = rangeOf(kind), left = Math.max(0, range - dv[kind]), spec = kind === 'cabin' ? PH.CABIN : PH.ROVER;
+        text(battM.k, 'bk', t(kind === 'cabin' ? 'eva.cabinBattery' : 'eva.battery'));
         text(battM.v, 'bv', Math.floor(left) + ' ' + t(Math.floor(left) === 1 ? 'eva.tiles1' : 'eva.tiles'));
-        prop('bw', (100 * left / XD.roverRange).toFixed(1) + '%', v => { battM.fill.style.width = v; });
+        prop('bw', (100 * left / range).toFixed(1) + '%', v => { battM.fill.style.width = v; });
         const v = p.car ? p.car.speed : 0;
-        text(physEl, 'bp', t('eva.drive', { kmh: Math.round(v / PH.PX_PER_M * 3.6), m: secs(PH.stopDistance(v)), e: secs(PH.stopDistance(v, PH.EARTH_G)) }));
+        text(physEl, 'bp', t('eva.drive', { kmh: Math.round(v / PH.PX_PER_M * 3.6), m: secs(PH.stopDistance(v, PH.MARS_G, spec)), e: secs(PH.stopDistance(v, PH.EARTH_G, spec)) }));
       }
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
       prop('pk', items.map(i => i.res + (i.canister ? '*' : '')).join(',') + '|' + cap + '|' + (shown.lang || ''), () => {
@@ -351,7 +364,8 @@
       if (!h || !h.exp) return Promise.resolve({ error: 'net' });
       return Promise.resolve(h.exp(type, payload || {}, p ? at(p) : null)).then(r => {
         const res = r || { error: 'net' };
-        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + res.error, { s: canBelow() }), 'warn');
+        // A ride refused for its one seat (M6) is not a full backpack.
+        if (res.error && !QUIET.includes(type)) say(t('eva.err.' + (type === 'ride' && res.error === 'full' ? 'seatTaken' : res.error), { s: canBelow() }), 'warn');
         return res;
       }, () => { if (!QUIET.includes(type)) say(t('eva.err.net'), 'warn'); return { error: 'net' }; });
     }
@@ -434,7 +448,7 @@
         turn = m.turn;
         me = id;
         suit = me ? X.suitOf(m, me) : suitMax();
-        driven = Number(m.expedition.roverDriven) || 0;
+        dv = { rover: 0, cabin: 0 };
         hold = null;
         told = [];
         aim = false;
@@ -449,7 +463,7 @@
       if (wasDown && !down && me) { suit = X.suitOf(m, me); say(t('eva.revived', { s: XD.reviveSuit }), 'ok', 4); }
       wasDown = down;
       if (down || benched()) suit = 0;
-      driven = Math.max(driven, Number(m.expedition.roverDriven) || 0); // it only ever goes up within a round
+      for (const k of VEHICLES) dv[k] = Math.max(dv[k], Number(m.expedition[k + 'Driven']) || 0); // it only ever goes up within a round
       shown.lang = d.lang;
       return { round, fresh };
     }
@@ -460,7 +474,9 @@
       data = me = turn = hold = note = coopClock = peek = briefed = null;
       wasDown = keyHeld = warned = false;
       suit = XD.suit;
-      driven = soloClock = 0;
+      dv = { rover: 0, cabin: 0 };
+      seat = null;
+      soloClock = 0;
       deliverAt = collapseAt = reportAt = marksAt = hitAt = flareAskAt = flareEndAt = refillAt = goalsAt = -1e9;
       inPod = flight = null;
       aim = false;
@@ -478,7 +494,7 @@
       const atBase = X.inBaseZone(mission(), p);
       if (benched() && atBase && !X.inBaseZone(mission(), { x: nx, y: ny })) return false; // solo: back out next round
       if (!atBase && suit <= 0) return false;
-      if (p.inRover && driven >= XD.roverRange) return false;
+      if (flat(p)) return false;
       return true;
     }
 
@@ -494,18 +510,20 @@
         else if (briefed.covered && m) { if (note && note !== briefed.note && now < note.until) briefed = null; else brief(m); } // a newer note wins
       }
       if (m && m.expedition && m.status === 'active' && !coopClock) soloClock += dt;
+      seat = kindOf(p);
       if (live()) {
         const x = m.expedition, atBase = X.inBaseZone(m, p), out = !atBase && !collapsed(me) && !benched();
         // The battery counts the tiles driven, more for each one boosted or over rocks (p.drain, set as the rover moves).
-        if (p.inRover && moved > 0) driven = Math.min(XD.roverRange, driven + moved / T * (p.drain || 1));
+        if (seat && moved > 0) dv[seat] = Math.min(rangeOf(seat), dv[seat] + moved / T * (p.drain || 1));
         if (out) {
-          let k = p.inRover && !hold ? XD.drain.rover : 1;   // you step out of the rover to work
+          // You step out of the vehicle to work; in the pressurised rover you breathe its air (drain 0).
+          let k = inCabin(p) && !hold ? XD.cabin.drain : p.inRover && !hold ? XD.drain.rover : 1;
           if (p.sprinting) k *= XD.drain.sprint;
           if (world.region(Math.floor(p.x / T), Math.floor(p.y / T)) === ICY) k *= XD.drain.icy;
           suit = Math.max(0, suit - dt * k);
           // A dust devil that catches you on foot throws you aside and takes suit time (spec §3.4); the rover is immune. A hit
           // that empties the suit throws nobody: you collapse where it caught you, which is where the server anchors it.
-          const d = !p.inRover && now - hitAt > ZD.devils.calm ? Z.devilHit(m, p, clock()) : null;
+          const d = !p.inRover && !inCabin(p) && now - hitAt > ZD.devils.calm ? Z.devilHit(m, p, clock()) : null;
           if (d) {
             hitAt = now;
             hold = null;
@@ -519,7 +537,7 @@
           if (suit <= 0 && now - collapseAt > 3) {
             collapseAt = now;
             hold = null;
-            act('collapse', p, { driven: Math.round(driven * 10) / 10 }).then(r => {
+            act('collapse', p, { driven: Math.round(driven() * 10) / 10 }).then(r => {
               if (r.benched) { env.home(); say(t('eva.collapsedSolo'), 'crit', 8); }
             });
           }
@@ -590,7 +608,7 @@
           reportAt = now;
           const h = env.hooks();
           // Solo saves keep the suit, the rover's distance, the round's clock and where you stand (co-op ignores them).
-          if (h && h.suit) h.suit({ suit, driven: p.inRover ? driven : null, clock: clock(), at: at(p) });
+          if (h && h.suit) h.suit({ suit, driven: seat ? driven() : null, clock: clock(), at: at(p) });
         }
       }
       renderHud(p);
@@ -674,7 +692,10 @@
         const s = x.collapsed[id];
         consider(s.x, s.y, { kind: 'revive', key: 'v:' + id, id, x: s.x, y: s.y - 10 });
       }
-      if (x.rover && !x.rover.driver && !p.inRover) consider(x.rover.x, x.rover.y, { kind: 'rover', key: 'rover-parked', parked: true, x: x.rover.x, y: x.rover.y });
+      for (const k of VEHICLES) { // a parked vehicle: E boards the nearer
+        const v = x[k];
+        if (v && !v.driver && !p.inRover) consider(v.x, v.y, { kind: 'rover', key: k + '-parked', vehicle: k, parked: true, x: v.x, y: v.y });
+      }
       // With nothing else to work on, the beacon kit you carry: the tile under you is where it would stand.
       if (!best && !p.inRover && !X.inBaseZone(m, p) && pack().some(E.isKit)) return beaconFocus(p);
       return best;
@@ -689,7 +710,7 @@
       if (f.kind === 'drop') return !hasRoom() ? t('eva.err.full') : t('eva.pickup', { s: secs(X.holdSeconds('pickup', role, mission())) });
       if (f.kind === 'kestrel') return t(VERB[f.struct.kind], { what: t('ks.' + f.struct.kind + '.name'), s: secs(X.holdSeconds(f.struct.kind, role, mission())) });
       if (f.kind === 'revive') return t('eva.revive', { name: env.crewName(f.id), s: secs(X.holdSeconds('revive', role, mission())) });
-      if (f.kind === 'rover') return t('sf.boardRover');
+      if (f.kind === 'rover') return t(f.vehicle === 'cabin' ? 'sf.boardCabin' : 'sf.boardRover');
       if (f.kind === 'beacon') {
         const s = f.spot, more = Math.max(1, Math.ceil(s.need - 1e-9)); // whole tiles, at least one more
         if (s.ok) return t('eva.placeBeacon', { s: secs(X.holdSeconds('beacon', role, mission())) });
@@ -756,9 +777,9 @@
         const bx = (b.x + 0.5) * T, by = (b.y + 0.5) * T, spent = had.includes('B' + i);
         if (inView(bx, by)) out.push({ y: by + 6, draw: ctx => drawBeacon(ctx, bx, by, time, spent) });
       });
-      if (x.rover && !x.rover.driver && inView(x.rover.x, x.rover.y)) {
-        const r = x.rover;
-        out.push({ y: r.y + 10, draw: ctx => env.drawRover(ctx, r.x, r.y) });
+      for (const k of VEHICLES) {
+        const r = x[k];
+        if (r && !r.driver && inView(r.x, r.y)) out.push({ y: r.y + 10, draw: ctx => env.drawRover(ctx, r.x, r.y, k) });
       }
       // Dust devils: every screen draws the same ones from the round's clock. Past the edge of your view they fade out, so in
       // a dust storm one can be on you before you see it.
@@ -787,11 +808,13 @@
       const flash = rt >= f.end && rt < f.end + 1.5 ? 1 - (rt - f.end) / 1.5 : 0;
       return { warn, flash };
     }
+    // A vehicle is in its bay when nobody drives it, it is not parked out on the map and you are not in it.
+    const atBay = (p, kind) => !!mission() && !!mission().expedition && !exp()[kind] && kindOf(p) !== kind;
     // A teammate's suit level (co-op positions carry it), 0–1, for the bar on their name tag; none at the base or when full.
     const suitBar = r => (r.suit == null || r.suit >= suitMax() || X.inBaseZone(mission(), r) ? null : r.suit / suitMax());
 
     // Minimap and map markers: finds you have seen (the biologist senses ice and methane vents further), cave mouths you
-    // have seen, dropped loads, the parked rover. Rebuilt at most every 150 ms.
+    // have seen, dropped loads, the parked vehicles. Rebuilt at most every 150 ms.
     function marks(world, px, py) {
       if (!mission() || !mission().expedition || !world) return [];
       if (now - marksAt < 0.15) return marksCache.concat(liveMarks());
@@ -810,7 +833,7 @@
         for (const k of visible(c, 'caves')) if (world.seen(k.x, k.y)) out.push({ x: (k.x + 0.5) * T, y: (k.y + 0.5) * T, color: '#1a0d0a', ring: '#e8c9a8' });
       }
       for (const d of x.drops) out.push({ x: d.x, y: d.y, color: '#f46e5f' });
-      if (x.rover && !x.rover.driver) out.push({ x: x.rover.x, y: x.rover.y, color: '#e9e2d8', square: true });
+      for (const k of VEHICLES) if (x[k] && !x[k].driver) out.push({ x: x[k].x, y: x[k].y, color: PARKED[k], square: true });
       for (const b of x.beacons) out.push({ x: (b.x + 0.5) * T, y: (b.y + 0.5) * T, color: BEACON, beacon: true }); // its reveal lit them
       marksCache = out;
       return out.concat(liveMarks());
@@ -838,11 +861,12 @@
       view: viewOf,
       alerting: () => !alert.hidden,
       // While you are down your suit is not sent: a position in flight could undo a revive the server has just made.
-      report: () => ({ suit: collapsed(me) ? null : Math.round(suit * 10) / 10, driven: Math.round(driven * 10) / 10 }),
-      roverAtBay: p => !!mission() && !!mission().expedition && !exp().rover && !(p && p.inRover),
-      driving: () => !!(me && mission() && mission().expedition && exp().rover && exp().rover.driver === me),
+      report: () => ({ suit: collapsed(me) ? null : Math.round(suit * 10) / 10, driven: Math.round(driven() * 10) / 10 }),
+      roverAtBay: p => atBay(p, 'rover'),
+      atBay,
+      driving: () => (me && mission() && mission().expedition ? VEHICLES.find(k => exp()[k] && exp()[k].driver === me) || null : null),
       collapsed,
-      state: () => ({ suit, driven, hold: hold && hold.f.key, collapsed: collapsed(me), benched: !!me && !!mission() && benched(), pack: me && mission() ? pack().length : 0, clock: clock() }),
+      state: () => ({ suit, driven: driven(), hold: hold && hold.f.key, collapsed: collapsed(me), benched: !!me && !!mission() && benched(), pack: me && mission() ? pack().length : 0, clock: clock() }),
       qaSuit: s => { suit = Math.max(0, Math.min(suitMax(), Number(s) || 0)); }, // play-testing: jump the suit level
       qaClock: s => { soloClock = Math.max(0, Number(s) || 0); },              // play-testing: jump the solo round clock
     };

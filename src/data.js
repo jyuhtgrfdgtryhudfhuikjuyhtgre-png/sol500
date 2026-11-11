@@ -325,8 +325,8 @@
       // is built like a module (BUILDS.kit) and takes one backpack slot.
       beacon: { hold: 4, base: 12, apart: 10, max: 6, refill: 2, reveal: 12 },
       // M6 the pressurised rover: tiles a round, suit drain inside (you breathe the cabin's air), tiles from the HQ that
-      // send it back to its bay (as roverHome).
-      cabin: { range: 800, drain: 0, home: 6 },
+      // send it back to its bay (as roverHome), passengers beside its driver (co-op).
+      cabin: { range: 800, drain: 0, home: 6, riders: 1 },
     },
     // Dangers outside (spec §3.4, M4b). Seconds run on the round's clock: your surface's real time in solo play (it stops
     // while the console is open, like the suit), the server's clock in co-op. Distances are world tiles.

@@ -87,7 +87,7 @@ function element(tag) {
 function page(m, me, opts) {
   const o = opts || {};
   let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7, resized = null;
-  const on = {}, sent = [], calls = [], walks = [], queued = [];
+  const on = {}, sent = [], calls = [], walks = [], queued = [], cards = [];
   const { painter, seen } = stubPainter(() => clock);
   const win = {
     SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW, SolPhysics: require('../src/physics.js'),
@@ -114,7 +114,7 @@ function page(m, me, opts) {
   const hooks = {
     exp: (type, payload, pos) => {
       calls.push(type);
-      const r = Z.act(cur, me, type, payload, pos);
+      const r = Z.act(cur, me, type, payload, pos, o.positions); // o.positions: where the server last saw the crew (co-op)
       if (!r.error) show(cur);
       return Promise.resolve(r);
     },
@@ -125,11 +125,12 @@ function page(m, me, opts) {
     walk: (from, to, dt) => { walks.push(dt); if (!cur.coop) X.addDistance(cur, me, from, to, dt); },
     ping: o.ping, // co-op: `o.ping(x, y)` sends a ping (true when it went out)
     queueBuild: b => queued.push(b), canAdvance: () => false, // the HQ menu's builds, and its Advance button
+    card: c => cards.push(plain(c)), // ui.js shows each card once a mission
   };
   const root = S.mount(hooks), canvas = root.children[0];
   show(m);
   return {
-    sent, calls, walks, queued, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
+    sent, calls, walks, queued, cards, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
     canvas, overlay: root.children[1], seen, resize: () => resized(), setGfx(g) { gfx = g; show(cur); },
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
     // `secs` of frames at `hz` with synthetic timestamps, as requestAnimationFrame gives them (the clock is the frame's exact time;
@@ -1363,4 +1364,98 @@ test("the rover's dust is as thick at 30 fps as at 144: it is thrown up by the s
   };
   const slow = count(30), fast = count(144);
   assert.ok(slow > 20 && Math.abs(fast / slow - 1) < 0.3, '30 fps: ' + slow + ' grains, 144 fps: ' + fast);
+});
+
+// ---------- the pressurised rover (M6) ----------
+// A working pressurised rover in a bay of its own at grid (8, 3), world tile (4, 1), 4 tiles east of the rover's.
+const withCabin = m => { m.modules.cabin.count = 1; m.layout.push({ type: 'cabin', x: 8, y: 3 }); return m; };
+
+test('E at the pressurised rover boards it: it drives with its own physics, teammates are told which vehicle, and E out on the map parks it there', async () => {
+  const m = withCabin(mission({ seed: 'CABIN-1' })), bay = X.bay(m, 'cabin');
+  X.setWhere(m, 'minh', { x: bay.x, y: bay.y - 34 }); // just north of its bay, facing down at it
+  const pg = page(m, 'minh');
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'cabin', 'its bay is something to drive');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual(pg.calls, ['board']);
+  assert.deepEqual(plain(m.expedition.cabin), { driver: 'minh' }, 'the pressurised rover');
+  assert.deepEqual(pg.cards, [{ type: 'm6', id: 'm6:cabin', key: 'cabin' }], 'its card: the real rover it is based on, with its source');
+  assert.equal(m.expedition.rover, null, 'not the rover, which stays in its bay');
+  assert.deepEqual([pg.probe().player.inRover, pg.probe().player.vehicle], [true, 'cabin']);
+  pg.step(0.2);
+  assert.deepEqual([pg.sent.at(-1).rover, pg.sent.at(-1).vehicle], [true, 'cabin'], 'teammates are told which vehicle');
+  const [x, y] = openRow(m.seed, 48);
+  pg.qa.teleport(x + 1, y);
+  pg.key('KeyD');
+  pg.step(8);
+  pg.key('KeyD', false);
+  assert.ok(Math.abs(pg.probe().player.speed - PH.CABIN.top * PH.PX_PER_M) < 1e-6, 'its own governor: ' + pg.probe().player.speed);
+  pg.step(3);
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.equal(pg.calls.at(-1), 'park');
+  const at = plain(m.expedition.cabin), pr = pg.probe();
+  assert.deepEqual(at, { x: Math.round(pr.player.x), y: Math.round(pr.player.y) }, 'parked where you got out');
+  assert.ok(m.expedition.cabinDriven > 20 && m.expedition.roverDriven === 0, 'on its own battery: ' + m.expedition.cabinDriven);
+  pg.step(0.3);
+  assert.equal(pg.probe().focusKey, 'cabin-parked', 'E by it boards it again');
+  assert.ok(pg.probe().marks.some(k => k.x === at.x && k.y === at.y && k.square && k.color === '#4fd0c4'), 'marked on the maps, apart from the rover');
+});
+
+test("a crewmate in the pressurised rover is told apart from one in the rover", () => {
+  const pg = page(withCabin(mission({ seed: 'CABIN-2' })), 'minh');
+  pg.remote([{ crewId: 'diego', x: 640, y: 640, rover: true, vehicle: 'cabin', moving: false, dir: 'down' }, { crewId: 'lena', x: 900, y: 640, rover: true, moving: false, dir: 'down' }]);
+  assert.deepEqual([pg.probe().remote.diego.vehicle, pg.probe().remote.lena.vehicle], ['cabin', 'rover'], 'a game from before M6 is in the rover');
+});
+
+test("a passenger rides along in a teammate's pressurised rover: E by it gets in, you go where it goes and breathe its air, and get out where it parks", async () => {
+  const m = withCabin(mission({ seed: 'CABIN-RIDE', coop: true })), x = m.expedition;
+  const [tx, ty] = openRow(m.seed, 24), near = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 1;
+  const spot = { x: (tx + 4.5) * T, y: (ty + 0.5) * T }, far = { x: spot.x + 12 * T, y: spot.y };
+  assert.equal(X.board(m, 'lena', X.bay(m, 'cabin'), 'cabin').ok, true);
+  const where = { lena: spot }, drive = (at, moving) => pg.remote([{ crewId: 'lena', x: at.x, y: at.y, rover: true, vehicle: 'cabin', moving, dir: 'right' }]);
+  const pg = page(m, 'minh', { positions: where });
+  pg.qa.teleport(tx + 3, ty); // a tile west of it
+  drive(spot, false);
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'ride', 'E rides along');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual(pg.calls, ['ride']);
+  assert.deepEqual(plain(x.riders), { minh: 'cabin' });
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'alight', 'and E gets out again');
+  assert.ok(near(pg.probe().player, spot), 'in its seat');
+  // lena drives off east: minh goes with her, breathing the cabin's air.
+  const suit = pg.probe().eva.suit;
+  pg.key('KeyW'); // a passenger does not steer
+  drive(far, true);
+  pg.step(3);
+  pg.key('KeyW', false);
+  assert.ok(near(pg.probe().player, far), 'where it is: ' + JSON.stringify(pg.probe().player));
+  assert.equal(pg.probe().eva.suit, suit, 'no suit drain');
+  assert.deepEqual([pg.probe().player.inRover, pg.sent.at(-1).rover], [false, false], "a passenger is not its driver: the cabin is lena's to park");
+  // E gets out any time, and back in.
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual([pg.calls.at(-1), plain(x.riders)], ['alight', {}]);
+  where.lena = far; // where the server last saw her
+  pg.step(0.2);
+  assert.equal(pg.probe().focusKey, 'ride');
+  pg.key('KeyE');
+  pg.key('KeyE', false);
+  await flush();
+  assert.deepEqual([pg.calls.at(-1), plain(x.riders)], ['ride', { minh: 'cabin' }]);
+  // She parks: minh is out there too, on foot, and the suit drains again.
+  assert.equal(X.park(m, 'lena', far, 12, 'cabin').ok, true);
+  pg.show(m);
+  pg.step(2);
+  assert.notEqual(pg.probe().focusKey, 'alight');
+  assert.ok(near(pg.probe().player, far), 'out where it parked');
+  assert.ok(pg.probe().eva.suit < suit, 'breathing the suit again');
 });
