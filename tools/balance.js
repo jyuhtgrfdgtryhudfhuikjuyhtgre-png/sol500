@@ -38,10 +38,17 @@ function naivePlan(s) {
 // these it can while keeping RESERVE kg of materials in store: the next rank (and at Colony the launch pad and the launch,
 // the finale), a Garage, a Fabricator, the gear (tanks, backpack, racks once there is a rover to fit them to, tools).
 // Played without exploring it buys only the ranks: the rest serves an explorer.
+// The pressurised rover ('cabin') comes right after its Garage and before the Fabricator and its gear: the reference kits
+// bring no rover, so it is what turns an explorer on foot (3 loads a trip, the suit draining all the way) into one that
+// drives 8 loads home on the cabin's air, and everything bought after it is paid from that bigger haul.
+// It doesn't buy today's rover from the Garage: the pressurised one does all a rover does for the bot.
+// ponytail: it doesn't buy the scout drone. The explorer knows where every find within 128 tiles is, so cleared fog can't
+// change what it does; a flight could only tick the "explore chunks" goal, which it meets by walking. Teach the explorer
+// to fly it if finds are ever hidden from the bot by the fog.
 // ponytail: the bot doesn't build the extra solar/greenhouses a bigger base allows, so independence from more buildings
 // is under-measured; teach it those builds if a target ever turns on independence.
 const RESERVE = 300;
-const GROW = ['rankup', 'launchpad', 'launch', 'garage', 'fabricator', 'tanks', 'backpack', 'racks', 'tools'];
+const GROW = ['rankup', 'launchpad', 'launch', 'garage', 'cabin', 'fabricator', 'tanks', 'backpack', 'racks', 'tools'];
 function growth(s, explore) {
   if (s.projects.some(q => GROW.includes(q.type))) return null;
   for (const type of explore ? GROW : ['rankup']) {
@@ -160,8 +167,9 @@ function quickKit(kit, level) {
 const EXPLORER = 'diego'; // with exploring on, the scientist is the astronaut the player walks as
 
 // `haul` collects the loads delivered in each round (sum and missions still running), for the plateau check; `tally`
-// (optional) the science banked from the map, the loads and the seconds outside on the rounds' clocks (the run length), and
-// ranks[r]: the round whose advance brought rank r (M6).
+// (optional) the science banked from the map, the loads and the seconds outside on the rounds' clocks (the run length),
+// ranks[r]: the round whose advance brought rank r (M6), cabin: the round whose advance brought the pressurised rover, and
+// drove: the rounds the explorer drove it.
 function play(loadoutName, planner, seed, explore, haul, level, tally) {
   let kit = loadoutName === 'reference' ? D.REFERENCE_KITS[level || DIFF] : LOADOUTS[loadoutName];
   if (QUICK) kit = quickKit(kit, level || DIFF);
@@ -175,12 +183,13 @@ function play(loadoutName, planner, seed, explore, haul, level, tally) {
         haul[s.turn][0] += got.loads;
         haul[s.turn][1] += 1;
       }
-      if (tally) { tally.loads += got.loads; tally.time += got.time; }
+      if (tally) { tally.loads += got.loads; tally.time += got.time; if (s.expedition.cabinDriven > 0) tally.drove++; }
     }
     const was = E.rankOf(s), plan = planner(s, explore), r = explore ? G.advance(s, plan) : E.resolveTurn(s, plan);
     if (tally && r.report.expedition) tally.map += r.report.expedition.got.science;
     s = r.state;
     if (tally) for (let k = was + 1; k <= E.rankOf(s); k++) tally.ranks[k] = s.turn;
+    if (tally && !tally.cabin && s.modules.cabin.count) tally.cabin = s.turn;
   }
   return s;
 }
@@ -191,9 +200,10 @@ function run(label, loadoutName, planner, explore) {
   let wins = 0, score = 0, sci = 0, deaths = 0, grounded = 0, goals = 0, beacons = 0, outside = 0;
   const causes = {}, grades = {}, badges = {};
   let globalWins = 0, globalRuns = 0;
-  const haul = [], reached = D.RANKS.map(() => []);
+  const haul = [], reached = D.RANKS.map(() => []), cabins = [];
+  let drove = 0;
   for (let i = 0; i < RUNS; i++) {
-    const tally = { map: 0, loads: 0, time: 0, ranks: [] };
+    const tally = { map: 0, loads: 0, time: 0, ranks: [], drove: 0 };
     const s = play(loadoutName, planner, 'BAL-' + i, explore, haul, DIFF, tally);
     const sc = E.scoreMission(s);
     if (process.env.DUMP) { // one line a run, to re-score them offline: node tools/balance.js 1000 with DUMP=<file>
@@ -219,6 +229,8 @@ function run(label, loadoutName, planner, explore) {
     score += sc.total;
     sci += s.science;
     tally.ranks.forEach((round, k) => reached[k].push(round));
+    if (tally.cabin) cabins.push(tally.cabin);
+    drove += tally.drove;
   }
   const pct = x => (100 * x / RUNS).toFixed(1) + '%';
   const how = !explore ? '' : planner === smartPlan ? ' + explorer (points of interest)' : ' + explorer';
@@ -230,6 +242,8 @@ function run(label, loadoutName, planner, explore) {
   const median = a => { const b = a.slice().sort((x, y) => x - y); return (b[(b.length - 1) >> 1] + b[b.length >> 1]) / 2; };
   if (!QUICK) console.log('  ranks reached', D.RANKS.slice(1).map((R, i) => `${R.id} ${pct(reached[i + 1].length)}` +
     (reached[i + 1].length ? ` (median round ${median(reached[i + 1])})` : '')).join(' · '));
+  if (!QUICK && explore) console.log(`  pressurised rover built ${pct(cabins.length)}` + (cabins.length ? ` (median round ${median(cabins)})` : '') +
+    `   rounds driven/run ${(drove / RUNS).toFixed(1)}`);
   if (process.env.BADGES) console.log('  badges', JSON.stringify(badges));
   if (explore) console.log('  loads per round', haul.map(h => (h[0] / h[1]).toFixed(1)).join(' '));
   if (explore) console.log(`  goals met/run ${(goals / RUNS).toFixed(2)}   beacons placed/run ${(beacons / RUNS).toFixed(2)}   minutes outside/run ${(outside / RUNS / 60).toFixed(1)}`);

@@ -5,7 +5,8 @@
  * delivers them at the base. On the way it explores the fog within its view and visits the regions it walks into, as a
  * player's game does (see). It is a model, not a player: it moves in straight lines with a detour factor, never
  * sprints, and knows where every find within 128 tiles is. Holding E drains the suit at the walking rate (you step
- * out of the rover to work), and the rover drives at most roverRange tiles a round.
+ * out of the rover to work), and the rover drives at most roverRange tiles a round. With a working pressurised rover (M6)
+ * it drives that instead: slower, EXPEDITION.cabin.range tiles a round, and its suit drains only while it works outside.
  * The dangers (spec §3.4) cost it what they cost a player who ignores them: it never dodges a dust devil, so on foot it
  * pays the devils' average toll on its suit, and it never runs for cover, so a solar flare that ends while it is out
  * hits it (through the real rules in src/dangers.js).
@@ -32,6 +33,7 @@ const G = require('../src/goals.js');
 const T = 64, C = W.CHUNK;
 const FOOT = 150 / T;              // tiles a second on foot (SPEED in src/surface.js)
 const ROVER = FOOT * 2.6;          // in the rover (ROVER_X)
+const CABIN = FOOT * 2;            // in the pressurised rover (300 px/s: src/physics.js, CABIN.top)
 const DETOUR = 1.25;               // paths bend around rocks, rims and canyon walls
 const SPAN = 4;                    // the explorer knows the finds in chunks −4..3 both ways (±128 tiles)
 const HOME = { x: 0.5, y: 1.5 };   // the tile just south of the HQ, where it delivers (tile units)
@@ -117,13 +119,15 @@ function haulRound(m, crewId, poi) {
   const c = m.crew.find(k => k.id === crewId);
   if (!c || c.status !== 'active' || m.status !== 'active') return { loads: 0, seconds: 0, time: 0, flare: null };
   const x = m.expedition;
-  const bay = X.bay(m);
-  const rover = !!bay && !!X.board(m, crewId, bay).ok;
-  const speed = rover ? ROVER : FOOT, drain = rover ? D.EXPEDITION.drain.rover : 1;
+  // M6: it drives the pressurised rover when the base has a working one (you breathe its air: no suit drain while it
+  // drives, EXPEDITION.cabin), else the rover, exactly as before.
+  const kind = ['cabin', 'rover'].find(k => { const b = X.bay(m, k); return !!b && !!X.board(m, crewId, b, k).ok; });
+  const rover = !!kind, cab = kind === 'cabin';
+  const speed = cab ? CABIN : rover ? ROVER : FOOT, drain = cab ? D.EXPEDITION.cabin.drain : rover ? D.EXPEDITION.drain.rover : 1;
   const toll = (m.schedule[m.turn].devil ? DEVIL_HITS.round : DEVIL_HITS.quiet) * D.DANGERS.devils.suit; // suit s a second on foot
   const cap = X.capacity(m, crewId), view = Z.viewTiles(m, rover);
   let suit = X.suitMax(m), used = 0, here = HOME, loads = 0, carried = 0, clock = 0, flare = null;
-  const range = rover ? X.roverLeft(m) : Infinity;
+  const range = rover ? X.left(m, kind) : Infinity;
   let battery = range;
   // What a leg of `dist` tiles and `hold` seconds of work costs the suit. Work is on foot, even from the rover.
   const cost = (dist, hold) => dist / speed * drain + hold + ((rover ? 0 : dist / speed) + hold) * toll;
@@ -276,8 +280,8 @@ function haulRound(m, crewId, poi) {
   home();
   if (x.flare && !x.flare.over) { Z.flareEnd(m, {}, Z.slackOf(m), x.flare.end); flare = 'safe'; } // it ends with the explorer home
   if (rover) {
-    X.setRoverDriven(m, crewId, (Number(x.roverDriven) || 0) + range - battery);
-    X.park(m, crewId, px(HOME));
+    X.setRoverDriven(m, crewId, (Number(x[kind + 'Driven']) || 0) + range - battery);
+    X.park(m, crewId, px(HOME), undefined, kind);
   }
   x.suits[crewId] = Math.max(0, suit);
   return { loads, seconds: used, time: clock, flare };

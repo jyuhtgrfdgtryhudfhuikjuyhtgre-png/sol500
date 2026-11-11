@@ -195,11 +195,14 @@ test('played thoughtfully, the explorer has beacon kits built, takes one out a r
     let s = E.createMission({ seed, loadout: KIT, difficulty: 'commander', pilot: 'diego' }), refills = 0, built = 0;
     G.pick(s);
     while (s.status === 'active') {
+      const cab = E.activeCount(s, 'cabin') > 0; // M6: late in a mission the planner has built the pressurised rover
       const got = haulRound(s, 'diego', true), suits = 1 + (s.expedition.refills.diego || []).length;
       refills += (s.expedition.refills.diego || []).filter(id => id[0] === 'B').length;
       // Spec §1.4, an endless map can't be farmed: a round's suit and each refill (a hab pod or a beacon, once a round each)
       // carry no more than one suit on foot does (15 loads, the first test), and the beacons added don't make it grow.
-      assert.ok(got.loads <= 15 * suits, seed + ', round ' + (s.turn + 1) + ': ' + got.loads + ' loads on ' + suits + ' suits');
+      // M6: a round driven in the pressurised rover is not on the suit (it drains only while working outside); its bound is
+      // the vehicle's battery and 8 loads a trip, which stays under twice a suit's haul (19 loads at most in these missions).
+      assert.ok(got.loads <= 15 * suits * (cab ? 2 : 1), seed + ', round ' + (s.turn + 1) + ': ' + got.loads + ' loads on ' + suits + ' suits' + (cab ? ', driving the pressurised rover' : ''));
       if (s.turn < D.TURNS / 2) first += got.loads; else second += got.loads;
       const r = G.advance(s, B.smartPlan(s, true));
       built += r.report.completed.filter(t => t === 'kit').length;
