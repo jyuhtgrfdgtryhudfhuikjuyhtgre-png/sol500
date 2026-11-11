@@ -4,7 +4,8 @@
  * and SolSurface.scene puts the astronaut in place. Words are show.card.<id>.name / .why in i18n.js.
  *   view: 'surface' | 'console' (the Operations tab) | 'modal' (a dialog, named by `modal`, over the Operations screen)
  *   source: the I.SOURCES key the purpose line rests on, or null when it is about the game's own rule
- *   prepare(s, { Z, X }): runs once on the demo mission before the surface opens (Z the dangers, X the expedition rules); a throw
+ *   full: true (M6) makes the demo a Full mission (the Quick mission has no ranks, Fabricator or launch) · tier: the D.M6 switch the card needs
+ *   prepare(s, { E, Z, X }): runs once on the demo mission before the surface opens (Z the dangers, X the expedition rules); a throw
  *     shows show.failed · steps: [[tx, ty], ...]: the bar gets a Next button that moves the astronaut to the next one, round
  *   line(t, X) → text: a second line under the caption (X the expedition rules) · schedule: { turn: patch } for E.createMission's schedulePatch · at: [tx, ty] tile · board · suit · clock: SolSurface.scene's
  */
@@ -24,6 +25,18 @@
     s.expedition.kits = BEACON_AT.length + 1;
     for (let i = 0; i <= BEACON_AT.length; i++) ok(R.X.takeKit(s, id, tilePos([0, 0])));
     for (const p of BEACON_AT) ok(R.X.placeBeacon(s, id, tilePos(p)));
+  }
+  // M6: put a working building on the next free tile of the land a rank added (never the Camp's, never ice or rock, never
+  // within 2 tiles of `at`, so the astronaut has room), nearest the HQ first.
+  function raise(s, E, rank, at, types) {
+    const [gx, gy] = [at[0] + D.GRID.hq[0], at[1] + D.GRID.hq[1]], used = new Set(s.layout.map(b => b.x + ',' + b.y));
+    for (const [x, y] of s.terrain.ice.concat(s.terrain.rock)) used.add(x + ',' + y);
+    E.grantRank(s, rank);
+    const free = E.landTiles(s).filter(([x, y]) => !E.onLand({ rank: 0 }, x, y) && !used.has(x + ',' + y) && Math.max(Math.abs(x - gx), Math.abs(y - gy)) > 2)
+      .sort((a, b) => Math.abs(a[0] - D.GRID.hq[0]) + Math.abs(a[1] - D.GRID.hq[1]) - Math.abs(b[0] - D.GRID.hq[0]) - Math.abs(b[1] - D.GRID.hq[1]) || a[1] - b[1] || a[0] - b[0]);
+    for (const type of types) { const [x, y] = free.shift(); s.layout.push({ type, x, y }); s.modules[type].count++; }
+    s.resources.materials = Math.max(s.resources.materials, 3000); // the console's rows are ready to queue
+    s.resources.water = Math.max(s.resources.water, 1000);
   }
   const CARDS = [
     // prepare starts the flare's warning at once (30 s delay + 60 s countdown ends it at 90 s); the clock at 70 leaves 20 s.
@@ -49,7 +62,15 @@
     { id: 'crew', source: null, view: 'surface', at: [13, 49], line: (t, X) => t('show.crew.holds', { a: X.holdSeconds('weather', 'commander'), b: X.holdSeconds('weather', 'engineer') }) },
     { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     { id: 'guide', source: null, view: 'modal', modal: 'guide' },
+    // M6 (Full missions, each only while its tier is on). [0, 4] is 2 tiles past the Camp's pad (y 2) and 2 inside the Station's land (y 6).
+    { id: 'ranks', source: 'm6Habitat3d', full: true, view: 'surface', at: [0, 4], prepare: (s, { E }) => raise(s, E, 2, [0, 4], ['habitat', 'garage'].concat(D.M6.gear ? ['fabricator'] : [])),
+      // Rank and what it unlocked, from the rules: the modules the Station's limits open that no rank before it had.
+      line: t => t('show.ranks.line', { rank: t('rank.' + D.RANKS[2].id), list: Object.keys(D.RANKS[2].max).filter(k => !D.MODULES[k].max && !D.RANKS[1].max[k] && (k !== 'fabricator' || D.M6.gear)).map(k => t('mod.' + k)).join(', ') }) },
+    { id: 'fabricator', tier: 'gear', source: 'm6Printing', full: true, view: 'console', prepare: (s, { E }) => { raise(s, E, 2, [0, 4], ['fabricator']); s.gear.tanks = 1; s.gear.backpack = 1; } },
+    { id: 'launch', tier: 'colony', source: 'm6Samples', full: true, view: 'console', prepare: (s, { E }) => raise(s, E, 3, [0, 4], ['launchpad']) },
   ];
   const card = id => CARDS.find(c => c.id === id);
-  return { CODE, CARDS, card };
+  // The gallery: the cards whose tier (D.M6) is on.
+  const gallery = () => CARDS.filter(c => !c.tier || D.M6[c.tier]);
+  return { CODE, CARDS, card, gallery };
 });

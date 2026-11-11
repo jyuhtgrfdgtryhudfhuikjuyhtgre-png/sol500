@@ -2377,7 +2377,7 @@
         h('div', { class: 'topbar-actions' }, h('a', { class: 'btn btn-ghost btn-sm', href: '/admin', 'data-k': 'show-exit' }, t('show.exit')), langSeg())),
       h('section', { class: 'show' },
         h('h1', null, t('show.title')),
-        h('div', { class: 'show-grid' }, SH.CARDS.map(c => h('article', { class: 'panel show-card' },
+        h('div', { class: 'show-grid' }, SH.gallery().map(c => h('article', { class: 'panel show-card' },
           h('h2', null, t('show.card.' + c.id + '.name')),
           h('p', null, t('show.card.' + c.id + '.why')),
           c.source ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(I.SOURCES[c.source])) : null,
@@ -2407,11 +2407,11 @@
     let s;
     try {
       s = E.createMission({
-        seed: SH.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, true), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
-        pilot: D.CREW.find(x => x.role === 'commander').id, quick: true, schedulePatch: c.schedule,
+        seed: SH.CODE, loadout: E.referenceKit(sc.difficulty, sc.crewSize, !c.full), difficulty: sc.difficulty, crewSize: sc.crewSize, events: false,
+        pilot: D.CREW.find(x => x.role === 'commander').id, quick: !c.full, schedulePatch: c.schedule,
       });
       G.pick(s);
-      if (c.prepare) c.prepare(s, { Z, X });
+      if (c.prepare) c.prepare(s, { E, Z, X });
     } catch (e) { demoKeep = null; toast(t('show.failed')); return; }
     held = [];
     demoStep = 0;
