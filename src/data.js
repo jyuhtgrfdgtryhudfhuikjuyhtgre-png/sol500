@@ -161,11 +161,11 @@
     LAND_R2: 169, // must equal src/worldgen.js (FLAT_RADIUS + 1) ** 2: nothing that blocks stands on the base's land
     RANKS: [
       { id: 'camp', w: 9, h: 5, zone: 2 },
-      { id: 'outpost', w: 15, h: 9, zone: 3, materials: 800, work: 2, ice: 3, rock: 4,
+      { id: 'outpost', w: 15, h: 9, zone: 3, materials: 500, work: 1, ice: 3, rock: 4,
         max: { solar: 4, battery: 2, greenhouse: 1, icedrill: 1, habitat: 1, garage: 1, cabin: 1, drone: 1 } },
-      { id: 'station', w: 21, h: 13, zone: 4, materials: 1600, work: 3, ice: 3, rock: 5,
+      { id: 'station', w: 21, h: 13, zone: 4, materials: 800, work: 1.5, ice: 3, rock: 5,
         max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, fabricator: 1 } },
-      { id: 'colony', w: 27, h: 17, zone: 5, materials: 2800, work: 4, ice: 4, rock: 6,
+      { id: 'colony', w: 27, h: 17, zone: 5, materials: 1100, work: 1.5, ice: 4, rock: 6,
         max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, reactor: 1, launchpad: 1 } },
     ],
     // The tier switches (spec §9): an unlock whose tier is off is hidden. gear: the Fabricator and its four lines; colony:
