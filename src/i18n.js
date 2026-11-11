@@ -1360,6 +1360,12 @@
     'eva.droneFly': 'Fly the drone',
     // M6 T9
     'show.card.ranks.name': 'Base ranks',
+    'show.card.ranks.why': 'In NASA’s 3D-Printed Habitat Challenge, teams printed habitats from materials that could be found on the Moon and Mars, using robotic construction with minimal human intervention. In the game, a higher rank gives your base more land and room for more buildings.',
+    'show.ranks.line': '{rank} base. Unlocked: {list}.',
+    'show.card.fabricator.name': 'The Fabricator',
+    'show.card.fabricator.why': 'In 2014 a 3-D printer on the International Space Station made the first 3-D printed object in space, to show it can make parts and tools there. In the game the Fabricator makes bigger suit tanks, a bigger backpack, rover cargo racks and faster tools.',
+    'show.card.launch.name': 'The sample launch',
+    'show.card.launch.why': 'Perseverance carries sample tubes: up to 38 of them are to be filled with Martian rock and regolith, meant to carry the first samples in history from another planet back to Earth. In the game, a Colony’s launch pad sends the samples you banked to Earth for a science bonus.',
   };
 
   const vi = {
@@ -2617,6 +2623,12 @@
     'eva.droneFly': 'Cho drone bay',
     // M6 T9
     'show.card.ranks.name': 'Các cấp căn cứ',
+    'show.card.ranks.why': 'Trong cuộc thi Nơi ở in 3D của NASA, các đội in nơi ở từ vật liệu có thể tìm thấy trên Mặt Trăng và sao Hỏa, bằng cách xây dựng bằng robot với rất ít sự can thiệp của con người. Trong game, cấp càng cao thì căn cứ của bạn càng có nhiều đất và chỗ cho thêm công trình.',
+    'show.ranks.line': 'Căn cứ cấp {rank}. Đã mở khóa: {list}.',
+    'show.card.fabricator.name': 'Máy chế tạo',
+    'show.card.fabricator.why': 'Năm 2014, máy in 3D trên Trạm Vũ trụ Quốc tế đã làm ra vật thể in 3D đầu tiên trong không gian, để cho thấy nó có thể làm ra các bộ phận và dụng cụ ngay tại đó. Trong game, Máy chế tạo làm bình khí bộ đồ lớn hơn, ba lô lớn hơn, giá chở hàng cho xe thám hiểm và dụng cụ nhanh hơn.',
+    'show.card.launch.name': 'Phóng mẫu về Trái Đất',
+    'show.card.launch.why': 'Perseverance mang theo các ống mẫu: tới 38 ống sẽ được lấp đầy đá và bụi đất sao Hỏa, để mang những mẫu đầu tiên trong lịch sử từ một hành tinh khác về Trái Đất. Trong game, bệ phóng của Khu định cư gửi các mẫu bạn đã tích lũy về Trái Đất để nhận điểm khoa học thưởng.',
   };
 
   // The "Why Mars?" story, page by page (the title screen's button): Earth's future, the Moon, the rovers, the astronaut's
