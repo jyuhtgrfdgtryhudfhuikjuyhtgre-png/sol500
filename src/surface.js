@@ -1040,7 +1040,11 @@
     p.car = { heading: S[headOf(k)] || 0, speed: 0 }; // it faces the way it was left
     S.hintUntil = S.time + 12; // the rover's own key hint
     refreshWorld(m);
-    return S.eva.act('board', p, { kind: k }).then(r => { if (r.error && p.inRover) { Object.assign(p, { inRover: false, vehicle: null }); refreshWorld(S.data.mission); } return r; });
+    return S.eva.act('board', p, { kind: k }).then(r => {
+      if (r.error && p.inRover) { Object.assign(p, { inRover: false, vehicle: null }); refreshWorld(S.data.mission); }
+      if (r.ok && k === 'cabin' && S.hooks.card) S.hooks.card({ type: 'm6', id: 'm6:cabin', key: 'cabin' }); // its real rover, once a mission (ui.js)
+      return r;
+    });
   }
   // The nearest open spot to stand on, within 3 tiles of (x, y) (world px), for getting out of the rover by a rock.
   function freeSpot(x, y) {

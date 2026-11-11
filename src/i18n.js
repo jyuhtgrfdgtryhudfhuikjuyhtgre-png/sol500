@@ -1364,6 +1364,12 @@
     'sf.exitCabin': 'Leave the pressurized rover',
     'sf.cabinSub': 'Your suit does not drain inside',
     'sf.key.cabin': 'Parked pressurized rover',
+    'eva.cabinFlat': 'The pressurized rover battery is flat until tomorrow: press E to get out and walk.',
+    // The card the first time you board it (src/surface.js): the real rover it is based on, within sources.md's m6Pressurized
+    // (a Moon rover, never a Mars one: R8), beside the game's own rule.
+    'card.cabin.title': 'Aboard the pressurized rover',
+    'card.cabin.body': 'Inside, you breathe the cabin’s air, so your suit does not drain. Your pressurized rover is based on a rover Japan is building for NASA’s Artemis Moon missions: under an agreement with NASA, Japan will design, develop and operate it, and it will hold two astronauts for up to 30 days.',
+    'card.cabin.src': 'm6Pressurized',
     // M6 T7
     'eva.droneFly': 'Fly the drone',
     // M6 T9
@@ -2629,6 +2635,11 @@
     'sf.exitCabin': 'Xuống xe thám hiểm điều áp',
     'sf.cabinSub': 'Bộ đồ không hao oxy khi ngồi trong xe',
     'sf.key.cabin': 'Xe thám hiểm điều áp đang đỗ',
+    'eva.cabinFlat': 'Pin xe thám hiểm điều áp đã cạn đến ngày mai: nhấn E để xuống xe và đi bộ.',
+    // Thẻ lần đầu bạn lên xe (src/surface.js): chiếc xe thật mà nó dựa theo, trong giới hạn m6Pressurized của sources.md (R8).
+    'card.cabin.title': 'Trên xe thám hiểm điều áp',
+    'card.cabin.body': 'Ở trong xe, bạn thở không khí của xe, nên bộ đồ không hao oxy. Xe thám hiểm điều áp của bạn dựa trên một chiếc xe Nhật Bản đang làm cho các sứ mệnh Mặt Trăng Artemis của NASA: theo thỏa thuận với NASA, Nhật Bản sẽ thiết kế, phát triển và vận hành nó, và nó sẽ chở được hai phi hành gia trong tối đa 30 ngày.',
+    'card.cabin.src': 'm6Pressurized',
     // M6 T7
     'eva.droneFly': 'Cho drone bay',
     // M6 T9

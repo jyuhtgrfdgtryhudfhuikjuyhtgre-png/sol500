@@ -232,7 +232,7 @@
       if (!me || !mission()) return null;
       if (collapsed(me)) return { text: t('eva.collapsedCoop'), cls: 'crit' };
       if (benched()) return { text: t('eva.benched'), cls: 'warn' };
-      if (flat(p)) return { text: t('eva.flat'), cls: 'warn' };
+      if (flat(p)) return { text: t(kindOf(p) === 'cabin' ? 'eva.cabinFlat' : 'eva.flat'), cls: 'warn' };
       const atBase = !!p && X.inBaseZone(mission(), p);
       if (live() && pack().length >= X.capacity(mission(), me) && !atBase) return { text: t(pack().some(i => !E.isKit(i)) ? 'eva.full' : 'eva.fullKits'), cls: '' }; // kits are placed, not delivered
       if (live() && kindOf(p) === 'cabin' && !hold && !atBase) return { text: t('eva.cabinAir'), cls: 'ok' };

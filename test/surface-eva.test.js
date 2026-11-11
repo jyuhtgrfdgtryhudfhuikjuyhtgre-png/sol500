@@ -1324,3 +1324,16 @@ test('in the pressurised rover the suit does not drain outside', () => {
   s.eva.step(1, p, s.world, 0, f);
   assert.ok(s.eva.state().suit < D.EXPEDITION.suit, 'out of the cabin the suit drains');
 });
+
+test("a flat pressurised rover says which battery is flat, and the rover's still drives", () => {
+  const I = require('../src/i18n.js'), en = (k, p) => I.t('en', k, p), s = setup({ t: en });
+  s.m.expedition.cabinDriven = D.EXPEDITION.cabin.range;
+  s.eva.sync(s.data);
+  const cab = Object.assign(outside(20, 1), { inRover: true, vehicle: 'cabin' }), rover = Object.assign(outside(20, 1), { inRover: true });
+  const note = () => s.eva.el.children.find(n => /^sf-evanote/.test(n.className)).textContent;
+  s.player.p = cab;
+  tick(s, cab, 0.1);
+  assert.equal(note(), en('eva.cabinFlat'));
+  assert.equal(s.eva.canMove(cab, cab.x + 5, cab.y), false, 'it stops');
+  assert.equal(s.eva.canMove(rover, rover.x + 5, rover.y), true, 'the rover has its own battery');
+});

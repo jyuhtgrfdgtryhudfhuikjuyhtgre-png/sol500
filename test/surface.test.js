@@ -87,7 +87,7 @@ function element(tag) {
 function page(m, me, opts) {
   const o = opts || {};
   let raf = null, clock = 0, cur = m, gfx = o.gfx, wobble = 7, resized = null;
-  const on = {}, sent = [], calls = [], walks = [], queued = [];
+  const on = {}, sent = [], calls = [], walks = [], queued = [], cards = [];
   const { painter, seen } = stubPainter(() => clock);
   const win = {
     SolData: D, SolEngine: E, SolWorldgen: W, SolExpedition: Object.assign({}, X, o.expedition), SolDangers: Z, SolWorld: SW, SolPhysics: require('../src/physics.js'),
@@ -125,11 +125,12 @@ function page(m, me, opts) {
     walk: (from, to, dt) => { walks.push(dt); if (!cur.coop) X.addDistance(cur, me, from, to, dt); },
     ping: o.ping, // co-op: `o.ping(x, y)` sends a ping (true when it went out)
     queueBuild: b => queued.push(b), canAdvance: () => false, // the HQ menu's builds, and its Advance button
+    card: c => cards.push(plain(c)), // ui.js shows each card once a mission
   };
   const root = S.mount(hooks), canvas = root.children[0];
   show(m);
   return {
-    sent, calls, walks, queued, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
+    sent, calls, walks, queued, cards, show, qa: S.qa, probe: () => S.probe(), reset: () => S.reset(), remote: list => S.setRemote(list), ping: d => S.ping(d),
     canvas, overlay: root.children[1], seen, resize: () => resized(), setGfx(g) { gfx = g; show(cur); },
     step(secs) { for (let i = 0; i < Math.round(secs * 20); i++) { clock += 50; raf(clock); } },
     // `secs` of frames at `hz` with synthetic timestamps, as requestAnimationFrame gives them (the clock is the frame's exact time;
@@ -1380,6 +1381,7 @@ test('E at the pressurised rover boards it: it drives with its own physics, team
   await flush();
   assert.deepEqual(pg.calls, ['board']);
   assert.deepEqual(plain(m.expedition.cabin), { driver: 'minh' }, 'the pressurised rover');
+  assert.deepEqual(pg.cards, [{ type: 'm6', id: 'm6:cabin', key: 'cabin' }], 'its card: the real rover it is based on, with its source');
   assert.equal(m.expedition.rover, null, 'not the rover, which stays in its bay');
   assert.deepEqual([pg.probe().player.inRover, pg.probe().player.vehicle], [true, 'cabin']);
   pg.step(0.2);

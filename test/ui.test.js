@@ -1968,7 +1968,7 @@ test('a rank-up opens its card once: the new rank, what it unlocks, a NASA fact 
 
 test('the M6 cards have their words in both languages, each with a source the sources table has', () => {
   for (const lang of ['en', 'vi']) {
-    for (const key of ['rank1', 'rank2', 'rank3', 'launch', 'colony', 'drone']) {
+    for (const key of ['rank1', 'rank2', 'rank3', 'launch', 'colony', 'drone', 'cabin']) {
       for (const part of ['title', 'body']) assert.ok(I.STR[lang]['card.' + key + '.' + part], lang + ' card.' + key + '.' + part);
       assert.ok(I.SOURCES[I.t(lang, 'card.' + key + '.src')], lang + ' card.' + key + '.src');
     }
