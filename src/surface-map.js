@@ -7,7 +7,8 @@
  *        map.attach(world, painter)          a new mission's world
  *        map.minimap · map.openBtn · map.el  elements for the surface overlay (openBtn: the minimap's open-the-map corner)
  *        map.drawMini(state, now)            state: { px, py, crew: [{ x, y, color, you }], marks: [{ x, y, color, square, diamond, beacon, text, ring,
- *                                            ping, label, alpha }], lines: [{ x0, y0, x1, y1, color, width?, dash?, alpha? }] }
+ *                                            ping, label, alpha }], lines: [{ x0, y0, x1, y1, color, width?, dash?, alpha? }],
+ *                                            rings?: [{ x, y, r, color }] (the drone's reach, r in world px), hint?: the map's hint in place of sf.mapHint }
  *                                            (world pixels; marks are finds, cave mouths, dropped loads, the parked rover, relay beacons, live
  *                                            pings and poiMarks; lines the dashed route home and the commander's route line)
  *        map.open(state?) · map.close() · map.isOpen() · map.key(keyEvent) → used?
@@ -48,6 +49,14 @@
         g.lineWidth = l.width || 1.5;
         g.setLineDash(l.dash || []);
         g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      }
+      for (const c of st.rings || []) { // the scout drone's reach while you pick its target (M6), dashed
+        const [x, y] = at(c.x, c.y), [ex] = at(c.x + c.r, c.y);
+        g.globalAlpha = 0.8;
+        g.strokeStyle = c.color;
+        g.lineWidth = 1.5;
+        g.setLineDash([4, 3]);
+        g.beginPath(); g.arc(x, y, ex - x, 0, Math.PI * 2); g.stroke();
       }
       g.globalAlpha = 1;
       g.setLineDash([]);
@@ -246,6 +255,8 @@
     function frame(st, deadline) {
       last = st;
       if (!open || !world) return;
+      const say = st.hint || t('sf.mapHint'); // the drone's pick says its own (M6)
+      if (hint.textContent !== say) hint.textContent = say;
       painter.workMinis(deadline);
       const k = dpr(), w = el.clientWidth, h = el.clientHeight;
       if (fc.width !== Math.round(w * k) || fc.height !== Math.round(h * k)) { fc.width = Math.round(w * k); fc.height = Math.round(h * k); }

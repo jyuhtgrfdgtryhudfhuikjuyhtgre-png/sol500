@@ -1367,3 +1367,76 @@ test('faster tools shorten every hold', () => {
   const q = solo('EXP-1');
   assert.equal(X.holdSeconds('metal', 'engineer', q), today[0], 'no gear: unchanged');
 });
+
+// ---- M6 T7: the scout drone ----
+const withDrone = m => { m.modules.drone.count = 1; return m; };
+
+test('the drone clears the fog round where it flies', () => {
+  const m = withDrone(solo('EXP-1')), x = m.expedition;
+  assert.deepEqual(X.canFly(m, 'minh', HOME), { ok: true, left: D.DRONE.flights });
+  const r = X.fly(m, 'minh', HOME, 30, 1); // 30 tiles out from the base
+  assert.equal(r.ok, true);
+  assert.ok(Object.keys(r.fog).length > 0, 'it revealed fog');
+  assert.deepEqual(r.fog, x.revealed, 'what it revealed, for the co-op server to share as it does a beacon\'s');
+  assert.ok(seen(x, 30, 1), "the target's tile is seen");
+  assert.ok(seen(x, 30 + D.DRONE.reveal, 1) && seen(x, 30, 1 - D.DRONE.reveal), '16 tiles round it');
+  assert.ok(!seen(x, 30 + D.DRONE.reveal + 1, 1) && !seen(x, 0, 1), 'no further, and nothing on the way: it flies over');
+  assert.equal(x.droneFlights, 1);
+  assert.deepEqual(x.carried, {}, 'it carries nothing');
+  assert.deepEqual(X.canFly(m, 'minh', HOME), { ok: true, left: D.DRONE.flights - 1 });
+});
+
+test('the drone needs a working drone, a launch from the base or a vehicle, a target in range, and a flight left', () => {
+  const m = solo('EXP-1'), x = m.expedition, out = at(20, 1);
+  assert.equal(X.fly(m, 'minh', HOME, 30, 1).error, 'noDrone', 'none built');
+  withDrone(m).modules.drone.broken = 1;
+  assert.equal(X.fly(m, 'minh', HOME, 30, 1).error, 'noDrone', 'a broken one');
+  m.modules.drone.broken = 0;
+  const on = D.M6.drone;
+  try { D.M6.drone = false; assert.equal(X.fly(m, 'minh', HOME, 30, 1).error, 'noDrone', 'its tier switched off'); } finally { D.M6.drone = on; }
+  const before = snap(m);
+  assert.equal(X.fly(m, 'minh', null, 30, 1).error, 'badPos', 'no position');
+  for (const [tx, ty] of [[30.5, 1], [NaN, 1], ['30', 1], [30, Infinity], [30, undefined], [{}, 1]]) {
+    assert.equal(X.fly(m, 'minh', HOME, tx, ty).error, 'badPos', 'a target that is no tile: ' + String(tx) + ',' + String(ty));
+  }
+  assert.equal(X.fly(m, 'minh', out, 30, 1).error, 'notHere', 'on foot out on the map');
+  assert.equal(X.fly(m, 'minh', HOME, D.DRONE.range + 1, 1).error, 'tooFar', '41 tiles from where you stand');
+  assert.equal(X.fly(m, 'minh', HOME, 1e15, 1).error, 'tooFar');
+  assert.equal(X.fly(m, 'nobody', HOME, 30, 1).error, 'noCrew');
+  assert.equal(snap(m), before, 'a refused flight changes nothing');
+  assert.equal(X.fly(m, 'minh', HOME, D.DRONE.range, 1).ok, true, 'from the base, 40 tiles out');
+  x.rover = { driver: 'minh' };
+  assert.equal(X.fly(m, 'minh', out, 20 + D.DRONE.range, 1).ok, true, 'from the rover you drive, out on the map');
+  x.rover = { driver: 'diego' };
+  assert.equal(X.fly(m, 'minh', out, 50, 1).error, 'notHere', "not from a crewmate's rover");
+  x.rover = { x: out.x, y: out.y };
+  assert.equal(X.fly(m, 'minh', out, 50, 1).error, 'notHere', 'nor from a parked one');
+  x.rover = null;
+  x.cabin = { x: out.x, y: out.y }; // the pressurised rover (Task 6's shape: null at its bay, { x, y } parked, { driver } driven)
+  assert.equal(X.fly(m, 'minh', out, 50, 1).error, 'notHere', 'nor from a parked pressurised rover');
+  x.cabin = { driver: 'minh' };
+  assert.equal(X.fly(m, 'minh', out, 50, 1).ok, true, 'from the pressurised rover you drive');
+  x.cabin = null;
+  assert.equal(x.droneFlights, D.DRONE.flights);
+  const full = snap(m);
+  assert.equal(X.fly(m, 'minh', HOME, 0, 30).error, 'flights', 'the fourth flight in a round');
+  assert.equal(X.canFly(m, 'diego', HOME).error, 'flights', 'one drone: its flights are the whole crew\'s');
+  assert.equal(snap(m), full);
+  const next = E.resolveTurn(m, E.defaultPlan(m)).state;
+  assert.equal(next.expedition.droneFlights, 0, 'recharged at the advance');
+  assert.equal(X.fly(next, 'minh', HOME, 0, 30).ok, true);
+});
+
+test('a mission saved before the drone loads with no flights flown this round', () => {
+  const m = withDrone(solo('EXP-1'));
+  delete m.expedition.droneFlights;
+  const up = E.upgradeMission(JSON.parse(JSON.stringify(m)), {});
+  assert.equal(up.expedition.droneFlights, 0);
+  assert.equal(X.fly(up, 'minh', HOME, 30, 1).ok, true);
+  for (const bad of ['3', -2, 1.5, null, 99]) {
+    const v = JSON.parse(JSON.stringify(m));
+    v.expedition.droneFlights = bad;
+    const n = E.upgradeMission(v, {}).expedition.droneFlights;
+    assert.ok(Number.isInteger(n) && n >= 0 && n <= D.DRONE.flights, String(bad) + ' → ' + n);
+  }
+});

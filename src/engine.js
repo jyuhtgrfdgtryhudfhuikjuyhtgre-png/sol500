@@ -314,6 +314,8 @@
   //   (since M4c): the hab pods ("S<i>,<j>") and beacons ("B<i>") that filled that suit this round; the advance clears it.
   // M4d's rebalance adds science: the science banked from the map this mission (finds, sites, landmarks, structures, goal
   //   rewards), which counts less in the score than the base's (scoreMission, D.SCORE.map); a save from before has 0.
+  // M6 adds droneFlights: the scout drone's flights this round (src/expedition.js fly), 0 again at the advance; a save from
+  //   before has 0.
   const isKit = it => !!it && it.kind === 'kit';
   const kitItem = () => ({ kind: 'kit', res: 'kit', amount: 1 });
   const BANK_RES = ['water', 'materials', 'spares', 'food', 'o2', 'science', 'morale'];
@@ -328,6 +330,7 @@
       carried: {}, drops: [], banked: freshBank(), science: 0, goals: [], goalsDone: [], bestFind: null, incidents: [], stats: {},
       suits: {}, collapsed: {}, benched: [], rover: null, roverDriven: 0,
       flare: null, clock: 0, where: {}, forecastUntil: -1,
+      droneFlights: 0,
     };
   }
 
@@ -373,6 +376,7 @@
     // kits at the base are a whole number, a round's refills are lists of ids, and a carried kit is a plain kit item.
     x.beacons = x.beacons.filter(b => !!b && typeof b === 'object' && Number.isInteger(b.x) && Number.isInteger(b.y) && typeof b.by === 'string' && Number.isInteger(b.round));
     x.kits = Math.max(0, Math.floor(x.kits));
+    x.droneFlights = Math.max(0, Math.min(D.DRONE.flights, Math.floor(x.droneFlights)));
     for (const id of Object.keys(x.refills)) x.refills[id] = Array.isArray(x.refills[id]) ? x.refills[id].filter(k => typeof k === 'string') : [];
     for (const items of Object.values(x.carried)) if (Array.isArray(items)) items.forEach((it, i) => { if (isKit(it)) items[i] = kitItem(); });
     // So would a goal or a goal record with the wrong shape, or of a kind this version does not know: drop it.
@@ -1326,6 +1330,7 @@
     x.suits = {};
     x.refills = {};
     x.roverDriven = 0;
+    x.droneFlights = 0; // the drone's battery recharges overnight
     if (x.rover && x.rover.driver) x.rover = null;
     x.flare = null; // a flare that had not hit yet is over with the round: everyone is home
     x.clock = 0;

@@ -396,7 +396,7 @@ test('one table runs every exploring action a game asks for, solo or on the serv
   assert.deepEqual(Z.act(c, 'minh', 'flareEnd', { t: 95 }, at(3, 1)).hit, [], "on a co-op mission the verdict has the server's slack");
   assert.deepEqual(Z.act(m, 'minh', 'revive', undefined, at(0, 1)), { error: 'solo' }, 'the rules, not the table, refuse a revive in solo play');
   assert.deepEqual(Z.act(m, 'minh', 'collapse', undefined, at(30, 4)), { ok: true, benched: true }, 'no body reads as an empty one');
-  for (const type of ['fly', 'constructor', '__proto__', 'toString', 'hasOwnProperty', undefined]) {
+  for (const type of ['warp', 'constructor', '__proto__', 'toString', 'hasOwnProperty', undefined]) {
     assert.deepEqual(Z.act(m, 'minh', type, {}, at(0, 1)), { error: 'badAction' }, String(type));
   }
 });
@@ -408,4 +408,21 @@ test('a relay beacon is no cover from a solar flare: it refills and reveals, not
   assert.deepEqual(Z.coversIn(m, 9, -3, 15, 3), [], 'no ring for the surface to draw');
   Z.flareStart(m, 5);
   assert.deepEqual(Z.flareEnd(m, { minh: at(12, 0) }, 0, 95).hit, ['minh'], 'standing by it, you are caught in the open');
+});
+
+// ---- M6 T7: the scout drone ----
+test('the drone is grounded in a global dust storm', () => {
+  const m = solo('DNG-1');
+  m.modules.drone.count = 1;
+  assert.equal(Z.stormOf(m), 'clear');
+  assert.equal(Z.stormOf(null), 'clear');
+  m.schedule[m.turn].weather = 'global';
+  assert.equal(Z.stormOf(m), 'global');
+  assert.deepEqual(X.fly(m, 'minh', at(0, 1), 30, 1), { error: 'grounded' });
+  assert.deepEqual(Z.act(m, 'minh', 'fly', { tx: 30, ty: 1 }, at(0, 1)), { error: 'grounded' }, 'the one table runs it');
+  assert.equal(m.expedition.droneFlights, 0, 'a grounded drone spends no flight');
+  m.schedule[m.turn].weather = 'regional';
+  assert.equal(Z.stormOf(m), 'regional');
+  assert.equal(Z.act(m, 'minh', 'fly', { tx: 30, ty: 1 }, at(0, 1)).ok, true, 'a regional storm lets it fly');
+  assert.equal(m.expedition.droneFlights, 1);
 });

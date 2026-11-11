@@ -11,6 +11,7 @@
  * API: viewTiles(m, inRover) → tiles you can see around you this round (dust storms shrink it)
  *      viewAt(m, inRover, tile) → the same from the tile under you: a lava tube's headlamp ignores the storm, a star
  *        dune's crest sees further
+ *      stormOf(m) → 'clear' | 'regional' | 'global': this round's dust storm (a global one grounds the scout drone)
  *      outside(m) → what waits outside this round, in the order the round's brief and the Expedition panel say it: 'flare'
  *        (a solar flare is due), 'devils' (a dust-devil round), 'storm' (a regional or global dust storm), 'rupture' (an O₂
  *        line rupture at the base: canisters carried home count)
@@ -45,6 +46,8 @@
   const okPos = p => !!p && Number.isFinite(p.x) && Number.isFinite(p.y);
   const num = v => typeof v === 'number' && Number.isFinite(v);
   const round = m => (m && m.schedule && m.schedule[m.turn]) || null;
+  // The round's dust storm: 'clear', 'regional' or 'global' (a global one grounds the scout drone, src/expedition.js fly).
+  const stormOf = m => { const w = (round(m) || {}).weather; return w === 'regional' || w === 'global' ? w : 'clear'; };
 
   // ---------- how far you can see ----------
   function viewTiles(m, inRover) {
@@ -250,6 +253,7 @@
     takeKit: (m, id, b, pos) => X.takeKit(m, id, pos),
     returnKit: (m, id, b, pos) => X.returnKit(m, id, pos),
     placeBeacon: (m, id, b, pos) => X.placeBeacon(m, id, pos),
+    fly: (m, id, b, pos) => X.fly(m, id, pos, b.tx, b.ty), // the scout drone, to tile (tx, ty)
     // Solo play's flare (spec §3.4): your first step outside starts it on the round's clock; at its end you are hit unless
     // you have cover (the rest of the crew is at the base, and so are you if you sit out the round after a collapse).
     flareStart: (m, id, b) => flareStart(m, b.t),
@@ -260,5 +264,5 @@
     return run ? run(m, crewId, body || {}, pos) : { error: 'badAction' };
   }
 
-  return { viewTiles, viewAt, outside, coversIn, shelterAt, slackOf, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit, act };
+  return { viewTiles, viewAt, outside, coversIn, shelterAt, slackOf, flareDue, flareStart, flareEnd, setClock, clockOf, devils, devilHit, act, stormOf };
 });

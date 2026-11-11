@@ -117,7 +117,7 @@ test('solo: the exploring hook runs the rules on the spot for the pilot; the fla
   // One tile outside the base zone: a co-op server covers it with its 1.5 tiles of slack; solo judges where you are.
   assert.deepEqual(plain(await exp('flareEnd', { t: 95 }, at(3, 1))), { ok: true, hit: ['minh'] });
   assert.deepEqual(plain(m.expedition.incidents), [{ crewId: 'minh', kind: 'flare' }]);
-  assert.deepEqual(plain(await exp('fly', {}, at(3, 1))), { error: 'badAction' }, 'an action the rules do not have');
+  assert.deepEqual(plain(await exp('warp', {}, at(3, 1))), { error: 'badAction' }, 'an action the rules do not have');
   pg.flush();
   assert.deepEqual(JSON.parse(pg.ls['sol500.save']).mission.expedition.incidents, [{ crewId: 'minh', kind: 'flare' }], 'and the mission is saved');
 });
@@ -1994,4 +1994,32 @@ test('the M6 cards have their words in both languages, each with a source the so
   assert.equal(I.STR.en['item.rover.name'], 'Science rover');
   assert.equal(I.STR.vi['item.rover.name'], 'Xe thám hiểm');
   assert.equal(I.STR.en['mod.cabin'], 'Pressurized rover');
+});
+
+// ---------- M6 T7: the scout drone ----------
+test("solo: the drone's first flight of a mission opens Ingenuity's card, once", async () => {
+  const pg = page(), m = pg.mission({ seed: 'UI-DRONE' });
+  m.modules.drone.count = 1;
+  pg.play(m);
+  assert.equal(pg.UI.store.card, null, 'no card before a flight');
+  assert.equal((await pg.surface.hooks.exp('fly', { tx: 30, ty: 1 }, at(0, 1))).ok, true);
+  const card = cardOf(pg);
+  assert.ok(card, 'the card is up');
+  assert.equal(card.children[1].textContent, en('card.drone.title'));
+  assert.ok(card.textContent.includes(en('card.drone.body')), card.textContent);
+  click(pg.byKey('region-close'));
+  assert.equal((await pg.surface.hooks.exp('fly', { tx: 0, ty: 30 }, at(0, 1))).ok, true);
+  assert.equal(pg.UI.store.card, null, 'the second flight opens nothing');
+});
+
+test("co-op: a crewmate's first drone flight opens Ingenuity's card on this tab too", () => {
+  const net = { info: () => Promise.resolve(null), restore: () => null, act: () => Promise.resolve({ ok: true }) };
+  const pg = page(null, { SolNet: net }), m = pg.mission({ seed: 'UI-DRONE-2', coop: true });
+  m.modules.drone.count = 1;
+  m.expedition.droneFlights = 1; // the room the server sent after a crewmate's flight
+  Object.assign(pg.UI.store, { lan: { code: 'ABCD', playerId: 'p1' }, room: { mission: m, plan: pg.E.defaultPlan(m), hostId: 'p1', phase: 'ops', players: [{ id: 'p1', name: 'Me', crewId: null, connected: true }], settings: { names: {} } }, mission: m, plan: pg.E.defaultPlan(m), screen: 'ops', opsView: 'surface', modal: null });
+  pg.UI.render();
+  const card = cardOf(pg);
+  assert.ok(card, 'the card is up');
+  assert.equal(card.children[1].textContent, en('card.drone.title'));
 });

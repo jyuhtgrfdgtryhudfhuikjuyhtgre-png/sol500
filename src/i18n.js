@@ -1357,7 +1357,17 @@
     // M6 T6
     'eva.cabinAir': 'You breathe the cabin’s air: your suit is not draining.',
     // M6 T7
-    'eva.droneFly': 'Fly the drone',
+    'eva.droneFly': 'Fly the drone ({n} flights left) · F',
+    'eva.droneCancel': 'Call the flight off · Esc',
+    'eva.droneFlying': 'The drone is flying…',
+    'eva.droneAim': 'Pick where the drone should scout: click the ground, or the map (M). Esc calls it off.',
+    'eva.droneAimMap': 'Click inside the ring, up to {n} tiles from you, where the drone should scout · M or Esc to close',
+    'eva.droneFlew': 'The drone mapped the ground within {n} tiles of its target and is flying back.',
+    'eva.err.noDrone': 'No working scout drone: build one in the Garage.',
+    'eva.err.grounded': 'The drone is grounded in a global dust storm.',
+    'eva.err.flights': 'The drone’s battery is flat until tomorrow.',
+    'eva.err.notHere': 'Fly the drone from the base or from a rover you drive.',
+    'eva.err.fogFull': 'The map takes no more new ground from you this mission.',
     // M6 T9
     'show.card.ranks.name': 'Base ranks',
     'show.card.ranks.why': 'In NASA’s 3D-Printed Habitat Challenge, teams printed habitats from materials that could be found on the Moon and Mars, using robotic construction with minimal human intervention. In the game, a higher rank gives your base more land and room for more buildings.',
@@ -2620,7 +2630,17 @@
     // M6 T6
     'eva.cabinAir': 'Bạn đang thở không khí trong xe: bộ đồ không hao oxy.',
     // M6 T7
-    'eva.droneFly': 'Cho drone bay',
+    'eva.droneFly': 'Cho drone bay (còn {n} chuyến) · F',
+    'eva.droneCancel': 'Hủy chuyến bay · Esc',
+    'eva.droneFlying': 'Drone đang bay…',
+    'eva.droneAim': 'Chọn nơi drone sẽ trinh sát: bấm xuống đất, hoặc trên bản đồ (M). Esc để hủy.',
+    'eva.droneAimMap': 'Bấm vào trong vòng tròn, cách bạn tối đa {n} ô, nơi drone sẽ trinh sát · M hoặc Esc để đóng',
+    'eva.droneFlew': 'Drone đã khám phá vùng đất trong phạm vi {n} ô quanh điểm đến và đang bay về.',
+    'eva.err.noDrone': 'Không có drone trinh sát nào hoạt động: hãy chế tạo một chiếc ở Xưởng xe.',
+    'eva.err.grounded': 'Drone không thể bay trong bão bụi toàn cầu.',
+    'eva.err.flights': 'Pin drone đã cạn đến ngày mai.',
+    'eva.err.notHere': 'Chỉ cho drone bay từ căn cứ hoặc từ xe thám hiểm bạn đang lái.',
+    'eva.err.fogFull': 'Bản đồ không nhận thêm vùng mới từ bạn trong nhiệm vụ này.',
     // M6 T9
     'show.card.ranks.name': 'Các cấp căn cứ',
     'show.card.ranks.why': 'Trong cuộc thi Nơi ở in 3D của NASA, các đội in nơi ở từ vật liệu có thể tìm thấy trên Mặt Trăng và sao Hỏa, bằng cách xây dựng bằng robot với rất ít sự can thiệp của con người. Trong game, cấp càng cao thì căn cứ của bạn càng có nhiều đất và chỗ cho thêm công trình.',

@@ -719,7 +719,7 @@ test("a new mission has an empty exploring state and, in solo play, the player's
   assert.deepEqual(s.expedition.revealed, {});
   assert.deepEqual(s.expedition.regions, []);
   assert.deepEqual(Object.keys(s.expedition).sort(),
-    ['banked', 'beacons', 'benched', 'bestFind', 'carried', 'clock', 'collapsed', 'drops', 'flare', 'forecastUntil', 'goals', 'goalsDone', 'incidents', 'kits', 'landmarks',
+    ['banked', 'beacons', 'benched', 'bestFind', 'carried', 'clock', 'collapsed', 'droneFlights', 'drops', 'flare', 'forecastUntil', 'goals', 'goalsDone', 'incidents', 'kits', 'landmarks',
       'refills', 'regions', 'revealed', 'rover', 'roverDriven', 'science', 'sites', 'stats', 'structures', 'suits', 'v', 'where']);
   assert.equal(s.expedition.bestFind, null, 'no find yet (M4d: the debrief\'s most valuable find)');
   assert.equal(s.expedition.science, 0, 'no science from the map yet');
