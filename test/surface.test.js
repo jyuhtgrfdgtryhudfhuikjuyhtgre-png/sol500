@@ -318,6 +318,13 @@ test('a click-to-walk path ends when every step is refused: a collapsed co-op pl
   assert.deepEqual([pg.probe().player.x, pg.probe().player.y], at, 'no walking on after the revive');
 });
 
+test('a crewmate the game plays is named only when E would act on them: at the start the tags are yours and at most one more, not the whole crew over the HQ', () => {
+  const pg = page(mission({ seed: 'TAGS-2' }), 'minh');
+  pg.step(0.2);
+  const tags = pg.frame().filter(f => TAG_BOX.includes(f.style));
+  assert.ok(tags.length >= 1 && tags.length <= 2, 'yours, and at most the crewmate in reach: ' + tags.length);
+});
+
 test("teammates' suit bars sit clear of every name tag, also where the tags of crew standing close push each other up", () => {
   const m = mission({ seed: 'TAGS-1', coop: true });
   const pg = page(m, 'minh');

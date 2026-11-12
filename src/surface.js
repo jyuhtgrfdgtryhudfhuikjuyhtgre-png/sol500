@@ -1391,6 +1391,9 @@
       if (a.you) name = t('sf.you') + ' · ' + name;
       // Your own tag would cover what you stand just below and are about to work on (a find, a dropped load): it steps aside.
       if (a.you && S.focus && S.focus.x != null && Math.abs(S.focus.x - a.x) < 75 && S.focus.y < a.y - 25 && S.focus.y > a.y - 100) name = '';
+      // A crewmate the game plays (not you, not another player) is named only when it matters: the one E would act on, and
+      // anyone down. Their tags used to stand over the HQ all at once.
+      if (!a.you && !a.remote && !a.down && !(S.focus && S.focus.kind === 'crew' && S.focus.id === a.id)) name = '';
       // Someone lying down is drawn after what stands at the same spot, so a fallen driver is not hidden by the parked rover.
       sprites.push({ y: a.y + (a.down ? 24 : 0), draw: () => drawAvatar(ctx, a, name, S.time, S.tags) });
     }
