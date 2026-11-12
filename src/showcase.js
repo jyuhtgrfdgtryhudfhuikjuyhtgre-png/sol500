@@ -73,8 +73,9 @@
     { id: 'crew', source: null, view: 'surface', at: [13, 49], line: (t, X) => t('show.crew.holds', { a: X.holdSeconds('weather', 'commander'), b: X.holdSeconds('weather', 'engineer') }) },
     { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     { id: 'guide', source: null, view: 'modal', modal: 'guide' },
-    // M6 (Full missions, each only while its tier is on). [0, 4] is 2 tiles past the Camp's pad (y 2) and 2 inside the Station's land (y 6).
-    { id: 'ranks', source: 'm6Habitat3d', full: true, view: 'surface', at: [0, 4], prepare: (s, { E }) => raise(s, E, 2, [0, 4], ['habitat', 'garage'].concat(D.M6.gear ? ['fabricator'] : [])),
+    // M6 (Full missions, each only while its tier is on). [3, -6] is 2 tiles past the Camp's land (y −4) and 2 inside the Station's
+    // (y −8), 3 tiles east of the habitat and the Fabricator raise() stands at (0, −5) and (0, −6); the Garage is south, at (0, 5).
+    { id: 'ranks', source: 'm6Habitat3d', full: true, view: 'surface', at: [3, -6], prepare: (s, { E }) => raise(s, E, 2, [3, -6], ['habitat', 'garage'].concat(D.M6.gear ? ['fabricator'] : [])),
       // Rank and what it unlocked, from the rules: the modules the Station's limits open that no rank before it had.
       line: t => t('show.ranks.line', { rank: t('rank.' + D.RANKS[2].id), list: Object.keys(D.RANKS[2].max).filter(k => !D.MODULES[k].max && !D.RANKS[1].max[k] && (k !== 'fabricator' || D.M6.gear)).map(k => t('mod.' + k)).join(', ') }) },
     // focus: the build row a console scene is about; it sits far down the page, so the scene brings it into view (src/ui.js).

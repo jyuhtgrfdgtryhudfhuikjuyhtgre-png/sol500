@@ -255,6 +255,15 @@
       if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T); g.lineTo(X + T, Y + T); }
       g.stroke();
       g.setLineDash([]);
+      // 3.8.3: the land's outer edge, a brighter line, so the ground you can build on reads at a glance
+      g.strokeStyle = 'rgba(255,220,190,0.4)';
+      g.lineWidth = 2;
+      g.beginPath();
+      if (world.tile(tx - 1, ty) !== TL.BASE) { g.moveTo(X + 1, Y); g.lineTo(X + 1, Y + T); }
+      if (world.tile(tx + 1, ty) !== TL.BASE) { g.moveTo(X + T - 1, Y); g.lineTo(X + T - 1, Y + T); }
+      if (world.tile(tx, ty - 1) !== TL.BASE) { g.moveTo(X, Y + 1); g.lineTo(X + T, Y + 1); }
+      if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T - 1); g.lineTo(X + T, Y + T - 1); }
+      g.stroke();
     }
     if (world.caveAt && world.caveAt(tx, ty)) { // the shade a cave throws out of its mouth (the arch is on the wall above)
       g.fillStyle = 'rgba(12,5,4,0.4)';

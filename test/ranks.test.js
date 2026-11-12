@@ -34,18 +34,19 @@ const copy = o => JSON.parse(JSON.stringify(o));
 const M6_MODULES = ['garage', 'fabricator', 'launchpad', 'cabin', 'drone'];
 const M6_BUILDS = ['rankup', 'garage', 'fabricator', 'launchpad', 'rover', 'cabin', 'drone', 'tanks', 'backpack', 'racks', 'tools', 'launch'];
 
-test('a new mission is a Camp on the 9 × 5 land, with the ice and rock of 3.7.0', () => {
+test('a new mission is a Camp on 15 × 9 land, with the ice, rock and start layout of 3.7.0 on the 9 × 5 pad', () => {
   const s = calm();
   assert.equal(E.rankOf(s), 0);
   assert.equal(s.rank, 0);
   assert.deepEqual(s.gear, { tanks: 0, backpack: 0, racks: 0, tools: 0 });
   assert.equal(s.launched, false);
   assert.equal(s.pending.rank, null);
-  assert.equal(E.landTiles(s).length, 45);
-  assert.deepEqual(E.landOf(s), { x0: 0, y0: 0, x1: 8, y1: 4 });
-  assert.deepEqual(E.landTiles(s).slice(0, 10).map(key), ['0,0', '1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '8,0', '0,1'], 'row by row');
+  assert.equal(E.landTiles(s).length, 135);
+  assert.deepEqual(E.landOf(s), { x0: -3, y0: -2, x1: 11, y1: 6 });
+  assert.deepEqual(E.landTiles(s).slice(0, 3).concat(E.landTiles(s).slice(14, 16)).map(key), ['-3,-2', '-2,-2', '-1,-2', '11,-2', '-3,-1'], 'row by row');
   assert.equal(E.zoneOf(s), D.EXPEDITION.baseZone, "the Camp's base zone is 3.7.0's");
-  assert.deepEqual([D.RANKS[0].w, D.RANKS[0].h], [D.GRID.w, D.GRID.h], 'the Camp is the 3.7.0 grid');
+  assert.deepEqual([D.GRID.w, D.GRID.h], [9, 5], 'the pad is the 3.7.0 grid');
+  for (const [x, y] of s.terrain.ice.concat(s.terrain.rock)) assert.ok(x >= 0 && x < D.GRID.w && y >= 0 && y < D.GRID.h, 'the first ice and rock lie on the pad');
   // Pinned from 3.7.0 (efa68ac): the same ice, rock and start layout for the same code.
   assert.deepEqual(s.terrain, { ice: [[1, 4], [7, 4], [1, 1]], rock: [[1, 0], [3, 0], [7, 1], [8, 0]] });
   assert.deepEqual(calm({}, 'MAP-9').terrain, { ice: [[0, 1], [1, 3], [0, 2]], rock: [[3, 0], [5, 0], [1, 1], [0, 4]] });
@@ -394,7 +395,7 @@ test('a Quick mission has no ranks', () => {
   s.resources.materials = 5000;
   s.resources.water = 5000;
   for (const type of M6_BUILDS) assert.deepEqual(E.canBuild(s, type), { ok: false, reason: 'quick' }, type);
-  assert.equal(E.landTiles(s).length, 45);
+  assert.equal(E.landTiles(s).length, 135, "the Camp's land");
   assert.equal(E.zoneOf(s), D.EXPEDITION.baseZone);
   for (const type of M6_MODULES) assert.equal(E.maxOf(s, type), 0, type);
   for (const type of D.MODULE_TYPES.filter(t => !M6_MODULES.includes(t))) assert.equal(E.maxOf(s, type), D.MODULES[type].max, type);

@@ -510,10 +510,11 @@ test("the base ground follows the rank's land", () => {
   assert.equal(baseAt(paint(2, 0), 8, 0), false, "the world's own tile (8, 0) is not the base's");
   assert.equal(baseAt(paint(2, 0, land(camp)), 8, 0), false, 'at a Camp it is not');
   assert.equal(baseAt(paint(2, 0, land(station)), 8, 0), true, "on a Station's land it is base ground");
-  for (const [ix, iy] of [[-2, -1], [-1, 0], [0, 0], [1, 0]]) { // the Camp's ground, its edges included, is painted as it was
-    assert.deepEqual(paint(ix, iy, land(camp)), paint(ix, iy), 'chunk ' + ix + ',' + iy);
+  const pad = (tx, ty) => tx >= W.BASE_RECT.x && tx < W.BASE_RECT.x + W.BASE_RECT.w && ty >= W.BASE_RECT.y && ty < W.BASE_RECT.y + W.BASE_RECT.h;
+  for (const [ix, iy] of [[-2, -1], [-1, 0], [0, 0], [1, 0]]) { // a land that is the world's own pad, its edges included, is painted as the world alone
+    assert.deepEqual(paint(ix, iy, pad), paint(ix, iy), 'chunk ' + ix + ',' + iy);
   }
-  assert.ok(baseAt(paint(1, 0, land(camp)), 4, 0), "the Camp's own east edge");
+  assert.ok(baseAt(paint(1, 0, land(camp)), 7, 0), "the Camp's own east edge (3.8.3: 7 tiles from the HQ)");
 
   // A new land repaints only the chunks it changes (and those whose edge or decor it touches), drawn as they were meanwhile.
   const { p } = painter('PAINT-LAND');
@@ -525,8 +526,8 @@ test("the base ground follows the rank's land", () => {
   assert.equal(p.stats().queue, 0, 'the same land: nothing to repaint');
   p.setBaseLand(land(station));
   const again = p.pending().map(String);
-  for (const k of ['2,0', '-3,0', '0,-2', '0,1']) assert.ok(again.includes(k), 'repainted: ' + k);
-  for (const k of ['3,0', '-4,0', '0,-3', '0,2']) assert.ok(!again.includes(k), 'as it was: ' + k); // the land ends at x = ±10, y = −6 and 6
+  for (const k of ['2,0', '3,0', '-3,0', '-4,0', '0,-2', '0,1']) assert.ok(again.includes(k), 'repainted: ' + k);
+  for (const k of ['5,0', '-6,0', '0,-4', '0,3']) assert.ok(!again.includes(k), 'as it was: ' + k); // the land ends at x = ±13, y = −8 and 8 (a chunk's first and last rows: the edge touches the next chunk)
   assert.equal(p.stats().images, n, 'every chunk still drawn meanwhile');
   p.work(Infinity);
   assert.equal(p.stats().queue, 0);

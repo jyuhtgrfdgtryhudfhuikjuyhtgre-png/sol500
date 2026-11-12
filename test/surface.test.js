@@ -1091,14 +1091,14 @@ test("the ground is given the rank's land once for each rank: a new rank's land 
   const m = mission({ seed: 'LAND-PAINT' }), pg = page(m, 'minh');
   const lands = pg.seen.land;
   assert.equal(lands.length, 1, 'the first look');
-  assert.deepEqual([lands[0](4, 2), lands[0](-4, -2), lands[0](5, 0), lands[0](0, 3)], [true, true, false, false], "a Camp's: world tiles −4..4 × −2..2");
+  assert.deepEqual([lands[0](7, 4), lands[0](-7, -4), lands[0](8, 0), lands[0](0, 5)], [true, true, false, false], "a Camp's: world tiles −7..7 × −4..4");
   pg.show(m);
   pg.step(0.2);
   assert.equal(lands.length, 1, 'the same rank: nothing new to paint');
   E.grantRank(m, 1);
   pg.show(m);
   assert.equal(lands.length, 2, 'the rank grew');
-  assert.deepEqual([lands[1](7, 4), lands[1](-7, -4), lands[1](8, 0), lands[0](7, 4)], [true, true, false, false], "an Outpost's: −7..7 × −4..4; the Camp's is kept as it was");
+  assert.deepEqual([lands[1](10, 6), lands[1](-10, -6), lands[1](11, 0), lands[0](10, 6)], [true, true, false, false], "an Outpost's: −10..10 × −6..6; the Camp's is kept as it was");
   pg.show(m);
   assert.equal(lands.length, 2);
 });

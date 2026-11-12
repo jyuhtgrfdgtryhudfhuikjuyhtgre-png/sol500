@@ -189,8 +189,8 @@
   }
 
   // ---------- map ----------
-  // The base's land (M6, spec §3): a rank's w × h tiles round the HQ, in grid spots (the Camp's 9 × 5 grid is spots 0..8 ×
-  // 0..4; a bigger rank's land reaches negative spots), cut to the world's flat disc (D.LAND_R2). It only ever grows, so
+  // The base's land (M6, spec §3): a rank's w × h tiles round the HQ, in grid spots (the 9 × 5 pad round the HQ is spots
+  // 0..8 × 0..4; the land reaches negative spots), cut to the world's flat disc (D.LAND_R2). It only ever grows, so
   // every building stays on its tile.
   const rankOf = s => (s && Number.isInteger(s.rank) && s.rank >= 0 && s.rank < D.RANKS.length ? s.rank : 0);
   function boundsOf(r) {
@@ -204,7 +204,7 @@
     return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1 && dx * dx + dy * dy <= D.LAND_R2;
   }
   const onLand = (s, x, y) => inLand(rankOf(s), x, y);
-  // A rank's land, row by row. The Camp's is 3.7.0's grid in 3.7.0's order, so its terrain and start layout are unchanged.
+  // A rank's land, row by row.
   function rankTiles(r) {
     const b = boundsOf(r), out = [];
     for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (inLand(r, x, y)) out.push([x, y]);
@@ -214,7 +214,9 @@
   const zoneOf = s => D.RANKS[rankOf(s)].zone;
 
   function buildTerrain(seed) {
-    const r = rng(seed, 'terrain'), camp = rankTiles(0);
+    // The first ice and rock lie on the 9 × 5 pad round the HQ (D.GRID, 3.7.0's grid in 3.7.0's order), so a mission code
+    // starts as it always did; the rest of the Camp's land (3.8.3) is free ground.
+    const r = rng(seed, 'terrain'), camp = rankTiles(0).filter(([x, y]) => x >= 0 && x < D.GRID.w && y >= 0 && y < D.GRID.h);
     const ice = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 3)).slice(0, D.GRID.ice);
     const iceKeys = new Set(ice.map(([x, y]) => key(x, y)));
     const rock = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 2 && !iceKeys.has(key(x, y)))).slice(0, D.GRID.rock);
