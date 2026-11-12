@@ -203,19 +203,30 @@
   // (NW NE SE SW) is round when the two sides that meet there (SIDES: N E S W) both end the patch; the ground beside it
   // (its region's usual one next to a wall or a boulder) is painted into the corner, photo and all.
   const SOFT = new Uint8Array(32), SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-  SOFT[TL.ICE] = SOFT[TL.SEDIMENT] = 1;
+  SOFT[TL.ICE] = SOFT[TL.SEDIMENT] = 18; // the corner's radius, px
+  SOFT[TL.SKYLIGHT] = 30; // a pool of daylight on a lava tube's floor, nearly round
+  // The same for one open ground meeting another (two regions' regolith, sand on lava…): each rounds off into the other,
+  // so the border between two NASA photos is a wavy line, not a staircase. `side`: what lies past each side, as
+  // [tile, region], or null when this tile does not end there.
   function softCorners(g, world, tx, ty, code, reg, X, Y) {
-    const open = SIDES.map(([dx, dy]) => world.tile(tx + dx, ty + dy) !== code), r = 18;
+    const patch = SOFT[code], r = patch || 24;
+    const side = SIDES.map(([dx, dy]) => {
+      const c = world.tile(tx + dx, ty + dy);
+      if (patch) return c === code ? null : [RAISED[c] || (NOT_AROUND[c] && c !== TL.BASE) ? UNDER_BOULDER[reg] : c, reg];
+      if (!GROUND[c] || SOFT[c]) return null; // a wall, a boulder, the base: no corner; a patch rounds off its own
+      if (c !== code) return [c, reg];
+      const nr = c === TL.REGOLITH ? world.region(tx + dx, ty + dy) : reg; // only regolith looks different from region to region
+      return nr === reg ? null : [c, nr];
+    });
     for (let i = 0; i < 4; i++) {
-      if (!open[i] || !open[(i + 3) % 4]) continue;
-      const beside = world.tile(tx + SIDES[i][0], ty + SIDES[i][1]);
-      const under = RAISED[beside] || (NOT_AROUND[beside] && beside !== TL.BASE) ? UNDER_BOULDER[reg] : beside;
+      if (!side[i] || !side[(i + 3) % 4]) continue;
+      const [under, ureg] = side[i];
       const cx = X + (i === 1 || i === 2 ? T : 0), cy = Y + (i >= 2 ? T : 0), sx = cx === X ? 1 : -1, sy = cy === Y ? 1 : -1;
       g.save();
       g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + sx * r, cy); g.arcTo(cx, cy, cx, cy + sy * r, r); g.closePath(); g.clip();
-      g.fillStyle = css(tileRGB(under, reg), shade(world, tx, ty));
+      g.fillStyle = css(tileRGB(under, ureg), shade(world, tx, ty));
       g.fillRect(X, Y, T, T);
-      photoOver(g, photoOf(under, reg), X, Y, T, T);
+      photoOver(g, photoOf(under, ureg), X, Y, T, T);
       g.restore();
     }
   }
@@ -297,7 +308,7 @@
       if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T - 1); g.lineTo(X + T, Y + T - 1); }
       g.stroke();
     }
-    if (SOFT[look]) softCorners(g, world, tx, ty, look, reg, X, Y);
+    if (SOFT[look] || GROUND[look]) softCorners(g, world, tx, ty, look, reg, X, Y);
     if (world.caveAt && world.caveAt(tx, ty)) { // the shade a cave throws out of its mouth (the arch is on the wall above)
       g.fillStyle = 'rgba(12,5,4,0.4)';
       g.beginPath(); g.ellipse(X + T / 2, Y + 3, 23, 10, 0, 0, Math.PI * 2); g.fill();
@@ -643,33 +654,56 @@
   // Unseen tiles are covered; seen tiles outside your view radius are dimmed; tiles in view are clear.
   const FOG = '#120a0c';
   function drawFog(ctx, world, x0, y0, x1, y1, px, py, rad) {
-    const tx0 = Math.floor(x0 / T), ty0 = Math.floor(y0 / T), tx1 = Math.floor(x1 / T), ty1 = Math.floor(y1 / T);
-    const runs = [];
+    // 3.8.5: the fog has a round, soft outline. As squares, the steps of its edge read as missing pieces of the picture: now a
+    // fogged tile is round where it sticks out into seen ground, and fog fills the corner that two fogged sides make.
+    // hid: what is hidden, a tile wider than the view all round, so every tile in view knows its neighbours.
+    const tx0 = Math.floor(x0 / T) - 1, ty0 = Math.floor(y0 / T) - 1, tx1 = Math.floor(x1 / T) + 1, ty1 = Math.floor(y1 / T) + 1, w = tx1 - tx0 + 1;
+    const hid = new Uint8Array(w * (ty1 - ty0 + 1));
     for (let ty = ty0; ty <= ty1; ty++) {
       const ky = Math.floor(ty / CH), ly = ty - ky * CH;
-      let run = null, kx = null, fogBits = null;
-      for (let tx = tx0; tx <= tx1 + 1; tx++) {
-        let hidden = false;
-        if (tx <= tx1) {
-          const cx = Math.floor(tx / CH);
-          if (cx !== kx) { kx = cx; fogBits = world.fogBits(cx, ky); }
-          hidden = !fogBits || !F.has(fogBits, tx - cx * CH, ly);
-        }
-        if (hidden && run === null) run = tx;
-        else if (!hidden && run !== null) { runs.push([run * T, ty * T, (tx - run) * T]); run = null; }
+      let kx = null, fogBits = null;
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const cx = Math.floor(tx / CH);
+        if (cx !== kx) { kx = cx; fogBits = world.fogBits(cx, ky); }
+        if (!fogBits || !F.has(fogBits, tx - cx * CH, ly)) hid[(ty - ty0) * w + tx - tx0] = 1;
       }
     }
-    // 3.8.5: the fog's edge is soft, from two wider, fainter layers under the solid one (a blur filter costs a layer a frame);
-    // as hard squares, the unseen corners of a wide view read as missing pieces of the picture.
-    ctx.fillStyle = FOG;
-    for (const [e, a] of [[16, 0.3], [8, 0.45], [0, 1]]) {
-      ctx.globalAlpha = a;
-      for (const [X, Y, w] of runs) ctx.fillRect(X - e, Y - e, w + 2 * e, T + 0.5 + 2 * e);
+    const R = 28, S = T + 0.5; // the half pixel laps over the next tile, so no seam shows between them
+    // A corner of fog on seen ground, always drawn clockwise as the tiles are: laps of opposite winding would leave a gap.
+    const corner = (cx, cy, sx, sy) => {
+      ctx.moveTo(cx, cy);
+      if (sx * sy > 0) { ctx.lineTo(cx + sx * R, cy); ctx.arcTo(cx, cy, cx, cy + sy * R, R); } else { ctx.lineTo(cx, cy + sy * R); ctx.arcTo(cx, cy, cx + sx * R, cy, R); }
+      ctx.closePath();
+    };
+    ctx.fillStyle = ctx.strokeStyle = FOG;
+    ctx.beginPath(); // the fog's edge: the tiles on it and the corners; the tiles deep inside it are plain squares
+    for (let ty = ty0 + 1; ty < ty1; ty++) {
+      for (let tx = tx0 + 1, i = (ty - ty0) * w + 1; tx < tx1; tx++, i++) {
+        const X = tx * T, Y = ty * T, me = hid[i], n = hid[i - w] !== me, e = hid[i + 1] !== me, s = hid[i + w] !== me, v = hid[i - 1] !== me;
+        if (!me) {
+          if (n && v) corner(X, Y, 1, 1);
+          if (n && e) corner(X + T, Y, -1, 1);
+          if (s && e) corner(X + T, Y + T, -1, -1);
+          if (s && v) corner(X, Y + T, 1, -1);
+        } else if (!(n || e || s || v)) ctx.fillRect(X, Y, S, S);
+        else {
+          const nw = n && v ? R : 0, ne = n && e ? R : 0, se = s && e ? R : 0, sw = s && v ? R : 0;
+          ctx.moveTo(X + nw, Y); ctx.arcTo(X + S, Y, X + S, Y + S, ne); ctx.arcTo(X + S, Y + S, X, Y + S, se); ctx.arcTo(X, Y + S, X, Y, sw); ctx.arcTo(X, Y, X + S, Y, nw);
+          ctx.closePath();
+        }
+      }
     }
-    ctx.globalAlpha = 1;
-    const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad);
+    // Soft, from two wider, fainter outlines under the solid fog (a blur filter costs a layer a frame).
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.3; ctx.lineWidth = 32; ctx.stroke();
+    ctx.globalAlpha = 0.45; ctx.lineWidth = 16; ctx.stroke();
+    ctx.globalAlpha = 1; ctx.fill();
+    // 3.8.5: the dimming goes on past your sight to 0.75, so the round edge of what you see now is the edge you notice,
+    // not the tile steps of what you saw before (in a dust storm's 5 tiles those drew a blocky cross).
+    const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad + T * 1.5);
     g.addColorStop(0, 'rgba(10,6,8,0)');
-    g.addColorStop(1, 'rgba(10,6,8,0.5)');
+    g.addColorStop(0.5, 'rgba(10,6,8,0.5)');
+    g.addColorStop(1, 'rgba(10,6,8,0.75)');
     ctx.fillStyle = g;
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
