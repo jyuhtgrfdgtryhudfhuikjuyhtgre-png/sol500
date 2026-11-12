@@ -1279,6 +1279,19 @@ function twoSaves() {
 const stored = (pg, k) => (('sol500.' + k) in pg.ls ? JSON.parse(pg.ls['sol500.' + k]) : undefined);
 const finish = (pg, status) => { pg.UI.store.mission.status = status || 'lost'; pg.UI.store.mission.endCause = { reason: 'health', sol: 40 }; };
 
+test("the title's first screen starts the mission its setup describes, as the setup's own button does (judge pass 3.8.7)", () => {
+  const pg = page({ settings: { length: 'quick' } });
+  pg.UI.store.mission = null;
+  pg.UI.render();
+  const hero = pg.byKey('hero-start');
+  assert.ok(hero && hero.className.includes('btn-primary'), "the first screen has the game's start as its main button");
+  click(hero);
+  assert.equal(pg.UI.store.screen, 'manifest');
+  click(pg.byKey('launch'));
+  click(pg.byKey('pilot:minh'));
+  assert.equal(pg.UI.store.mission.quick, true, "with the setup's choices");
+});
+
 test('starting a quick mission leaves the full save unchanged', () => {
   const saves = twoSaves();
   const pg = page({ save: saves.save, settings: { length: 'quick' } });

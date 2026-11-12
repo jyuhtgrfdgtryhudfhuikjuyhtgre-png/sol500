@@ -902,7 +902,7 @@ test('the backpack shows a carried kit with its own icon and name', () => {
   const s = setup({ t: say });
   s.m.expedition.carried.minh = [METAL(), E.kitItem()];
   tick(s, outside(9, 1), 0.1);
-  const slots = s.eva.el.children.find(n => n.className === 'sf-pack').children;
+  const slots = s.eva.el.children.find(n => n.className === 'sf-pack').children.filter(n => n.className.split(' ')[0] === 'slot');
   assert.equal(slots[1].innerHTML, ARTS.icon('kit', 14));
   assert.notEqual(ARTS.icon('kit', 14), ARTS.icon('info', 14), 'an icon of its own, not the fallback');
   assert.equal(slots[1].title, 'mod.kit', "the console's name for it");
@@ -1223,6 +1223,19 @@ test('with a full backpack the pickup prompt says so and offers no hold', () => 
   assert.equal(s.eva.holdable(drop), false, 'a full backpack: no hold');
   assert.equal(s.eva.label(drop), 'eva.err.full', 'the prompt says it is full');
   assert.equal(s.eva.start(drop), false);
+});
+
+test('the slots under the suit bar are captioned: the backpack on foot, the rover cargo at the wheel (judge pass 3.8.7)', () => {
+  const s = setup({ t: say });
+  const cap = () => s.eva.el.children.find(n => n.className === 'sf-pack').children[0];
+  s.m.expedition.carried.minh = [METAL()];
+  tick(s, outside(9, 1), 0.1);
+  assert.equal(cap().textContent, 'eva.packCap ' + JSON.stringify({ n: 1, m: X.capacity(s.m, 'minh') }));
+  assert.equal(cap().attrs['aria-hidden'], 'true', "the row's aria-label already reads it");
+  s.m.expedition.rover = { driver: 'minh' };
+  tick(s, Object.assign(outside(20, 1), { inRover: true }), 0.1);
+  assert.equal(cap().textContent, 'eva.rackCap ' + JSON.stringify({ n: 1, m: X.capacity(s.m, 'minh') }), 'driving, the slots are the racks');
+  assert.notEqual(X.capacity(s.m, 'minh'), X.packOf(s.m), 'and hold a different number');
 });
 
 test('a pack with a kit counts the kit apart, and a pack of only kits is not "full"', () => {

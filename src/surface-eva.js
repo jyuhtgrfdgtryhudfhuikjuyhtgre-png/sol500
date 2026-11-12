@@ -334,6 +334,11 @@
         packEl.textContent = '';
         const kitN = items.filter(E.isKit).length; // a kit is counted apart from the loads
         packEl.setAttribute('aria-label', kitN ? t('eva.packKit', { n: items.length - kitN, k: kitN, m: cap }) : t('eva.pack', { n: items.length, m: cap }));
+        const cargo = X.drives(mission(), me); // driving, the slots are the rover's racks, not the backpack
+        const cap2 = node('b', 'packk');
+        cap2.textContent = t(cargo ? 'eva.rackCap' : 'eva.packCap', { n: items.length, m: cap });
+        cap2.setAttribute('aria-hidden', 'true'); // the row's aria-label says it in full
+        packEl.appendChild(cap2);
         for (let i = 0; i < cap; i++) {
           const it = items[i], slot = node('span', 'slot' + (it ? ' full' : ''));
           if (it) { slot.innerHTML = A.icon(RES_ICON[it.res] || 'materials', 14); slot.title = E.isKit(it) ? t('mod.kit') : t('haul.' + it.res, { n: it.amount }); }

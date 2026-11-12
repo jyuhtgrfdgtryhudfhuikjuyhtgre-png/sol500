@@ -760,7 +760,7 @@
 
   return {
     findById, findsIn, cavesIn, landmarksIn, structuresIn, landmarkById, structureById, chunkAt, loadsLeft, holdSeconds, commanderOut, speedFactor, addDistance, capacity, suitMax, packOf, rackOf, inBaseZone, suitOf, setSuit, itemFor, bay, roverLeft,
-    left, vehicleOf,
+    left, vehicleOf, drives: (m, crewId) => (m && m.expedition ? drives(m.expedition, crewId) : null), // the vehicle they drive, or null
     ride, alight,
     setRoverDriven, setWhere, whereOf, collect, deliver, useCanister, pickUp, collapse, revive, board, park, discover,
     interact, refill, forecastAhead, mastMarks, takeKit, returnKit, beaconSpot, placeBeacon, routeHome,
