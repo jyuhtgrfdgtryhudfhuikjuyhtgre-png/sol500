@@ -1177,7 +1177,7 @@
     m6Cards(s); // before the surface's stage, which shows the card up
     const f = E.forecast(s, p);
     if (store.opsView !== 'console' && window.SolSurface) {
-      return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
+      return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' + (store.demo ? ' sf-demo' : '') }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
     }
     return [
       hud(s, f),
