@@ -696,4 +696,6 @@ p { margin: 0; }
 .show-text { flex: 1; min-width: 0; }
 .show-line { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted, inherit); }
 .show-cap { margin: 0; min-width: 0; font-size: var(--fs-sm); } /* wraps: the judge reads the whole purpose */
+body:has(.show-bar) .modal-back { padding-bottom: 110px; } /* a dialog in a Showcase scene ends above the bar, not under it */
+body:has(.show-bar) .modal { max-height: calc(100vh - 126px); }
 body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the bar, so Advance and the last rows can be reached */

@@ -2160,7 +2160,9 @@
     // it is based on is a Moon rover; the suit tanks' says MOXIE made oxygen, not that suits used it.
     garage: 'm6Pressurized', fabricator: 'm6Printing', launchpad: 'm6Samples', cabin: 'dra5', drone: 'm6Ingenuity', tanks: 'm6Moxie',
   };
-  const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
+  // Cargo is drawn as the payload screen draws it (A.itemArt); only the gear with no drawing of its own keeps a line icon.
+  const GUIDE_ICON = { suit: 'o2', canister: 'o2', pack: 'materials' };
+  const GUIDE_CRATE = { waterwall: 1, spares: 1, materials: 1, food: 1, o2: 1, water: 1 };
   function guideEntry(id) {
     // The guide's own words (guide.<id>.*) win: a borrowed string is called here without its params (bld.kit's {base}…).
     const k = key => (I.STR.en[key] ? t(key) : null), own = part => k('guide.' + id + '.' + part), src = GUIDE_SOURCES[id] || null;
@@ -2169,7 +2171,7 @@
       desc: own('desc') || k('item.' + id + '.desc') || k('bld.' + id),
       fact: src && (own('fact') || k('item.' + id + '.fact') || k('gear.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
       src,
-      art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
+      art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : GUIDE_CRATE[id] ? A.itemArt(id, 40) : A.module(id === 'shield' ? 'shelter' : id, 40),
     };
   }
 
