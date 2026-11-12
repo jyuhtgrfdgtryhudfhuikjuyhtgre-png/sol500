@@ -683,14 +683,27 @@
     const card = document.querySelector('.region-card');
     return !!card && ((canHover() && card.matches(':hover')) || card.contains(document.activeElement));
   }
+  const covered = () => reading() || onConsole() || !!store.modal; // a card being read or out of sight keeps its place
   // The console takes the surface out of sight: setOpsView holds the card's time left (cardLeft) and gives it back on return.
+  // A dialog (the round report, notes, help) does the same through modalCover, called by render.
   let cardDue = 0, cardLeft = null;
   function armCardTimer(ms = 15000) {
     clearTimeout(cardTimer);
     cardLeft = null;
     if (!store.card) return;
+    if (store.modal) { cardLeft = ms; return; } // opened under a dialog: its time starts when the dialog closes
     cardDue = Date.now() + ms;
-    cardTimer = setTimeout(() => { if (reading() || onConsole()) armCardTimer(); else closeCard(); }, ms);
+    cardTimer = setTimeout(() => { if (covered()) armCardTimer(); else closeCard(); }, ms);
+  }
+  let underModal = false;
+  function modalCover() {
+    const m = !!store.modal;
+    if (m === underModal) return;
+    underModal = m;
+    if (!store.card) return;
+    if (m) { if (cardLeft == null) { cardLeft = Math.max(0, cardDue - Date.now()); clearTimeout(cardTimer); } return; }
+    if (cardLeft != null && !onConsole()) armCardTimer(cardLeft);
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = setTimeout(nextCard, CARD_HOLD); } // the card up gets its 8 s in sight
   }
 
   // A card that comes while another opened less than 8 s ago is still up waits, in order, so a hab pod's log or a formation's
@@ -710,7 +723,7 @@
     holdTimer = null;
     const key = missionKey(), s = mission();
     held = s && s.status === 'active' ? held.filter(e => e.key === key) : [];
-    if (held.length && (reading() || onConsole())) { holdTimer = setTimeout(nextCard, CARD_HOLD); return; }
+    if (held.length && covered()) { holdTimer = setTimeout(nextCard, CARD_HOLD); return; }
     if (held.length) openCard(held.shift().c);
   }
   function closeCard() {
@@ -2332,6 +2345,7 @@
 
   function render() {
     if (store.demo && !store.modal && SH.card(store.demo.id).view === 'modal') { leaveDemo(); return; } // a dialog card ends with its dialog
+    modalCover();
     const active = document.activeElement;
     const focusKey = active && active.getAttribute ? active.getAttribute('data-k') : null;
     const focusId = active && active.id && active.tagName === 'INPUT' ? active.id : null;

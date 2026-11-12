@@ -478,6 +478,7 @@ test('the launch sends the samples home once a mission', () => {
   const base = colonyWithPad(300);
   const noLaunch = E.resolveTurn(base, builders(base));
   assert.equal(Math.round(state.science - noLaunch.state.science), bonus);
+  assert.equal(Math.round(report.science - noLaunch.report.science), bonus, 'the round report counts it (QA 3.8.5 A7-1: it said +0)');
   assert.deepEqual(E.canBuild(state, 'launch'), { ok: false, reason: 'max' });
   assert.deepEqual(state.events.filter(e => e.type === 'sample_launch'), [{ type: 'sample_launch', bonus }]);
   const next = E.resolveTurn(state, builders(state));

@@ -1157,6 +1157,7 @@
         s.launchBonus = bonus; // for the debrief
         s.pending.launch = bonus;
         report.launch = { bonus };
+        report.science += bonus; // the round's report and history count it, as the top bar does
       }
       else s.modules[p.type].count += 1;
       if (p.x != null) s.layout.push({ type: p.type, x: p.x, y: p.y });

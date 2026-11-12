@@ -1825,6 +1825,25 @@ test('Resume closing an unread region card leaves that region unseen, so its car
   assert.equal(pg.UI.store.card && pg.UI.store.card.id, 'icy', 'unread: it comes up again');
 });
 
+test('a card that opens under a dialog (the round report) waits there and gets its full time once the dialog closes', () => {
+  const { clock, pg, hooks, up } = holdPage();
+  pg.win.Date = class extends Date { static now() { return clock.now(); } };
+  pg.UI.store.modal = 'help';
+  pg.UI.render();
+  hooks.card(POD);
+  hooks.card(DELTA(null));
+  clock.advance(60000);
+  assert.equal(up(), 'S4,-1', 'nothing opened or closed under the dialog (QA 3.8.5 A2-1: the Colony rank card was lost there)');
+  pg.UI.store.modal = null;
+  pg.UI.render();
+  clock.advance(7999);
+  assert.equal(up(), 'S4,-1', 'the first card has its 8 s in sight');
+  clock.advance(1);
+  assert.equal(up(), 'L0,1', 'then the waiting one opens');
+  clock.advance(15000);
+  assert.equal(up(), null, 'and closes after its own 15 s');
+});
+
 test('a card up when the console opens is held there and comes back with its time left', () => {
   const { clock, pg, hooks, up } = holdPage();
   pg.win.Date = class extends Date { static now() { return clock.now(); } };
