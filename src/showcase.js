@@ -53,6 +53,8 @@
     // First: the physics engine, the brief's one mandatory item. [0, -4] is sand just outside the base pad and within the bay's
     // reach (boarding asks the rules, which want you within 2 tiles).
     { id: 'rover', source: 'marsGlance', view: 'surface', at: [0, -4], board: true },
+    // Second: the story, which holds the brief's named missions (Apollo 11, Artemis, Opportunity, Perseverance) and Earth's future.
+    { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     // prepare starts the flare's warning at once (30 s delay + 60 s countdown ends it at 90 s); the clock at 70 leaves 20 s.
     // [28, 8] is 26 tiles from the base zone: about 11 s on foot.
     { id: 'flare', source: 'hazards', view: 'surface', schedule: { 0: { spe: true } }, at: [28, 8], clock: 70, prepare: (s, R) => { const r = R.Z.flareStart(s, 0); if (r.error) throw new Error(r.error); } },
@@ -72,7 +74,6 @@
     // At the weather station's door (13, 48): the prompt shows the pilot's (the Commander's) hold, and line puts the Engineer's beside
     // it, both from the rules. The pilot is the commander, out on the map, so his aura shows too.
     { id: 'crew', source: null, view: 'surface', at: [13, 49], line: (t, X) => t('show.crew.holds', { a: X.holdSeconds('weather', 'commander'), b: X.holdSeconds('weather', 'engineer') }) },
-    { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     { id: 'guide', source: null, view: 'modal', modal: 'guide' },
     // M6 (Full missions, each only while its tier is on). [3, -6] is 2 tiles past the Camp's land (y −4) and 2 inside the Station's
     // (y −8), 3 tiles east of the habitat and the Fabricator raise() stands at (0, −5) and (0, −6); the Garage is south, at (0, 5).

@@ -2942,8 +2942,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'show.card.isru.why': 'NASA\'s Veggie garden on the space station adds fresh food to astronauts\' diets. The Console shows the game\'s greenhouse and the oxygen systems that keep the crew fed and breathing.',
     'show.card.crew.name': 'Crew roles and skills',
     'show.card.crew.why': 'Each crew member has a role with its own skill, so a job can take a different time for each: an Engineer works a weather station in half the time. The commander\'s aura speeds up the crew near him.',
-    'show.card.story.name': 'Why Mars?',
-    'show.card.story.why': 'In July 1969 Apollo 11 put the first two people on the Moon. The story follows that road on towards Mars.',
+    'show.card.story.name': 'Why Mars? Earth, the Moon, the rovers',
+    'show.card.story.why': 'Six pages follow the road from Apollo 11 and Artemis at the Moon to Opportunity and Perseverance on Mars, with the hazards astronauts face and the values they share. It starts with Earth: learning to live on another world shows how precious this one is.',
     'show.card.guide.name': 'Field guide',
     'show.card.guide.why': 'The guide explains every item and module in the game, with the facts behind each one.',
     'nav.quit': 'Leave mission',
@@ -3898,6 +3898,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'sf.interact': "Interact",
     'sf.sprint': "Sprint",
     'sf.you': "You",
+    'sf.stop.mars': 'Mars stop', 'sf.stop.earth': 'Earth stop',
     'sf.buildHere': "Build here",
     'sf.notConnected': "This tile does not touch the base yet. Build next to an existing structure.",
     'sf.iceOnly': "Buried ice under this tile: only a water extractor fits here.",
@@ -4251,8 +4252,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'show.card.isru.why': 'Vườn Veggie của NASA trên trạm vũ trụ bổ sung thực phẩm tươi cho bữa ăn của phi hành gia. Bảng điều khiển cho thấy nhà kính và các hệ thống oxy trong game giúp phi hành đoàn có cái ăn và không khí để thở.',
     'show.card.crew.name': 'Vai trò và kỹ năng của phi hành đoàn',
     'show.card.crew.why': 'Mỗi thành viên có một vai trò với kỹ năng riêng, nên một việc có thể mất thời gian khác nhau với từng người: kỹ sư sửa trạm khí tượng chỉ mất một nửa thời gian. Hào quang của chỉ huy giúp cả đội gần anh ấy đi nhanh hơn.',
-    'show.card.story.name': 'Vì sao là sao Hỏa?',
-    'show.card.story.why': 'Tháng 7 năm 1969, Apollo 11 đưa hai người đầu tiên lên Mặt Trăng. Câu chuyện đi tiếp con đường đó về phía sao Hỏa.',
+    'show.card.story.name': 'Vì sao là sao Hỏa? Trái Đất, Mặt Trăng, các xe thám hiểm',
+    'show.card.story.why': 'Sáu trang đi theo con đường từ Apollo 11 và Artemis ở Mặt Trăng tới Opportunity và Perseverance trên sao Hỏa, cùng những mối nguy phi hành gia phải đối mặt và những giá trị họ chia sẻ. Câu chuyện bắt đầu từ Trái Đất: học cách sống trên một thế giới khác cho ta thấy thế giới này quý giá đến nhường nào.',
     'show.card.guide.name': 'Sổ tay thực địa',
     'show.card.guide.why': 'Sổ tay giải thích từng vật phẩm và mô-đun trong game, cùng những dữ kiện đằng sau mỗi thứ.',
     'nav.quit': 'Rời nhiệm vụ',
@@ -5203,6 +5204,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'sf.interact': "Tương tác",
     'sf.sprint': "Chạy",
     'sf.you': "Bạn",
+    'sf.stop.mars': 'Dừng (sao Hỏa)', 'sf.stop.earth': 'Dừng (Trái Đất)',
     'sf.buildHere': "Xây ở đây",
     'sf.notConnected': "Ô này chưa nối với căn cứ. Hãy xây cạnh một công trình có sẵn.",
     'sf.iceOnly': "Dưới ô này có băng: chỉ đặt được máy khai thác nước.",
@@ -8773,6 +8775,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     // First: the physics engine, the brief's one mandatory item. [0, -4] is sand just outside the base pad and within the bay's
     // reach (boarding asks the rules, which want you within 2 tiles).
     { id: 'rover', source: 'marsGlance', view: 'surface', at: [0, -4], board: true },
+    // Second: the story, which holds the brief's named missions (Apollo 11, Artemis, Opportunity, Perseverance) and Earth's future.
+    { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     // prepare starts the flare's warning at once (30 s delay + 60 s countdown ends it at 90 s); the clock at 70 leaves 20 s.
     // [28, 8] is 26 tiles from the base zone: about 11 s on foot.
     { id: 'flare', source: 'hazards', view: 'surface', schedule: { 0: { spe: true } }, at: [28, 8], clock: 70, prepare: (s, R) => { const r = R.Z.flareStart(s, 0); if (r.error) throw new Error(r.error); } },
@@ -8792,7 +8796,6 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     // At the weather station's door (13, 48): the prompt shows the pilot's (the Commander's) hold, and line puts the Engineer's beside
     // it, both from the rules. The pilot is the commander, out on the map, so his aura shows too.
     { id: 'crew', source: null, view: 'surface', at: [13, 49], line: (t, X) => t('show.crew.holds', { a: X.holdSeconds('weather', 'commander'), b: X.holdSeconds('weather', 'engineer') }) },
-    { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     { id: 'guide', source: null, view: 'modal', modal: 'guide' },
     // M6 (Full missions, each only while its tier is on). [3, -6] is 2 tiles past the Camp's land (y −4) and 2 inside the Station's
     // (y −8), 3 tiles east of the habitat and the Fabricator raise() stands at (0, −5) and (0, −6); the Garage is south, at (0, 5).
@@ -12898,6 +12901,38 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     ctx.restore();
   }
 
+  // While you drive: where the rover's nose would stop if you braked now, on Mars and (nearer) on Earth, as two dashed bars
+  // across its path. The physics engine's stopping distances (the HUD's numbers), drawn on the ground they apply to.
+  const STOP_NOSE = 64, STOP_HALF = 30; // world px: from the rover's middle to its nose; half a bar's width
+  function stopMarks() {
+    const p = S.player;
+    if (!p || !p.inRover || !p.car || p.car.speed < 32) return []; // under half a tile a second the bars would sit on the rover
+    const c = Math.cos(p.car.heading), s = Math.sin(p.car.heading);
+    return [['earth', PH.EARTH_G, '#8cbcec'], ['mars', PH.MARS_G, '#ffb27a']].map(([id, g, color]) => {
+      const d = STOP_NOSE + PH.stopDistance(p.car.speed, g, specOf(p)) * PH.PX_PER_M;
+      return { id, color, x: p.x + c * d, y: p.y + s * d, nx: -s, ny: c, label: t('sf.stop.' + id) };
+    });
+  }
+  function drawStops(ctx) {
+    const marks = stopMarks();
+    if (!marks.length) return;
+    ctx.save();
+    ctx.font = '700 11px "Be Vietnam Pro", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const k of marks) {
+      ctx.strokeStyle = 'rgba(20,14,16,0.55)'; ctx.lineWidth = 5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(k.x - k.nx * STOP_HALF, k.y - k.ny * STOP_HALF); ctx.lineTo(k.x + k.nx * STOP_HALF, k.y + k.ny * STOP_HALF); ctx.stroke();
+      ctx.strokeStyle = k.color; ctx.lineWidth = 3; ctx.setLineDash([7, 5]);
+      ctx.beginPath(); ctx.moveTo(k.x - k.nx * STOP_HALF, k.y - k.ny * STOP_HALF); ctx.lineTo(k.x + k.nx * STOP_HALF, k.y + k.ny * STOP_HALF); ctx.stroke();
+      ctx.setLineDash([]);
+      const lx = k.x + k.nx * (STOP_HALF + 22), ly = k.y + k.ny * (STOP_HALF + 12); // beside the bar's end, clear of the path
+      ctx.strokeStyle = 'rgba(20,14,16,0.8)'; ctx.lineWidth = 3; ctx.strokeText(k.label, lx, ly);
+      ctx.fillStyle = k.color; ctx.fillText(k.label, lx, ly);
+    }
+    ctx.restore();
+  }
+
   function draw(dt = 1 / 60) { // dt: the seconds since the last frame (it moves the camera and the dust at the same speed at any frame rate)
     const ctx = S.ctx, v = S.view, m = S.data.mission, plan = S.data.plan, fc = S.data.forecast;
     if (!v.w) resize();
@@ -12922,6 +12957,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     for (const it of pois) if (it.depth == null) drawArt(ctx, it);
     drawDust(ctx);
     S.eva.drawZone(ctx, x0, y0, x1, y1, S.world);
+    drawStops(ctx);
 
     // buried ice at the base: the only cue for where the ice drill can go
     ctx.save();
@@ -13052,6 +13088,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     if (S.tube) P.drawDark(ctx, x0, y0, x1, y1, p.x, p.y - 12, S.eva.view(p) * T); // inside a lava tube: your headlamp's light
     drawTags(ctx, S.tags);
     S.eva.drawOver(ctx);
+    S.stops = stopMarks().map(k => ({ id: k.id, x: k.x, y: k.y })); // for the probe
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
 
     // weather, in screen space
@@ -13101,6 +13138,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     const tileScreen = (gx, gy) => { const [wx, wy] = gridToWorld(gx, gy); return toScreen(wx * T + T / 2, wy * T + T / 2); };
     const tx = Math.floor(S.player.x / T), ty = Math.floor(S.player.y / T);
     return {
+      stops: S.stops || [], // the rover's stop marks on the ground (Earth, Mars), world px
       player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, vehicle: S.player.vehicle, stamina: S.player.stamina, path: S.player.path && S.player.path.length, heading: S.player.car ? S.player.car.heading : null, speed: S.player.car ? S.player.car.speed : 0 },
       lastTap: S.lastTap, focus: S.focus && S.focus.kind, menu: S.menuOpen, npcs: Object.keys(S.npcs), tileScreen, toScreen,
       npcAt: Object.fromEntries(Object.entries(S.npcs).map(([id, n]) => [id, [n.x, n.y]])),

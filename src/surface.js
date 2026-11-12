@@ -1261,6 +1261,38 @@
     ctx.restore();
   }
 
+  // While you drive: where the rover's nose would stop if you braked now, on Mars and (nearer) on Earth, as two dashed bars
+  // across its path. The physics engine's stopping distances (the HUD's numbers), drawn on the ground they apply to.
+  const STOP_NOSE = 64, STOP_HALF = 30; // world px: from the rover's middle to its nose; half a bar's width
+  function stopMarks() {
+    const p = S.player;
+    if (!p || !p.inRover || !p.car || p.car.speed < 32) return []; // under half a tile a second the bars would sit on the rover
+    const c = Math.cos(p.car.heading), s = Math.sin(p.car.heading);
+    return [['earth', PH.EARTH_G, '#8cbcec'], ['mars', PH.MARS_G, '#ffb27a']].map(([id, g, color]) => {
+      const d = STOP_NOSE + PH.stopDistance(p.car.speed, g, specOf(p)) * PH.PX_PER_M;
+      return { id, color, x: p.x + c * d, y: p.y + s * d, nx: -s, ny: c, label: t('sf.stop.' + id) };
+    });
+  }
+  function drawStops(ctx) {
+    const marks = stopMarks();
+    if (!marks.length) return;
+    ctx.save();
+    ctx.font = '700 11px "Be Vietnam Pro", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const k of marks) {
+      ctx.strokeStyle = 'rgba(20,14,16,0.55)'; ctx.lineWidth = 5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(k.x - k.nx * STOP_HALF, k.y - k.ny * STOP_HALF); ctx.lineTo(k.x + k.nx * STOP_HALF, k.y + k.ny * STOP_HALF); ctx.stroke();
+      ctx.strokeStyle = k.color; ctx.lineWidth = 3; ctx.setLineDash([7, 5]);
+      ctx.beginPath(); ctx.moveTo(k.x - k.nx * STOP_HALF, k.y - k.ny * STOP_HALF); ctx.lineTo(k.x + k.nx * STOP_HALF, k.y + k.ny * STOP_HALF); ctx.stroke();
+      ctx.setLineDash([]);
+      const lx = k.x + k.nx * (STOP_HALF + 22), ly = k.y + k.ny * (STOP_HALF + 12); // beside the bar's end, clear of the path
+      ctx.strokeStyle = 'rgba(20,14,16,0.8)'; ctx.lineWidth = 3; ctx.strokeText(k.label, lx, ly);
+      ctx.fillStyle = k.color; ctx.fillText(k.label, lx, ly);
+    }
+    ctx.restore();
+  }
+
   function draw(dt = 1 / 60) { // dt: the seconds since the last frame (it moves the camera and the dust at the same speed at any frame rate)
     const ctx = S.ctx, v = S.view, m = S.data.mission, plan = S.data.plan, fc = S.data.forecast;
     if (!v.w) resize();
@@ -1285,6 +1317,7 @@
     for (const it of pois) if (it.depth == null) drawArt(ctx, it);
     drawDust(ctx);
     S.eva.drawZone(ctx, x0, y0, x1, y1, S.world);
+    drawStops(ctx);
 
     // buried ice at the base: the only cue for where the ice drill can go
     ctx.save();
@@ -1415,6 +1448,7 @@
     if (S.tube) P.drawDark(ctx, x0, y0, x1, y1, p.x, p.y - 12, S.eva.view(p) * T); // inside a lava tube: your headlamp's light
     drawTags(ctx, S.tags);
     S.eva.drawOver(ctx);
+    S.stops = stopMarks().map(k => ({ id: k.id, x: k.x, y: k.y })); // for the probe
     if (S.debug) drawChunkBorders(ctx, x0, y0, x1, y1);
 
     // weather, in screen space
@@ -1464,6 +1498,7 @@
     const tileScreen = (gx, gy) => { const [wx, wy] = gridToWorld(gx, gy); return toScreen(wx * T + T / 2, wy * T + T / 2); };
     const tx = Math.floor(S.player.x / T), ty = Math.floor(S.player.y / T);
     return {
+      stops: S.stops || [], // the rover's stop marks on the ground (Earth, Mars), world px
       player: { x: S.player.x, y: S.player.y, dir: S.player.dir, inRover: S.player.inRover, vehicle: S.player.vehicle, stamina: S.player.stamina, path: S.player.path && S.player.path.length, heading: S.player.car ? S.player.car.heading : null, speed: S.player.car ? S.player.car.speed : 0 },
       lastTap: S.lastTap, focus: S.focus && S.focus.kind, menu: S.menuOpen, npcs: Object.keys(S.npcs), tileScreen, toScreen,
       npcAt: Object.fromEntries(Object.entries(S.npcs).map(([id, n]) => [id, [n.x, n.y]])),

@@ -1138,6 +1138,25 @@ test('in the rover a new direction turns it smoothly, no faster than its wheels 
   pg.key('KeyS', false);
 });
 
+test('while the rover moves, two marks lie on the ground ahead of it: where it would stop on Earth, and farther on, on Mars', () => {
+  const { m, pg } = inRover('DRIVE-STOPS');
+  const [x, y] = openRow(m.seed, 12);
+  pg.qa.teleport(x + 2, y);
+  pg.step(0.1);
+  pg.frame();
+  assert.equal(pg.probe().stops.length, 0, 'standing still: none');
+  pg.key('KeyD');
+  pg.step(1.5);
+  pg.frame();
+  const { stops, player } = pg.probe(), spec = PH.ROVER;
+  assert.equal(Array.from(stops, k => k.id).join(), 'earth,mars');
+  const ahead = k => k.x - player.x; // it drives east
+  assert.ok(Math.abs(ahead(stops[1]) - 64 - PH.stopDistance(player.speed, PH.MARS_G, spec) * PH.PX_PER_M) < 1e-6, 'the Mars mark: the nose, a stopping distance on');
+  assert.ok(ahead(stops[0]) > 64 && ahead(stops[1]) - 64 > 2.5 * (ahead(stops[0]) - 64), 'the Earth mark is nearer: Mars needs about 2.6 times as far');
+  assert.ok(Math.abs(stops[0].y - player.y) < 1e-6 && Math.abs(stops[1].y - player.y) < 1e-6, 'both on its path');
+  pg.key('KeyD', false);
+});
+
 test('Shift opens up the rover 1.6 times, and the battery counts each boosted tile twice', () => {
   const { m, pg } = inRover('DRIVE-2');
   const [x, y] = openRow(m.seed, 48);

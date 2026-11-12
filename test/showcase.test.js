@@ -5,10 +5,10 @@ const assert = require('node:assert/strict');
 const C = require('../src/showcase.js');
 const I = require('../src/i18n.js');
 
-test('the code is the one QA mapped, and there are 17 cards, the first three rover (the physics engine, the brief\'s one mandatory item), flare, oxygen', () => {
+test('the code is the one QA mapped, and there are 17 cards, the first three rover (the physics engine, the brief\'s one mandatory item), story (its named missions), flare', () => {
   assert.equal(C.CODE, 'PAINT-QA-1');
   assert.equal(C.CARDS.length, 17);
-  assert.deepEqual(C.CARDS.slice(0, 3).map(c => c.id), ['rover', 'flare', 'oxygen']);
+  assert.deepEqual(C.CARDS.slice(0, 3).map(c => c.id), ['rover', 'story', 'flare']);
   assert.ok(I.SOURCES[C.card('rover').source], 'the physics card cites its gravity');
   assert.equal(new Set(C.CARDS.map(c => c.id)).size, 17);
 });
