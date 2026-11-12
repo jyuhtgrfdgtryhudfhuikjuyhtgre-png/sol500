@@ -864,12 +864,14 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     // and raises each building's limit by `max` (on top of MODULES' max and every rank before it).
     LAND_R2: 169, // must equal src/worldgen.js (FLAT_RADIUS + 1) ** 2: nothing that blocks stands on the base's land
     RANKS: [
-      { id: 'camp', w: 9, h: 5, zone: 2 },
-      { id: 'outpost', w: 15, h: 9, zone: 3, materials: 500, work: 1, ice: 3, rock: 4,
+      // 3.8.3: every rank has the land of the rank after it in 3.8.2 (the Camp was 9 × 5, the grid GRID still names); the
+      // Colony is as wide as the flat disc lets it be, so it grows in height only. The zones and costs are unchanged.
+      { id: 'camp', w: 15, h: 9, zone: 2 },
+      { id: 'outpost', w: 21, h: 13, zone: 3, materials: 500, work: 1, ice: 3, rock: 4,
         max: { solar: 4, battery: 2, greenhouse: 1, icedrill: 1, habitat: 1, garage: 1, cabin: 1, drone: 1 } },
-      { id: 'station', w: 21, h: 13, zone: 4, materials: 800, work: 1.5, ice: 3, rock: 5,
+      { id: 'station', w: 27, h: 17, zone: 4, materials: 800, work: 1.5, ice: 3, rock: 5,
         max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, fabricator: 1 } },
-      { id: 'colony', w: 27, h: 17, zone: 5, materials: 1100, work: 1.5, ice: 4, rock: 6,
+      { id: 'colony', w: 27, h: 21, zone: 5, materials: 1100, work: 1.5, ice: 4, rock: 6,
         max: { solar: 4, battery: 2, greenhouse: 2, oxygen: 1, icedrill: 1, reactor: 1, launchpad: 1 } },
     ],
     // The tier switches (spec §9): an unlock whose tier is off is hidden. gear: the Fabricator and its four lines; colony:
@@ -1370,8 +1372,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
   }
 
   // ---------- map ----------
-  // The base's land (M6, spec §3): a rank's w × h tiles round the HQ, in grid spots (the Camp's 9 × 5 grid is spots 0..8 ×
-  // 0..4; a bigger rank's land reaches negative spots), cut to the world's flat disc (D.LAND_R2). It only ever grows, so
+  // The base's land (M6, spec §3): a rank's w × h tiles round the HQ, in grid spots (the 9 × 5 pad round the HQ is spots
+  // 0..8 × 0..4; the land reaches negative spots), cut to the world's flat disc (D.LAND_R2). It only ever grows, so
   // every building stays on its tile.
   const rankOf = s => (s && Number.isInteger(s.rank) && s.rank >= 0 && s.rank < D.RANKS.length ? s.rank : 0);
   function boundsOf(r) {
@@ -1385,7 +1387,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1 && dx * dx + dy * dy <= D.LAND_R2;
   }
   const onLand = (s, x, y) => inLand(rankOf(s), x, y);
-  // A rank's land, row by row. The Camp's is 3.7.0's grid in 3.7.0's order, so its terrain and start layout are unchanged.
+  // A rank's land, row by row.
   function rankTiles(r) {
     const b = boundsOf(r), out = [];
     for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (inLand(r, x, y)) out.push([x, y]);
@@ -1395,7 +1397,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
   const zoneOf = s => D.RANKS[rankOf(s)].zone;
 
   function buildTerrain(seed) {
-    const r = rng(seed, 'terrain'), camp = rankTiles(0);
+    // The first ice and rock lie on the 9 × 5 pad round the HQ (D.GRID, 3.7.0's grid in 3.7.0's order), so a mission code
+    // starts as it always did; the rest of the Camp's land (3.8.3) is free ground.
+    const r = rng(seed, 'terrain'), camp = rankTiles(0).filter(([x, y]) => x >= 0 && x < D.GRID.w && y >= 0 && y < D.GRID.h);
     const ice = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 3)).slice(0, D.GRID.ice);
     const iceKeys = new Set(ice.map(([x, y]) => key(x, y)));
     const rock = shuffle(r, camp.filter(([x, y]) => cheb(x, y) >= 2 && !iceKeys.has(key(x, y)))).slice(0, D.GRID.rock);
@@ -3262,6 +3266,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'bld.progress': '{p} / {w} work',
     'bld.needBuilders': 'Nobody is on Build: projects will not move.',
     'bld.why.max': 'Limit reached',
+    'bld.why.underway': 'Already under way',
     'bld.why.materials': 'Not enough materials',
     'bld.why.space': 'No connected free tile',
     'bld.placeOn': 'Tap a highlighted tile',
@@ -4567,6 +4572,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'bld.progress': '{p} / {w} công',
     'bld.needBuilders': 'Không ai làm Xây dựng: công trình sẽ đứng yên.',
     'bld.why.max': 'Đã đạt giới hạn',
+    'bld.why.underway': 'Đang được thực hiện',
     'bld.why.materials': 'Thiếu vật liệu',
     'bld.why.space': 'Không còn ô trống kết nối',
     'bld.placeOn': 'Chạm vào ô được tô sáng',
@@ -8770,8 +8776,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     { id: 'crew', source: null, view: 'surface', at: [13, 49], line: (t, X) => t('show.crew.holds', { a: X.holdSeconds('weather', 'commander'), b: X.holdSeconds('weather', 'engineer') }) },
     { id: 'story', source: 'apollo11', view: 'modal', modal: 'story' },
     { id: 'guide', source: null, view: 'modal', modal: 'guide' },
-    // M6 (Full missions, each only while its tier is on). [0, 4] is 2 tiles past the Camp's pad (y 2) and 2 inside the Station's land (y 6).
-    { id: 'ranks', source: 'm6Habitat3d', full: true, view: 'surface', at: [0, 4], prepare: (s, { E }) => raise(s, E, 2, [0, 4], ['habitat', 'garage'].concat(D.M6.gear ? ['fabricator'] : [])),
+    // M6 (Full missions, each only while its tier is on). [3, -6] is 2 tiles past the Camp's land (y −4) and 2 inside the Station's
+    // (y −8), 3 tiles east of the habitat and the Fabricator raise() stands at (0, −5) and (0, −6); the Garage is south, at (0, 5).
+    { id: 'ranks', source: 'm6Habitat3d', full: true, view: 'surface', at: [3, -6], prepare: (s, { E }) => raise(s, E, 2, [3, -6], ['habitat', 'garage'].concat(D.M6.gear ? ['fabricator'] : [])),
       // Rank and what it unlocked, from the rules: the modules the Station's limits open that no rank before it had.
       line: t => t('show.ranks.line', { rank: t('rank.' + D.RANKS[2].id), list: Object.keys(D.RANKS[2].max).filter(k => !D.MODULES[k].max && !D.RANKS[1].max[k] && (k !== 'fabricator' || D.M6.gear)).map(k => t('mod.' + k)).join(', ') }) },
     // focus: the build row a console scene is about; it sits far down the page, so the scene brings it into view (src/ui.js).
@@ -9383,6 +9390,15 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T); g.lineTo(X + T, Y + T); }
       g.stroke();
       g.setLineDash([]);
+      // 3.8.3: the land's outer edge, a brighter line, so the ground you can build on reads at a glance
+      g.strokeStyle = 'rgba(255,220,190,0.4)';
+      g.lineWidth = 2;
+      g.beginPath();
+      if (world.tile(tx - 1, ty) !== TL.BASE) { g.moveTo(X + 1, Y); g.lineTo(X + 1, Y + T); }
+      if (world.tile(tx + 1, ty) !== TL.BASE) { g.moveTo(X + T - 1, Y); g.lineTo(X + T - 1, Y + T); }
+      if (world.tile(tx, ty - 1) !== TL.BASE) { g.moveTo(X, Y + 1); g.lineTo(X + T, Y + 1); }
+      if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T - 1); g.lineTo(X + T, Y + T - 1); }
+      g.stroke();
     }
     if (world.caveAt && world.caveAt(tx, ty)) { // the shade a cave throws out of its mouth (the arch is on the wall above)
       g.fillStyle = 'rgba(12,5,4,0.4)';
@@ -11672,6 +11688,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
     return img;
   }
+  // A building stands on one tile but is drawn bigger than it, from the tile's bottom edge up (3.8.3): beside an astronaut
+  // a habitat is a habitat, not a model of one. The HQ is the biggest.
+  const bigOf = type => (type === 'hab' ? 1.8 : 1.45);
   function moduleImage(type, clean) {
     const b = type === 'solar' ? Math.round((clean == null ? 1 : clean) * 10) / 10 : 1;
     const k = type + '|' + b;
@@ -12942,9 +12961,20 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       let status = null;
       if (brokenLeft[tile.type] > 0) { brokenLeft[tile.type]--; status = 'broken'; }
       else if (D.CONSUMERS.includes(tile.type)) { if (runningLeft[tile.type] > 0) runningLeft[tile.type]--; else status = 'off'; }
+      if (tile.type === 'rover' || tile.type === 'cabin') { // in its bay: the vehicle you drive, from above, facing as it was left
+        sprites.push({ y: wy * T + T - 5, draw: () => { // just in front of the buildings in its row: its nose is not under their edge
+          ctx.save();
+          ctx.globalAlpha = status === 'off' ? 0.6 : 1;
+          ctx.translate(wx * T + T / 2, wy * T + T / 2); ctx.scale(0.8, 0.8); // parked, it takes a little less room than its two tiles
+          (tile.type === 'cabin' ? P.sprites.drawCabinTop : P.sprites.drawRoverTop)(ctx, 0, 0, S[headOf(tile.type)] || 0, 0, false, null);
+          ctx.restore();
+          if (status) badge(ctx, wx * T + T - 10, wy * T + 12, status);
+        } });
+        continue;
+      }
       sprites.push({ y: wy * T + T - 6, draw: () => {
         const img = moduleImage(tile.type, m.cleanliness);
-        const big = tile.type === 'hab' ? 1.3 : 1;
+        const big = bigOf(tile.type);
         if (ready(img)) {
           ctx.globalAlpha = status === 'off' ? 0.6 : 1;
           ctx.drawImage(img, wx * T + T / 2 - T * big / 2, wy * T + T - T * big, T * big, T * big);
@@ -12958,8 +12988,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       const [wx, wy] = gridToWorld(pr.x, pr.y);
       sprites.push({ y: wy * T + T - 6, draw: () => {
         const sc = moduleImage('scaffold', 1), ghost = moduleImage(pr.type, 1);
-        if (ready(ghost)) { ctx.globalAlpha = 0.4; ctx.drawImage(ghost, wx * T, wy * T, T, T); ctx.globalAlpha = 1; }
-        if (ready(sc)) ctx.drawImage(sc, wx * T, wy * T, T, T);
+        const big = bigOf(pr.type), bx = wx * T + T / 2 - T * big / 2, by = wy * T + T - T * big; // the size it will stand at
+        if (ready(ghost)) { ctx.globalAlpha = 0.4; ctx.drawImage(ghost, bx, by, T * big, T * big); ctx.globalAlpha = 1; }
+        if (ready(sc)) ctx.drawImage(sc, bx, by, T * big, T * big);
         ctx.fillStyle = '#140e10'; roundRect(ctx, wx * T + 8, wy * T + T - 7, 48, 4, 2); ctx.fill();
         ctx.fillStyle = '#8cbcec'; roundRect(ctx, wx * T + 8, wy * T + T - 7, 48 * pr.progress / pr.work, 4, 2); ctx.fill();
       } });
@@ -12974,6 +13005,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       if (rides(a.id)) continue; // a passenger is inside the pressurised rover their driver is drawn as (M6)
       let name = S.data.crewName(a.id);
       if (a.you) name = t('sf.you') + ' · ' + name;
+      // Your own tag would cover what you stand just below and are about to work on (a find, a dropped load): it steps aside.
+      if (a.you && S.focus && S.focus.x != null && Math.abs(S.focus.x - a.x) < 75 && S.focus.y < a.y - 25 && S.focus.y > a.y - 100) name = '';
       // Someone lying down is drawn after what stands at the same spot, so a fallen driver is not hidden by the parked rover.
       sprites.push({ y: a.y + (a.down ? 24 : 0), draw: () => drawAvatar(ctx, a, name, S.time, S.tags) });
     }
@@ -14564,7 +14597,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     if (s.quick === true || !D.RANKS[r]) return null;
     const chk = E.canBuild(s, 'rankup', pending), unlocks = t('rank.unlocks', { list: unlocksAt(r) });
     return h('button', {
-      type: 'button', class: 'bld', 'data-k': 'bld:rankup', disabled: !chk.ok, title: chk.ok ? unlocks : whyNot('rankup', chk),
+      type: 'button', class: 'bld', 'data-k': 'bld:rankup', disabled: !chk.ok, title: chk.ok ? unlocks : chk.reason === 'max' ? t('bld.why.underway') : whyNot('rankup', chk),
       onclick: () => { if (chk.ok) patchPlan({ builds: pending.concat([{ type: 'rankup' }]) }); },
     }, h('span', { html: A.module('rankup', 36) }),
     h('span', null, h('span', { class: 't' }, t('rank.next', { rank: t('rank.' + D.RANKS[r].id) })), h('br'),
