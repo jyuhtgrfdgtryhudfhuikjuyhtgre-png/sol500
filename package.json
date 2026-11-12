@@ -1,7 +1,7 @@
 {
   "name": "sol500",
   "productName": "SOL 500",
-  "version": "3.8.4",
+  "version": "3.8.5",
   "private": true,
   "description": "SOL 500: run a Mars outpost for 500 sols. Real NASA numbers, English and Vietnamese, co-op for up to 5 players, with an admin panel.",
   "author": "Tung Son",

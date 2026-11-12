@@ -231,6 +231,7 @@ p { margin: 0; }
 .warnlist { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .warnlist li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; font-size: var(--fs-sm); align-items: start; }
 .crew-edit { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.crew-edit:has(> .card:nth-child(4):last-child) { grid-template-columns: repeat(auto-fill, minmax(max(230px, calc(50% - 6px)), 1fr)); } /* four astronauts: two by two, not three and one alone */
 .crew-edit .card { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: start; padding: 12px; background: var(--sunk); border-radius: 8px; border: 1px solid var(--line); }
 .crew-edit .skill { font-size: var(--fs-xs); color: var(--fg-2); grid-column: 1 / -1; }
 .mobile-launch { display: none; }
@@ -286,6 +287,7 @@ p { margin: 0; }
 
 .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .bld { display: grid; grid-template-columns: 36px 1fr; gap: 8px; align-items: center; text-align: left; padding: 8px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--raised); cursor: pointer; }
+.bld[data-k="bld:rankup"] { grid-column: 1 / -1; } /* its "Unlocks" list is long: a row of its own, so it stretches no neighbour */
 .bld .t { font-size: var(--fs-sm); font-weight: 600; line-height: 1.2; }
 .bld .c { font-size: var(--fs-xs); color: var(--fg-3); font-family: var(--font-data); }
 .bld[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
@@ -573,6 +575,8 @@ p { margin: 0; }
 .sf-suit.crit .bar i { background: var(--crit); }
 .sf-suit.crit b { color: var(--crit); }
 .sf-suit.batt .bar i { background: var(--accent); }
+.sf-suit.batt { grid-template-columns: 1fr auto; } /* the battery's name on a line of its own: "Pressurized rover battery" left its bar no room */
+.sf-suit.batt .k { grid-column: 1 / -1; margin-bottom: -4px; }
 .sf-suit b { font-variant-numeric: tabular-nums; }
 /* while driving: the speed and the stopping distance on Mars and on Earth, under the battery (src/physics.js) */
 .sf-suit .phys { grid-column: 1 / -1; order: 2; color: var(--fg); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -694,11 +698,16 @@ p { margin: 0; }
 .show-card { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .show-card > .btn { margin-top: auto; } /* every Show me on the card's bottom edge, with or without a Source line */
 .show-card h2 { margin: 0; font-size: var(--fs-lg, 1.15rem); }
+.show-head { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center; }
+.show-art { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 10px; background: var(--sunk); border: 1px solid var(--line); color: var(--accent); }
+.show-n { display: block; font-family: var(--font-data); font-size: var(--fs-xs); color: var(--accent); letter-spacing: 0.08em; }
 .show-card p { margin: 0; }
 .show-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 110; width: min(900px, calc(100% - 24px)); display: flex; align-items: center; gap: 10px; background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
 .show-text { flex: 1; min-width: 0; }
 .show-line { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted, inherit); }
 .show-cap { margin: 0; min-width: 0; font-size: var(--fs-sm); } /* wraps: the judge reads the whole purpose */
+body:has(.show-bar) .modal-back { padding-bottom: 110px; } /* a dialog in a Showcase scene ends above the bar, not under it */
+body:has(.show-bar) .modal { max-height: calc(100vh - 126px); }
 body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the bar, so Advance and the last rows can be reached */
 
 </style>
@@ -6100,7 +6109,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       `</defs>` +
       `<rect width="1600" height="700" fill="url(#skyg)"/>${stars}` +
       `<rect width="1600" height="700" fill="url(#sung)"/><circle cx="1170" cy="560" r="9" fill="#fbfdff"/>` +
-      `<path d="M318 132c9-6 23-4 28 5s0 19-10 22-26 1-28-9 1-13 10-18z" fill="#8c7d74"/><circle cx="330" cy="143" r="2.4" fill="#6e6159"/>` +
+      // Phobos, in the clear sky on the right: over the wordmark, under the left fade, it read as a smudge
+      `<g transform="translate(1068 92)"><path d="M318 132c9-6 23-4 28 5s0 19-10 22-26 1-28-9 1-13 10-18z" fill="#a8998e"/><circle cx="330" cy="143" r="2.4" fill="#7d6f66"/><circle cx="338" cy="151" r="1.5" fill="#7d6f66"/></g>` +
       `<path d="M0 560 60 548 110 552 170 530 260 528 300 540 420 536 470 518 560 516 600 530 760 534 820 522 900 524 960 540 1100 546 1180 562 1260 552 1340 530 1420 526 1480 540 1600 536V700H0z" fill="#3a2322"/>` +
       `<path d="M0 600c140-30 260-24 400-8s260 18 400-6 300-40 420-20 260 34 380 20V700H0z" fill="#5b2d21"/>` +
       `<path d="M0 640c180-26 380-34 560-18 150 13 260 4 380-10 170-20 360-20 520 6 60 10 100 12 140 8V700H0z" fill="#7a3623"/>` +
@@ -9348,6 +9358,37 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     }
     return best < 0 ? UNDER_BOULDER[reg] : best;
   }
+  // 3.8.5: ice and a delta's beds end in round corners, so they lie on the land as patches and not as squares. A corner
+  // (NW NE SE SW) is round when the two sides that meet there (SIDES: N E S W) both end the patch; the ground beside it
+  // (its region's usual one next to a wall or a boulder) is painted into the corner, photo and all.
+  const SOFT = new Uint8Array(32), SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  SOFT[TL.ICE] = SOFT[TL.SEDIMENT] = 18; // the corner's radius, px
+  SOFT[TL.SKYLIGHT] = 30; // a pool of daylight on a lava tube's floor, nearly round
+  // The same for one open ground meeting another (two regions' regolith, sand on lava…): each rounds off into the other,
+  // so the border between two NASA photos is a wavy line, not a staircase. `side`: what lies past each side, as
+  // [tile, region], or null when this tile does not end there.
+  function softCorners(g, world, tx, ty, code, reg, X, Y) {
+    const patch = SOFT[code], r = patch || 24;
+    const side = SIDES.map(([dx, dy]) => {
+      const c = world.tile(tx + dx, ty + dy);
+      if (patch) return c === code ? null : [RAISED[c] || (NOT_AROUND[c] && c !== TL.BASE) ? UNDER_BOULDER[reg] : c, reg];
+      if (!GROUND[c] || SOFT[c]) return null; // a wall, a boulder, the base: no corner; a patch rounds off its own
+      if (c !== code) return [c, reg];
+      const nr = c === TL.REGOLITH ? world.region(tx + dx, ty + dy) : reg; // only regolith looks different from region to region
+      return nr === reg ? null : [c, nr];
+    });
+    for (let i = 0; i < 4; i++) {
+      if (!side[i] || !side[(i + 3) % 4]) continue;
+      const [under, ureg] = side[i];
+      const cx = X + (i === 1 || i === 2 ? T : 0), cy = Y + (i >= 2 ? T : 0), sx = cx === X ? 1 : -1, sy = cy === Y ? 1 : -1;
+      g.save();
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + sx * r, cy); g.arcTo(cx, cy, cx, cy + sy * r, r); g.closePath(); g.clip();
+      g.fillStyle = css(tileRGB(under, ureg), shade(world, tx, ty));
+      g.fillRect(X, Y, T, T);
+      photoOver(g, photoOf(under, ureg), X, Y, T, T);
+      g.restore();
+    }
+  }
   function paintTile(g, world, tx, ty) {
     const code = world.tile(tx, ty);
     if (RAISED[code]) return; // painted after the decor, in paintRaised
@@ -9370,6 +9411,18 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       const a = 12 + ((h >>> 4) % 40), b = 12 + ((h >>> 10) % 40);
       g.beginPath(); g.moveTo(X + a, Y); g.lineTo(X + b, Y + T); g.moveTo(X, Y + b); g.lineTo(X + T, Y + a); g.stroke();
     } else if (look === TL.ICE) {
+      // 3.8.5: a sheet's edges where the ice ends, lit from the upper left and in shade on the lower right
+      g.lineWidth = 3;
+      g.strokeStyle = 'rgba(255,255,255,0.55)';
+      g.beginPath();
+      if (world.tile(tx, ty - 1) !== TL.ICE) { g.moveTo(X, Y + 1.5); g.lineTo(X + T, Y + 1.5); }
+      if (world.tile(tx - 1, ty) !== TL.ICE) { g.moveTo(X + 1.5, Y); g.lineTo(X + 1.5, Y + T); }
+      g.stroke();
+      g.strokeStyle = 'rgba(40,70,92,0.4)';
+      g.beginPath();
+      if (world.tile(tx, ty + 1) !== TL.ICE) { g.moveTo(X, Y + T - 1.5); g.lineTo(X + T, Y + T - 1.5); }
+      if (world.tile(tx + 1, ty) !== TL.ICE) { g.moveTo(X + T - 1.5, Y); g.lineTo(X + T - 1.5, Y + T); }
+      g.stroke();
       g.strokeStyle = 'rgba(255,255,255,0.8)';
       g.lineWidth = 1.5;
       drawIceCracks(g, X, Y);
@@ -9414,6 +9467,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T - 1); g.lineTo(X + T, Y + T - 1); }
       g.stroke();
     }
+    if (SOFT[look] || GROUND[look]) softCorners(g, world, tx, ty, look, reg, X, Y);
     if (world.caveAt && world.caveAt(tx, ty)) { // the shade a cave throws out of its mouth (the arch is on the wall above)
       g.fillStyle = 'rgba(12,5,4,0.4)';
       g.beginPath(); g.ellipse(X + T / 2, Y + 3, 23, 10, 0, 0, Math.PI * 2); g.fill();
@@ -9759,25 +9813,56 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
   // Unseen tiles are covered; seen tiles outside your view radius are dimmed; tiles in view are clear.
   const FOG = '#120a0c';
   function drawFog(ctx, world, x0, y0, x1, y1, px, py, rad) {
-    const tx0 = Math.floor(x0 / T), ty0 = Math.floor(y0 / T), tx1 = Math.floor(x1 / T), ty1 = Math.floor(y1 / T);
-    ctx.fillStyle = FOG;
+    // 3.8.5: the fog has a round, soft outline. As squares, the steps of its edge read as missing pieces of the picture: now a
+    // fogged tile is round where it sticks out into seen ground, and fog fills the corner that two fogged sides make.
+    // hid: what is hidden, a tile wider than the view all round, so every tile in view knows its neighbours.
+    const tx0 = Math.floor(x0 / T) - 1, ty0 = Math.floor(y0 / T) - 1, tx1 = Math.floor(x1 / T) + 1, ty1 = Math.floor(y1 / T) + 1, w = tx1 - tx0 + 1;
+    const hid = new Uint8Array(w * (ty1 - ty0 + 1));
     for (let ty = ty0; ty <= ty1; ty++) {
       const ky = Math.floor(ty / CH), ly = ty - ky * CH;
-      let run = null, kx = null, fogBits = null;
-      for (let tx = tx0; tx <= tx1 + 1; tx++) {
-        let hidden = false;
-        if (tx <= tx1) {
-          const cx = Math.floor(tx / CH);
-          if (cx !== kx) { kx = cx; fogBits = world.fogBits(cx, ky); }
-          hidden = !fogBits || !F.has(fogBits, tx - cx * CH, ly);
-        }
-        if (hidden && run === null) run = tx;
-        else if (!hidden && run !== null) { ctx.fillRect(run * T, ty * T, (tx - run) * T, T + 0.5); run = null; }
+      let kx = null, fogBits = null;
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const cx = Math.floor(tx / CH);
+        if (cx !== kx) { kx = cx; fogBits = world.fogBits(cx, ky); }
+        if (!fogBits || !F.has(fogBits, tx - cx * CH, ly)) hid[(ty - ty0) * w + tx - tx0] = 1;
       }
     }
-    const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad);
+    const R = 28, S = T + 0.5; // the half pixel laps over the next tile, so no seam shows between them
+    // A corner of fog on seen ground, always drawn clockwise as the tiles are: laps of opposite winding would leave a gap.
+    const corner = (cx, cy, sx, sy) => {
+      ctx.moveTo(cx, cy);
+      if (sx * sy > 0) { ctx.lineTo(cx + sx * R, cy); ctx.arcTo(cx, cy, cx, cy + sy * R, R); } else { ctx.lineTo(cx, cy + sy * R); ctx.arcTo(cx, cy, cx + sx * R, cy, R); }
+      ctx.closePath();
+    };
+    ctx.fillStyle = ctx.strokeStyle = FOG;
+    ctx.beginPath(); // the fog's edge: the tiles on it and the corners; the tiles deep inside it are plain squares
+    for (let ty = ty0 + 1; ty < ty1; ty++) {
+      for (let tx = tx0 + 1, i = (ty - ty0) * w + 1; tx < tx1; tx++, i++) {
+        const X = tx * T, Y = ty * T, me = hid[i], n = hid[i - w] !== me, e = hid[i + 1] !== me, s = hid[i + w] !== me, v = hid[i - 1] !== me;
+        if (!me) {
+          if (n && v) corner(X, Y, 1, 1);
+          if (n && e) corner(X + T, Y, -1, 1);
+          if (s && e) corner(X + T, Y + T, -1, -1);
+          if (s && v) corner(X, Y + T, 1, -1);
+        } else if (!(n || e || s || v)) ctx.fillRect(X, Y, S, S);
+        else {
+          const nw = n && v ? R : 0, ne = n && e ? R : 0, se = s && e ? R : 0, sw = s && v ? R : 0;
+          ctx.moveTo(X + nw, Y); ctx.arcTo(X + S, Y, X + S, Y + S, ne); ctx.arcTo(X + S, Y + S, X, Y + S, se); ctx.arcTo(X, Y + S, X, Y, sw); ctx.arcTo(X, Y, X + S, Y, nw);
+          ctx.closePath();
+        }
+      }
+    }
+    // Soft, from two wider, fainter outlines under the solid fog (a blur filter costs a layer a frame).
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.3; ctx.lineWidth = 32; ctx.stroke();
+    ctx.globalAlpha = 0.45; ctx.lineWidth = 16; ctx.stroke();
+    ctx.globalAlpha = 1; ctx.fill();
+    // 3.8.5: the dimming goes on past your sight to 0.75, so the round edge of what you see now is the edge you notice,
+    // not the tile steps of what you saw before (in a dust storm's 5 tiles those drew a blocky cross).
+    const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad + T * 1.5);
     g.addColorStop(0, 'rgba(10,6,8,0)');
-    g.addColorStop(1, 'rgba(10,6,8,0.5)');
+    g.addColorStop(0.5, 'rgba(10,6,8,0.5)');
+    g.addColorStop(1, 'rgba(10,6,8,0.75)');
     ctx.fillStyle = g;
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
@@ -12953,14 +13038,22 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     drawStops(ctx);
 
     // buried ice at the base: the only cue for where the ice drill can go
+    // 3.8.5: a frosted patch the ground shows through, with a pale rim, not a flat blue square
     ctx.save();
-    ctx.fillStyle = '#8fb6c7';
-    ctx.strokeStyle = '#e1f3fa';
-    ctx.lineWidth = 1.5;
     for (const [gx, gy] of m.terrain.ice) {
       const [wx, wy] = gridToWorld(gx, gy);
       const X = wx * T, Y = wy * T;
-      ctx.fillRect(X + 2, Y + 2, T - 4, T - 4);
+      roundRect(ctx, X + 3, Y + 3, T - 6, T - 6, 17);
+      ctx.fillStyle = 'rgba(150,196,214,0.8)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(225,243,250,0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      roundRect(ctx, X + 9, Y + 9, T - 18, T - 18, 12); // a lighter heart, so it reads as ice and not as paint
+      ctx.fillStyle = 'rgba(225,243,250,0.16)';
+      ctx.fill();
+      ctx.strokeStyle = '#e1f3fa';
+      ctx.lineWidth = 1.5;
       drawIceCracks(ctx, X, Y);
     }
     ctx.restore();
@@ -13616,7 +13709,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
             h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'train', onclick: () => startManifest(true), title: t('title.trainingHint'), disabled: st.length === 'quick' }, t('title.training')),
             resume,
             installButton()),
-          h('p', { class: 'hint' }, t('title.trainingHint')),
+          h('p', { class: 'hint' }, h('b', null, t('title.training') + ': '), t('title.trainingHint')), // names its button: the row holds up to four
           h('div', { class: 'divider' }),
           store.lanInfo
             ? h('div', { class: 'setup-row' },
@@ -14846,7 +14939,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
             h('button', { type: 'button', 'data-k': 'drain-', disabled: drain <= 0, onclick: () => patchPlan({ drainWall: Math.max(0, drain - 500) }), 'aria-label': '−500 kg' }, '−'),
             h('output', null, nf(drain / 1000, 1)),
             h('button', { type: 'button', 'data-k': 'drain+', disabled: drain + 500 > maxDrain, onclick: () => patchPlan({ drainWall: Math.min(maxDrain, drain + 500) }), 'aria-label': '+500 kg' }, '+')),
-          h('span', { class: 'hint' }, 't · ', t('ord.drainHint', { kg: nf(drain), p: nf(shieldLoss, 1) })))
+          h('span', { class: 'hint' }, 't'), // the unit stays beside the number; the sentence wraps as a whole
+          h('span', { class: 'hint' }, t('ord.drainHint', { kg: nf(drain), p: nf(shieldLoss, 1) })))
           : h('p', { class: 'hint' }, t('ord.drainNone'))) : null));
   }
 
@@ -15338,7 +15432,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     // it is based on is a Moon rover; the suit tanks' says MOXIE made oxygen, not that suits used it.
     garage: 'm6Pressurized', fabricator: 'm6Printing', launchpad: 'm6Samples', cabin: 'dra5', drone: 'm6Ingenuity', tanks: 'm6Moxie',
   };
-  const GUIDE_ICON = { waterwall: 'water', spares: 'spares', materials: 'materials', food: 'food', o2: 'o2', water: 'water', suit: 'o2', canister: 'o2', pack: 'materials', kit: 'kit' };
+  // Cargo is drawn as the payload screen draws it (A.itemArt); only the gear with no drawing of its own keeps a line icon.
+  const GUIDE_ICON = { suit: 'o2', canister: 'o2', pack: 'materials' };
+  const GUIDE_CRATE = { waterwall: 1, spares: 1, materials: 1, food: 1, o2: 1, water: 1 };
   function guideEntry(id) {
     // The guide's own words (guide.<id>.*) win: a borrowed string is called here without its params (bld.kit's {base}…).
     const k = key => (I.STR.en[key] ? t(key) : null), own = part => k('guide.' + id + '.' + part), src = GUIDE_SOURCES[id] || null;
@@ -15347,7 +15443,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       desc: own('desc') || k('item.' + id + '.desc') || k('bld.' + id),
       fact: src && (own('fact') || k('item.' + id + '.fact') || k('gear.' + id + '.fact') || (id === 'kit' ? t('bld.kitReal') : null)),
       src,
-      art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : A.module(id === 'shield' ? 'shelter' : id, 40),
+      art: GUIDE_ICON[id] ? A.icon(GUIDE_ICON[id], 28) : GUIDE_CRATE[id] ? A.itemArt(id, 40) : A.module(id === 'shield' ? 'shelter' : id, 40),
     };
   }
 
@@ -15551,6 +15647,14 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
   // it is set nothing is saved, recorded or remembered (see LS, saveSolo, checkBadges, firstTime). Leaving puts the presenter's
   // mission, plan and tab back as they were.
   let demoKeep = null, demoSeen = null, demoStep = 0;
+  // A card's picture: the game's own drawing of what its Show me opens, so the gallery reads at a glance.
+  const SHOW_ART = {
+    rover: () => A.module('rover', 44), story: () => A.icon('rocket', 28), flare: () => A.module('shelter', 44), oxygen: () => A.module('oxygen', 44),
+    beacons: () => A.module('kit', 44), ground: () => A.formation('layered', 44), landmark: () => A.formation('arch', 44), tube: () => A.prop('skylight', 44),
+    devils: () => A.formation('hoodoo', 44), isru: () => A.module('greenhouse', 44), crew: () => A.portrait('commander', 44), guide: () => A.icon('book', 28),
+    ranks: () => A.module('rankup', 44), fabricator: () => A.module('fabricator', 44), launch: () => A.module('launchpad', 44), cabin: () => A.module('cabin', 44),
+    drone: () => A.module('drone', 44),
+  };
   function viewShowcase() {
     return [
       h('header', { class: 'topbar' },
@@ -15559,8 +15663,10 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       h('section', { class: 'show' },
         h('h1', null, t('show.title')),
         h('p', { class: 'show-lead' }, t('show.lead')), // the game's purpose, before any card
-        h('div', { class: 'show-grid' }, SH.gallery().map(c => h('article', { class: 'panel show-card' },
-          h('h2', null, t('show.card.' + c.id + '.name')),
+        h('div', { class: 'show-grid' }, SH.gallery().map((c, i) => h('article', { class: 'panel show-card' },
+          h('div', { class: 'show-head' },
+            h('span', { class: 'show-art', html: (SHOW_ART[c.id] || SHOW_ART.guide)() }),
+            h('h2', null, h('span', { class: 'show-n' }, String(i + 1).padStart(2, '0')), t('show.card.' + c.id + '.name'))),
           h('p', null, t('show.card.' + c.id + '.why')),
           c.source ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(I.SOURCES[c.source])) : null,
           h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'show:' + c.id, onclick: () => showScene(c.id) }, t('show.me')))))),
