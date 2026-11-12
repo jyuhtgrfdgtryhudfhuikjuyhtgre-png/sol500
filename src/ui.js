@@ -2219,9 +2219,17 @@
           : h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'story-done', onclick: () => { store.modal = null; render(); } }, t('story.done')),
       ], true);
     }
-    if (m === 'help') {
-      return modal(t('help.title'), h('ol', { class: 'replist', style: 'list-style:decimal;padding-left:20px' },
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'win'].map(i => h('li', { style: 'display:list-item' }, t('help.' + i, { c: D.DANGERS.flare.countdown, d: D.DANGERS.flare.dose, s: D.DANGERS.devils.suit })))));
+    if (m === 'help') { // a card a step: its picture in the game's art, its first sentence as its title, the real screen for four
+      const HS = window.SolHelpShots, shots = HS && (HS[store.lang] || HS.en);
+      return modal(t('help.title'), h('ol', { class: 'help-list' },
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'win'].map((i, n) => {
+          const text = t('help.' + i, { c: D.DANGERS.flare.countdown, d: D.DANGERS.flare.dose, s: D.DANGERS.devils.suit });
+          const cut = text.indexOf('. '), lead = cut > 0 ? text.slice(0, cut + 1) : text, shot = shots && shots[HELP_SHOT[i]];
+          return h('li', { class: 'help-item' + (shot ? ' has-shot' : ''), 'data-k': 'help:' + i },
+            h('span', { class: 'show-art', html: HELP_ART[i]() }), // the Showcase's tile
+            h('div', null, h('b', null, (n + 1) + '. ' + lead), cut > 0 ? h('p', null, text.slice(cut + 2)) : null),
+            shot ? h('img', { class: 'help-shot', src: shot, alt: lead }) : null);
+        })), null, true);
     }
     if (m === 'notes') {
       const s = mission(), isru = { title: t('lesson.isruMars.title'), body: t('lesson.isruMars.body'), src: ISRU_SOURCES }; // the debrief's lesson, with its sources
@@ -2393,6 +2401,14 @@
   // mission, plan and tab back as they were.
   let demoKeep = null, demoSeen = null, demoStep = 0;
   // A card's picture: the game's own drawing of what its Show me opens, so the gallery reads at a glance.
+  // How to play's pictures (judge pass 3.8.7): the game's own art for every step, and the real screen (src/help-shots.js,
+  // captured in both languages) for the four a new player must find: the payload, a crew card, the forecast, the surface.
+  const HELP_ART = {
+    1: () => A.icon('rocket', 28), 2: () => A.portrait('engineer', 44), 3: () => A.module('workshop', 44), 4: () => A.module('solar', 44),
+    5: () => A.module('comms', 44), 6: () => A.module('medbay', 44), 7: () => A.icon('shield', 28), 8: () => A.icon('earth', 28),
+    9: () => A.module('rover', 44), 10: () => A.module('backpack', 44), 11: () => A.module('shelter', 44), win: () => A.icon('warn', 28),
+  };
+  const HELP_SHOT = { 1: 'payload', 2: 'crew', 5: 'forecast', 9: 'surface' };
   const SHOW_ART = {
     rover: () => A.module('rover', 44), story: () => A.icon('rocket', 28), flare: () => A.module('shelter', 44), oxygen: () => A.module('oxygen', 44),
     beacons: () => A.module('kit', 44), ground: () => A.formation('layered', 44), landmark: () => A.formation('arch', 44), tube: () => A.prop('skylight', 44),

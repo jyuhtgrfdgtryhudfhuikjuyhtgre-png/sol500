@@ -2085,3 +2085,28 @@ test("co-op: a crewmate's first drone flight opens Ingenuity's card on this tab 
   assert.ok(card, 'the card is up');
   assert.equal(card.children[1].textContent, en('card.drone.title'));
 });
+
+// ---------- How to play's pictures (judge pass 3.8.7) ----------
+test('How to play is a card a step, each with a picture, and the real screen in the reader\'s language for four of them', () => {
+  const SHOTS = require('../src/help-shots.js');
+  for (const lang of ['en', 'vi']) for (const k of ['payload', 'crew', 'forecast', 'surface']) assert.match(SHOTS[lang][k], /^data:image\/webp;base64,.{4000,}/, lang + ' ' + k);
+  const pg = page();
+  pg.win.SolHelpShots = SHOTS;
+  for (const lang of ['en', 'vi']) {
+    Object.assign(pg.UI.store, { modal: 'help', lang });
+    pg.UI.render();
+    const items = pg.all().filter(n => n.listeners && String(n.attrs['data-k'] || '').startsWith('help:'));
+    assert.equal(items.length, 12, lang + ': every step');
+    for (const it of items) {
+      const i = it.attrs['data-k'].slice(5), full = pg.I.t(lang, 'help.' + i, { c: pg.win.SolData.DANGERS.flare.countdown, d: pg.win.SolData.DANGERS.flare.dose, s: pg.win.SolData.DANGERS.devils.suit });
+      assert.ok(/<svg/.test(it.children[0].innerHTML) && it.children[0].className === 'show-art', lang + ' ' + i + ': a picture');
+      const words = it.children[1].textContent.replace(/^\d+\. /, '');
+      assert.equal(words.replace(/\s+/g, ''), full.replace(/\s+/g, ''), lang + ' ' + i + ': the whole step, its first sentence as the title');
+    }
+    const imgs = items.filter(it => it.children[2]).map(it => [it.attrs['data-k'], it.children[2].attrs.src]);
+    assert.deepEqual(imgs, [['help:1', SHOTS[lang].payload], ['help:2', SHOTS[lang].crew], ['help:5', SHOTS[lang].forecast], ['help:9', SHOTS[lang].surface]], lang + ': the screens, in this language');
+  }
+  pg.win.SolHelpShots = undefined;
+  pg.UI.render();
+  assert.equal(pg.all().filter(n => n.className === 'help-shot').length, 0, 'without the screens file the cards still show');
+});

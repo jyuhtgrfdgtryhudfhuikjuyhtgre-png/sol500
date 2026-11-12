@@ -7,7 +7,7 @@ const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'src/style.css', 'src/data.js', 'src/engine.js', 'src/i18n.js', 'src/art.js', 'src/charts.js',
   'src/net.js', 'src/worldgen.js', 'src/fog.js', 'src/expedition.js', 'src/goals.js', 'src/dangers.js', 'src/saves.js', 'src/showcase.js', 'src/surface-world.js',
-  'src/physics.js', 'src/ground-photos.js', 'src/surface-paint.js', 'src/surface-map.js', 'src/surface-eva.js', 'src/surface.js', 'src/ui.js',
+  'src/physics.js', 'src/ground-photos.js', 'src/surface-paint.js', 'src/surface-map.js', 'src/surface-eva.js', 'src/surface.js', 'src/help-shots.js', 'src/ui.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
 ];
 
