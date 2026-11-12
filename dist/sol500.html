@@ -509,6 +509,9 @@ p { margin: 0; }
 .ops-tabs button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding-inline: 16px; }
 .sf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px; margin-top: 12px; align-items: start; }
 .sf-stage { min-width: 0; position: relative; }
+/* A Showcase scene is watched, not managed: the surface takes the whole width and the crew panel steps out. */
+.sf-layout.sf-demo { grid-template-columns: minmax(0, 1fr); }
+.sf-layout.sf-demo .sf-side { display: none; }
 .region-card { position: absolute; left: 12px; top: 150px; z-index: 2; width: min(380px, calc(100% - 24px)); background: rgba(28, 20, 23, 0.96); border: 1px solid var(--line-2); border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); display: grid; gap: 6px; }
 .region-card-h { display: flex; justify-content: space-between; align-items: center; }
 .region-card h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); }
@@ -577,7 +580,8 @@ p { margin: 0; }
 .sf-suit.batt .bar i { background: var(--accent); }
 .sf-suit b { font-variant-numeric: tabular-nums; }
 /* while driving: the speed and the stopping distance on Mars and on Earth, under the battery (src/physics.js) */
-.sf-suit .phys { grid-column: 1 / -1; color: var(--fg-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.sf-suit .phys { grid-column: 1 / -1; order: 2; color: var(--fg); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sf-suit .physk { grid-column: 1 / -1; order: 1; color: var(--accent); font-size: 11px; font-weight: 600; } /* the physics engine names itself above its readout */
 .sf-suit .phys:empty { display: none; }
 .sf-pack { display: flex; gap: 4px; flex-wrap: wrap; }
 .sf-pack .slot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: 1px dashed var(--line-2); background: rgba(20, 14, 16, 0.6); color: var(--fg); }
@@ -689,6 +693,8 @@ p { margin: 0; }
 
 /* the Showcase: the gallery, and the bar over the demo game's stage */
 .show { display: grid; gap: 16px; padding-block: 16px; }
+.show h1 { margin-bottom: 0; }
+.show-lead { margin: 0; max-width: 78ch; font-size: var(--fs-lg, 1.15rem); line-height: 1.5; }
 .show-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .show-card { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .show-card > .btn { margin-top: auto; } /* every Show me on the card's bottom edge, with or without a Source line */
@@ -2908,6 +2914,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'nav.achievements': 'Achievements',
     'nav.display': 'Display',
     'show.title': 'What SOL 500 can do',
+    'show.lead': 'SOL 500 asks one question: can your crew stay alive on Mars for 500 sols? It is built on real NASA data, so playing it shows what a Mars mission needs: air, water, food, power, shelter from radiation, and a crew that works together. Each card below shows one part of the game and why it is there.',
     'show.open': 'Showcase',
     'show.me': 'Show me', 'show.next': 'Next',
     'show.back': '‹ Showcase',
@@ -2917,8 +2924,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'show.exit': 'Exit to Admin',
     'show.card.flare.name': 'Solar flare',
     'show.card.flare.why': 'NASA lists space radiation as one of the five hazards of human spaceflight. In the game a flare gives a short warning, and your dose depends on whether you reach cover in time.',
-    'show.card.rover.name': 'Physics rover',
-    'show.card.rover.why': 'Mars has weaker gravity than Earth, so the wheels grip less and the rover needs more room to stop. The readout shows both distances: brake early.',
+    'show.card.rover.name': 'Physics engine: driving on Mars',
+    'show.card.rover.why': 'The game\'s physics engine applies Newton\'s laws with Mars\'s gravity, 3.73 m/s² (38 % of Earth\'s): the wheels grip less, so the rover speeds up, turns and brakes more gently and needs about 2.6 times as far to stop. Drive it and watch the readout compare Mars with Earth.',
     'show.card.oxygen.name': 'Oxygen cut',
     'show.card.oxygen.why': 'A rupture in the oxygen line leaves two choices: seal off and hide, or send a team out for the lander\'s tanks. Each has a real cost, and the rules show it.',
     'show.card.beacons.name': 'Relay beacons',
@@ -3614,6 +3621,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'eva.paused': '{v} · paused',
     'eva.battery': 'Rover battery',
     'eva.drive': '{kmh} km/h · stops in {m} m (on Earth: {e} m)',
+    'eva.physics': 'Physics engine · Mars gravity {g} m/s², {pct} % of Earth\'s',
     'eva.tiles': 'tiles',
     'eva.tiles1': 'tile',
     'eva.pack': 'Backpack: {n} of {m} loads',
@@ -4215,21 +4223,22 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'nav.achievements': 'Thành tích',
     'nav.display': 'Hiển thị',
     'show.title': 'SOL 500 làm được gì',
+    'show.lead': 'SOL 500 đặt ra một câu hỏi: phi hành đoàn của bạn có sống sót được 500 sol trên sao Hỏa không? Game dựa trên dữ liệu thật của NASA, nên khi chơi bạn sẽ thấy một chuyến đi tới sao Hỏa cần những gì: không khí, nước, thức ăn, điện, chỗ trú bức xạ và một phi hành đoàn biết phối hợp. Mỗi thẻ dưới đây giới thiệu một phần của game và lý do nó có mặt.',
     'show.open': 'Trình diễn',
     'show.me': 'Cho tôi xem', 'show.next': 'Tiếp',
     'show.back': '‹ Trình diễn',
     'show.why': 'Vì sao có tính năng này',
     'show.crew.holds': 'Cùng một lần giữ phím ở trạm khí tượng: chỉ huy trưởng {a} giây, kỹ sư {b} giây.',
-    'show.failed': 'Không dựng được cảnh đó. Bạn đã quay lại thư viện.',
+    'show.failed': 'Không dựng được cảnh đó. Bạn đã quay lại trang Trình diễn.',
     'show.exit': 'Thoát về trang Quản trị',
     'show.card.flare.name': 'Bão mặt trời',
-    'show.card.flare.why': 'NASA xếp bức xạ vũ trụ là một trong năm mối nguy của chuyến bay vũ trụ có người. Trong game, bão mặt trời cho một lời cảnh báo ngắn, và liều bức xạ của bạn tùy việc bạn có kịp vào chỗ trú hay không.',
-    'show.card.rover.name': 'Xe thám hiểm theo vật lý',
-    'show.card.rover.why': 'Sao Hỏa có trọng lực yếu hơn Trái Đất, nên bánh xe bám đường kém hơn và xe thám hiểm cần nhiều chỗ để dừng hơn. Bảng đọc cho thấy cả hai quãng đường: hãy phanh sớm.',
+    'show.card.flare.why': 'NASA xếp bức xạ vũ trụ là một trong năm mối nguy của chuyến bay vũ trụ có người. Trong game, trước khi bão mặt trời ập tới bạn chỉ có một lời cảnh báo ngắn, và liều bức xạ bạn nhận tùy vào việc bạn có kịp vào chỗ trú hay không.',
+    'show.card.rover.name': 'Bộ máy vật lý: lái xe trên sao Hỏa',
+    'show.card.rover.why': 'Bộ máy vật lý của game áp dụng các định luật Newton với trọng lực sao Hỏa, 3,73 m/s² (bằng 38 % của Trái Đất): bánh xe bám đường kém hơn, nên xe thám hiểm tăng tốc, rẽ và phanh nhẹ hơn, và cần quãng đường dài gấp khoảng 2,6 lần để dừng. Hãy lái thử và xem bảng số so sánh sao Hỏa với Trái Đất.',
     'show.card.oxygen.name': 'Đứt đường oxy',
-    'show.card.oxygen.why': 'Đường oxy bị vỡ để lại hai lựa chọn: đóng kín rồi trú ẩn, hay cử người ra lấy bình dự trữ của tàu đổ bộ. Mỗi lựa chọn có một cái giá thật, và luật chơi cho bạn thấy.',
+    'show.card.oxygen.why': 'Đường oxy bị vỡ để lại hai lựa chọn: đóng kín rồi trú ẩn, hay cử người ra lấy bình dự trữ của tàu đổ bộ. Mỗi lựa chọn đều có cái giá thật, và luật chơi cho bạn thấy rõ điều đó.',
     'show.card.beacons.name': 'Trạm chuyển tiếp',
-    'show.card.beacons.why': 'Phần lớn dữ liệu từ các xe thám hiểm sao Hỏa được gửi trước tiên lên các tàu quỹ đạo phía trên, rồi chúng chuyển về Trái Đất. Trong game, các trạm chuyển tiếp đặt xa căn cứ đánh dấu đường về và nạp lại bộ đồ của bạn.',
+    'show.card.beacons.why': 'Phần lớn dữ liệu từ các xe thám hiểm sao Hỏa được gửi trước tiên lên các tàu quỹ đạo phía trên, rồi chúng chuyển về Trái Đất. Trong game, các trạm chuyển tiếp đặt xa căn cứ đánh dấu đường về và nạp lại oxy cho bộ đồ của bạn.',
     'show.card.ground.name': 'Mặt đất từ ảnh NASA',
     'show.card.ground.why': 'Trực thăng Ingenuity của NASA đã chụp bức ảnh màu đầu tiên về sao Hỏa từ trên không. Mặt đất trong game được vẽ từ những ảnh NASA như vậy, mỗi vùng trong sáu vùng một vẻ.',
     'show.card.landmark.name': 'Địa danh',
@@ -4237,11 +4246,11 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'show.card.tube.name': 'Ống dung nham và hang động',
     'show.card.tube.why': 'Ảnh NASA cho thấy những hố sụt nơi mái của một ống dung nham đã sập, và các ống rỗng có thể chạy ngang dọc dưới những ngọn núi lửa khổng lồ của sao Hỏa. Trong game, hãy đi tới miệng một ống và bước vào bóng tối.',
     'show.card.devils.name': 'Lốc bụi và bão bụi',
-    'show.card.devils.why': 'NASA chụp được những vệt tối mà lốc bụi cày lên bề mặt sao Hỏa. Trong game, một vòng có lốc bụi làm hao bộ đồ nếu bạn bị bắt gặp ngoài trời, và bão bụi làm tầm nhìn hẹp lại.',
+    'show.card.devils.why': 'NASA chụp được những vệt tối mà lốc bụi cày lên bề mặt sao Hỏa. Trong game, ở vòng có lốc bụi, bộ đồ của bạn sẽ hao oxy nếu bạn bị lốc quét trúng ngoài trời, và bão bụi làm tầm nhìn hẹp lại.',
     'show.card.isru.name': 'Trồng thực phẩm và tạo oxy',
-    'show.card.isru.why': 'Vườn Veggie của NASA trên trạm vũ trụ bổ sung thực phẩm tươi cho bữa ăn của phi hành gia. Bảng điều khiển cho thấy nhà kính và các hệ thống oxy trong game giúp phi hành đoàn có ăn và có thở.',
+    'show.card.isru.why': 'Vườn Veggie của NASA trên trạm vũ trụ bổ sung thực phẩm tươi cho bữa ăn của phi hành gia. Bảng điều khiển cho thấy nhà kính và các hệ thống oxy trong game giúp phi hành đoàn có cái ăn và không khí để thở.',
     'show.card.crew.name': 'Vai trò và kỹ năng của phi hành đoàn',
-    'show.card.crew.why': 'Mỗi thành viên có một vai trò với kỹ năng riêng, nên một việc có thể mất thời gian khác nhau với từng người: kỹ sư sửa trạm khí tượng trong nửa thời gian. Hào quang của chỉ huy giúp cả đội gần anh ấy đi nhanh hơn.',
+    'show.card.crew.why': 'Mỗi thành viên có một vai trò với kỹ năng riêng, nên một việc có thể mất thời gian khác nhau với từng người: kỹ sư sửa trạm khí tượng chỉ mất một nửa thời gian. Hào quang của chỉ huy giúp cả đội gần anh ấy đi nhanh hơn.',
     'show.card.story.name': 'Vì sao là sao Hỏa?',
     'show.card.story.why': 'Tháng 7 năm 1969, Apollo 11 đưa hai người đầu tiên lên Mặt Trăng. Câu chuyện đi tiếp con đường đó về phía sao Hỏa.',
     'show.card.guide.name': 'Sổ tay thực địa',
@@ -4332,14 +4341,14 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'title.join': 'Vào phòng chơi',
     'title.loop': 'Một nhiệm vụ, ba giai đoạn',
     'title.pack': 'Đóng gói',
-    'title.pack.body': 'Xếp khu ở, nguồn điện, hệ thống sự sống và hàng tiếp tế vào một tàu đổ bộ.',
+    'title.pack.body': 'Xếp khu ở, nguồn điện, hệ thống hỗ trợ sự sống và hàng tiếp tế vào một tàu đổ bộ.',
     'title.operate': 'Vận hành',
     'title.operate.body': 'Mỗi vòng 25 sol: phân công, xây dựng, xử lý sự cố.',
     'title.debrief': 'Tổng kết',
     'title.debrief.body': 'Xem vì sao thành công hay thất bại, và các sứ mệnh thật đã học được gì.',
     'title.fact1': 'bức xạ mỗi sol trên bề mặt, do Curiosity đo được',
     'title.fact2': 'oxy mỗi người thở trong một sol',
-    'title.fact3': 'ánh sáng Mặt Trời so với Trái Đất chiếu tới sao Hỏa',
+    'title.fact3': 'lượng ánh sáng Mặt Trời tới sao Hỏa so với Trái Đất',
     'title.crewLine': 'Gặp gỡ phi hành đoàn',
     'title.credit': 'Số liệu lấy từ NASA và các công bố khoa học. Xem Ghi chú khoa học.',
 
@@ -4919,6 +4928,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'eva.paused': '{v} · tạm dừng',
     'eva.battery': 'Pin xe thám hiểm',
     'eva.drive': '{kmh} km/h · dừng sau {m} m (trên Trái Đất: {e} m)',
+    'eva.physics': 'Bộ máy vật lý · trọng lực sao Hỏa {g} m/s², bằng {pct} % của Trái Đất',
     'eva.tiles': 'ô',
     'eva.tiles1': 'ô',
     'eva.pack': 'Ba lô: {n} trên {m} phần',
@@ -5488,7 +5498,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'eva.err.fogFull': 'Bản đồ không nhận thêm vùng mới từ bạn trong nhiệm vụ này.',
     // M6 T9
     'show.card.ranks.name': 'Các cấp căn cứ',
-    'show.card.ranks.why': 'Trong cuộc thi Nơi ở in 3D của NASA, các đội in nơi ở từ vật liệu có thể tìm thấy trên Mặt Trăng và sao Hỏa, bằng cách xây dựng bằng robot với rất ít sự can thiệp của con người. Trong game, cấp càng cao thì căn cứ của bạn càng có nhiều đất và chỗ cho thêm công trình.',
+    'show.card.ranks.why': 'Trong cuộc thi Nơi ở in 3D của NASA, các đội in nơi ở từ vật liệu có thể tìm thấy trên Mặt Trăng và sao Hỏa, nhờ robot xây dựng, gần như không cần con người can thiệp. Trong game, cấp càng cao thì căn cứ của bạn càng có nhiều đất và chỗ cho thêm công trình.',
     'show.ranks.line': 'Căn cứ cấp {rank}. Đã mở khóa: {list}.',
     'show.card.fabricator.name': 'Máy chế tạo',
     'show.card.fabricator.why': 'Năm 2014, máy in 3D trên Trạm Vũ trụ Quốc tế đã làm ra vật thể in 3D đầu tiên trong không gian, để cho thấy nó có thể làm ra các bộ phận và dụng cụ ngay tại đó. Trong game, Máy chế tạo làm bình khí bộ đồ lớn hơn, ba lô lớn hơn, giá chở hàng cho xe thám hiểm và dụng cụ nhanh hơn.',
@@ -8760,11 +8770,12 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     ok(R.X.park(s, id, tilePos(CABIN_AT), null, 'cabin'));
   }
   const CARDS = [
+    // First: the physics engine, the brief's one mandatory item. [0, -4] is sand just outside the base pad and within the bay's
+    // reach (boarding asks the rules, which want you within 2 tiles).
+    { id: 'rover', source: 'marsGlance', view: 'surface', at: [0, -4], board: true },
     // prepare starts the flare's warning at once (30 s delay + 60 s countdown ends it at 90 s); the clock at 70 leaves 20 s.
     // [28, 8] is 26 tiles from the base zone: about 11 s on foot.
     { id: 'flare', source: 'hazards', view: 'surface', schedule: { 0: { spe: true } }, at: [28, 8], clock: 70, prepare: (s, R) => { const r = R.Z.flareStart(s, 0); if (r.error) throw new Error(r.error); } },
-    // [0, -4] is sand just outside the base pad and within the bay's reach (boarding asks the rules, which want you within 2 tiles).
-    { id: 'rover', source: null, view: 'surface', at: [0, -4], board: true },
     // The Quick schedule's rupture, moved to the opening round; the Console shows the event with its two choices.
     { id: 'oxygen', source: null, view: 'console', schedule: { 0: { flavor: 'o2_rupture' } } },
     { id: 'beacons', source: 'relayJpl', view: 'surface', at: BEACON_STAND, prepare: placeBeacons },
@@ -10904,6 +10915,8 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     battM.row.classList.add('batt');
     const physEl = node('span', 'phys'); // while driving: the speed, and how far the rover needs to stop on Mars and on Earth
     battM.row.appendChild(physEl);
+    const physK = node('span', 'physk'); // above it (CSS order): whose numbers these are, the physics engine's, and its gravity
+    battM.row.appendChild(physK);
     const packEl = node('div', 'sf-pack');
     const canBtn = node('button', 'sf-can');
     canBtn.type = 'button';
@@ -11057,6 +11070,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
         text(battM.v, 'bv', Math.floor(left) + ' ' + t(Math.floor(left) === 1 ? 'eva.tiles1' : 'eva.tiles'));
         prop('bw', (100 * left / range).toFixed(1) + '%', v => { battM.fill.style.width = v; });
         const v = p.car ? p.car.speed : 0;
+        text(physK, 'bg', t('eva.physics', { g: (Math.round(PH.MARS_G * 100) / 100).toLocaleString(shown.lang === 'vi' ? 'vi-VN' : 'en-US'), pct: Math.round(100 * PH.MARS_G / PH.EARTH_G) }));
         text(physEl, 'bp', t('eva.drive', { kmh: Math.round(v / PH.PX_PER_M * 3.6), m: secs(PH.stopDistance(v, PH.MARS_G, spec)), e: secs(PH.stopDistance(v, PH.EARTH_G, spec)) }));
       }
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);
@@ -13014,6 +13028,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       if (a.you) name = t('sf.you') + ' · ' + name;
       // Your own tag would cover what you stand just below and are about to work on (a find, a dropped load): it steps aside.
       if (a.you && S.focus && S.focus.x != null && Math.abs(S.focus.x - a.x) < 75 && S.focus.y < a.y - 25 && S.focus.y > a.y - 100) name = '';
+      // A crewmate the game plays (not you, not another player) is named only when it matters: the one E would act on, and
+      // anyone down. Their tags used to stand over the HQ all at once.
+      if (!a.you && !a.remote && !a.down && !(S.focus && S.focus.kind === 'crew' && S.focus.id === a.id)) name = '';
       // Someone lying down is drawn after what stands at the same spot, so a fallen driver is not hidden by the parked rover.
       sprites.push({ y: a.y + (a.down ? 24 : 0), draw: () => drawAvatar(ctx, a, name, S.time, S.tags) });
     }
@@ -14308,7 +14325,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     m6Cards(s); // before the surface's stage, which shows the card up
     const f = E.forecast(s, p);
     if (store.opsView !== 'console' && window.SolSurface) {
-      return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
+      return [hud(s, f), opsTabs(), h('div', { class: 'sf-layout' + (store.demo ? ' sf-demo' : '') }, surfaceStage(s, p, f), surfaceSide(s, p, f))];
     }
     return [
       hud(s, f),
@@ -15510,6 +15527,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
         h('div', { class: 'topbar-actions' }, h('a', { class: 'btn btn-ghost btn-sm', href: '/admin', 'data-k': 'show-exit' }, t('show.exit')), langSeg())),
       h('section', { class: 'show' },
         h('h1', null, t('show.title')),
+        h('p', { class: 'show-lead' }, t('show.lead')), // the game's purpose, before any card
         h('div', { class: 'show-grid' }, SH.gallery().map(c => h('article', { class: 'panel show-card' },
           h('h2', null, t('show.card.' + c.id + '.name')),
           h('p', null, t('show.card.' + c.id + '.why')),
