@@ -1477,8 +1477,9 @@ test('?showcase=1 opens the gallery with its 17 cards when this page is the host
   await settle();
   assert.equal(pg.UI.store.screen, 'showcase');
   assert.equal(galleryKeys(pg).length, 17);
-  assert.equal(galleryKeys(pg)[0], 'show:flare');
+  assert.equal(galleryKeys(pg)[0], 'show:rover', 'the physics engine first');
   assert.ok(pg.all().some(n => n.textContent === en('show.title')));
+  assert.ok(pg.all().some(n => n.textContent === en('show.lead')), "the game's purpose, under the title");
   assert.equal(pg.UI.store.demo, null);
 });
 

@@ -171,6 +171,8 @@
     battM.row.classList.add('batt');
     const physEl = node('span', 'phys'); // while driving: the speed, and how far the rover needs to stop on Mars and on Earth
     battM.row.appendChild(physEl);
+    const physK = node('span', 'physk'); // above it (CSS order): whose numbers these are, the physics engine's, and its gravity
+    battM.row.appendChild(physK);
     const packEl = node('div', 'sf-pack');
     const canBtn = node('button', 'sf-can');
     canBtn.type = 'button';
@@ -324,6 +326,7 @@
         text(battM.v, 'bv', Math.floor(left) + ' ' + t(Math.floor(left) === 1 ? 'eva.tiles1' : 'eva.tiles'));
         prop('bw', (100 * left / range).toFixed(1) + '%', v => { battM.fill.style.width = v; });
         const v = p.car ? p.car.speed : 0;
+        text(physK, 'bg', t('eva.physics', { g: (Math.round(PH.MARS_G * 100) / 100).toLocaleString(shown.lang === 'vi' ? 'vi-VN' : 'en-US'), pct: Math.round(100 * PH.MARS_G / PH.EARTH_G) }));
         text(physEl, 'bp', t('eva.drive', { kmh: Math.round(v / PH.PX_PER_M * 3.6), m: secs(PH.stopDistance(v, PH.MARS_G, spec)), e: secs(PH.stopDistance(v, PH.EARTH_G, spec)) }));
       }
       const items = live() || collapsed(me) ? pack() : [], cap = X.capacity(mission(), me);

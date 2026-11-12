@@ -2379,6 +2379,7 @@
         h('div', { class: 'topbar-actions' }, h('a', { class: 'btn btn-ghost btn-sm', href: '/admin', 'data-k': 'show-exit' }, t('show.exit')), langSeg())),
       h('section', { class: 'show' },
         h('h1', null, t('show.title')),
+        h('p', { class: 'show-lead' }, t('show.lead')), // the game's purpose, before any card
         h('div', { class: 'show-grid' }, SH.gallery().map(c => h('article', { class: 'panel show-card' },
           h('h2', null, t('show.card.' + c.id + '.name')),
           h('p', null, t('show.card.' + c.id + '.why')),

@@ -50,11 +50,12 @@
     ok(R.X.park(s, id, tilePos(CABIN_AT), null, 'cabin'));
   }
   const CARDS = [
+    // First: the physics engine, the brief's one mandatory item. [0, -4] is sand just outside the base pad and within the bay's
+    // reach (boarding asks the rules, which want you within 2 tiles).
+    { id: 'rover', source: 'marsGlance', view: 'surface', at: [0, -4], board: true },
     // prepare starts the flare's warning at once (30 s delay + 60 s countdown ends it at 90 s); the clock at 70 leaves 20 s.
     // [28, 8] is 26 tiles from the base zone: about 11 s on foot.
     { id: 'flare', source: 'hazards', view: 'surface', schedule: { 0: { spe: true } }, at: [28, 8], clock: 70, prepare: (s, R) => { const r = R.Z.flareStart(s, 0); if (r.error) throw new Error(r.error); } },
-    // [0, -4] is sand just outside the base pad and within the bay's reach (boarding asks the rules, which want you within 2 tiles).
-    { id: 'rover', source: null, view: 'surface', at: [0, -4], board: true },
     // The Quick schedule's rupture, moved to the opening round; the Console shows the event with its two choices.
     { id: 'oxygen', source: null, view: 'console', schedule: { 0: { flavor: 'o2_rupture' } } },
     { id: 'beacons', source: 'relayJpl', view: 'surface', at: BEACON_STAND, prepare: placeBeacons },

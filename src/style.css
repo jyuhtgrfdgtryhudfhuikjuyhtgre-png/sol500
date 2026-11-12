@@ -562,7 +562,8 @@ p { margin: 0; }
 .sf-suit.batt .bar i { background: var(--accent); }
 .sf-suit b { font-variant-numeric: tabular-nums; }
 /* while driving: the speed and the stopping distance on Mars and on Earth, under the battery (src/physics.js) */
-.sf-suit .phys { grid-column: 1 / -1; color: var(--fg-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.sf-suit .phys { grid-column: 1 / -1; order: 2; color: var(--fg); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sf-suit .physk { grid-column: 1 / -1; order: 1; color: var(--accent); font-size: 11px; font-weight: 600; } /* the physics engine names itself above its readout */
 .sf-suit .phys:empty { display: none; }
 .sf-pack { display: flex; gap: 4px; flex-wrap: wrap; }
 .sf-pack .slot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: 1px dashed var(--line-2); background: rgba(20, 14, 16, 0.6); color: var(--fg); }
@@ -674,6 +675,8 @@ p { margin: 0; }
 
 /* the Showcase: the gallery, and the bar over the demo game's stage */
 .show { display: grid; gap: 16px; padding-block: 16px; }
+.show h1 { margin-bottom: 0; }
+.show-lead { margin: 0; max-width: 78ch; font-size: var(--fs-lg, 1.15rem); line-height: 1.5; }
 .show-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .show-card { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .show-card > .btn { margin-top: auto; } /* every Show me on the card's bottom edge, with or without a Source line */
