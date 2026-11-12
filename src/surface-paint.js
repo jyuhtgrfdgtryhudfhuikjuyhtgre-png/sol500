@@ -199,6 +199,26 @@
     }
     return best < 0 ? UNDER_BOULDER[reg] : best;
   }
+  // 3.8.5: ice and a delta's beds end in round corners, so they lie on the land as patches and not as squares. A corner
+  // (NW NE SE SW) is round when the two sides that meet there (SIDES: N E S W) both end the patch; the ground beside it
+  // (its region's usual one next to a wall or a boulder) is painted into the corner, photo and all.
+  const SOFT = new Uint8Array(32), SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  SOFT[TL.ICE] = SOFT[TL.SEDIMENT] = 1;
+  function softCorners(g, world, tx, ty, code, reg, X, Y) {
+    const open = SIDES.map(([dx, dy]) => world.tile(tx + dx, ty + dy) !== code), r = 18;
+    for (let i = 0; i < 4; i++) {
+      if (!open[i] || !open[(i + 3) % 4]) continue;
+      const beside = world.tile(tx + SIDES[i][0], ty + SIDES[i][1]);
+      const under = RAISED[beside] || (NOT_AROUND[beside] && beside !== TL.BASE) ? UNDER_BOULDER[reg] : beside;
+      const cx = X + (i === 1 || i === 2 ? T : 0), cy = Y + (i >= 2 ? T : 0), sx = cx === X ? 1 : -1, sy = cy === Y ? 1 : -1;
+      g.save();
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + sx * r, cy); g.arcTo(cx, cy, cx, cy + sy * r, r); g.closePath(); g.clip();
+      g.fillStyle = css(tileRGB(under, reg), shade(world, tx, ty));
+      g.fillRect(X, Y, T, T);
+      photoOver(g, photoOf(under, reg), X, Y, T, T);
+      g.restore();
+    }
+  }
   function paintTile(g, world, tx, ty) {
     const code = world.tile(tx, ty);
     if (RAISED[code]) return; // painted after the decor, in paintRaised
@@ -221,6 +241,18 @@
       const a = 12 + ((h >>> 4) % 40), b = 12 + ((h >>> 10) % 40);
       g.beginPath(); g.moveTo(X + a, Y); g.lineTo(X + b, Y + T); g.moveTo(X, Y + b); g.lineTo(X + T, Y + a); g.stroke();
     } else if (look === TL.ICE) {
+      // 3.8.5: a sheet's edges where the ice ends, lit from the upper left and in shade on the lower right
+      g.lineWidth = 3;
+      g.strokeStyle = 'rgba(255,255,255,0.55)';
+      g.beginPath();
+      if (world.tile(tx, ty - 1) !== TL.ICE) { g.moveTo(X, Y + 1.5); g.lineTo(X + T, Y + 1.5); }
+      if (world.tile(tx - 1, ty) !== TL.ICE) { g.moveTo(X + 1.5, Y); g.lineTo(X + 1.5, Y + T); }
+      g.stroke();
+      g.strokeStyle = 'rgba(40,70,92,0.4)';
+      g.beginPath();
+      if (world.tile(tx, ty + 1) !== TL.ICE) { g.moveTo(X, Y + T - 1.5); g.lineTo(X + T, Y + T - 1.5); }
+      if (world.tile(tx + 1, ty) !== TL.ICE) { g.moveTo(X + T - 1.5, Y); g.lineTo(X + T - 1.5, Y + T); }
+      g.stroke();
       g.strokeStyle = 'rgba(255,255,255,0.8)';
       g.lineWidth = 1.5;
       drawIceCracks(g, X, Y);
@@ -265,6 +297,7 @@
       if (world.tile(tx, ty + 1) !== TL.BASE) { g.moveTo(X, Y + T - 1); g.lineTo(X + T, Y + T - 1); }
       g.stroke();
     }
+    if (SOFT[look]) softCorners(g, world, tx, ty, look, reg, X, Y);
     if (world.caveAt && world.caveAt(tx, ty)) { // the shade a cave throws out of its mouth (the arch is on the wall above)
       g.fillStyle = 'rgba(12,5,4,0.4)';
       g.beginPath(); g.ellipse(X + T / 2, Y + 3, 23, 10, 0, 0, Math.PI * 2); g.fill();
@@ -611,7 +644,7 @@
   const FOG = '#120a0c';
   function drawFog(ctx, world, x0, y0, x1, y1, px, py, rad) {
     const tx0 = Math.floor(x0 / T), ty0 = Math.floor(y0 / T), tx1 = Math.floor(x1 / T), ty1 = Math.floor(y1 / T);
-    ctx.fillStyle = FOG;
+    const runs = [];
     for (let ty = ty0; ty <= ty1; ty++) {
       const ky = Math.floor(ty / CH), ly = ty - ky * CH;
       let run = null, kx = null, fogBits = null;
@@ -623,9 +656,17 @@
           hidden = !fogBits || !F.has(fogBits, tx - cx * CH, ly);
         }
         if (hidden && run === null) run = tx;
-        else if (!hidden && run !== null) { ctx.fillRect(run * T, ty * T, (tx - run) * T, T + 0.5); run = null; }
+        else if (!hidden && run !== null) { runs.push([run * T, ty * T, (tx - run) * T]); run = null; }
       }
     }
+    // 3.8.5: the fog's edge is soft, from two wider, fainter layers under the solid one (a blur filter costs a layer a frame);
+    // as hard squares, the unseen corners of a wide view read as missing pieces of the picture.
+    ctx.fillStyle = FOG;
+    for (const [e, a] of [[16, 0.3], [8, 0.45], [0, 1]]) {
+      ctx.globalAlpha = a;
+      for (const [X, Y, w] of runs) ctx.fillRect(X - e, Y - e, w + 2 * e, T + 0.5 + 2 * e);
+    }
+    ctx.globalAlpha = 1;
     const g = ctx.createRadialGradient(px, py, Math.max(0, rad - T * 1.5), px, py, rad);
     g.addColorStop(0, 'rgba(10,6,8,0)');
     g.addColorStop(1, 'rgba(10,6,8,0.5)');

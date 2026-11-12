@@ -426,7 +426,8 @@
       `</defs>` +
       `<rect width="1600" height="700" fill="url(#skyg)"/>${stars}` +
       `<rect width="1600" height="700" fill="url(#sung)"/><circle cx="1170" cy="560" r="9" fill="#fbfdff"/>` +
-      `<path d="M318 132c9-6 23-4 28 5s0 19-10 22-26 1-28-9 1-13 10-18z" fill="#8c7d74"/><circle cx="330" cy="143" r="2.4" fill="#6e6159"/>` +
+      // Phobos, in the clear sky on the right: over the wordmark, under the left fade, it read as a smudge
+      `<g transform="translate(1068 92)"><path d="M318 132c9-6 23-4 28 5s0 19-10 22-26 1-28-9 1-13 10-18z" fill="#a8998e"/><circle cx="330" cy="143" r="2.4" fill="#7d6f66"/><circle cx="338" cy="151" r="1.5" fill="#7d6f66"/></g>` +
       `<path d="M0 560 60 548 110 552 170 530 260 528 300 540 420 536 470 518 560 516 600 530 760 534 820 522 900 524 960 540 1100 546 1180 562 1260 552 1340 530 1420 526 1480 540 1600 536V700H0z" fill="#3a2322"/>` +
       `<path d="M0 600c140-30 260-24 400-8s260 18 400-6 300-40 420-20 260 34 380 20V700H0z" fill="#5b2d21"/>` +
       `<path d="M0 640c180-26 380-34 560-18 150 13 260 4 380-10 170-20 360-20 520 6 60 10 100 12 140 8V700H0z" fill="#7a3623"/>` +

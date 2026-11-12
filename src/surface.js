@@ -1320,14 +1320,22 @@
     drawStops(ctx);
 
     // buried ice at the base: the only cue for where the ice drill can go
+    // 3.8.5: a frosted patch the ground shows through, with a pale rim, not a flat blue square
     ctx.save();
-    ctx.fillStyle = '#8fb6c7';
-    ctx.strokeStyle = '#e1f3fa';
-    ctx.lineWidth = 1.5;
     for (const [gx, gy] of m.terrain.ice) {
       const [wx, wy] = gridToWorld(gx, gy);
       const X = wx * T, Y = wy * T;
-      ctx.fillRect(X + 2, Y + 2, T - 4, T - 4);
+      roundRect(ctx, X + 3, Y + 3, T - 6, T - 6, 17);
+      ctx.fillStyle = 'rgba(150,196,214,0.8)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(225,243,250,0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      roundRect(ctx, X + 9, Y + 9, T - 18, T - 18, 12); // a lighter heart, so it reads as ice and not as paint
+      ctx.fillStyle = 'rgba(225,243,250,0.16)';
+      ctx.fill();
+      ctx.strokeStyle = '#e1f3fa';
+      ctx.lineWidth = 1.5;
       drawIceCracks(ctx, X, Y);
     }
     ctx.restore();

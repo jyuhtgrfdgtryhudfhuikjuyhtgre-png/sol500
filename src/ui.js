@@ -437,7 +437,7 @@
             h('button', { class: 'btn btn-lg', type: 'button', 'data-k': 'train', onclick: () => startManifest(true), title: t('title.trainingHint'), disabled: st.length === 'quick' }, t('title.training')),
             resume,
             installButton()),
-          h('p', { class: 'hint' }, t('title.trainingHint')),
+          h('p', { class: 'hint' }, h('b', null, t('title.training') + ': '), t('title.trainingHint')), // names its button: the row holds up to four
           h('div', { class: 'divider' }),
           store.lanInfo
             ? h('div', { class: 'setup-row' },
@@ -1667,7 +1667,8 @@
             h('button', { type: 'button', 'data-k': 'drain-', disabled: drain <= 0, onclick: () => patchPlan({ drainWall: Math.max(0, drain - 500) }), 'aria-label': '−500 kg' }, '−'),
             h('output', null, nf(drain / 1000, 1)),
             h('button', { type: 'button', 'data-k': 'drain+', disabled: drain + 500 > maxDrain, onclick: () => patchPlan({ drainWall: Math.min(maxDrain, drain + 500) }), 'aria-label': '+500 kg' }, '+')),
-          h('span', { class: 'hint' }, 't · ', t('ord.drainHint', { kg: nf(drain), p: nf(shieldLoss, 1) })))
+          h('span', { class: 'hint' }, 't'), // the unit stays beside the number; the sentence wraps as a whole
+          h('span', { class: 'hint' }, t('ord.drainHint', { kg: nf(drain), p: nf(shieldLoss, 1) })))
           : h('p', { class: 'hint' }, t('ord.drainNone'))) : null));
   }
 
@@ -2372,6 +2373,14 @@
   // it is set nothing is saved, recorded or remembered (see LS, saveSolo, checkBadges, firstTime). Leaving puts the presenter's
   // mission, plan and tab back as they were.
   let demoKeep = null, demoSeen = null, demoStep = 0;
+  // A card's picture: the game's own drawing of what its Show me opens, so the gallery reads at a glance.
+  const SHOW_ART = {
+    rover: () => A.module('rover', 44), story: () => A.icon('rocket', 28), flare: () => A.module('shelter', 44), oxygen: () => A.module('oxygen', 44),
+    beacons: () => A.module('kit', 44), ground: () => A.formation('layered', 44), landmark: () => A.formation('arch', 44), tube: () => A.prop('skylight', 44),
+    devils: () => A.formation('hoodoo', 44), isru: () => A.module('greenhouse', 44), crew: () => A.portrait('commander', 44), guide: () => A.icon('book', 28),
+    ranks: () => A.module('rankup', 44), fabricator: () => A.module('fabricator', 44), launch: () => A.module('launchpad', 44), cabin: () => A.module('cabin', 44),
+    drone: () => A.module('drone', 44),
+  };
   function viewShowcase() {
     return [
       h('header', { class: 'topbar' },
@@ -2380,8 +2389,10 @@
       h('section', { class: 'show' },
         h('h1', null, t('show.title')),
         h('p', { class: 'show-lead' }, t('show.lead')), // the game's purpose, before any card
-        h('div', { class: 'show-grid' }, SH.gallery().map(c => h('article', { class: 'panel show-card' },
-          h('h2', null, t('show.card.' + c.id + '.name')),
+        h('div', { class: 'show-grid' }, SH.gallery().map((c, i) => h('article', { class: 'panel show-card' },
+          h('div', { class: 'show-head' },
+            h('span', { class: 'show-art', html: (SHOW_ART[c.id] || SHOW_ART.guide)() }),
+            h('h2', null, h('span', { class: 'show-n' }, String(i + 1).padStart(2, '0')), t('show.card.' + c.id + '.name'))),
           h('p', null, t('show.card.' + c.id + '.why')),
           c.source ? h('div', { class: 'src' }, t('region.source') + ': ', srcA(I.SOURCES[c.source])) : null,
           h('button', { class: 'btn btn-primary', type: 'button', 'data-k': 'show:' + c.id, onclick: () => showScene(c.id) }, t('show.me')))))),
