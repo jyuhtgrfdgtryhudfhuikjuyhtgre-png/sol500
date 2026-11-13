@@ -1,5 +1,10 @@
 # SOL 500 — Mars Outpost
 
+[![Latest release](https://img.shields.io/github/v/release/jyuhtgrfdgtryhudfhuikjuyhtgre-png/sol500?label=release)](../../releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+![Tests: 904](https://img.shields.io/badge/tests-904%20passing-brightgreen)
+![Languages: English, Vietnamese](https://img.shields.io/badge/languages-EN%20%7C%20VI-orange)
+
 Can your crew stay alive on Mars for 500 sols? SOL 500 is a survival and base-building game for students aged 15–18, built on real NASA numbers. Pack the lander, give your crew their jobs, build the outpost, walk and drive across Mars, and live through dust storms, solar flares and oxygen cuts.
 
 ![SOL 500 title screen](docs/screenshots/title.webp)
@@ -35,7 +40,7 @@ npm start       # game server on port 5050 (PORT=... to change it)
 npm run app:dev # the desktop app, from source
 ```
 
-`src/` is the game (plain JavaScript that runs straight from source: no framework, and only two runtime packages, `ws` and `qrcode`), `server.js` and `lib/` the co-op server, `app/` the Electron shell, `test/` the tests, and `docs/superpowers/` the design specs and plans each version was built from.
+`src/` is the game (plain JavaScript that runs straight from source: no framework, and only two runtime packages, `ws` and `qrcode`), `server.js` and `lib/` the co-op server, `app/` the Electron shell, `test/` the tests, and `docs/superpowers/` the design specs and plans each version was built from. What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
