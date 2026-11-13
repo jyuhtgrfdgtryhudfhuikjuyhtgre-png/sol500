@@ -469,6 +469,27 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* Lift-off (3.8.9): the rocket that leaves Earth at launch and Mars at the end (art.js liftoff, ui.js liftoff). About 4.6 s,
+   then it fades; a click or a key skips it. With reduced motion the rule above stills it: a picture ui.js takes away. */
+.liftoff { position: fixed; inset: 0; z-index: 150; overflow: hidden; cursor: pointer; background: #05060c; animation: lo-out 4.6s linear forwards; }
+.liftoff > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.liftoff-cap { position: absolute; left: max(16px, 6%); max-width: 36%; top: 14%; display: grid; gap: 8px; justify-items: start; text-align: left; /* left of the rocket's climb */ color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65); animation: rise 0.6s ease-out; }
+.liftoff-cap b { font-family: var(--font-display); font-size: clamp(28px, 4.4vw, 52px); font-weight: 700; line-height: 1.1; letter-spacing: 0.02em; }
+.liftoff-cap span { font-size: var(--fs-sm); opacity: 0.8; }
+.lo-rocket { animation: lo-up 4.2s linear forwards; }
+.lo-flame { transform-box: fill-box; transform-origin: 50% 0; animation: lo-flicker 0.11s ease-in-out infinite alternate; }
+.lo-smoke { filter: blur(3px); }
+.lo-smoke circle { transform-box: fill-box; transform-origin: center; opacity: 0; animation: lo-puff 2.8s ease-out forwards; }
+.lo-space { opacity: 0; animation: lo-dark 4.2s ease-in forwards; }
+@keyframes lo-up {
+  0% { transform: translate(0, 0); } 5% { transform: translate(-2px, 1px); } 10% { transform: translate(2px, 0); } 15% { transform: translate(-1.5px, 1px); }
+  20% { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.45); }
+  100% { transform: translate(0, -840px); }
+}
+@keyframes lo-flicker { from { transform: scaleY(0.82); } to { transform: scaleY(1.18); } }
+@keyframes lo-puff { 0% { opacity: 0; transform: scale(0.3); } 15% { opacity: 0.9; } 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes lo-dark { 0%, 35% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes lo-out { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1240px) {
@@ -3059,6 +3080,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'title.fact3': 'of Earth’s sunlight reaches Mars',
     'title.crewLine': 'Meet the crew',
     'title.credit': 'Numbers from NASA and peer-reviewed mission data. See Science notes.',
+    'lift.earth': 'Lift-off! Next stop: Mars',
+    'lift.mars': 'Lift-off! The crew is going home',
+    'lift.skip': 'Click or press any key to skip',
     'res.open': 'Resources',
     'res.lead': 'SOL 500 is free and open source (MIT License), made by Tung Son. Get the game, read its code, and learn more about Mars.',
     'res.get': 'Get the game',
@@ -4387,6 +4411,9 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     'title.fact3': 'lượng ánh sáng Mặt Trời tới sao Hỏa so với Trái Đất',
     'title.crewLine': 'Gặp gỡ phi hành đoàn',
     'title.credit': 'Số liệu lấy từ NASA và các công bố khoa học. Xem Ghi chú khoa học.',
+    'lift.earth': 'Cất cánh! Điểm đến tiếp theo: sao Hỏa',
+    'lift.mars': 'Cất cánh! Phi hành đoàn đang về nhà',
+    'lift.skip': 'Nhấp chuột hoặc nhấn phím bất kỳ để bỏ qua',
     'res.open': 'Tài nguyên',
     'res.lead': 'SOL 500 miễn phí và có mã nguồn mở (giấy phép MIT), do Tung Son làm. Tải trò chơi, đọc mã nguồn và tìm hiểu thêm về sao Hỏa.',
     'res.get': 'Tải trò chơi',
@@ -5730,6 +5757,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
   // The Resources page's "What's new": the versions, newest first (CHANGELOG.md has them in full).
   const CHANGES = {
     en: [
+      ['3.8.9', 'A rocket lifts off from Earth when you launch, and from Mars when the crew makes it through.'],
       ['3.8.8', 'A Resources page: the source code, the download, NASA and CSA resources, and this list.'],
       ['3.8.7', '"Plan a mission" on the title screen; labelled backpack and cargo; How to play with pictures.'],
       ['3.8.4–3.8.6', 'The Showcase opens with the physics engine; Earth and Mars stop bars on the ground; softer ice, fog and borders.'],
@@ -5741,6 +5769,7 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       ['3.0.0–3.2.0', 'The Windows app, online play through a share link, the admin panel and an endless Mars.'],
     ],
     vi: [
+      ['3.8.9', 'Tên lửa cất cánh từ Trái Đất khi bạn phóng, và từ sao Hỏa khi phi hành đoàn hoàn thành nhiệm vụ.'],
       ['3.8.8', 'Trang Tài nguyên: mã nguồn, bản tải, tài nguyên của NASA và CSA, và danh sách này.'],
       ['3.8.7', 'Nút "Lên kế hoạch nhiệm vụ" ở màn hình chính; ba lô và hàng trên xe có nhãn; Cách chơi có hình minh họa.'],
       ['3.8.4–3.8.6', 'Trình diễn mở đầu bằng động cơ vật lý; vạch dừng Trái Đất và sao Hỏa trên mặt đất; băng, sương mù và đường biên mềm hơn.'],
@@ -6200,7 +6229,42 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
       `</svg>`;
   }
 
-  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, ROLE, kestrel, formation, prop, ventPuff };
+  // Lift-off (3.8.9): the full-screen scene of a rocket leaving Earth (at launch) or Mars (at the end of a mission the crew
+  // lived through). The moves are style.css's .lo-* animations: the sky darkens into space, the smoke puffs, the flame
+  // flickers, and the rocket shakes on the pad, then climbs out of the top.
+  function liftoff(from) {
+    const mars = from === 'mars';
+    const sky = mars ? ['#2a1a22', '#7a4a3c', '#c98a5e'] : ['#0d1f45', '#2f6db3', '#9fd0f2'];
+    const ground = mars ? '#6e3a2a' : '#2e4a3b', far = mars ? '#8a4c34' : '#466c58';
+    let seed = 11, stars = '';
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 70; i++) stars += `<circle cx="${(rnd() * 800).toFixed(0)}" cy="${(rnd() * 420).toFixed(0)}" r="${(rnd() * 1.4 + 0.3).toFixed(2)}" fill="#fff" opacity="${(0.3 + rnd() * 0.6).toFixed(2)}"/>`;
+    const puffs = [[-46, 6, 26, 0], [46, 8, 24, 0.1], [-84, 18, 30, 0.25], [86, 16, 30, 0.3], [-20, 22, 34, 0.15], [24, 24, 32, 0.2], [-126, 26, 28, 0.45], [128, 28, 28, 0.5]]
+      .map(([dx, dy, r, d]) => `<circle cx="${400 + dx}" cy="${478 + dy}" r="${r}" fill="${mars ? '#d9a27e' : '#eef1f4'}" style="animation-delay:${d}s"/>`).join('');
+    // the pad: a launch tower on Earth; on Mars, the outpost's dome off to the side
+    const pad = mars
+      ? '<path d="M560 488a56 34 0 0 1 112 0z" fill="#3a2322"/><rect x="590" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/><rect x="612" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/>'
+      : '<g fill="none" stroke="#5d6670" stroke-width="3"><path d="M448 488V300M470 488V300M448 300h22"/>' +
+        [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M448 ${488 - i * 24}l22 -24M470 ${488 - i * 24}l-22 -24"/>`).join('') + '<path d="M448 340h-14"/></g>';
+    const accent = mars ? '#e9a13b' : '#c8463c';
+    return `<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
+      `<defs><linearGradient id="lo-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset="0.6" stop-color="${sky[1]}"/><stop offset="1" stop-color="${sky[2]}"/></linearGradient>` +
+      `<linearGradient id="lo-fire" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe6"/><stop offset="0.35" stop-color="#ffd25a"/><stop offset="1" stop-color="#ff6a1f" stop-opacity="0"/></linearGradient></defs>` +
+      `<rect width="800" height="600" fill="url(#lo-sky)"/>` +
+      `<g class="lo-space"><rect width="800" height="600" fill="#05060c"/>${stars}</g>` +
+      `<path d="M0 470 90 458 170 466 260 452 340 462 460 456 560 446 660 460 740 450 800 456V600H0z" fill="${far}"/>` +
+      pad + `<path d="M0 488h800V600H0z" fill="${ground}"/><rect x="360" y="484" width="80" height="6" rx="2" fill="#4a4f57"/>` +
+      `<g class="lo-rocket">` +
+      `<path class="lo-flame" d="M386 470h28l-6 34-8 46-8-46z" fill="url(#lo-fire)"/>` +
+      `<path d="M378 470l-16 16v-30l16-14zM422 470l16 16v-30l-16-14z" fill="${accent}"/>` +
+      `<path d="M400 316c16 14 22 36 22 62v92h-44v-92c0-26 6-48 22-62z" fill="#f2f0ec"/>` +
+      `<path d="M400 316c16 14 22 36 22 62h-44c0-26 6-48 22-62z" fill="${accent}"/>` +
+      `<rect x="378" y="430" width="44" height="8" fill="${accent}"/><circle cx="400" cy="400" r="9" fill="#2a3b52" stroke="#c9d3de" stroke-width="3"/>` +
+      `<path d="M410 380v86" stroke="#d6d2cb" stroke-width="3"/></g>` +
+      `<g class="lo-smoke">${puffs}</g></svg>`;
+  }
+
+  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, liftoff, ROLE, kestrel, formation, prop, ventPuff };
 })(typeof self !== 'undefined' ? self : this);
 
 </script>
@@ -15768,6 +15832,27 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     return store.screen;
   }
 
+  // Lift-off (3.8.9): a rocket leaves Earth when the lander is launched (the payload screen gives way to the pilot's, or in
+  // co-op to operations) and leaves Mars when the crew lived through the mission (the debrief of a success). Drawn over the
+  // game, which goes on under it, and gone after about 4.6 s; a click or a key skips it. With reduced motion (Windows'
+  // "Animation effects" off) style.css stops every animation, so it is a still picture for 2.5 s. None in a Showcase scene.
+  function liftoff(from) {
+    if (!document.body) return;
+    const still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const el = document.createElement('div');
+    el.className = 'liftoff liftoff-' + from;
+    el.setAttribute('role', 'status');
+    el.setAttribute('data-k', 'liftoff');
+    el.innerHTML = A.liftoff(from) + '<p class="liftoff-cap"><b>' + esc(t('lift.' + from)) + '</b><span>' + esc(t('lift.skip')) + '</span></p>';
+    let timer = null;
+    const done = () => { clearTimeout(timer); document.removeEventListener('keydown', done, true); if (el.remove) el.remove(); };
+    el.addEventListener('click', done);
+    el.addEventListener('animationend', e => { if (e.target === el) done(); });
+    document.addEventListener('keydown', done, true);
+    timer = setTimeout(done, still ? 2500 : 6000); // a hidden tab holds the animation back; never leave the cover up
+    document.body.appendChild(el);
+  }
+
   function render() {
     if (store.demo && !store.modal && SH.card(store.demo.id).view === 'modal') { leaveDemo(); return; } // a dialog card ends with its dialog
     modalCover();
@@ -15775,6 +15860,10 @@ body:has(.show-bar) { padding-bottom: 120px; } /* the page scrolls clear of the 
     const focusKey = active && active.getAttribute ? active.getAttribute('data-k') : null;
     const focusId = active && active.id && active.tagName === 'INPUT' ? active.id : null;
     const name = screenName();
+    if (!store.demo && store.prevScreen !== name) {
+      if (store.prevScreen === 'manifest' && (name === 'pilot' || name === 'ops')) liftoff('earth');
+      else if (name === 'debrief' && mission() && mission().status === 'success') liftoff('mars');
+    }
     let view;
     if (name === 'manifest') view = viewManifest();
     else if (name === 'pilot') view = viewPilot();

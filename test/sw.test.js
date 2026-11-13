@@ -41,5 +41,5 @@ test('every script the page loads is in the offline cache', () => {
   assert.ok(scripts.includes('src/ground-photos.js') && scripts.indexOf('src/ground-photos.js') < scripts.indexOf('src/surface-paint.js'), 'the NASA ground photos load before the painter, which reads them as it loads');
   assert.ok(scripts.includes('src/saves.js') && scripts.indexOf('src/saves.js') < scripts.indexOf('src/ui.js'), 'the save slots load before the interface');
   assert.ok(scripts.includes('src/showcase.js') && scripts.indexOf('src/showcase.js') < scripts.indexOf('src/ui.js'), 'the Showcase cards load before the interface');
-  assert.match(sw, /const CACHE = 'sol500-v16'/, 'a new name, so an installed app fetches the new files');
+  assert.match(sw, /const CACHE = 'sol500-v17'/, 'a new name, so an installed app fetches the new files');
 });
