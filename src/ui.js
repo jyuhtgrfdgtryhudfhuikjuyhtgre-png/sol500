@@ -2400,14 +2400,19 @@
     el.className = 'liftoff liftoff-' + from;
     el.setAttribute('role', 'status');
     el.setAttribute('data-k', 'liftoff');
-    el.innerHTML = A.liftoff(from, crew.map(c => A.ROLE[c.role] || '#f2f0ec')) + '<p class="liftoff-cap">' +
-      '<b class="lo-cap1">' + esc(t('lift.board')) + '</b><b class="lo-cap2">' + esc(t('lift.' + from)) + '</b>' +
-      '<b class="lo-cap3">' + esc(t(home ? 'lift.landEarth' : 'lift.landMars')) + '</b><span>' + esc(t('lift.skip')) + '</span></p>';
+    // the scene, a vignette and letterbox bars (the skip hint in the lower one), and one caption slot: "All aboard!", the
+    // countdown, "Lift-off!", "Touchdown!"
+    el.innerHTML = A.liftoff(from, crew.map(c => A.ROLE[c.role] || '#f2f0ec')) + '<div class="lo-vignette"></div><div class="lo-bar lo-bar-top"></div>' +
+      '<div class="lo-bar lo-bar-bot"><span>' + esc(t('lift.skip')) + '</span></div><p class="liftoff-cap">' +
+      '<b class="lo-cap1">' + esc(t('lift.board')) + '</b><b class="lo-n lo-n3">3</b><b class="lo-n lo-n2">2</b><b class="lo-n lo-n1">1</b>' +
+      '<b class="lo-cap2">' + esc(t('lift.' + from)) + '</b><b class="lo-cap3">' + esc(t(home ? 'lift.landEarth' : 'lift.landMars')) + '</b></p>';
     let timer = null;
-    const done = () => { clearTimeout(timer); document.removeEventListener('keydown', done, true); if (el.remove) el.remove(); };
+    // any key skips it, but not Alt, Ctrl, Shift, the Windows key or Tab alone: Alt+Tab to another window must not end the film
+    const onKey = e => { if (!['Alt', 'Control', 'Shift', 'Meta', 'Tab'].includes(e.key)) done(); };
+    const done = () => { clearTimeout(timer); document.removeEventListener('keydown', onKey, true); if (el.remove) el.remove(); };
     el.addEventListener('click', done);
     el.addEventListener('animationend', e => { if (e.target === el) done(); });
-    document.addEventListener('keydown', done, true);
+    document.addEventListener('keydown', onKey, true);
     timer = setTimeout(done, still ? 2500 : 13000); // a hidden tab holds the animation back; never leave the cover up
     document.body.appendChild(el);
   }

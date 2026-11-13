@@ -454,30 +454,52 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-/* The voyage (3.8.9; crew and landing 3.9.0): the crew boards, the rocket lifts off, crosses space and lands, and the crew hops
-   out (art.js liftoff, ui.js liftoff). 11 s, then it fades; a click or a key skips it. The timeline, as a share of the 11 s:
-   boarding to 2.6 s (23.6 %), the door shuts, shake to 3.1 s (28.2 %), climb out by 5 s (45.5 %), space and the planet rushing
-   in from 4 to 6.6 s, the scenes swap at 5.6 s (51 %), descent 6 to 7.8 s (54.5-70.9 %), the door opens at 8 s (72.7 %), the
-   crew hops out from 8.1 s. Each part's own style is the last frame, so with reduced motion (the rule above) it is a picture
-   of the landed rocket and the crew outside, which ui.js takes away. */
+/* The voyage (3.8.9; crew and landing 3.9.0; camera, light, countdown and flag 3.9.1): a short film of the crew boarding, the
+   launch, space and the landing (art.js liftoff, ui.js liftoff). 11 s, then it fades; a click or a key skips it. The timeline,
+   as a share of the 11 s: boarding to 2.6 s (23.6 %) under "All aboard!", the countdown 3-2-1 from 1.6 s (14.5 %), the door shuts
+   and the camera shakes at ignition (2.6-3.4 s), the rocket leaves the pad at 3.1 s (28.2 %) and the camera follows it as the
+   ground falls away (3.6-5.2 s), space from 4.2 s, the scenes swap at 5.6 s (51 %), the ground rises to meet it (6-7.2 s), it
+   touches down at 7.8 s (70.9 %) with a shake and a shockwave, the ramp slides out (8-8.3 s), the crew hops out from 8.3 s and
+   on Mars the flag goes up at 9.2 s. Each part's own style is the last frame, so with reduced motion (the rule above) it is a
+   picture of the landed rocket and the crew outside, which ui.js takes away. */
 .liftoff { position: fixed; inset: 0; z-index: 150; overflow: hidden; cursor: pointer; background: #05060c; animation: lo-out 11s linear forwards; }
 .liftoff > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.liftoff-cap { position: absolute; left: max(16px, 6%); max-width: 36%; top: 14%; display: grid; gap: 8px; justify-items: start; text-align: left; /* left of the rocket's climb */ color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65); animation: rise 0.6s ease-out; }
+.lo-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 55%, transparent 55%, rgba(0, 0, 0, 0.5)); }
+/* letterbox bars, as in a film; the bottom one carries the skip hint */
+.lo-bar { position: absolute; left: 0; right: 0; height: max(28px, 8vh); background: #000; display: flex; align-items: center; justify-content: flex-end; padding: 0 max(16px, 4vw); color: rgba(255, 255, 255, 0.7); font-size: var(--fs-sm); }
+.lo-bar-top { top: 0; animation: lo-bar-top 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.lo-bar-bot { bottom: 0; animation: lo-bar-bot 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+/* one voice, top left: "All aboard!", the countdown, "Lift-off!", "Touchdown!", in the same place, left of the rocket's climb */
+.liftoff-cap { position: absolute; left: max(16px, 6%); max-width: 40%; top: calc(max(28px, 8vh) + 5%); display: grid; justify-items: start; text-align: left; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65); }
 .liftoff-cap b { grid-area: 1 / 1; font-family: var(--font-display); font-size: clamp(28px, 4.4vw, 52px); font-weight: 700; line-height: 1.1; letter-spacing: 0.02em; }
-.liftoff-cap span { grid-area: 2 / 1; font-size: var(--fs-sm); opacity: 0.8; }
-.lo-cap1 { opacity: 0; animation: lo-cap1 11s linear both; }
-.lo-cap2 { opacity: 0; animation: lo-cap2 11s linear both; }
+.liftoff-cap .lo-n { font-size: clamp(110px, 15vw, 210px); font-weight: 800; line-height: 0.85; color: #fff6e0; transform-origin: 0 60%; text-shadow: 0 0 24px rgba(255, 176, 80, 0.95), 0 0 70px rgba(255, 106, 31, 0.75); }
+.lo-cap1, .lo-cap2, .lo-n { opacity: 0; }
+.lo-cap1 { animation: lo-cap1 11s linear both; }
+.lo-cap2 { animation: lo-cap2 11s linear both; }
 .lo-cap3 { animation: lo-cap3 11s linear both; }
+.lo-n3 { animation: lo-n3 11s linear both; }
+.lo-n2 { animation: lo-n2 11s linear both; }
+.lo-n1 { animation: lo-n1 11s linear both; }
+.lo-cam { animation: lo-cam 11s linear both; }
 .lo-a { opacity: 0; animation: lo-a 11s linear both; }
 .lo-b { animation: lo-b 11s linear both; }
+.lo-clouds-a, .lo-clouds-b { filter: blur(1.5px); }
+.lo-clouds-a { animation: lo-clouds-a 11s linear both; }
+.lo-clouds-b { animation: lo-clouds-b 11s linear both; }
 .lo-space { opacity: 0; animation: lo-space 11s linear both; }
 .lo-warp { animation: lo-warp 0.4s linear infinite; }
 .lo-planet { transform-box: fill-box; transform-origin: center; transform: scale(6); animation: lo-planet 11s ease-in both; }
 .lo-cruise { transform: translate(520px, -380px); animation: lo-cruise 11s linear both; } /* the small rocket crossing space */
 .lo-rocket { animation: lo-fly 11s linear both; }
-.lo-flame { opacity: 0; transform-box: fill-box; transform-origin: 50% 0; animation: lo-flame 11s linear both, lo-flicker 0.11s ease-in-out infinite alternate; }
+.lo-flame { opacity: 0; transform-box: fill-box; transform-origin: 50% 0; animation: lo-flame 11s linear both; }
+.lo-flick { transform-box: fill-box; transform-origin: 50% 0; animation: lo-flicker 0.09s ease-in-out infinite alternate; }
+.lo-flick2 { animation-duration: 0.07s; }
 .lo-door { opacity: 0; animation: lo-door 11s linear both; }
-.lo-rampb { animation: lo-rampb 11s linear both; } /* the landing ramp comes out with the door */
+.lo-padglow, .lo-landglow { opacity: 0; mix-blend-mode: screen; } /* the flame's light on the pad and the smoke */
+.lo-padglow { animation: lo-padglow 11s linear both; }
+.lo-landglow { animation: lo-landglow 11s linear both; }
+.lo-shock { opacity: 0; transform-box: fill-box; transform-origin: center; animation: lo-shock 11s ease-out both; }
+.lo-rampb { transform-box: fill-box; transform-origin: 100% 0; animation: lo-rampb 11s ease-out both; } /* the landing ramp slides out of the door */
 .lo-smoke, .lo-dust { filter: blur(3px); }
 .lo-smoke circle, .lo-dust circle { transform-box: fill-box; transform-origin: center; opacity: 0; animation: lo-puff 2.8s ease-out both; }
 .lo-dust circle { animation-duration: 1.9s; } /* the landing's dust settles before the crew is out */
@@ -485,29 +507,71 @@ p { margin: 0; }
 .lo-bob { animation: lo-bob 0.26s ease-in-out infinite alternate; }
 .lo-hop { animation: lo-hop 1.3s ease-out both; }
 .lo-cheer { animation: lo-cheer 0.45s ease-in-out infinite alternate both; }
+.lo-flag { transform-box: fill-box; transform-origin: 50% 100%; animation: lo-flag 11s ease-out both; }
+.lo-cloth { transform-box: fill-box; transform-origin: 0 0; animation: lo-ripple 1.4s ease-in-out infinite alternate; }
 .lo-confetti { opacity: 0; transform-box: fill-box; transform-origin: center; animation: lo-confetti 2.4s linear both; }
-@keyframes lo-cap1 { 0%, 21% { opacity: 1; } 23.5%, 100% { opacity: 0; } }
-@keyframes lo-cap2 { 0%, 22.5% { opacity: 0; } 25%, 64% { opacity: 1; } 67%, 100% { opacity: 0; } }
-@keyframes lo-cap3 { 0%, 67% { opacity: 0; } 70%, 100% { opacity: 1; } }
-@keyframes lo-rampb { 0%, 72% { opacity: 0; } 74%, 100% { opacity: 1; } }
-@keyframes lo-a { 0%, 50.5% { opacity: 1; } 51%, 100% { opacity: 0; } }
-@keyframes lo-b { 0%, 50.5% { opacity: 0; } 51%, 100% { opacity: 1; } }
-@keyframes lo-space { 0%, 36% { opacity: 0; } 46%, 54% { opacity: 1; } 60%, 100% { opacity: 0; } }
+@keyframes lo-bar-top { from { transform: translateY(-100%); } }
+@keyframes lo-bar-bot { from { transform: translateY(100%); } }
+@keyframes lo-cap1 { 0% { opacity: 0; transform: translateY(10px); } 2% { opacity: 1; transform: none; } 13% { opacity: 1; } 14.5%, 100% { opacity: 0; } }
+@keyframes lo-n3 { 0%, 14.5% { opacity: 0; transform: scale(1.6); } 15.6% { opacity: 1; transform: scale(1); } 18.6% { opacity: 1; transform: scale(0.94); } 19.1%, 100% { opacity: 0; transform: scale(0.9); } }
+@keyframes lo-n2 { 0%, 19.1% { opacity: 0; transform: scale(1.6); } 20.2% { opacity: 1; transform: scale(1); } 23.1% { opacity: 1; transform: scale(0.94); } 23.6%, 100% { opacity: 0; transform: scale(0.9); } }
+@keyframes lo-n1 { 0%, 23.6% { opacity: 0; transform: scale(1.6); } 24.7% { opacity: 1; transform: scale(1); } 27.6% { opacity: 1; transform: scale(0.94); } 28.2%, 100% { opacity: 0; transform: scale(0.9); } }
+@keyframes lo-cap2 { 0%, 28.2% { opacity: 0; transform: translateY(10px); } 29.5% { opacity: 1; transform: none; } 66% { opacity: 1; } 68%, 100% { opacity: 0; } }
+@keyframes lo-cap3 { 0%, 70.9% { opacity: 0; transform: translateY(10px); } 72.5%, 100% { opacity: 1; transform: none; } }
+@keyframes lo-cam {
+  0%, 23.6% { transform: translate(0, 0); }
+  24.4% { transform: translate(-3px, 2px); } 25.2% { transform: translate(3px, -2px); } 26% { transform: translate(-3px, 1px); }
+  26.8% { transform: translate(2px, 2px); } 27.6% { transform: translate(-2px, -1px); } 28.4% { transform: translate(2px, 1px); }
+  29.6% { transform: translate(-1px, 0); } 31%, 70.9% { transform: translate(0, 0); }
+  71.5% { transform: translate(0, 5px); } 72.1% { transform: translate(-3px, -2px); } 72.7% { transform: translate(2px, 2px); }
+  73.4% { transform: translate(-1px, -1px); } 74.2%, 100% { transform: translate(0, 0); }
+}
+@keyframes lo-a {
+  0% { opacity: 1; transform: translateY(0); }
+  32.7% { transform: translateY(0); animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.4); }
+  47.3% { transform: translateY(700px); }
+  50.5% { opacity: 1; }
+  51%, 100% { opacity: 0; transform: translateY(700px); }
+}
+@keyframes lo-b {
+  0%, 50.5% { opacity: 0; transform: translateY(700px); }
+  51% { opacity: 1; }
+  54.5% { transform: translateY(700px); animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); }
+  65.5%, 100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes lo-clouds-a { 0%, 32.7% { transform: translateY(0); animation-timing-function: ease-in; } 43.6%, 100% { transform: translateY(900px); } }
+@keyframes lo-clouds-b { 0%, 54.5% { transform: translateY(900px); animation-timing-function: ease-out; } 64.5%, 100% { transform: translateY(0); } }
+@keyframes lo-space { 0%, 38% { opacity: 0; } 45.5%, 54% { opacity: 1; } 60%, 100% { opacity: 0; } }
 @keyframes lo-warp { from { transform: translateY(0); } to { transform: translateY(600px); } }
 @keyframes lo-planet { 0%, 42% { transform: scale(0.05); } 58%, 100% { transform: scale(6); } }
-@keyframes lo-cruise { 0%, 41% { transform: translate(-520px, 380px); } 58%, 100% { transform: translate(520px, -380px); } }
+@keyframes lo-cruise { 0%, 43% { transform: translate(-520px, 380px); } 58%, 100% { transform: translate(520px, -380px); } }
 @keyframes lo-fly {
-  0%, 23.6% { transform: translate(0, 0); } 24.5% { transform: translate(-2px, 1px); } 25.5% { transform: translate(2px, 0); }
-  26.4% { transform: translate(-2px, 1px); } 27.3% { transform: translate(1px, 0); }
-  28.2% { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.45); }
-  45.5%, 54.5% { transform: translate(0, -900px); }
-  54.6% { transform: translate(0, -900px); animation-timing-function: cubic-bezier(0.15, 0.6, 0.35, 1); }
+  0%, 28.2% { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.45, 0, 0.75, 0.5); }
+  35.5% { transform: translate(0, -110px); animation-timing-function: linear; }
+  41.8% { transform: translate(0, -150px); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.4); }
+  47.3%, 54.5% { transform: translate(0, -900px); }
+  54.6% { transform: translate(0, -900px); animation-timing-function: cubic-bezier(0.1, 0.6, 0.4, 1); }
+  60% { transform: translate(0, -150px); animation-timing-function: linear; }
+  63.6% { transform: translate(0, -110px); animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1); }
   70.9%, 100% { transform: translate(0, 0); }
 }
-@keyframes lo-flame { 0%, 23.6% { opacity: 0; } 24.5%, 70.9% { opacity: 1; } 72%, 100% { opacity: 0; } }
-@keyframes lo-flicker { from { transform: scaleY(0.82); } to { transform: scaleY(1.18); } }
-@keyframes lo-door { 0%, 23% { opacity: 0; } 24%, 72% { opacity: 1; } 73%, 100% { opacity: 0; } }
-@keyframes lo-puff { 0% { opacity: 0; transform: scale(0.3); } 15% { opacity: 0.9; } 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes lo-flame {
+  0%, 23.6% { opacity: 0; transform: scaleY(0.4); }
+  24.5% { opacity: 1; transform: scaleY(0.75); }
+  28.2% { transform: scaleY(1); }
+  33%, 47.3% { transform: scaleY(1.5); }
+  56% { transform: scaleY(1.35); }
+  66% { transform: scaleY(1.05); }
+  70.9% { opacity: 1; transform: scaleY(0.6); }
+  72%, 100% { opacity: 0; transform: scaleY(0.4); }
+}
+@keyframes lo-flicker { from { transform: scaleY(0.84) scaleX(0.96); } to { transform: scaleY(1.16) scaleX(1.04); } }
+@keyframes lo-door { 0%, 23% { opacity: 0; } 24%, 72.7% { opacity: 1; } 73.4%, 100% { opacity: 0; } }
+@keyframes lo-padglow { 0%, 23.6% { opacity: 0; } 25% { opacity: 1; } 28.2% { opacity: 0.8; } 36% { opacity: 0.9; } 44%, 100% { opacity: 0; } }
+@keyframes lo-landglow { 0%, 58% { opacity: 0; } 70.9% { opacity: 1; } 74%, 100% { opacity: 0; } }
+@keyframes lo-shock { 0%, 70.9% { opacity: 0; transform: scale(0.1); } 71.6% { opacity: 0.95; } 80%, 100% { opacity: 0; transform: scale(1); } }
+@keyframes lo-rampb { 0%, 72.7% { opacity: 0; transform: scaleX(0); } 73% { opacity: 1; } 75.5%, 100% { opacity: 1; transform: scaleX(1); } }
+@keyframes lo-puff { 0% { opacity: 0; transform: translate(0, 0) scale(0.3); } 15% { opacity: 0.95; } 100% { opacity: 0; transform: translate(var(--dx, 0px), -8px) scale(2.6); } }
 @keyframes lo-walk {
   0% { transform: translate(var(--sx), 0); opacity: 1; } 70% { transform: translate(var(--rx), 0); opacity: 1; }
   92% { transform: translate(0, -20px); opacity: 1; } 100% { transform: translate(0, -20px); opacity: 0; }
@@ -519,6 +583,8 @@ p { margin: 0; }
   100% { transform: translate(0, 0); opacity: 1; }
 }
 @keyframes lo-cheer { from { transform: translateY(0); } to { transform: translateY(-12px); } }
+@keyframes lo-flag { 0%, 83.6% { transform: scaleY(0); } 88%, 100% { transform: scaleY(1); } }
+@keyframes lo-ripple { from { transform: skewY(-1.5deg); } to { transform: skewY(1.5deg); } }
 @keyframes lo-confetti { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(640px) rotate(540deg); opacity: 1; } }
 @keyframes lo-out { 0%, 93.6% { opacity: 1; } 100% { opacity: 0; } }
 

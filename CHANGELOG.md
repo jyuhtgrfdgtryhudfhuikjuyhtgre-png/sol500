@@ -2,6 +2,9 @@
 
 Each milestone was built from a written design spec and plan, kept in [`docs/superpowers/`](docs/superpowers/).
 
+## 3.9.1 — 2026-11-13
+- The voyage as a film: letterbox bars, a 3-2-1 countdown, a camera shake at ignition and touchdown, the flame lighting the pad and the smoke, the camera following the rocket as the ground falls away and clouds rush past, a shaded rocket with SOL 500 down its side, planets with polar caps and clouds, a shockwave through the dust at touchdown, a ramp that slides out, and the mission flag planted on Mars (held out by a rod, as on Apollo, since the air is too thin to fly it). Alt+Tab no longer skips it.
+
 ## 3.9.0 — 2026-11-13
 - The voyage, 11 seconds: the crew walks up the ramp and boards, the rocket lifts off, crosses space with the destination rushing in, lands on its flame in a dust cloud, and the crew hops out. At launch it flies Earth to Mars; when the crew lives through the mission the survivors fly home and land on Earth to confetti. Hops are higher on Mars (38 % gravity) than on Earth. A click or a key skips it; with Windows' animation effects off it is a still picture of the landing.
 

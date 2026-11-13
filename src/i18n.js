@@ -2925,6 +2925,7 @@
   // The Resources page's "What's new": the versions, newest first (CHANGELOG.md has them in full).
   const CHANGES = {
     en: [
+      ['3.9.1', 'The voyage as a film: a countdown, the camera following the rocket, engine light, a shockwave at touchdown and a flag on Mars.'],
       ['3.9.0', 'The voyage: the crew boards, flies through space and lands on Mars, then on the way home lands back on Earth.'],
       ['3.8.9', 'A rocket lifts off from Earth when you launch, and from Mars when the crew makes it through.'],
       ['3.8.8', 'A Resources page: the source code, the download, NASA and CSA resources, and this list.'],
@@ -2938,6 +2939,7 @@
       ['3.0.0–3.2.0', 'The Windows app, online play through a share link, the admin panel and an endless Mars.'],
     ],
     vi: [
+      ['3.9.1', 'Chuyến bay như một bộ phim: đếm ngược, máy quay bám theo tên lửa, ánh lửa động cơ, sóng xung kích khi hạ cánh và lá cờ trên sao Hỏa.'],
       ['3.9.0', 'Chuyến bay: phi hành đoàn lên tàu, bay qua không gian và hạ cánh xuống sao Hỏa, rồi trên đường về hạ cánh xuống Trái Đất.'],
       ['3.8.9', 'Tên lửa cất cánh từ Trái Đất khi bạn phóng, và từ sao Hỏa khi phi hành đoàn hoàn thành nhiệm vụ.'],
       ['3.8.8', 'Trang Tài nguyên: mã nguồn, bản tải, tài nguyên của NASA và CSA, và danh sách này.'],
