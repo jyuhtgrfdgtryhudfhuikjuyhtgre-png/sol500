@@ -2,6 +2,9 @@
 
 Each milestone was built from a written design spec and plan, kept in [`docs/superpowers/`](docs/superpowers/).
 
+## 3.8.8 — 2026-11-13
+- A Resources page on the title screen: the Windows download and the source code on GitHub; NASA's Open APIs, DONKI, OSDR, RadLab and Mars Trek; the Canadian Space Agency's STEM and space-food toolkits; four NASA reads about Mars; and what's new in each version.
+
 ## 3.8.7 — 2026-11-12
 - "Plan a mission" is on the title screen.
 - The backpack and rover cargo slots have labels.

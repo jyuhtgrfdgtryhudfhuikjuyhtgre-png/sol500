@@ -242,6 +242,23 @@
     'title.fact3': 'of Earth’s sunlight reaches Mars',
     'title.crewLine': 'Meet the crew',
     'title.credit': 'Numbers from NASA and peer-reviewed mission data. See Science notes.',
+    'res.open': 'Resources',
+    'res.lead': 'SOL 500 is free and open source (MIT License), made by Tung Son. Get the game, read its code, and learn more about Mars.',
+    'res.get': 'Get the game',
+    'res.download': 'Download the Windows installer',
+    'res.code': 'Source code on GitHub',
+    'res.learn': 'Learn more about Mars',
+    'res.learnHint': 'Every number in the game names its source on the Science notes page.',
+    'res.news': "What's new",
+    'res.agency': 'Space agency resources',
+    'res.agencyHint': 'Free data and lessons from NASA and the Canadian Space Agency (CSA), to go further than the game.',
+    'res.r.nasaApi': 'NASA Open APIs', 'res.r.nasaApi.d': 'Free access to NASA data: the Astronomy Picture of the Day, Mars rover photos, space weather and more.',
+    'res.r.donki': 'DONKI: the space weather database', 'res.r.donki.d': "Real solar flares and coronal mass ejections: the kind of event behind the game's flare warnings.",
+    'res.r.osdr': 'NASA Open Science Data Repository (OSDR)', 'res.r.osdr.d': 'NASA research on how spaceflight changes bones, muscles, the immune system and sleep.',
+    'res.r.radlab': 'RadLab: radiation doses on the ISS', 'res.r.radlab.d': 'Real radiation doses measured by instruments aboard the International Space Station.',
+    'res.r.trek': 'Mars Trek', 'res.r.trek.d': "Real Mars maps: images, elevation and terrain from NASA's missions, Curiosity and Perseverance among them.",
+    'res.r.csaStem': 'CSA: space resources for STEM and youth', 'res.r.csaStem.d': 'Free bilingual activities and tools about space, for clubs, libraries and schools.',
+    'res.r.csaFood': 'CSA: food production on the Moon and in remote areas', 'res.r.csaFood.d': 'How food could be grown in space, and how that helps people on Earth.',
 
     'role.engineer': 'Engineer',
     'role.scientist': 'Scientist',
@@ -1553,6 +1570,23 @@
     'title.fact3': 'lượng ánh sáng Mặt Trời tới sao Hỏa so với Trái Đất',
     'title.crewLine': 'Gặp gỡ phi hành đoàn',
     'title.credit': 'Số liệu lấy từ NASA và các công bố khoa học. Xem Ghi chú khoa học.',
+    'res.open': 'Tài nguyên',
+    'res.lead': 'SOL 500 miễn phí và có mã nguồn mở (giấy phép MIT), do Tung Son làm. Tải trò chơi, đọc mã nguồn và tìm hiểu thêm về sao Hỏa.',
+    'res.get': 'Tải trò chơi',
+    'res.download': 'Tải bộ cài cho Windows',
+    'res.code': 'Mã nguồn trên GitHub',
+    'res.learn': 'Tìm hiểu thêm về sao Hỏa',
+    'res.learnHint': 'Mỗi con số trong trò chơi đều ghi nguồn ở trang Ghi chú khoa học.',
+    'res.news': 'Có gì mới',
+    'res.agency': 'Tài nguyên từ các cơ quan vũ trụ',
+    'res.agencyHint': 'Dữ liệu và bài học miễn phí từ NASA và Cơ quan Vũ trụ Canada (CSA), để tìm hiểu sâu hơn trò chơi.',
+    'res.r.nasaApi': 'NASA Open APIs', 'res.r.nasaApi.d': 'Truy cập miễn phí dữ liệu của NASA: Ảnh thiên văn mỗi ngày, ảnh từ xe thám hiểm sao Hỏa, thời tiết không gian và nhiều hơn nữa.',
+    'res.r.donki': 'DONKI: cơ sở dữ liệu thời tiết không gian', 'res.r.donki.d': 'Các vụ bùng phát Mặt Trời và phóng vật chất vành nhật hoa có thật: loại sự kiện đứng sau cảnh báo bão Mặt Trời trong trò chơi.',
+    'res.r.osdr': 'Kho dữ liệu khoa học mở của NASA (OSDR)', 'res.r.osdr.d': 'Nghiên cứu của NASA về việc bay vào vũ trụ thay đổi xương, cơ, hệ miễn dịch và giấc ngủ ra sao.',
+    'res.r.radlab': 'RadLab: liều bức xạ trên ISS', 'res.r.radlab.d': 'Liều bức xạ thật do các thiết bị trên Trạm Vũ trụ Quốc tế đo được.',
+    'res.r.trek': 'Mars Trek', 'res.r.trek.d': 'Bản đồ sao Hỏa thật: ảnh, độ cao và địa hình từ các sứ mệnh của NASA, trong đó có Curiosity và Perseverance.',
+    'res.r.csaStem': 'CSA: tài nguyên vũ trụ cho STEM và thanh thiếu niên', 'res.r.csaStem.d': 'Hoạt động và công cụ miễn phí, bằng tiếng Anh và tiếng Pháp, về vũ trụ cho câu lạc bộ, thư viện và trường học.',
+    'res.r.csaFood': 'CSA: sản xuất lương thực trên Mặt Trăng và ở vùng xa xôi', 'res.r.csaFood.d': 'Cách trồng lương thực trong vũ trụ, và điều đó giúp ích con người trên Trái Đất ra sao.',
 
     'role.engineer': 'Kỹ sư',
     'role.scientist': 'Nhà khoa học',
@@ -2876,5 +2910,31 @@
     return (STR[lang] && STR[lang][key] != null) || en[key] != null;
   }
 
-  return { t, has, srcLabel, STR, SOURCES, SOURCE_VI, REGION_EXTRA_SOURCES, ROLE_SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, STORY, LANGS: ['en', 'vi'] };
+  // The Resources page's "What's new": the versions, newest first (CHANGELOG.md has them in full).
+  const CHANGES = {
+    en: [
+      ['3.8.8', 'A Resources page: the source code, the download, NASA and CSA resources, and this list.'],
+      ['3.8.7', '"Plan a mission" on the title screen; labelled backpack and cargo; How to play with pictures.'],
+      ['3.8.4–3.8.6', 'The Showcase opens with the physics engine; Earth and Mars stop bars on the ground; softer ice, fog and borders.'],
+      ['3.8.1–3.8.3', 'The astronaut comes alive, with a tool for each job that teammates see in co-op; bigger buildings and land.'],
+      ['3.8.0', 'Base ranks from Camp to Colony, the pressurized rover, the scout drone, the Fabricator and the sample launch.'],
+      ['3.7.0', 'The Quick mission and the Showcase gallery.'],
+      ['3.6.0', 'The rover physics engine, NASA-photo ground, the field guide, Science notes and the "Why Mars?" story.'],
+      ['3.3.0–3.5.0', 'Exploring: finds, suit oxygen, solar flares, caves, dust devils, landmarks and formations.'],
+      ['3.0.0–3.2.0', 'The Windows app, online play through a share link, the admin panel and an endless Mars.'],
+    ],
+    vi: [
+      ['3.8.8', 'Trang Tài nguyên: mã nguồn, bản tải, tài nguyên của NASA và CSA, và danh sách này.'],
+      ['3.8.7', 'Nút "Lên kế hoạch nhiệm vụ" ở màn hình chính; ba lô và hàng trên xe có nhãn; Cách chơi có hình minh họa.'],
+      ['3.8.4–3.8.6', 'Trình diễn mở đầu bằng động cơ vật lý; vạch dừng Trái Đất và sao Hỏa trên mặt đất; băng, sương mù và đường biên mềm hơn.'],
+      ['3.8.1–3.8.3', 'Phi hành gia sống động hơn, mỗi việc một dụng cụ mà đồng đội cũng thấy khi chơi chung; công trình và đất rộng hơn.'],
+      ['3.8.0', 'Cấp căn cứ từ Trại đến Khu định cư, xe thám hiểm điều áp, drone trinh sát, Máy chế tạo và Bệ phóng gửi mẫu về Trái Đất.'],
+      ['3.7.0', 'Nhiệm vụ nhanh và trang Trình diễn.'],
+      ['3.6.0', 'Động cơ vật lý cho xe, mặt đất từ ảnh NASA, Sổ tay thiết bị, Ghi chú khoa học và câu chuyện "Vì sao lên sao Hỏa?".'],
+      ['3.3.0–3.5.0', 'Khám phá: vật tìm thấy, oxy bộ đồ, bão Mặt Trời, hang động, lốc bụi, địa danh và địa hình.'],
+      ['3.0.0–3.2.0', 'Ứng dụng Windows, chơi trực tuyến qua liên kết chia sẻ, bảng quản trị và một sao Hỏa vô tận.'],
+    ],
+  };
+
+  return { t, has, srcLabel, STR, SOURCES, SOURCE_VI, REGION_EXTRA_SOURCES, ROLE_SOURCES, REGION_SOURCES, LANDMARK_SOURCES, FORMATION_SOURCES, NOTES, STORY, CHANGES, LANGS: ['en', 'vi'] };
 });

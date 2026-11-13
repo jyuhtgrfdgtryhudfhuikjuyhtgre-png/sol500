@@ -2110,3 +2110,26 @@ test('How to play is a card a step, each with a picture, and the real screen in 
   pg.UI.render();
   assert.equal(pg.all().filter(n => n.className === 'help-shot').length, 0, 'without the screens file the cards still show');
 });
+
+// ---------- the Resources page (3.8.8) ----------
+test("the title's Resources button opens the download, the code, the space agencies' resources, NASA sources and the versions, in both languages", () => {
+  for (const lang of ['en', 'vi']) {
+    const pg = page();
+    Object.assign(pg.UI.store, { mission: null, lang });
+    pg.UI.render();
+    click(pg.byKey('resources'));
+    const d = pg.dialog(), links = walk(d, []).filter(a => a.tagName === 'A');
+    assert.ok(d, 'the page opens');
+    assert.match(pg.byKey('res-download').attrs.href, /^https:\/\/github\.com\/.+\/sol500\/releases\/latest$/);
+    assert.match(pg.byKey('res-code').attrs.href, /^https:\/\/github\.com\/.+\/sol500$/);
+    for (const id of ['nasaApi', 'donki', 'osdr', 'radlab', 'trek', 'csaStem', 'csaFood']) {
+      assert.ok(pg.byKey('res:' + id), id + ' is listed');
+      assert.ok(pg.I.has(lang, 'res.r.' + id) && pg.I.has(lang, 'res.r.' + id + '.d'), id + ' has a name and a line');
+    }
+    assert.ok(links.length >= 13 && links.every(a => /^https:\/\//.test(a.attrs.href) && a.attrs.target === '_blank'), 'every link opens a https page outside the game');
+    assert.ok(d.textContent.includes(pg.I.CHANGES[lang][0][1]), "What's new starts with the newest version");
+    click(pg.byKey('res-notes'));
+    assert.equal(pg.UI.store.modal, 'notes', 'and it leads to the Science notes');
+  }
+  assert.deepEqual(I.CHANGES.vi.map(c => c[0]), I.CHANGES.en.map(c => c[0]), 'both languages list the same versions');
+});

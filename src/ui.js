@@ -73,6 +73,19 @@
   const t = (k, p) => I.t(store.lang, k, p);
   // A source link in the language of the moment (the sources table is I.SOURCES; the label has a Vietnamese form).
   const srcA = src => h('a', { href: src.url, target: '_blank', rel: 'noopener' }, I.srcLabel(store.lang, Object.keys(I.SOURCES).find(k => I.SOURCES[k] === src)));
+  // The Resources page (3.8.8): the game's home on GitHub, four of the Science notes' sources for a first read about Mars, and
+  // the space agencies' open data and lessons (names and lines in i18n's res.r.*).
+  const REPO = 'https://github.com/jyuhtgrfdgtryhudfhuikjuyhtgre-png/sol500';
+  const RES_SOURCES = ['marsGlance', 'jezero', 'moxie', 'opportunity'];
+  const RES_AGENCY = {
+    nasaApi: 'https://api.nasa.gov/',
+    donki: 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/',
+    osdr: 'https://osdr.nasa.gov/bio/repo/search',
+    radlab: 'https://visualization.osdr.nasa.gov/radlab/gui/overview/',
+    trek: 'https://trek.nasa.gov/mars/',
+    csaStem: 'https://www.asc-csa.gc.ca/eng/youth-educators/resources-stem-and-youth-organizations.asp',
+    csaFood: 'https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/',
+  };
   const locale = () => (store.lang === 'vi' ? 'vi-VN' : 'en-US');
   const nf = (n, d) => new Intl.NumberFormat(locale(), { maximumFractionDigits: d || 0, minimumFractionDigits: d || 0 }).format(n);
   const signed = (n, d) => (n > 0.0001 ? '+' : n < -0.0001 ? '−' : '±') + nf(Math.abs(n), d);
@@ -475,6 +488,7 @@
           h('div', { class: 'fact' }, h('b', null, nf(Number(n), n.includes('.') ? 2 : 0) + ' ' + u), h('span', { class: 'muted' }, t(k))))),
       h('div', { class: 'title-foot' },
         h('p', { class: 'hint' }, t('title.credit')),
+        h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'resources', onclick: () => { store.modal = 'resources'; render(); } }, ico('book', 14), t('res.open')),
         h('span', { class: 'hint' }, t('ach.progress', { n: store.badges.size, m: D.ACHIEVEMENTS.length }))),
     ];
   }
@@ -2230,6 +2244,24 @@
             h('div', null, h('b', null, (n + 1) + '. ' + lead), cut > 0 ? h('p', null, text.slice(cut + 2)) : null),
             shot ? h('img', { class: 'help-shot', src: shot, alt: lead }) : null);
         })), null, true);
+    }
+    if (m === 'resources') {
+      const out = (href, label, k) => h('a', { class: 'btn btn-sm', href, target: '_blank', rel: 'noopener', 'data-k': k }, label);
+      return modal(t('res.open'), [
+        h('p', { class: 'muted' }, t('res.lead')),
+        h('div', { class: 'notes-list' },
+          h('article', { class: 'note' }, h('h3', null, t('res.get')),
+            h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:6px' },
+              out(REPO + '/releases/latest', t('res.download'), 'res-download'), out(REPO, t('res.code'), 'res-code'))),
+          h('article', { class: 'note' }, h('h3', null, t('res.agency')), h('p', null, t('res.agencyHint')),
+            h('div', { class: 'src' }, Object.keys(RES_AGENCY).map(id => h('div', { 'data-k': 'res:' + id },
+              h('a', { href: RES_AGENCY[id], target: '_blank', rel: 'noopener' }, t('res.r.' + id)), ': ', t('res.r.' + id + '.d'))))),
+          h('article', { class: 'note' }, h('h3', null, t('res.learn')), h('p', null, t('res.learnHint')),
+            h('div', { class: 'src' }, RES_SOURCES.map(id => srcA(I.SOURCES[id]))),
+            h('p', { style: 'margin-top:8px' }, h('button', { class: 'btn btn-sm', type: 'button', 'data-k': 'res-notes', onclick: () => { store.modal = 'notes'; render(); } }, ico('book', 14), t('notes.title')))),
+          h('article', { class: 'note' }, h('h3', null, t('res.news')),
+            I.CHANGES[store.lang].map(([v, text]) => h('p', null, h('b', null, v), ' · ', text)))),
+      ], null, true);
     }
     if (m === 'notes') {
       const s = mission(), isru = { title: t('lesson.isruMars.title'), body: t('lesson.isruMars.body'), src: ISRU_SOURCES }; // the debrief's lesson, with its sources
