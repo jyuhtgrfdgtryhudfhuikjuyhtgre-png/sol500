@@ -4,7 +4,7 @@
   "version": "3.8.7",
   "private": true,
   "description": "SOL 500: run a Mars outpost for 500 sols. Real NASA numbers, English and Vietnamese, co-op for up to 5 players, with an admin panel.",
-  "author": "ccclbeep",
+  "author": "Tung Son",
   "license": "MIT",
   "main": "app/main.js",
   "scripts": {
@@ -26,7 +26,7 @@
   "build": {
     "appId": "com.sol500.marsoutpost",
     "productName": "SOL 500",
-    "copyright": "Copyright © 2026 ccclbeep",
+    "copyright": "Copyright © 2026 Tung Son",
     "artifactName": "SOL500-Setup-${version}.${ext}",
     "directories": {
       "output": "dist-app"
@@ -48,7 +48,7 @@
       "target": "nsis",
       "icon": "icons/icon.ico",
       "signtoolOptions": {
-        "publisherName": "ccclbeep"
+        "publisherName": "Tung Son"
       }
     },
     "nsis": {

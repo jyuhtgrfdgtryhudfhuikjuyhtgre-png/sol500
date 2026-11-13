@@ -39,4 +39,4 @@ npm run app:dev # the desktop app, from source
 
 ## License
 
-Made by ccclbeep. The code is under the [MIT License](LICENSE). The ground photos and facts come from NASA; the game names the source of each one on its Science notes page.
+Made by Tung Son. The code is under the [MIT License](LICENSE). The ground photos and facts come from NASA; the game names the source of each one on its Science notes page.

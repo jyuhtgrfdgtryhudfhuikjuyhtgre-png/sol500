@@ -237,7 +237,7 @@ Expected: PASS. Both have 585 keys today; this test guards every later task.
   "version": "3.0.0",
   "private": true,
   "description": "SOL 500: run a Mars outpost for 500 sols. Real NASA numbers, English and Vietnamese, co-op for up to 5 players.",
-  "author": "ccclbeep",
+  "author": "Tung Son",
   "main": "app/main.js",
   "scripts": {
     "start": "node server.js",
