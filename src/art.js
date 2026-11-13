@@ -440,39 +440,78 @@
       `</svg>`;
   }
 
-  // Lift-off (3.8.9): the full-screen scene of a rocket leaving Earth (at launch) or Mars (at the end of a mission the crew
-  // lived through). The moves are style.css's .lo-* animations: the sky darkens into space, the smoke puffs, the flame
-  // flickers, and the rocket shakes on the pad, then climbs out of the top.
-  function liftoff(from) {
-    const mars = from === 'mars';
-    const sky = mars ? ['#2a1a22', '#7a4a3c', '#c98a5e'] : ['#0d1f45', '#2f6db3', '#9fd0f2'];
-    const ground = mars ? '#6e3a2a' : '#2e4a3b', far = mars ? '#8a4c34' : '#466c58';
-    let seed = 11, stars = '';
+  // The voyage (3.8.9, crew and landing 3.9.0): the full-screen scene of a crew flying between Earth and Mars. from 'earth'
+  // plays at launch (Earth to Mars), 'mars' at the end of a mission the crew lived through (Mars to Earth); crew is the
+  // travellers' suit colours. The moves are style.css's .lo-* animations, 11 s in all: the crew walks up the ramp and in, the
+  // door shuts, the rocket shakes and climbs out of the top as the sky goes black, stars streak past and the destination
+  // rushes in, the rocket comes down on its flame into a dust cloud, the door opens and the crew hops out: high on Mars
+  // (38 % gravity), low on Earth, where confetti falls. Without the animations (reduced motion) it is the last frame: the
+  // rocket landed and the crew outside.
+  function liftoff(from, crew) {
+    const home = from === 'mars'; // the trip home, Mars to Earth
+    const colors = (crew && crew.length ? crew : ['#f2f0ec', '#f2f0ec', '#f2f0ec', '#f2f0ec']).slice(0, 5);
+    const PLANET = {
+      earth: { sky: ['#0d1f45', '#2f6db3', '#9fd0f2'], far: '#466c58', ground: '#2e4a3b', puff: '#eef1f4', disc: ['#3f86d6', '#5fae6e'] },
+      mars: { sky: ['#2a1a22', '#7a4a3c', '#c98a5e'], far: '#8a4c34', ground: '#6e3a2a', puff: '#d9a27e', disc: ['#c8643c', '#e9a07a'] },
+    };
+    const A_ = home ? 'mars' : 'earth', B_ = home ? 'earth' : 'mars'; // where it leaves from, where it lands
+    let seed = 11;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < 70; i++) stars += `<circle cx="${(rnd() * 800).toFixed(0)}" cy="${(rnd() * 420).toFixed(0)}" r="${(rnd() * 1.4 + 0.3).toFixed(2)}" fill="#fff" opacity="${(0.3 + rnd() * 0.6).toFixed(2)}"/>`;
-    const puffs = [[-46, 6, 26, 0], [46, 8, 24, 0.1], [-84, 18, 30, 0.25], [86, 16, 30, 0.3], [-20, 22, 34, 0.15], [24, 24, 32, 0.2], [-126, 26, 28, 0.45], [128, 28, 28, 0.5]]
-      .map(([dx, dy, r, d]) => `<circle cx="${400 + dx}" cy="${478 + dy}" r="${r}" fill="${mars ? '#d9a27e' : '#eef1f4'}" style="animation-delay:${d}s"/>`).join('');
-    // the pad: a launch tower on Earth; on Mars, the outpost's dome off to the side
-    const pad = mars
-      ? '<path d="M560 488a56 34 0 0 1 112 0z" fill="#3a2322"/><rect x="590" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/><rect x="612" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/>'
-      : '<g fill="none" stroke="#5d6670" stroke-width="3"><path d="M448 488V300M470 488V300M448 300h22"/>' +
+    let stars = '', warp = '';
+    for (let i = 0; i < 70; i++) stars += `<circle cx="${(rnd() * 800).toFixed(0)}" cy="${(rnd() * 560).toFixed(0)}" r="${(rnd() * 1.4 + 0.3).toFixed(2)}" fill="#fff" opacity="${(0.3 + rnd() * 0.6).toFixed(2)}"/>`;
+    for (let i = 0; i < 60; i++) warp += `<path d="M${(rnd() * 1200 - 200).toFixed(0)} ${(rnd() * 1600 - 1000).toFixed(0)}v${(40 + rnd() * 110).toFixed(0)}" stroke="#fff" stroke-width="${(1 + rnd() * 1.5).toFixed(1)}" opacity="${(0.3 + rnd() * 0.5).toFixed(2)}"/>`;
+    const puffs = (fill, delay, cls) => [[-46, 6, 26, 0], [46, 8, 24, 0.1], [-84, 18, 30, 0.25], [86, 16, 30, 0.3], [-20, 22, 34, 0.15], [24, 24, 32, 0.2], [-126, 26, 28, 0.45], [128, 28, 28, 0.5]]
+      .map(([dx, dy, r, d]) => `<circle cx="${400 + dx}" cy="${478 + dy}" r="${r}" fill="${fill}" style="animation-delay:${(delay + d).toFixed(2)}s"/>`).join('');
+    // a small astronaut, feet at 0, facing right (dir -1: left), in its role's colour
+    const astro = (c, dir) => `<g class="lo-astro" transform="scale(${dir} 1)"><rect x="-10" y="-24" width="5" height="12" rx="2" fill="#c9c5be"/>` +
+      `<rect x="-7" y="-26" width="14" height="16" rx="5" fill="#eceae6"/><rect x="-6" y="-22" width="12" height="3" fill="${c}"/>` +
+      `<rect x="-6" y="-11" width="5" height="11" rx="2" fill="#dcd8d2"/><rect x="1" y="-11" width="5" height="11" rx="2" fill="#dcd8d2"/>` +
+      `<circle cx="0" cy="-31" r="8" fill="#eceae6"/><rect x="-1" y="-35" width="8" height="6" rx="3" fill="#2a3b52"/><circle cx="4" cy="-34" r="1.2" fill="#fff"/></g>`;
+    // a ramp from the ground up to the door, on the side the crew walks (side -1: left of the rocket)
+    const ramp = (side, cls) => `<path class="${cls || ''}" d="M${400 + side * 70} 488L${400 + side * 8} 468v5L${400 + side * 60} 488z" fill="#a3a9b1"/>`;
+    // the place: a launch tower on Earth (right of the pad); on Mars, rocks, and the outpost's dome when the crew leaves it
+    const place = (p, dome) => {
+      const P = PLANET[p];
+      const tower = '<g fill="none" stroke="#5d6670" stroke-width="3"><path d="M448 488V300M470 488V300M448 300h22"/>' +
         [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M448 ${488 - i * 24}l22 -24M470 ${488 - i * 24}l-22 -24"/>`).join('') + '<path d="M448 340h-14"/></g>';
-    const accent = mars ? '#e9a13b' : '#c8463c';
-    return `<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
-      `<defs><linearGradient id="lo-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset="0.6" stop-color="${sky[1]}"/><stop offset="1" stop-color="${sky[2]}"/></linearGradient>` +
-      `<linearGradient id="lo-fire" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe6"/><stop offset="0.35" stop-color="#ffd25a"/><stop offset="1" stop-color="#ff6a1f" stop-opacity="0"/></linearGradient></defs>` +
-      `<rect width="800" height="600" fill="url(#lo-sky)"/>` +
-      `<g class="lo-space"><rect width="800" height="600" fill="#05060c"/>${stars}</g>` +
-      `<path d="M0 470 90 458 170 466 260 452 340 462 460 456 560 446 660 460 740 450 800 456V600H0z" fill="${far}"/>` +
-      pad + `<path d="M0 488h800V600H0z" fill="${ground}"/><rect x="360" y="484" width="80" height="6" rx="2" fill="#4a4f57"/>` +
-      `<g class="lo-rocket">` +
-      `<path class="lo-flame" d="M386 470h28l-6 34-8 46-8-46z" fill="url(#lo-fire)"/>` +
+      const rocks = '<path d="M150 488l14-12 18 4 8 8z M610 488l10-9 16 3 6 6z M250 488l8-6 10 2 4 4z" fill="#4e2a20"/>';
+      const domeArt = '<path d="M560 488a56 34 0 0 1 112 0z" fill="#3a2322"/><rect x="590" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/><rect x="612" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/>';
+      return `<rect width="800" height="600" fill="url(#lo-sky-${p})"/>` +
+        `<path d="M0 470 90 458 170 466 260 452 340 462 460 456 560 446 660 460 740 450 800 456V600H0z" fill="${P.far}"/>` +
+        (p === 'earth' ? tower : rocks + (dome ? domeArt : '')) +
+        `<path d="M0 488h800V600H0z" fill="${P.ground}"/><rect x="360" y="484" width="80" height="6" rx="2" fill="#4a4f57"/>`;
+    };
+    // boarding: from the left on Earth, from the dome on the right on Mars; landing: everyone hops out to the left
+    const inSide = home ? 1 : -1;
+    const board = colors.map((c, i) => `<g transform="translate(${400 + inSide * 8} 488)"><g class="lo-walk" style="--sx:${inSide * (250 + i * 46)}px;--rx:${inSide * 62}px;animation-delay:${(0.1 + i * 0.3).toFixed(2)}s">` +
+      `<g class="lo-bob">${astro(c, -inSide)}</g></g></g>`).join('');
+    const hop = B_ === 'mars' ? 84 : 30; // Mars' 38 % gravity: a jump goes about 2.6 times as high
+    const out = colors.map((c, i) => { const fx = 392 - (70 + i * 52); return `<g transform="translate(${fx} 488)"><g class="lo-hop" style="--hx:${392 - fx}px;--hy:-${hop}px;animation-delay:${(8.1 + i * 0.3).toFixed(2)}s">` +
+      `<g class="lo-cheer" style="animation-delay:${(9.5 + i * 0.12).toFixed(2)}s">${astro(c, -1)}</g></g></g>`; }).join('');
+    const confetti = B_ === 'earth' ? Array.from({ length: 44 }, (_, i) => `<rect class="lo-confetti" x="${(30 + rnd() * 740).toFixed(0)}" y="-20" width="8" height="12" rx="1" ` +
+      `fill="${['#f0c35a', '#8cbcec', '#e86a5a', '#7fd1a0', '#d69cf0'][i % 5]}" style="animation-delay:${(8.4 + rnd() * 1.4).toFixed(2)}s"/>`).join('') : '';
+    const accent = home ? '#e9a13b' : '#c8463c';
+    const grad = (id, s) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s[0]}"/><stop offset="0.6" stop-color="${s[1]}"/><stop offset="1" stop-color="${s[2]}"/></linearGradient>`;
+    const D_ = PLANET[B_].disc;
+    const ship = `<path class="lo-flame" d="M386 470h28l-6 34-8 46-8-46z" fill="url(#lo-fire)"/>` +
+      `<path d="M384 456l-16 32M416 456l16 32" stroke="#8a9099" stroke-width="4" stroke-linecap="round"/>` +
       `<path d="M378 470l-16 16v-30l16-14zM422 470l16 16v-30l-16-14z" fill="${accent}"/>` +
       `<path d="M400 316c16 14 22 36 22 62v92h-44v-92c0-26 6-48 22-62z" fill="#f2f0ec"/>` +
       `<path d="M400 316c16 14 22 36 22 62h-44c0-26 6-48 22-62z" fill="${accent}"/>` +
       `<rect x="378" y="430" width="44" height="8" fill="${accent}"/><circle cx="400" cy="400" r="9" fill="#2a3b52" stroke="#c9d3de" stroke-width="3"/>` +
-      `<path d="M410 380v86" stroke="#d6d2cb" stroke-width="3"/></g>` +
-      `<g class="lo-smoke">${puffs}</g></svg>`;
+      `<rect x="392" y="442" width="16" height="26" rx="3" fill="#1c2633"/><rect class="lo-door" x="392" y="442" width="16" height="26" rx="3" fill="#dedad3" stroke="#b9b4ac"/>` +
+      `<path d="M412 380v50" stroke="#d6d2cb" stroke-width="3"/>`;
+    return `<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
+      `<defs>${grad('lo-sky-earth', PLANET.earth.sky)}${grad('lo-sky-mars', PLANET.mars.sky)}` +
+      `<radialGradient id="lo-disc" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="${D_[1]}"/><stop offset="1" stop-color="${D_[0]}"/></radialGradient>` +
+      `<linearGradient id="lo-fire" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe6"/><stop offset="0.35" stop-color="#ffd25a"/><stop offset="1" stop-color="#ff6a1f" stop-opacity="0"/></linearGradient></defs>` +
+      `<g class="lo-a">${place(A_, home)}${ramp(inSide)}<g class="lo-smoke">${puffs(PLANET[A_].puff, 2.7)}</g></g>` +
+      `<g class="lo-b">${place(B_, false)}${ramp(-1, 'lo-rampb')}<g class="lo-dust">${puffs(PLANET[B_].puff, 7.5)}</g></g>` +
+      `<g class="lo-space"><rect width="800" height="600" fill="#05060c"/>${stars}<g transform="rotate(38 400 300)"><g class="lo-warp">${warp}</g></g>` +
+      `<circle class="lo-planet" cx="400" cy="260" r="70" fill="url(#lo-disc)"/>` +
+      `<g class="lo-cruise"><g transform="translate(400 300) rotate(38) scale(0.5) translate(-400 -420)">${ship}</g></g></g>` +
+      `<g class="lo-rocket">${ship}</g>` +
+      `<g class="lo-board">${board}</g><g class="lo-exit">${out}</g>${confetti}</svg>`; // the crew in front of the rocket, at its door
   }
 
   root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, liftoff, ROLE, kestrel, formation, prop, ventPuff };

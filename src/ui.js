@@ -2386,24 +2386,29 @@
     return store.screen;
   }
 
-  // Lift-off (3.8.9): a rocket leaves Earth when the lander is launched (the payload screen gives way to the pilot's, or in
-  // co-op to operations) and leaves Mars when the crew lived through the mission (the debrief of a success). Drawn over the
-  // game, which goes on under it, and gone after about 4.6 s; a click or a key skips it. With reduced motion (Windows'
-  // "Animation effects" off) style.css stops every animation, so it is a still picture for 2.5 s. None in a Showcase scene.
+  // The voyage (3.8.9; crew and landing 3.9.0): when the lander is launched (the payload screen gives way to the pilot's, or
+  // in co-op to operations) the crew boards on Earth, flies and lands on Mars; when the crew lived through the mission (the
+  // debrief of a success) the survivors board at the outpost and land back on Earth. Drawn over the game, which goes on under
+  // it, and gone after 11 s; a click or a key skips it. With reduced motion (Windows' "Animation effects" off) style.css stops
+  // every animation, so it is a still picture of the landing for 2.5 s. None in a Showcase scene.
   function liftoff(from) {
     if (!document.body) return;
     const still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const s = mission(), home = from === 'mars';
+    const crew = s ? s.crew.filter(c => !home || c.status !== 'dead') : D.CREW.slice(0, store.settings.crewSize || D.DEFAULT_CREW);
     const el = document.createElement('div');
     el.className = 'liftoff liftoff-' + from;
     el.setAttribute('role', 'status');
     el.setAttribute('data-k', 'liftoff');
-    el.innerHTML = A.liftoff(from) + '<p class="liftoff-cap"><b>' + esc(t('lift.' + from)) + '</b><span>' + esc(t('lift.skip')) + '</span></p>';
+    el.innerHTML = A.liftoff(from, crew.map(c => A.ROLE[c.role] || '#f2f0ec')) + '<p class="liftoff-cap">' +
+      '<b class="lo-cap1">' + esc(t('lift.board')) + '</b><b class="lo-cap2">' + esc(t('lift.' + from)) + '</b>' +
+      '<b class="lo-cap3">' + esc(t(home ? 'lift.landEarth' : 'lift.landMars')) + '</b><span>' + esc(t('lift.skip')) + '</span></p>';
     let timer = null;
     const done = () => { clearTimeout(timer); document.removeEventListener('keydown', done, true); if (el.remove) el.remove(); };
     el.addEventListener('click', done);
     el.addEventListener('animationend', e => { if (e.target === el) done(); });
     document.addEventListener('keydown', done, true);
-    timer = setTimeout(done, still ? 2500 : 6000); // a hidden tab holds the animation back; never leave the cover up
+    timer = setTimeout(done, still ? 2500 : 13000); // a hidden tab holds the animation back; never leave the cover up
     document.body.appendChild(el);
   }
 

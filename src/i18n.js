@@ -245,6 +245,9 @@
     'lift.earth': 'Lift-off! Next stop: Mars',
     'lift.mars': 'Lift-off! The crew is going home',
     'lift.skip': 'Click or press any key to skip',
+    'lift.board': 'All aboard!',
+    'lift.landMars': 'Touchdown! Welcome to Mars',
+    'lift.landEarth': 'Touchdown! Welcome home, crew',
     'res.open': 'Resources',
     'res.lead': 'SOL 500 is free and open source (MIT License), made by Tung Son. Get the game, read its code, and learn more about Mars.',
     'res.get': 'Get the game',
@@ -1576,6 +1579,9 @@
     'lift.earth': 'Cất cánh! Điểm đến tiếp theo: sao Hỏa',
     'lift.mars': 'Cất cánh! Phi hành đoàn đang về nhà',
     'lift.skip': 'Nhấp chuột hoặc nhấn phím bất kỳ để bỏ qua',
+    'lift.board': 'Mọi người lên tàu!',
+    'lift.landMars': 'Hạ cánh! Chào mừng đến sao Hỏa',
+    'lift.landEarth': 'Hạ cánh! Chào mừng phi hành đoàn về nhà',
     'res.open': 'Tài nguyên',
     'res.lead': 'SOL 500 miễn phí và có mã nguồn mở (giấy phép MIT), do Tung Son làm. Tải trò chơi, đọc mã nguồn và tìm hiểu thêm về sao Hỏa.',
     'res.get': 'Tải trò chơi',
@@ -2919,6 +2925,7 @@
   // The Resources page's "What's new": the versions, newest first (CHANGELOG.md has them in full).
   const CHANGES = {
     en: [
+      ['3.9.0', 'The voyage: the crew boards, flies through space and lands on Mars, then on the way home lands back on Earth.'],
       ['3.8.9', 'A rocket lifts off from Earth when you launch, and from Mars when the crew makes it through.'],
       ['3.8.8', 'A Resources page: the source code, the download, NASA and CSA resources, and this list.'],
       ['3.8.7', '"Plan a mission" on the title screen; labelled backpack and cargo; How to play with pictures.'],
@@ -2931,6 +2938,7 @@
       ['3.0.0–3.2.0', 'The Windows app, online play through a share link, the admin panel and an endless Mars.'],
     ],
     vi: [
+      ['3.9.0', 'Chuyến bay: phi hành đoàn lên tàu, bay qua không gian và hạ cánh xuống sao Hỏa, rồi trên đường về hạ cánh xuống Trái Đất.'],
       ['3.8.9', 'Tên lửa cất cánh từ Trái Đất khi bạn phóng, và từ sao Hỏa khi phi hành đoàn hoàn thành nhiệm vụ.'],
       ['3.8.8', 'Trang Tài nguyên: mã nguồn, bản tải, tài nguyên của NASA và CSA, và danh sách này.'],
       ['3.8.7', 'Nút "Lên kế hoạch nhiệm vụ" ở màn hình chính; ba lô và hàng trên xe có nhãn; Cách chơi có hình minh họa.'],

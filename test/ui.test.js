@@ -2145,7 +2145,8 @@ test('a rocket lifts off from Earth when the lander is launched, and from Mars w
   assert.equal(shown().length, 0, 'not on the way to the payload screen');
   click(pg.byKey('launch'));
   assert.deepEqual(shown().map(n => n.className), ['liftoff liftoff-earth']);
-  assert.ok(shown()[0].innerHTML.includes(en('lift.earth')) && shown()[0].innerHTML.includes('<svg'), 'the rocket and its line');
+  for (const k of ['lift.board', 'lift.earth', 'lift.landMars']) assert.ok(shown()[0].innerHTML.includes(en(k)), k);
+  assert.ok(shown()[0].innerHTML.includes('<svg'), 'the scene');
   click(pg.byKey('pilot:minh'));
   pg.UI.render();
   assert.equal(shown().length, 1, 'once a launch');
@@ -2156,10 +2157,14 @@ test('a rocket lifts off from Earth when the lander is launched, and from Mars w
   m.status = 'active';
   Object.assign(pg.UI.store, { screen: 'ops' });
   pg.UI.render();
+  m.crew[0].status = 'dead';
   m.status = 'success';
   debrief(pg, m);
   assert.deepEqual(shown().map(n => n.className), ['liftoff liftoff-earth', 'liftoff liftoff-mars']);
-  assert.ok(shown()[1].innerHTML.includes(en('lift.mars')));
+  for (const k of ['lift.board', 'lift.mars', 'lift.landEarth']) assert.ok(shown()[1].innerHTML.includes(en(k)), k);
+  const astros = n => (n.innerHTML.match(/class="lo-astro"/g) || []).length;
+  assert.equal(astros(shown()[0]), 2 * pg.UI.store.settings.crewSize, 'the whole crew boards on Earth and hops out on Mars');
+  assert.equal(astros(shown()[1]), 2 * (m.crew.length - 1), 'only the survivors fly home');
   pg.UI.render();
   assert.equal(shown().length, 2, 'once a mission');
 });

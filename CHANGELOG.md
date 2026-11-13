@@ -2,6 +2,9 @@
 
 Each milestone was built from a written design spec and plan, kept in [`docs/superpowers/`](docs/superpowers/).
 
+## 3.9.0 — 2026-11-13
+- The voyage, 11 seconds: the crew walks up the ramp and boards, the rocket lifts off, crosses space with the destination rushing in, lands on its flame in a dust cloud, and the crew hops out. At launch it flies Earth to Mars; when the crew lives through the mission the survivors fly home and land on Earth to confetti. Hops are higher on Mars (38 % gravity) than on Earth. A click or a key skips it; with Windows' animation effects off it is a still picture of the landing.
+
 ## 3.8.9 — 2026-11-13
 - Lift-off: a rocket leaves Earth when you launch the lander, and leaves Mars when the crew lives through the mission. A click or a key skips it; with Windows' animation effects off it is a still picture.
 
