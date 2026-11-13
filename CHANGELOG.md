@@ -2,6 +2,9 @@
 
 Each milestone was built from a written design spec and plan, kept in [`docs/superpowers/`](docs/superpowers/).
 
+## 3.9.2 — 2026-11-13
+- The voyage is drawn in the game's own art: Mars is the title screen's dusk (the blue sunset glow, Phobos, the dunes, the drifting dust), the rocket is the launch pad's, the crew wear the portraits' helmets with visors in their role colours, the trip home leaves from your outpost (the hab, solar array and greenhouse) on the Colony's launch pad, and the landing on Mars is beside the Kestrel Survey's weather station and supply cache. Earth has a dawn launch and a daytime return. The words use the game's own type: the countdown is set like the title's 500, under a label saying where the trip goes.
+
 ## 3.9.1 — 2026-11-13
 - The voyage as a film: letterbox bars, a 3-2-1 countdown, a camera shake at ignition and touchdown, the flame lighting the pad and the smoke, the camera following the rocket as the ground falls away and clouds rush past, a shaded rocket with SOL 500 down its side, planets with polar caps and clouds, a shockwave through the dust at touchdown, a ramp that slides out, and the mission flag planted on Mars (held out by a rod, as on Apollo, since the air is too thin to fly it). Alt+Tab no longer skips it.
 

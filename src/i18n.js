@@ -245,6 +245,7 @@
     'lift.earth': 'Lift-off! Next stop: Mars',
     'lift.mars': 'Lift-off! The crew is going home',
     'lift.skip': 'Click or press any key to skip',
+    'lift.route.earth': 'Earth to Mars', 'lift.route.mars': 'Mars to Earth',
     'lift.board': 'All aboard!',
     'lift.landMars': 'Touchdown! Welcome to Mars',
     'lift.landEarth': 'Touchdown! Welcome home, crew',
@@ -1579,6 +1580,7 @@
     'lift.earth': 'Cất cánh! Điểm đến tiếp theo: sao Hỏa',
     'lift.mars': 'Cất cánh! Phi hành đoàn đang về nhà',
     'lift.skip': 'Nhấp chuột hoặc nhấn phím bất kỳ để bỏ qua',
+    'lift.route.earth': 'Trái Đất đến sao Hỏa', 'lift.route.mars': 'Sao Hỏa về Trái Đất',
     'lift.board': 'Mọi người lên tàu!',
     'lift.landMars': 'Hạ cánh! Chào mừng đến sao Hỏa',
     'lift.landEarth': 'Hạ cánh! Chào mừng phi hành đoàn về nhà',
@@ -2925,6 +2927,7 @@
   // The Resources page's "What's new": the versions, newest first (CHANGELOG.md has them in full).
   const CHANGES = {
     en: [
+      ['3.9.2', "The voyage drawn in the game's own art: the title screen's Mars, the launch pad's rocket, your outpost, the Kestrel Survey's gear."],
       ['3.9.1', 'The voyage as a film: a countdown, the camera following the rocket, engine light, a shockwave at touchdown and a flag on Mars.'],
       ['3.9.0', 'The voyage: the crew boards, flies through space and lands on Mars, then on the way home lands back on Earth.'],
       ['3.8.9', 'A rocket lifts off from Earth when you launch, and from Mars when the crew makes it through.'],
@@ -2939,6 +2942,7 @@
       ['3.0.0–3.2.0', 'The Windows app, online play through a share link, the admin panel and an endless Mars.'],
     ],
     vi: [
+      ['3.9.2', 'Chuyến bay vẽ bằng chính nét vẽ của trò chơi: sao Hỏa của màn hình chính, tên lửa của bệ phóng, căn cứ của bạn, thiết bị của Khảo sát Kestrel.'],
       ['3.9.1', 'Chuyến bay như một bộ phim: đếm ngược, máy quay bám theo tên lửa, ánh lửa động cơ, sóng xung kích khi hạ cánh và lá cờ trên sao Hỏa.'],
       ['3.9.0', 'Chuyến bay: phi hành đoàn lên tàu, bay qua không gian và hạ cánh xuống sao Hỏa, rồi trên đường về hạ cánh xuống Trái Đất.'],
       ['3.8.9', 'Tên lửa cất cánh từ Trái Đất khi bạn phóng, và từ sao Hỏa khi phi hành đoàn hoàn thành nhiệm vụ.'],

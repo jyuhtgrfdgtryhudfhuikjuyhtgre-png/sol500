@@ -464,15 +464,16 @@ p { margin: 0; }
    picture of the landed rocket and the crew outside, which ui.js takes away. */
 .liftoff { position: fixed; inset: 0; z-index: 150; overflow: hidden; cursor: pointer; background: #05060c; animation: lo-out 11s linear forwards; }
 .liftoff > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.lo-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 55%, transparent 55%, rgba(0, 0, 0, 0.5)); }
+.lo-fade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(27, 20, 23, 0.82), rgba(27, 20, 23, 0.3) 42%, rgba(27, 20, 23, 0) 62%); } /* the title screen's left fade, under the words */
 /* letterbox bars, as in a film; the bottom one carries the skip hint */
-.lo-bar { position: absolute; left: 0; right: 0; height: max(28px, 8vh); background: #000; display: flex; align-items: center; justify-content: flex-end; padding: 0 max(16px, 4vw); color: rgba(255, 255, 255, 0.7); font-size: var(--fs-sm); }
+.lo-bar { position: absolute; left: 0; right: 0; height: max(28px, 8vh); background: var(--sunk); display: flex; align-items: center; justify-content: flex-end; padding: 0 max(16px, 4vw); color: var(--fg-2); font-size: var(--fs-sm); }
 .lo-bar-top { top: 0; animation: lo-bar-top 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
 .lo-bar-bot { bottom: 0; animation: lo-bar-bot 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
 /* one voice, top left: "All aboard!", the countdown, "Lift-off!", "Touchdown!", in the same place, left of the rocket's climb */
-.liftoff-cap { position: absolute; left: max(16px, 6%); max-width: 40%; top: calc(max(28px, 8vh) + 5%); display: grid; justify-items: start; text-align: left; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65); }
-.liftoff-cap b { grid-area: 1 / 1; font-family: var(--font-display); font-size: clamp(28px, 4.4vw, 52px); font-weight: 700; line-height: 1.1; letter-spacing: 0.02em; }
-.liftoff-cap .lo-n { font-size: clamp(110px, 15vw, 210px); font-weight: 800; line-height: 0.85; color: #fff6e0; transform-origin: 0 60%; text-shadow: 0 0 24px rgba(255, 176, 80, 0.95), 0 0 70px rgba(255, 106, 31, 0.75); }
+.liftoff-cap { position: absolute; left: max(16px, 6%); max-width: 40%; top: calc(max(28px, 8vh) + 5%); display: grid; justify-items: start; text-align: left; color: var(--fg); text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55); }
+.liftoff-cap .eyebrow { grid-area: 1 / 1; color: var(--dust); margin-bottom: 10px; } /* the game's own label: where the trip goes */
+.liftoff-cap b { grid-area: 2 / 1; font-family: var(--font-display); font-size: clamp(28px, 4.4vw, 52px); font-weight: 700; line-height: 1.1; letter-spacing: 0.02em; }
+.liftoff-cap .lo-n { font-size: clamp(5rem, 13vw, 10rem); font-weight: 800; line-height: 0.85; letter-spacing: -0.02em; color: var(--fg); transform-origin: 0 60%; text-shadow: 0 6px 40px rgba(0, 0, 0, 0.45), 0 0 28px rgba(255, 207, 122, 0.3); } /* the title's 500 */
 .lo-cap1, .lo-cap2, .lo-n { opacity: 0; }
 .lo-cap1 { animation: lo-cap1 11s linear both; }
 .lo-cap2 { animation: lo-cap2 11s linear both; }

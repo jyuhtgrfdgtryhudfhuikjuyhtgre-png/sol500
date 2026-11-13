@@ -2400,10 +2400,10 @@
     el.className = 'liftoff liftoff-' + from;
     el.setAttribute('role', 'status');
     el.setAttribute('data-k', 'liftoff');
-    // the scene, a vignette and letterbox bars (the skip hint in the lower one), and one caption slot: "All aboard!", the
+    // the scene, the title's left fade and letterbox bars (the skip hint in the lower one), and one caption slot: "All aboard!", the
     // countdown, "Lift-off!", "Touchdown!"
-    el.innerHTML = A.liftoff(from, crew.map(c => A.ROLE[c.role] || '#f2f0ec')) + '<div class="lo-vignette"></div><div class="lo-bar lo-bar-top"></div>' +
-      '<div class="lo-bar lo-bar-bot"><span>' + esc(t('lift.skip')) + '</span></div><p class="liftoff-cap">' +
+    el.innerHTML = A.liftoff(from, crew.map(c => A.ROLE[c.role] || '#f2f0ec')) + '<div class="lo-fade"></div><div class="lo-bar lo-bar-top"></div>' +
+      '<div class="lo-bar lo-bar-bot"><span>' + esc(t('lift.skip')) + '</span></div><p class="liftoff-cap"><span class="eyebrow">' + esc(t('lift.route.' + from)) + '</span>' +
       '<b class="lo-cap1">' + esc(t('lift.board')) + '</b><b class="lo-n lo-n3">3</b><b class="lo-n lo-n2">2</b><b class="lo-n lo-n1">1</b>' +
       '<b class="lo-cap2">' + esc(t('lift.' + from)) + '</b><b class="lo-cap3">' + esc(t(home ? 'lift.landEarth' : 'lift.landMars')) + '</b></p>';
     let timer = null;
