@@ -440,5 +440,40 @@
       `</svg>`;
   }
 
-  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, ROLE, kestrel, formation, prop, ventPuff };
+  // Lift-off (3.8.9): the full-screen scene of a rocket leaving Earth (at launch) or Mars (at the end of a mission the crew
+  // lived through). The moves are style.css's .lo-* animations: the sky darkens into space, the smoke puffs, the flame
+  // flickers, and the rocket shakes on the pad, then climbs out of the top.
+  function liftoff(from) {
+    const mars = from === 'mars';
+    const sky = mars ? ['#2a1a22', '#7a4a3c', '#c98a5e'] : ['#0d1f45', '#2f6db3', '#9fd0f2'];
+    const ground = mars ? '#6e3a2a' : '#2e4a3b', far = mars ? '#8a4c34' : '#466c58';
+    let seed = 11, stars = '';
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 70; i++) stars += `<circle cx="${(rnd() * 800).toFixed(0)}" cy="${(rnd() * 420).toFixed(0)}" r="${(rnd() * 1.4 + 0.3).toFixed(2)}" fill="#fff" opacity="${(0.3 + rnd() * 0.6).toFixed(2)}"/>`;
+    const puffs = [[-46, 6, 26, 0], [46, 8, 24, 0.1], [-84, 18, 30, 0.25], [86, 16, 30, 0.3], [-20, 22, 34, 0.15], [24, 24, 32, 0.2], [-126, 26, 28, 0.45], [128, 28, 28, 0.5]]
+      .map(([dx, dy, r, d]) => `<circle cx="${400 + dx}" cy="${478 + dy}" r="${r}" fill="${mars ? '#d9a27e' : '#eef1f4'}" style="animation-delay:${d}s"/>`).join('');
+    // the pad: a launch tower on Earth; on Mars, the outpost's dome off to the side
+    const pad = mars
+      ? '<path d="M560 488a56 34 0 0 1 112 0z" fill="#3a2322"/><rect x="590" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/><rect x="612" y="472" width="10" height="6" fill="#f0c35a" opacity="0.8"/>'
+      : '<g fill="none" stroke="#5d6670" stroke-width="3"><path d="M448 488V300M470 488V300M448 300h22"/>' +
+        [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M448 ${488 - i * 24}l22 -24M470 ${488 - i * 24}l-22 -24"/>`).join('') + '<path d="M448 340h-14"/></g>';
+    const accent = mars ? '#e9a13b' : '#c8463c';
+    return `<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">` +
+      `<defs><linearGradient id="lo-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset="0.6" stop-color="${sky[1]}"/><stop offset="1" stop-color="${sky[2]}"/></linearGradient>` +
+      `<linearGradient id="lo-fire" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe6"/><stop offset="0.35" stop-color="#ffd25a"/><stop offset="1" stop-color="#ff6a1f" stop-opacity="0"/></linearGradient></defs>` +
+      `<rect width="800" height="600" fill="url(#lo-sky)"/>` +
+      `<g class="lo-space"><rect width="800" height="600" fill="#05060c"/>${stars}</g>` +
+      `<path d="M0 470 90 458 170 466 260 452 340 462 460 456 560 446 660 460 740 450 800 456V600H0z" fill="${far}"/>` +
+      pad + `<path d="M0 488h800V600H0z" fill="${ground}"/><rect x="360" y="484" width="80" height="6" rx="2" fill="#4a4f57"/>` +
+      `<g class="lo-rocket">` +
+      `<path class="lo-flame" d="M386 470h28l-6 34-8 46-8-46z" fill="url(#lo-fire)"/>` +
+      `<path d="M378 470l-16 16v-30l16-14zM422 470l16 16v-30l-16-14z" fill="${accent}"/>` +
+      `<path d="M400 316c16 14 22 36 22 62v92h-44v-92c0-26 6-48 22-62z" fill="#f2f0ec"/>` +
+      `<path d="M400 316c16 14 22 36 22 62h-44c0-26 6-48 22-62z" fill="${accent}"/>` +
+      `<rect x="378" y="430" width="44" height="8" fill="${accent}"/><circle cx="400" cy="400" r="9" fill="#2a3b52" stroke="#c9d3de" stroke-width="3"/>` +
+      `<path d="M410 380v86" stroke="#d6d2cb" stroke-width="3"/></g>` +
+      `<g class="lo-smoke">${puffs}</g></svg>`;
+  }
+
+  root.SolArt = { icon, module, moduleInner, itemArt, portrait, landscape, liftoff, ROLE, kestrel, formation, prop, ventPuff };
 })(typeof self !== 'undefined' ? self : this);

@@ -2,6 +2,9 @@
 
 Each milestone was built from a written design spec and plan, kept in [`docs/superpowers/`](docs/superpowers/).
 
+## 3.8.9 — 2026-11-13
+- Lift-off: a rocket leaves Earth when you launch the lander, and leaves Mars when the crew lives through the mission. A click or a key skips it; with Windows' animation effects off it is a still picture.
+
 ## 3.8.8 — 2026-11-13
 - A Resources page on the title screen: the Windows download and the source code on GitHub; NASA's Open APIs, DONKI, OSDR, RadLab and Mars Trek; the Canadian Space Agency's STEM and space-food toolkits; four NASA reads about Mars; and what's new in each version.
 

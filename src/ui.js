@@ -2386,6 +2386,27 @@
     return store.screen;
   }
 
+  // Lift-off (3.8.9): a rocket leaves Earth when the lander is launched (the payload screen gives way to the pilot's, or in
+  // co-op to operations) and leaves Mars when the crew lived through the mission (the debrief of a success). Drawn over the
+  // game, which goes on under it, and gone after about 4.6 s; a click or a key skips it. With reduced motion (Windows'
+  // "Animation effects" off) style.css stops every animation, so it is a still picture for 2.5 s. None in a Showcase scene.
+  function liftoff(from) {
+    if (!document.body) return;
+    const still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const el = document.createElement('div');
+    el.className = 'liftoff liftoff-' + from;
+    el.setAttribute('role', 'status');
+    el.setAttribute('data-k', 'liftoff');
+    el.innerHTML = A.liftoff(from) + '<p class="liftoff-cap"><b>' + esc(t('lift.' + from)) + '</b><span>' + esc(t('lift.skip')) + '</span></p>';
+    let timer = null;
+    const done = () => { clearTimeout(timer); document.removeEventListener('keydown', done, true); if (el.remove) el.remove(); };
+    el.addEventListener('click', done);
+    el.addEventListener('animationend', e => { if (e.target === el) done(); });
+    document.addEventListener('keydown', done, true);
+    timer = setTimeout(done, still ? 2500 : 6000); // a hidden tab holds the animation back; never leave the cover up
+    document.body.appendChild(el);
+  }
+
   function render() {
     if (store.demo && !store.modal && SH.card(store.demo.id).view === 'modal') { leaveDemo(); return; } // a dialog card ends with its dialog
     modalCover();
@@ -2393,6 +2414,10 @@
     const focusKey = active && active.getAttribute ? active.getAttribute('data-k') : null;
     const focusId = active && active.id && active.tagName === 'INPUT' ? active.id : null;
     const name = screenName();
+    if (!store.demo && store.prevScreen !== name) {
+      if (store.prevScreen === 'manifest' && (name === 'pilot' || name === 'ops')) liftoff('earth');
+      else if (name === 'debrief' && mission() && mission().status === 'success') liftoff('mars');
+    }
     let view;
     if (name === 'manifest') view = viewManifest();
     else if (name === 'pilot') view = viewPilot();

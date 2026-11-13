@@ -2133,3 +2133,33 @@ test("the title's Resources button opens the download, the code, the space agenc
   }
   assert.deepEqual(I.CHANGES.vi.map(c => c[0]), I.CHANGES.en.map(c => c[0]), 'both languages list the same versions');
 });
+
+// ---------- lift-off (3.8.9) ----------
+test('a rocket lifts off from Earth when the lander is launched, and from Mars when the crew lived through the mission (not when it was lost)', () => {
+  const pg = page({ settings: { length: 'quick' } });
+  const body = pg.win.document.body = new El('body');
+  const shown = () => body.children.filter(n => /liftoff/.test(n.className));
+  pg.UI.store.mission = null;
+  pg.UI.render();
+  click(pg.byKey('hero-start'));
+  assert.equal(shown().length, 0, 'not on the way to the payload screen');
+  click(pg.byKey('launch'));
+  assert.deepEqual(shown().map(n => n.className), ['liftoff liftoff-earth']);
+  assert.ok(shown()[0].innerHTML.includes(en('lift.earth')) && shown()[0].innerHTML.includes('<svg'), 'the rocket and its line');
+  click(pg.byKey('pilot:minh'));
+  pg.UI.render();
+  assert.equal(shown().length, 1, 'once a launch');
+  const m = pg.UI.store.mission;
+  m.status = 'lost';
+  debrief(pg, m);
+  assert.equal(shown().length, 1, 'no rocket home for a crew that was lost');
+  m.status = 'active';
+  Object.assign(pg.UI.store, { screen: 'ops' });
+  pg.UI.render();
+  m.status = 'success';
+  debrief(pg, m);
+  assert.deepEqual(shown().map(n => n.className), ['liftoff liftoff-earth', 'liftoff liftoff-mars']);
+  assert.ok(shown()[1].innerHTML.includes(en('lift.mars')));
+  pg.UI.render();
+  assert.equal(shown().length, 2, 'once a mission');
+});
