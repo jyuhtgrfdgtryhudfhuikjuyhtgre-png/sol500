@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/jyuhtgrfdgtryhudfhuikjuyhtgre-png/sol500?label=release)](../../releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-![Tests: 904](https://img.shields.io/badge/tests-904%20passing-brightgreen)
+![Tests: 905](https://img.shields.io/badge/tests-905%20passing-brightgreen)
 ![Languages: English, Vietnamese](https://img.shields.io/badge/languages-EN%20%7C%20VI-orange)
 
 Can your crew stay alive on Mars for 500 sols? SOL 500 is a survival and base-building game for students aged 15–18, built on real NASA numbers. Pack the lander, give your crew their jobs, build the outpost, walk and drive across Mars, and live through dust storms, solar flares and oxygen cuts.
