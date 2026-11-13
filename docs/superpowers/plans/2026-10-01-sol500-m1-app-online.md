@@ -43,7 +43,7 @@
 - The existing 64 tests stay green after every task. `npm test` = `node --test`.
 - Each commit message ends with the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. In the commands below that's the second `-m`.
 - Work on branch `feat/v3-app-online-bigmap-admin`. Before any browser QA, stop any old server on the port (`netstat -ano | grep ":5050 " | grep LISTENING`). A stale server was the cause of the 2026-09-30 LAN bug.
-- `SCRATCH="C:/Users/TUNGSO~1/AppData/Local/Temp/claude/C--Users-Tung-Son/99e751a4-88a8-4cee-a461-b25fda3ca7e5/scratchpad/spike-tunnel"` is used for throwaway files and screenshots.
+- `SCRATCH="<scratchpad>/spike-tunnel"` is used for throwaway files and screenshots.
 
 ## Review Focus
 
@@ -174,7 +174,7 @@ Expected:
 - [ ] **Step 7: Keep the verified pin, stop the spike processes**
 
 ```bash
-cd "/c/Users/Tung Son/mars-outpost" && mkdir -p app
+cd mars-outpost && mkdir -p app
 node -e "
 const fs = require('node:fs'), crypto = require('node:crypto');
 const S = process.argv[1];
@@ -237,7 +237,7 @@ Expected: PASS. Both have 585 keys today; this test guards every later task.
   "version": "3.0.0",
   "private": true,
   "description": "SOL 500: run a Mars outpost for 500 sols. Real NASA numbers, English and Vietnamese, co-op for up to 5 players.",
-  "author": "Tung Son",
+  "author": "ccclbeep",
   "main": "app/main.js",
   "scripts": {
     "start": "node server.js",
@@ -2441,7 +2441,7 @@ Re-run Task 6 Steps 4–6 against `node server.js`: two players, walking, `dropF
 ```bash
 node tools/build.js
 ```
-Then in Chrome DevTools (`isolatedContext: "offline-d"`) open `file:///C:/Users/Tung%20Son/mars-outpost/dist/sol500.html` and run:
+Then in Chrome DevTools (`isolatedContext: "offline-d"`) open `dist/sol500.html (as a file:/// URL)` and run:
 ```js
 async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms));

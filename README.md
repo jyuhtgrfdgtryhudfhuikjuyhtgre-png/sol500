@@ -35,8 +35,8 @@ npm start       # game server on port 5050 (PORT=... to change it)
 npm run app:dev # the desktop app, from source
 ```
 
-`src/` is the game (plain JavaScript, no framework), `server.js` and `lib/` the co-op server, `app/` the Electron shell, `test/` the tests, and `docs/superpowers/` the design specs and plans each version was built from.
+`src/` is the game (plain JavaScript that runs straight from source: no framework, and only two runtime packages, `ws` and `qrcode`), `server.js` and `lib/` the co-op server, `app/` the Electron shell, `test/` the tests, and `docs/superpowers/` the design specs and plans each version was built from.
 
 ## License
 
-The code is under the [MIT License](LICENSE). The ground photos and facts come from NASA; the game names the source of each one on its Science notes page.
+Made by ccclbeep. The code is under the [MIT License](LICENSE). The ground photos and facts come from NASA; the game names the source of each one on its Science notes page.
